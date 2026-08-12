@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Ruining Subs</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg:#0a0a0a; --card:#121212; --elev:#1a1a1a;
+      --orange:#ff7a00; --red:#ff3b30; --text:#f5f5f5; --muted:#a0a0a0; --border:#2a2a2a;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding-bottom:90px; }
+    #age-gate { position:fixed; inset:0; background:#000; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; }
+    #age-gate.hidden { display:none !important; }
+    #age-gate h1 { font-size:2rem; margin-bottom:8px; }
+    #age-gate h1 span { color:var(--orange); }
+    #age-gate p { color:var(--muted); margin-bottom:28px; max-width:300px; line-height:1.4; }
+    .btn { border:none; border-radius:999px; padding:14px 24px; font-weight:700; font-size:15px; cursor:pointer; font-family:inherit; }
+    .btn-primary { background:var(--orange); color:#000; }
+    .btn-secondary { background:var(--elev); color:var(--text); border:1px solid var(--border); }
+    .btn-danger { background:var(--red); color:#fff; }
+    .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--border); }
+    .btn-sm { padding:10px 14px; font-size:13px; }
+    #app { display:none; }
+    #app.show { display:block; }
+    header { position:sticky; top:0; z-index:100; background:rgba(10,10,10,.9); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+    .logo { font-weight:800; font-size:1.2rem; }
+    .logo span { color:var(--orange); }
+    main { max-width:680px; margin:0 auto; padding:16px; }
+    .banner { background:rgba(255,122,0,.12); border:1px solid rgba(255,122,0,.3); border-radius:16px; padding:20px; text-align:center; margin-bottom:16px; }
+    .banner .num { font-size:2rem; font-weight:800; color:var(--orange); }
+    .tabs { display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; }
+    .tab { padding:10px 16px; border-radius:999px; background:var(--elev); border:1px solid var(--border); color:var(--muted); font-weight:600; font-size:13px; white-space:nowrap; cursor:pointer; }
+    .tab.active { background:var(--orange); color:#000; border-color:transparent; }
+    .post { background:var(--card); border:1px solid var(--border); border-radius:16px; margin-bottom:14px; overflow:hidden; }
+    .post-h { display:flex; align-items:center; gap:10px; padding:12px 14px 8px; }
+    .av { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--orange),#ff4500); display:flex; align-items:center; justify-content:center; font-weight:700; color:#000; flex-shrink:0; }
+    .post-meta { flex:1; min-width:0; }
+    .post-user { font-weight:700; font-size:14px; }
+    .post-time { font-size:12px; color:var(--muted); }
+    .timer { background:rgba(255,59,48,.15); color:var(--red); border:1px solid rgba(255,59,48,.3); padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .timer.long { background:rgba(255,122,0,.15); color:var(--orange); border-color:rgba(255,122,0,.3); }
+    .post-b { padding:0 14px 10px; }
+    .post-title { font-size:15px; font-weight:700; margin-bottom:4px; }
+    .post-desc { font-size:13px; color:var(--muted); line-height:1.4; margin-bottom:8px; }
+    .tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .tag { background:rgba(255,122,0,.1); color:var(--orange); padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; }
+    .post-media { width:100%; aspect-ratio:4/5; background:#111; display:flex; align-items:center; justify-content:center; color:var(--muted); overflow:hidden; }
+    .post-media img { width:100%; height:100%; object-fit:cover; }
+    .post-stats { display:flex; gap:12px; padding:8px 14px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+    .post-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding:10px 14px 14px; }
+    .post-actions .btn { padding:10px 4px; font-size:12px; border-radius:12px; }
+    .btn-extend { background:var(--orange); color:#000; }
+    .btn-like { background:var(--elev); color:var(--text); border:1px solid var(--border); }
+    .btn-like.liked { color:var(--red); }
+    .btn-share { background:var(--elev); color:var(--text); border:1px solid var(--border); }
+    .panel { display:none; }
+    .panel.active { display:block; }
+    .panel-h { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .panel-h h2 { font-size:1.2rem; font-weight:800; }
+    .form-group { margin-bottom:14px; }
+    .form-group label { display:block; font-size:12px; font-weight:600; margin-bottom:6px; color:var(--muted); }
+    .form-group input, .form-group textarea { width:100%; background:var(--elev); border:1px solid var(--border); border-radius:12px; padding:12px 14px; color:var(--text); font-size:15px; font-family:inherit; outline:none; }
+    .form-group textarea { min-height:70px; resize:vertical; }
+    .upload { border:2px dashed var(--border); border-radius:14px; padding:20px; text-align:center; cursor:pointer; }
+    .preview-wrap { position:relative; margin-top:10px; }
+    .preview-wrap img { width:100%; max-height:240px; object-fit:cover; border-radius:12px; }
+    .media-rm { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.7); color:#fff; border:none; border-radius:50%; width:30px; height:30px; }
+    .dur-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+    .dur-btn { padding:10px 2px; border-radius:10px; background:var(--elev); border:1px solid var(--border); color:var(--text); font-weight:600; font-size:12px; cursor:pointer; text-align:center; }
+    .dur-btn.sel { background:var(--orange); color:#000; border-color:transparent; }
+    .empty { text-align:center; padding:50px 20px; color:var(--muted); }
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:rgba(10,10,10,.95); border-top:1px solid var(--border); display:flex; justify-content:space-around; padding:10px 0 22px; z-index:90; }
+    .nav-item { display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--muted); font-size:11px; font-weight:600; background:none; border:none; padding:4px 10px; font-family:inherit; cursor:pointer; }
+    .nav-item.active { color:var(--orange); }
+    .nav-center { width:52px; height:52px; border-radius:50%; background:var(--orange); color:#000; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; margin-top:-18px; border:3px solid var(--bg); cursor:pointer; }
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:1000; display:none; align-items:flex-end; justify-content:center; padding:16px; }
+    .modal-bg.show { display:flex; }
+    .modal { background:var(--card); border:1px solid var(--border); border-radius:20px 20px 14px 14px; width:100%; max-width:400px; padding:22px; max-height:80vh; overflow-y:auto; }
+    .modal h3 { margin-bottom:8px; }
+    .modal p { color:var(--muted); font-size:14px; margin-bottom:14px; line-height:1.4; }
+    .pay-btn { display:flex; justify-content:space-between; padding:14px; border-radius:12px; background:var(--elev); border:1px solid var(--border); color:var(--text); text-decoration:none; font-weight:600; margin-bottom:8px; }
+    .toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--elev); border:1px solid var(--border); color:var(--text); padding:12px 18px; border-radius:12px; font-size:14px; font-weight:600; opacity:0; transition:.3s; z-index:2000; pointer-events:none; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .cmt-box { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+    .cmt-in { display:flex; gap:8px; }
+    .cmt-in input { flex:1; background:var(--elev); border:1px solid var(--border); border-radius:999px; padding:10px 14px; color:var(--text); font-size:14px; outline:none; }
+    .cmt { font-size:13px; padding:5px 0; color:var(--muted); }
+    .cmt strong { color:var(--text); }
+    .back { width:36px; height:36px; border-radius:10px; background:var(--elev); border:1px solid var(--border); color:var(--text); font-size:16px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div id="age-gate">
+    <div style="width:56px;height:56px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;color:#000;margin-bottom:16px;">RS</div>
+    <h1>Ruining <span>Subs</span></h1>
+    <p>This site contains adult exposure content. You must be 18+ to enter.</p>
+    <button class="btn btn-primary" id="btn-enter" type="button">I am 18 or older</button>
+    <button class="btn btn-secondary" id="btn-exit" type="button" style="margin-top:8px;">Exit</button>
+  </div>
+
+  <div id="app">
+    <header>
+      <div class="logo">Ruining<span>Subs</span></div>
+      <button class="btn btn-ghost btn-sm" id="btn-profile-top" type="button">👤</button>
+    </header>
+    <main>
+      <div id="panel-feed" class="panel active">
+        <div class="banner">
+          <div class="num" id="online">39</div>
+          <div style="color:var(--muted);font-size:13px;">people online</div>
+          <button class="btn btn-primary" style="margin-top:12px;" id="btn-go-public" type="button">Go public now</button>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-f="time" type="button">Most Time</button>
+          <button class="tab" data-f="new" type="button">Newest</button>
+          <button class="tab" data-f="ending" type="button">Ending Soon</button>
+        </div>
+        <div id="posts-container"><div class="empty">Loading...</div></div>
+      </div>
+
+      <div id="panel-detail" class="panel">
+        <div class="panel-h">
+          <button class="back" id="btn-back" type="button">←</button>
+          <h2>Post</h2>
+          <span></span>
+        </div>
+        <div id="detail-content"></div>
+      </div>
+
+      <div id="panel-post" class="panel">
+        <div class="panel-h"><h2>New Exposure</h2></div>
+        <div class="form-group">
+          <label>Photo *</label>
+          <div class="upload" id="media-upload">📸 Tap to add photo</div>
+          <input type="file" id="photo-input" accept="image/*" style="display:none;" />
+          <div class="preview-wrap" id="preview-wrap" style="display:none;">
+            <img id="photo-preview" />
+            <button class="media-rm" id="btn-rm-photo" type="button">✕</button>
+          </div>
+        </div>
+        <div class="form-group"><label>Title *</label><input type="text" id="new-title" placeholder="exposed loser..." maxlength="60" /></div>
+        <div class="form-group"><label>Description</label><textarea id="new-desc" placeholder="Short description..." maxlength="150"></textarea></div>
+        <div class="form-group"><label>Tags</label><input type="text" id="new-tags" placeholder="faggot, exposed, paypig" /></div>
+        <div class="form-group">
+          <label>Initial duration</label>
+          <div class="dur-grid" id="create-dur">
+            <button type="button" class="dur-btn" data-m="15">15m</button>
+            <button type="button" class="dur-btn" data-m="30">30m</button>
+            <button type="button" class="dur-btn" data-m="60">1h</button>
+            <button type="button" class="dur-btn" data-m="120">2h</button>
+            <button type="button" class="dur-btn" data-m="360">6h</button>
+            <button type="button" class="dur-btn" data-m="720">12h</button>
+            <button type="button" class="dur-btn sel" data-m="1440">24h</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Extend amount (for others)</label>
+          <div class="dur-grid" id="ext-dur">
+            <button type="button" class="dur-btn" data-m="15">15m</button>
+            <button type="button" class="dur-btn" data-m="30">30m</button>
+            <button type="button" class="dur-btn" data-m="60">1h</button>
+            <button type="button" class="dur-btn" data-m="120">2h</button>
+            <button type="button" class="dur-btn sel" data-m="360">6h</button>
+            <button type="button" class="dur-btn" data-m="720">12h</button>
+            <button type="button" class="dur-btn" data-m="1440">24h</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" id="btn-publish" type="button">Publish Exposure</button>
+      </div>
+
+      <div id="panel-messages" class="panel">
+        <div class="panel-h"><h2>Messages</h2></div>
+        <div class="empty">Coming soon</div>
+      </div>
+
+      <div id="panel-profile" class="panel">
+        <div class="panel-h"><h2>My Profile</h2></div>
+        <div style="text-align:center;margin-bottom:16px;">
+          <div class="av" style="width:64px;height:64px;font-size:24px;margin:0 auto 10px;" id="profile-avatar">A</div>
+          <div style="font-weight:700;font-size:17px;" id="profile-name">@Anon</div>
+          <div style="color:var(--muted);font-size:13px;" id="profile-role">Guest</div>
+        </div>
+        <div id="profile-extra" style="color:var(--muted);font-size:13px;text-align:center;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <button class="tab active" id="tab-login" type="button" style="flex:1;">Login</button>
+          <button class="tab" id="tab-register" type="button" style="flex:1;">Register</button>
+        </div>
+        <div id="auth-login">
+          <div class="form-group"><label>Email</label><input type="email" id="login-email" /></div>
+          <div class="form-group"><label>Password</label><input type="password" id="login-password" /></div>
+          <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" id="btn-login" type="button">Login</button>
+          <button class="btn btn-ghost" style="width:100%;font-size:13px;" id="btn-forgot" type="button">Forgot password?</button>
+        </div>
+        <div id="auth-register" style="display:none;">
+          <div class="form-group"><label>Username</label><input type="text" id="reg-username" maxlength="20" /></div>
+          <div class="form-group"><label>Email</label><input type="email" id="reg-email" /></div>
+          <div class="form-group"><label>Password</label><input type="password" id="reg-password" /></div>
+          <button class="btn btn-primary" style="width:100%;" id="btn-register" type="button">Create account</button>
+        </div>
+        <div id="auth-forgot" style="display:none;">
+          <div class="form-group"><label>Email</label><input type="email" id="forgot-email" /></div>
+          <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" id="btn-reset" type="button">Send reset</button>
+          <button class="btn btn-ghost" style="width:100%;font-size:13px;" id="btn-back-login" type="button">Back</button>
+        </div>
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:14px;">
+          <button class="btn btn-secondary" style="width:100%;" id="btn-admin" type="button">🛠 Admin Panel</button>
+        </div>
+      </div>
+
+      <div id="panel-admin" class="panel">
+        <div class="panel-h">
+          <h2>Admin</h2>
+          <button class="btn btn-ghost btn-sm" id="btn-admin-back" type="button">← Feed</button>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Password: master2026 · Delete when paid $20</p>
+        <div id="admin-list"></div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-p="feed" type="button"><span>🏠</span>Feed</button>
+      <button class="nav-item" data-p="feed" type="button"><span>🔍</span>Explore</button>
+      <button class="nav-center" data-p="post" type="button">+</button>
+      <button class="nav-item" data-p="messages" type="button"><span>💬</span>Messages</button>
+      <button class="nav-item" data-p="profile" type="button"><span>👤</span>Profile</button>
+    </nav>
+  </div>
+
+  <div class="modal-bg" id="extend-modal">
+    <div class="modal">
+      <h3>⏱ Extend</h3>
+      <p id="extend-desc">Add time set by publisher.</p>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" id="btn-confirm-ext" type="button">Confirm</button>
+      <button class="btn btn-ghost" style="width:100%;" id="btn-cancel-ext" type="button">Cancel</button>
+    </div>
+  </div>
+  <div class="modal-bg" id="remove-modal">
+    <div class="modal">
+      <h3>🗑 Remove</h3>
+      <p><strong style="color:var(--red);font-size:18px;">$20 USD</strong> to delete this post. Pay and send proof to Master.</p>
+      <a class="pay-btn" href="https://www.paypal.me/MrJennn" target="_blank" rel="noopener"><span>💸 PayPal</span><span style="color:var(--orange);">PAY →</span></a>
+      <a class="pay-btn" href="https://throne.com/mastersan/item/67a4d25f-9907-41fe-87cf-432425a4d52b" target="_blank" rel="noopener"><span>👑 Throne</span><span style="color:var(--orange);">PAY →</span></a>
+      <button class="btn btn-ghost" style="width:100%;margin-top:8px;" id="btn-cancel-rm" type="button">Keep public</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ===== AGE GATE (same pattern that worked) =====
+    function enterSite() {
+      document.getElementById('age-gate').classList.add('hidden');
+      document.getElementById('app').classList.add('show');
+      try { boot(); } catch (e) { console.error(e); }
+    }
+    document.getElementById('btn-enter').onclick = enterSite;
+    document.getElementById('btn-exit').onclick = function () {
+      window.location.href = 'https://google.com';
+    };
+
+    // ===== SUPABASE =====
+    var SUPABASE_URL = 'https://snlpdolzhzcbbdyxqlnb.supabase.co';
+    var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
+    var sb = null;
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }
+    } catch (e) { console.error('SB', e); }
+
+    var ADMIN_PASS = 'master2026';
+    var posts = [];
+    var currentUser = null;
+    var selectedCreateMin = 1440;
+    var selectedExtendAmount = 360;
+    var currentExtendPostId = null;
+    var currentDetailId = null;
+    var currentFilter = 'time';
+    var photoData = null;
+
+    function boot() {
+      initUser();
+      setupUI();
+      loadPosts();
+      setInterval(function () {
+        var el = document.getElementById('online');
+        if (el) el.textContent = 30 + Math.floor(Math.random() * 30);
+      }, 8000);
+      setInterval(loadPosts, 30000);
+      setInterval(updateTimers, 1000);
+    }
+
+    function initUser() {
+      var uid = localStorage.getItem('rs_uid');
+      if (!uid) {
+        uid = 'Anon_' + Math.floor(1000 + Math.random() * 9000);
+        localStorage.setItem('rs_uid', uid);
+      }
+      currentUser = { name: uid, role: localStorage.getItem('rs_role') || 'guest' };
+      document.getElementById('profile-name').textContent = '@' + uid;
+      document.getElementById('profile-avatar').textContent = uid.charAt(0).toUpperCase();
+      document.getElementById('profile-role').textContent = currentUser.role === 'user' ? 'Registered' : 'Guest';
+    }
+
+    function setupUI() {
+      document.getElementById('btn-go-public').onclick = function () { showPanel('post'); };
+      document.getElementById('btn-profile-top').onclick = function () { showPanel('profile'); };
+      document.getElementById('btn-back').onclick = function () { showPanel('feed'); };
+      document.getElementById('btn-publish').onclick = createPost;
+      document.getElementById('media-upload').onclick = function () { document.getElementById('photo-input').click(); };
+      document.getElementById('photo-input').onchange = handlePhoto;
+      document.getElementById('btn-rm-photo').onclick = removePhoto;
+      document.getElementById('btn-confirm-ext').onclick = confirmExtend;
+      document.getElementById('btn-cancel-ext').onclick = closeModals;
+      document.getElementById('btn-cancel-rm').onclick = closeModals;
+      document.getElementById('btn-admin').onclick = function () { showPanel('admin'); };
+      document.getElementById('btn-admin-back').onclick = function () { showPanel('feed'); };
+      document.getElementById('tab-login').onclick = function () { showAuth('login'); };
+      document.getElementById('tab-register').onclick = function () { showAuth('register'); };
+      document.getElementById('btn-forgot').onclick = function () { showAuth('forgot'); };
+      document.getElementById('btn-back-login').onclick = function () { showAuth('login'); };
+      document.getElementById('btn-login').onclick = doLogin;
+      document.getElementById('btn-register').onclick = doRegister;
+      document.getElementById('btn-reset').onclick = doForgot;
+
+      document.querySelectorAll('.bottom-nav [data-p]').forEach(function (btn) {
+        btn.onclick = function () { showPanel(btn.getAttribute('data-p')); };
+      });
+      document.querySelectorAll('#panel-feed .tab').forEach(function (t) {
+        t.onclick = function () {
+          currentFilter = t.getAttribute('data-f');
+          document.querySelectorAll('#panel-feed .tab').forEach(function (x) { x.classList.remove('active'); });
+          t.classList.add('active');
+          renderPosts();
+        };
+      });
+      document.querySelectorAll('#create-dur .dur-btn').forEach(function (b) {
+        b.onclick = function () {
+          document.querySelectorAll('#create-dur .dur-btn').forEach(function (x) { x.classList.remove('sel'); });
+          b.classList.add('sel');
+          selectedCreateMin = parseInt(b.getAttribute('data-m'), 10);
+        };
+      });
+      document.querySelectorAll('#ext-dur .dur-btn').forEach(function (b) {
+        b.onclick = function () {
+          document.querySelectorAll('#ext-dur .dur-btn').forEach(function (x) { x.classList.remove('sel'); });
+          b.classList.add('sel');
+          selectedExtendAmount = parseInt(b.getAttribute('data-m'), 10);
+        };
+      });
+      document.querySelectorAll('.modal-bg').forEach(function (m) {
+        m.onclick = function (e) { if (e.target === m) closeModals(); };
+      });
+    }
+
+    function showPanel(name) {
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+      var panel = document.getElementById('panel-' + name);
+      if (panel) panel.classList.add('active');
+      document.querySelectorAll('.bottom-nav .nav-item').forEach(function (n) {
+        n.classList.toggle('active', n.getAttribute('data-p') === name);
+      });
+      if (name === 'admin') {
+        var pass = prompt('Admin password:');
+        if (pass !== ADMIN_PASS) { toast('Wrong password'); showPanel('feed'); return; }
+        renderAdmin();
+      }
+      if (name === 'feed') loadPosts();
+      if (name === 'profile') {
+        var mine = posts.filter(function (p) { return p.user === currentUser.name; });
+        document.getElementById('profile-extra').innerHTML = mine.length
+          ? 'You have ' + mine.length + ' active exposure(s). Open a post and pay $20 to remove.'
+          : '';
+        showAuth('login');
+      }
+    }
+
+    function showAuth(tab) {
+      document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
+      document.getElementById('auth-forgot').style.display = tab === 'forgot' ? 'block' : 'none';
+      document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+      document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    }
+
+    async function loadPosts() {
+      var box = document.getElementById('posts-container');
+      if (!sb) {
+        box.innerHTML = '<div class="empty">Database not connected</div>';
+        return;
+      }
+      try {
+        var res = await sb.from('posts').select('*').gt('expires_at', new Date().toISOString()).order('expires_at', { ascending: false });
+        if (res.error) throw res.error;
+        posts = (res.data || []).map(function (p) {
+          return {
+            id: p.id, user: p.username, title: p.title, desc: p.description || '', tags: p.tags || [],
+            created: new Date(p.created_at).getTime(), expires: new Date(p.expires_at).getTime(),
+            views: p.views || 0, likes: p.likes_count || 0, extensions: p.extensions_count || 0,
+            extendAmount: p.extend_amount || 360, extenders: p.extenders || [], likedBy: p.liked_by || [], image: p.image_url
+          };
+        });
+        renderPosts();
+      } catch (e) {
+        console.error(e);
+        box.innerHTML = '<div class="empty">Error loading posts</div>';
+      }
+    }
+
+    function renderPosts() {
+      var box = document.getElementById('posts-container');
+      var list = posts.slice();
+      if (currentFilter === 'time') list.sort(function (a, b) { return b.expires - a.expires; });
+      else if (currentFilter === 'new') list.sort(function (a, b) { return b.created - a.created; });
+      else list.sort(function (a, b) { return a.expires - b.expires; });
+      if (!list.length) {
+        box.innerHTML = '<div class="empty">No active exposures<br><small>Be the first</small></div>';
+        return;
+      }
+      box.innerHTML = list.map(function (p) {
+        var rem = p.expires - Date.now();
+        var tc = rem > 21600000 ? 'long' : '';
+        var already = localStorage.getItem('rs_ext_' + p.id) === '1';
+        var liked = (p.likedBy || []).indexOf(currentUser.name) >= 0;
+        var media = p.image
+          ? '<img src="' + p.image + '" alt="" />'
+          : '<div style="text-align:center;padding:40px;">📸</div>';
+        var extL = fmtMin(p.extendAmount || 360);
+        return '<article class="post">' +
+          '<div class="post-h" onclick="openDetail(' + p.id + ')">' +
+          '<div class="av">' + (p.user || 'A').charAt(0).toUpperCase() + '</div>' +
+          '<div class="post-meta"><div class="post-user">@' + esc(p.user) + '</div><div class="post-time">' + ago(p.created) + '</div></div>' +
+          '<div class="timer ' + tc + '" data-exp="' + p.expires + '">' + fmt(rem) + '</div></div>' +
+          '<div class="post-b" onclick="openDetail(' + p.id + ')">' +
+          '<div class="post-title">' + esc(p.title) + '</div>' +
+          '<div class="post-desc">' + esc(p.desc || '') + '</div>' +
+          '<div class="tags">' + (p.tags || []).map(function (t) { return '<span class="tag">#' + t + '</span>'; }).join('') + '</div></div>' +
+          '<div class="post-media" onclick="openDetail(' + p.id + ')">' + media + '</div>' +
+          '<div class="post-stats"><span>👁 ' + (p.views || 0) + '</span><span>❤️ ' + (p.likes || 0) + '</span><span>⏱ ' + (p.extensions || 0) + ' ext</span></div>' +
+          '<div class="post-actions">' +
+          '<button class="btn btn-like' + (liked ? ' liked' : '') + '" type="button" onclick="toggleLike(' + p.id + ')">' + (liked ? '❤️' : '🤍') + ' Like</button>' +
+          '<button class="btn btn-extend" type="button" ' + (already ? 'disabled style="opacity:.5"' : '') + ' onclick="openExtend(' + p.id + ')">' + (already ? '✓ Ext' : '⏱ +' + extL) + '</button>' +
+          '<button class="btn btn-share" type="button" onclick="sharePost(' + p.id + ')">📤</button>' +
+          '</div></article>';
+      }).join('');
+      updateTimers();
+    }
+
+    async function openDetail(id) {
+      var post = posts.find(function (p) { return p.id === id; });
+      if (!post) return;
+      currentDetailId = id;
+      if (sb) {
+        try { await sb.from('posts').update({ views: (post.views || 0) + 1 }).eq('id', id); post.views = (post.views || 0) + 1; } catch (e) {}
+      }
+      var comments = [];
+      if (sb) {
+        try {
+          var c = await sb.from('comments').select('*').eq('post_id', id).order('created_at', { ascending: true });
+          comments = c.data || [];
+        } catch (e) {}
+      }
+      var rem = post.expires - Date.now();
+      var already = localStorage.getItem('rs_ext_' + id) === '1';
+      var liked = (post.likedBy || []).indexOf(currentUser.name) >= 0;
+      var isOwner = post.user === currentUser.name;
+      var media = post.image ? '<img src="' + post.image + '" style="width:100%;border-radius:12px;margin-bottom:10px;" />' : '';
+      var extL = fmtMin(post.extendAmount || 360);
+      var extHtml = '';
+      if (isOwner && post.extenders && post.extenders.length) {
+        extHtml = '<div style="background:var(--elev);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:12px;"><strong style="color:var(--orange);">Who extended</strong>' +
+          post.extenders.map(function (e) { return '<div style="font-size:13px;color:var(--muted);padding:3px 0;">@' + esc(e) + '</div>'; }).join('') + '</div>';
+      }
+      document.getElementById('detail-content').innerHTML =
+        '<div class="post">' +
+        '<div class="post-h"><div class="av">' + (post.user || 'A').charAt(0).toUpperCase() + '</div>' +
+        '<div class="post-meta"><div class="post-user">@' + esc(post.user) + '</div><div class="post-time">' + ago(post.created) + '</div></div>' +
+        '<div class="timer" data-exp="' + post.expires + '">' + fmt(rem) + '</div></div>' +
+        '<div class="post-b"><div class="post-title">' + esc(post.title) + '</div><div class="post-desc">' + esc(post.desc || '') + '</div>' +
+        '<div class="tags">' + (post.tags || []).map(function (t) { return '<span class="tag">#' + t + '</span>'; }).join('') + '</div></div>' +
+        media +
+        '<div class="post-stats"><span>👁 ' + (post.views || 0) + '</span><span>❤️ ' + (post.likes || 0) + '</span><span>⏱ ' + (post.extensions || 0) + '</span><span>💬 ' + comments.length + '</span></div>' +
+        '<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;">' +
+        '<button class="btn btn-like' + (liked ? ' liked' : '') + '" type="button" onclick="toggleLike(' + post.id + ')">' + (liked ? '❤️ Liked' : '🤍 Like') + '</button>' +
+        '<button class="btn btn-extend" type="button" ' + (already ? 'disabled style="opacity:.5"' : '') + ' onclick="openExtend(' + post.id + ')">' + (already ? '✓ Extended' : '⏱ Extend +' + extL) + '</button>' +
+        '<button class="btn btn-share" type="button" onclick="sharePost(' + post.id + ')">📤 Share</button>' +
+        '<button class="btn btn-danger" type="button" onclick="openRemove()">🗑 Remove ($20)</button></div>' +
+        extHtml +
+        '<div class="cmt-box" style="padding:0 14px 14px;"><div class="cmt-in"><input type="text" id="cmt-in" placeholder="Comment as ' + currentUser.name + '..." /><button class="btn btn-primary btn-sm" type="button" onclick="addComment(' + post.id + ')">Send</button></div>' +
+        '<div>' + (comments.map(function (c) { return '<div class="cmt"><strong>@' + esc(c.username) + '</strong> ' + esc(c.text) + '</div>'; }).join('') || '<div class="cmt">No comments</div>') + '</div>' +
+        '<p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">Post ID: ' + post.id + '</p></div></div>';
+      showPanel('detail');
+    }
+
+    function handlePhoto(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 1.5 * 1024 * 1024) { toast('Max 1.5MB'); return; }
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        photoData = ev.target.result;
+        document.getElementById('photo-preview').src = photoData;
+        document.getElementById('preview-wrap').style.display = 'block';
+        document.getElementById('media-upload').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+    function removePhoto() {
+      photoData = null;
+      document.getElementById('photo-input').value = '';
+      document.getElementById('preview-wrap').style.display = 'none';
+      document.getElementById('media-upload').style.display = 'block';
+    }
+
+    async function createPost() {
+      var title = document.getElementById('new-title').value.trim();
+      var desc = document.getElementById('new-desc').value.trim();
+      var tags = document.getElementById('new-tags').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      if (!title || title.length < 3) { toast('Title min 3 chars'); return; }
+      if (!photoData) { toast('Add a photo'); return; }
+      if (!sb) { toast('DB not connected'); return; }
+      toast('Publishing...');
+      try {
+        var res = await sb.from('posts').insert({
+          username: currentUser.name,
+          title: title,
+          description: desc,
+          tags: tags.length ? tags : ['exposed'],
+          image_url: photoData,
+          expires_at: new Date(Date.now() + selectedCreateMin * 60000).toISOString(),
+          extend_amount: selectedExtendAmount
+        });
+        if (res.error) throw res.error;
+        toast('Published!');
+        removePhoto();
+        document.getElementById('new-title').value = '';
+        document.getElementById('new-desc').value = '';
+        document.getElementById('new-tags').value = '';
+        showPanel('feed');
+        loadPosts();
+      } catch (e) {
+        console.error(e);
+        toast('Error publishing');
+      }
+    }
+
+    function openExtend(id) {
+      if (localStorage.getItem('rs_ext_' + id) === '1') { toast('Already extended'); return; }
+      currentExtendPostId = id;
+      var post = posts.find(function (p) { return p.id === id; });
+      document.getElementById('extend-desc').innerHTML = 'Adds <strong style="color:var(--orange)">' + fmtMin(post.extendAmount || 360) + '</strong>. Once only.';
+      document.getElementById('extend-modal').classList.add('show');
+    }
+
+    async function confirmExtend() {
+      var post = posts.find(function (p) { return p.id === currentExtendPostId; });
+      if (!post || !sb) return;
+      var mins = post.extendAmount || 360;
+      try {
+        await sb.from('posts').update({
+          expires_at: new Date(post.expires + mins * 60000).toISOString(),
+          extensions_count: (post.extensions || 0) + 1,
+          extenders: (post.extenders || []).concat([currentUser.name])
+        }).eq('id', post.id);
+        localStorage.setItem('rs_ext_' + post.id, '1');
+        closeModals();
+        toast('+' + fmtMin(mins));
+        await loadPosts();
+        if (currentDetailId === post.id) openDetail(post.id);
+      } catch (e) { toast('Error'); }
+    }
+
+    async function toggleLike(id) {
+      var post = posts.find(function (p) { return p.id === id; });
+      if (!post || !sb) return;
+      var likedBy = (post.likedBy || []).slice();
+      var likes = post.likes || 0;
+      var idx = likedBy.indexOf(currentUser.name);
+      if (idx >= 0) { likedBy.splice(idx, 1); likes = Math.max(0, likes - 1); }
+      else { likedBy.push(currentUser.name); likes += 1; }
+      try {
+        await sb.from('posts').update({ liked_by: likedBy, likes_count: likes }).eq('id', id);
+        post.likedBy = likedBy;
+        post.likes = likes;
+        if (currentDetailId === id) openDetail(id);
+        else renderPosts();
+      } catch (e) { toast('Error'); }
+    }
+
+    async function addComment(postId) {
+      var input = document.getElementById('cmt-in');
+      var text = (input && input.value || '').trim();
+      if (!text || !sb) return;
+      try {
+        await sb.from('comments').insert({ post_id: postId, username: currentUser.name, text: text });
+        openDetail(postId);
+      } catch (e) { toast('Error'); }
+    }
+
+    function openRemove() { document.getElementById('remove-modal').classList.add('show'); }
+    function closeModals() {
+      document.getElementById('extend-modal').classList.remove('show');
+      document.getElementById('remove-modal').classList.remove('show');
+    }
+    function sharePost(id) {
+      var url = location.href.split('#')[0] + '#post-' + id;
+      if (navigator.share) navigator.share({ title: 'Ruining Subs', url: url }).catch(function () {});
+      else { try { navigator.clipboard.writeText(url); toast('Link copied'); } catch (e) {} }
+    }
+
+    async function doLogin() {
+      var email = document.getElementById('login-email').value.trim();
+      var pass = document.getElementById('login-password').value;
+      if (!email || !pass) { toast('Email + password'); return; }
+      if (!sb) { toast('DB not connected'); return; }
+      try {
+        var res = await sb.auth.signInWithPassword({ email: email, password: pass });
+        if (res.error) throw res.error;
+        var name = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'user';
+        currentUser = { name: name, role: 'user', email: email };
+        localStorage.setItem('rs_uid', name);
+        localStorage.setItem('rs_role', 'user');
+        document.getElementById('profile-name').textContent = '@' + name;
+        document.getElementById('profile-avatar').textContent = name.charAt(0).toUpperCase();
+        document.getElementById('profile-role').textContent = 'Registered';
+        toast('Logged in');
+      } catch (e) { toast(e.message || 'Login failed'); }
+    }
+
+    async function doRegister() {
+      var username = document.getElementById('reg-username').value.trim().replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+      var email = document.getElementById('reg-email').value.trim();
+      var pass = document.getElementById('reg-password').value;
+      if (!username || username.length < 3) { toast('Username min 3'); return; }
+      if (!email || !pass || pass.length < 6) { toast('Valid email + pass 6+'); return; }
+      if (!sb) { toast('DB not connected'); return; }
+      try {
+        var res = await sb.auth.signUp({ email: email, password: pass, options: { data: { username: username } } });
+        if (res.error) throw res.error;
+        currentUser = { name: username, role: 'user', email: email };
+        localStorage.setItem('rs_uid', username);
+        localStorage.setItem('rs_role', 'user');
+        document.getElementById('profile-name').textContent = '@' + username;
+        document.getElementById('profile-avatar').textContent = username.charAt(0).toUpperCase();
+        document.getElementById('profile-role').textContent = 'Registered';
+        toast('Account created');
+        showAuth('login');
+      } catch (e) { toast(e.message || 'Register failed'); }
+    }
+
+    async function doForgot() {
+      var email = document.getElementById('forgot-email').value.trim();
+      if (!email) { toast('Enter email'); return; }
+      if (!sb) { toast('DB not connected'); return; }
+      try {
+        await sb.auth.resetPasswordForEmail(email);
+        toast('Reset sent');
+        showAuth('login');
+      } catch (e) { toast(e.message || 'Error'); }
+    }
+
+    async function renderAdmin() {
+      await loadPosts();
+      var list = document.getElementById('admin-list');
+      if (!posts.length) { list.innerHTML = '<div class="empty">No posts</div>'; return; }
+      list.innerHTML = posts.map(function (p) {
+        return '<div style="background:var(--elev);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+          '<div style="flex:1;min-width:0;"><strong style="font-size:14px;">' + esc(p.title) + '</strong><br><small style="color:var(--muted);">@' + p.user + ' · ' + fmt(p.expires - Date.now()) + ' · ID ' + p.id + '</small></div>' +
+          '<button class="btn btn-danger btn-sm" type="button" onclick="deletePost(' + p.id + ')">Delete</button></div>';
+      }).join('');
+    }
+
+    async function deletePost(id) {
+      if (!sb) return;
+      try {
+        await sb.from('posts').delete().eq('id', id);
+        toast('Deleted');
+        await loadPosts();
+        renderAdmin();
+        if (currentDetailId === id) showPanel('feed');
+      } catch (e) { toast('Error'); }
+    }
+
+    function updateTimers() {
+      document.querySelectorAll('.timer[data-exp]').forEach(function (el) {
+        var rem = parseInt(el.getAttribute('data-exp'), 10) - Date.now();
+        el.textContent = fmt(rem);
+      });
+    }
+    function fmt(ms) {
+      if (ms <= 0) return 'EXPIRED';
+      var s = Math.floor(ms / 1000);
+      var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+      if (d > 0) return d + 'd ' + h + 'h';
+      if (h > 0) return h + 'h ' + m + 'm';
+      return m + 'm ' + (s % 60) + 's';
+    }
+    function fmtMin(min) {
+      if (min < 60) return min + 'm';
+      if (min < 1440) return (min / 60) + 'h';
+      return (min / 1440) + 'd';
+    }
+    function ago(ts) {
+      var m = Math.floor((Date.now() - ts) / 60000);
+      if (m < 60) return m + 'm ago';
+      var h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      return Math.floor(h / 24) + 'd ago';
+    }
+    function esc(t) {
+      var d = document.createElement('div');
+      d.textContent = t || '';
+      return d.innerHTML;
+    }
+    function toast(msg) {
+      var t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(function () { t.classList.remove('show'); }, 2500);
+    }
+  </script>
+</body>
+</html>
