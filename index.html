@@ -254,6 +254,14 @@
     #auth-status{font-size:13px;line-height:1.45;padding:10px 12px;border-radius:10px;margin-bottom:12px;background:rgba(255,122,0,.12);border:1px solid rgba(255,122,0,.35);color:#ffb347}
     .auth-pane .form-group{margin-bottom:12px}
     .auth-pane input{width:100%;box-sizing:border-box}
+    
+    .gallery-section{margin-top:18px;padding-top:8px;border-top:1px solid var(--border)}
+    .gallery-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 2px}
+    .gallery-head h3{margin:0;font-size:16px;font-weight:800;letter-spacing:.02em}
+    .gallery-count{font-size:12px;color:var(--muted);font-weight:600}
+    .user-posts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .user-posts-grid .post{margin:0}
+    .gallery-empty{text-align:center;color:var(--muted);padding:28px 12px;font-size:14px}
     </style>
 </head>
 <body>
@@ -355,6 +363,7 @@
         <div class="panel-h"><h2>Explore</h2></div>
         <div class="form-group"><input type="text" id="search-q" placeholder="Search @accounts, words or #tags..." /></div>
         <button class="btn btn-primary" style="width:100%;margin-bottom:14px" id="btn-search" type="button">Search</button>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:14px" id="btn-open-idcard" type="button">ID Card Generator</button>
         <div id="trending-tags" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0"></div>
         <div id="search-results"><div class="empty">Type a word or #tag</div></div>
       </div>
@@ -453,7 +462,10 @@
         </div>
         <div id="logged-wrap" style="display:none">
           <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="btn-edit-profile" type="button">Edit profile</button>
+          <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-add-profile-photo" type="button">Add profile photo (no timer)</button>
+          <input type="file" id="profile-photo-input" accept="image/*" multiple style="display:none"/>
           <button class="btn btn-ghost" style="width:100%;margin-bottom:8px" id="btn-logout" type="button">Log out</button>
+          <div id="my-gallery" style="margin-top:12px"></div>
         </div>
         <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:14px">
           <button class="btn btn-secondary" style="width:100%" id="btn-admin" type="button">🛠 Admin Panel</button>
@@ -497,10 +509,45 @@
             <button class="btn btn-secondary btn-sm" type="button" id="btn-msg-user">Message</button>
           </div>
         </div>
-        <div id="user-posts"></div>
+        <div class="gallery-section">
+          <div class="gallery-head">
+            <h3>Gallery</h3>
+            <span id="user-gallery-count" class="gallery-count"></span>
+          </div>
+          <div id="user-posts"></div>
+        </div>
       </div>
 
-            <div id="panel-admin" class="panel">
+            
+      <div id="panel-idcard" class="panel">
+        <div class="panel-h"><button class="back" id="btn-idcard-back" type="button">←</button><h2>ID Card</h2><span></span></div>
+        <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 14px">Fill fields, add face + body, render. Stays on your phone until you download or post.</p>
+        <div class="form-group"><label>Face photo</label><input type="file" id="id-face" accept="image/*"/></div>
+        <div class="form-group"><label>Full body photo</label><input type="file" id="id-body" accept="image/*"/></div>
+        <div class="form-group"><label>Full legal name</label><input type="text" id="id-name" placeholder="John Doe"/></div>
+        <div style="display:flex;gap:8px">
+          <div class="form-group" style="flex:1"><label>Weight</label><input type="text" id="id-weight" placeholder="160 lbs"/></div>
+          <div class="form-group" style="flex:1"><label>Height</label><input type="text" id="id-height" placeholder="5'10"/></div>
+        </div>
+        <div class="form-group"><label>Date of birth</label><input type="text" id="id-dob" placeholder="YYYY-MM-DD"/></div>
+        <div class="form-group"><label>Location</label><input type="text" id="id-loc" placeholder="City, Country"/></div>
+        <div class="form-group"><label>Social / @handle</label><input type="text" id="id-social" placeholder="@username"/></div>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px" type="button" id="btn-id-render">Render card</button>
+        <div id="id-actions" style="display:none">
+          <p style="font-size:12px;color:var(--muted);margin:0 0 8px;text-align:center">Card ready — choose what to do</p>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button class="btn btn-secondary" style="flex:1" type="button" id="btn-id-download">Download</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button class="btn btn-primary" style="flex:1;font-size:12px" type="button" id="btn-id-feed">To Feed (timer)</button>
+            <button class="btn btn-secondary" style="flex:1;font-size:12px" type="button" id="btn-id-profile">To Profile gallery</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Preview</p>
+        <canvas id="id-canvas" width="900" height="700" style="width:100%;border-radius:14px;border:1px solid var(--border);background:#0a0a0a;margin-bottom:80px"></canvas>
+      </div>
+
+      <div id="panel-admin" class="panel">
         <div class="panel-h"><h2>Admin</h2><button class="btn btn-ghost btn-sm" id="btn-admin-back" type="button">← Feed</button></div>
         <div id="admin-lock" style="max-width:360px;margin:20px auto;padding:16px">
           <p style="color:var(--muted);font-size:14px;margin-bottom:12px;text-align:center">Enter admin password</p>
@@ -800,7 +847,16 @@
       loadNotifs();updateMsgBadge();loadXpFromProfile();updateProfilePanel();setupPullRefresh();
       window.addEventListener('hashchange',openHashPost);
       setInterval(function(){var el=document.getElementById('online');if(el)el.textContent=30+Math.floor(Math.random()*30)},8000);
-      setInterval(loadPosts,60000);setInterval(loadNotifs,20000);setInterval(updateMsgBadge,15000);setInterval(updateTimers,1000);
+      try{wireIdCard()}catch(e){}
+    try{
+      var bap=document.getElementById('btn-add-profile-photo');
+      var pin=document.getElementById('profile-photo-input');
+      if(bap&&pin){
+        bap.onclick=function(){pin.click()};
+        pin.onchange=function(e){addProfilePhotos(e.target.files);e.target.value='';};
+      }
+    }catch(e){}
+    setInterval(loadPosts,60000);setInterval(loadNotifs,20000);setInterval(updateMsgBadge,15000);setInterval(updateTimers,1000);
     }
     function initUser(){
       var uid=localStorage.getItem('rs_uid');
@@ -892,6 +948,7 @@
     }
     function updateProfilePanel(){
       var logged=isRegistered();
+      if(logged){try{loadMyGallery()}catch(e){}}
       if(logged){try{loadXpFromProfile().then(function(){try{var s=document.getElementById('my-stats');if(s&&isRegistered()){var mine=posts.filter(function(p){return p.user===currentUser.name});s.innerHTML=profileStatsHtml(mine,{comments:0,saves:sumSavesOnPosts(mine),username:currentUser.name,xp:getUserXp()})+savedPostsBtnHtml()}}catch(e){}})}catch(e){}}
       var authWrap=document.getElementById('auth-wrap');
       if(authWrap)authWrap.style.display=logged?'none':'block';
@@ -944,12 +1001,36 @@
       v=String(v).trim();
       if(v.indexOf('http')===0)return v;
       if(type==='x')return 'https://x.com/'+v.replace(/^@/,'');
-      if(type==='tg')return 'https://t.me/'+v.replace(/^@/,'').replace(/^.*t\.me\//i,'');
+      if(type==='tg'){
+        if(/t\.me\//i.test(v))return v.indexOf('http')===0?v:('https://'+v.replace(/^\/\//,''));
+        var h=v.replace(/^@/,'');
+        // phone or private invite codes
+        if(/^\+?\d{6,}$/.test(h))return 'https://t.me/'+h;
+        if(/^\+/.test(h))return 'https://t.me/'+h; // +invite hash
+        return 'https://t.me/'+h;
+      }
       if(type==='web'){
         if(v.indexOf('http')===0)return v;
         return 'https://'+v.replace(/^\/\//,'');
       }
       return 'https://t.me/'+v.replace(/^@/,'');
+    }
+    function formatTgLabel(v){
+      if(!v)return 'Telegram';
+      v=String(v).trim();
+      var path=v;
+      if(/t\.me\//i.test(v))path=v.replace(/^.*t\.me\//i,'').split(/[/?#]/)[0];
+      path=path.replace(/^@/,'');
+      // real usernames: start with letter, reasonable length
+      if(/^[a-zA-Z][a-zA-Z0-9_]{3,31}$/.test(path))return '@'+path;
+      // phones / invite hashes / junk → clean label
+      return 'Telegram';
+    }
+    function formatXLabel(v){
+      if(!v)return 'Twitter';
+      v=String(v).trim().replace(/^@/,'').replace(/^.*x\.com\//i,'').replace(/^.*twitter\.com\//i,'').split(/[/?#]/)[0];
+      if(/^[a-zA-Z0-9_]{1,15}$/.test(v))return '@'+v;
+      return 'Twitter';
     }
     async function loadProfile(username, force){
       if(!username)return null;
@@ -1918,7 +1999,7 @@
         var res=null, lastErr=null;
         try{
           res=await withTimeout(
-            sb.from('posts').select(META).gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(24),
+            sb.from('posts').select(META).gt('expires_at',new Date().toISOString()).not('tags','cs','{profile_gallery}').order('expires_at',{ascending:false}).limit(200),
             10000
           );
           if(res.error)throw res.error;
@@ -1926,7 +2007,7 @@
           lastErr=err;
           try{
             res=await withTimeout(
-              sb.from('posts').select('id,username,title,expires_at,created_at,views,likes_count,extensions_count,extend_amount,featured_until').gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(20),
+              sb.from('posts').select('id,username,title,expires_at,created_at,views,likes_count,extensions_count,extend_amount,featured_until').gt('expires_at',new Date().toISOString()).not('tags','cs','{profile_gallery}').order('expires_at',{ascending:false}).limit(200),
               10000
             );
             if(res.error)throw res.error;
@@ -1934,7 +2015,14 @@
           }catch(err2){lastErr=err2}
         }
         if(lastErr||!res)throw lastErr||new Error('load failed');
-        posts=(res.data||[]).map(mapRow);
+        posts=(res.data||[]).map(mapRow).filter(function(p){
+          // hide permanent / profile_gallery from public feed
+          if(p.expires&&p.expires>Date.now()+365*24*3600*1000)return false;
+          var tg=p.tags||[];
+          if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+          if(tg&&tg.indexOf&&tg.indexOf('profile_gallery')>=0)return false;
+          return true;
+        });
         // keep last published visible even if query lags
         try{
           var lp=JSON.parse(localStorage.getItem('rs_last_pub')||'null');
@@ -2438,8 +2526,8 @@
       else av.textContent=username.charAt(0).toUpperCase();
       document.getElementById('user-bio').textContent=p&&p.bio?p.bio:'No bio yet';
       var links=document.getElementById('user-links');links.innerHTML='';
-      if(p&&p.twitter){var _tw=String(p.twitter).replace(/^@/,'');links.innerHTML+='<a href="'+linkUrl(p.twitter,'x')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">𝕏 @'+esc(_tw||'twitter')+'</a>';}
-      if(p&&p.telegram){var _tg=String(p.telegram).replace(/^@/,'').replace(/^.*t.me\//i,'');links.innerHTML+='<a href="'+linkUrl(p.telegram,'tg')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">✈️ @'+esc(_tg||'telegram')+'</a>';}
+      if(p&&p.twitter){var _tw=String(p.twitter).trim();if(_tw.indexOf('http')===0){_tw=_tw.replace(/^.*x\.com\//i,'').replace(/^.*twitter\.com\//i,'').split(/[/?#]/)[0];}_tw=_tw.replace(/^@/,'');links.innerHTML+='<a href="'+linkUrl(p.twitter,'x')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">𝕏 @'+esc(_tw||'twitter')+'</a>';}
+      if(p&&p.telegram){var _tg=String(p.telegram).trim();if(/t\.me\//i.test(_tg)){_tg=_tg.replace(/^.*t\.me\//i,'').split(/[/?#]/)[0];}else{_tg=_tg.replace(/^@/,'');}links.innerHTML+='<a href="'+linkUrl(p.telegram,'tg')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">✈️ @'+esc(_tg||'telegram')+'</a>';}
       if(p&&p.link){links.innerHTML+='<a href="'+linkUrl(p.link,'web')+'" target="_blank" rel="noopener" style="color:var(--orange)">🔗 Link</a>';}
 
       var fb=document.getElementById('btn-follow');
@@ -2449,23 +2537,88 @@
         if(can&&sb){sb.from('follows').select('*').eq('follower',currentUser.name).eq('following',username).maybeSingle().then(function(r){if(r.data)fb.textContent='Following'});}
       }
       if(mb)mb.style.display=can?'inline-block':'none';
-      var ups=posts.filter(function(x){return x.user===username});
+      var ups=posts.filter(function(x){return x.user===username||x.user===String(username)});
       var statsEl=document.getElementById('user-stats');
       if(typeof otherXp!=='number')otherXp=(p&&p.xp!=null)?(Number(p.xp)||0):0;
       if(statsEl){
         statsEl.innerHTML=profileStatsHtml(ups,{comments:0,saves:sumSavesOnPosts(ups),username:username,xp:otherXp});
-        if(ups.length){
-          countCommentsForPosts(ups.map(function(p){return p.id})).then(function(c){
-            statsEl.innerHTML=profileStatsHtml(ups,{comments:c,saves:sumSavesOnPosts(ups),username:username,xp:otherXp});
-          });
-        }
       }
       var upBox=document.getElementById('user-posts');
-      if(upBox){
-        if(!ups.length)upBox.innerHTML='<div class="empty">No active posts</div>';
-        else upBox.innerHTML='<div class="user-posts-grid">'+ups.map(function(p){return postCardHtml(p,true)}).join('')+'</div>';
-      }
+      var gCount=document.getElementById('user-gallery-count');
+      if(upBox)upBox.innerHTML='<div class="gallery-empty">Loading gallery…</div>';
+      if(gCount)gCount.textContent='';
       showPanel('user');
+
+      // Full gallery from DB (not only the 24 posts in feed memory)
+      (async function(){
+        var gallery=[];
+        try{
+          if(sb){
+            var META='id,username,title,description,tags,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions,image_url';
+            var gr=await sb.from('posts').select(META).eq('username',username).gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(40);
+            if(gr.error){
+              gr=await sb.from('posts').select(META).eq('username',username).order('created_at',{ascending:false}).limit(40);
+            }
+            var now=Date.now();
+            (gr.data||[]).forEach(function(row){
+              try{
+                if(row.expires_at&&new Date(row.expires_at).getTime()<=now)return;
+                var imgs=[];
+                try{imgs=parseImages(row.image_url)}catch(e){imgs=row.image_url?[row.image_url]:[]}
+                // feed: only first image if huge multi base64
+                if(imgs.length>1&&imgs[0]&&String(imgs[0]).indexOf('data:')===0)imgs=[imgs[0]];
+                var reactions=row.reactions;if(!reactions)reactions={};
+                if(typeof reactions==='string'){try{reactions=JSON.parse(reactions)}catch(e){reactions={}}}
+                var item={
+                  id:row.id,user:row.username,title:row.title,desc:row.description||'',tags:row.tags||[],
+                  created:new Date(row.created_at).getTime(),expires:new Date(row.expires_at).getTime(),
+                  views:row.views||0,likes:row.likes_count||0,extensions:row.extensions_count||0,
+                  extendAmount:row.extend_amount||360,extenders:row.extenders||[],likedBy:row.liked_by||[],
+                  image:row.image_url,images:imgs,featuredUntil:row.featured_until?new Date(row.featured_until).getTime():0,
+                  savesCount:row.saves_count||0,downloadsCount:row.downloads_count||0,reactions:reactions||{},
+                  _needImg:false,_imgFail:!imgs.length
+                };
+                gallery.push(item);
+                if(imgs.length)imageCache[String(item.id)]={images:imgs.slice(),image:imgs[0],allImgs:imgs.slice()};
+                // merge into global posts for openDetail
+                if(!posts.some(function(p){return String(p.id)===String(item.id)}))posts.push(item);
+              }catch(e){console.warn(e)}
+            });
+          }
+        }catch(e){console.warn('gallery',e)}
+        if(!gallery.length)gallery=ups.slice();
+        if(gCount)gCount.textContent=gallery.length?(gallery.length+' active'):'';
+        if(statsEl){
+          statsEl.innerHTML=profileStatsHtml(gallery,{comments:0,saves:sumSavesOnPosts(gallery),username:username,xp:otherXp});
+          if(gallery.length){
+            countCommentsForPosts(gallery.map(function(p){return p.id})).then(function(c){
+              statsEl.innerHTML=profileStatsHtml(gallery,{comments:c,saves:sumSavesOnPosts(gallery),username:username,xp:otherXp});
+            });
+          }
+        }
+        if(upBox){
+          if(!gallery.length)upBox.innerHTML='<div class="gallery-empty">No photos yet</div>';
+          else{
+            function isProfileGal(p){
+              var tg=p.tags||[];
+              if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+              return tg&&tg.indexOf&&tg.indexOf('profile_gallery')>=0;
+            }
+            var feedG=gallery.filter(function(p){return !isProfileGal(p)});
+            var profG=gallery.filter(isProfileGal);
+            var html='';
+            if(feedG.length){
+              html+='<div style="font-size:12px;color:var(--muted);margin:0 0 8px;font-weight:700">ACTIVE EXPOSURES</div>';
+              html+='<div class="user-posts-grid">'+feedG.map(function(p){return postCardHtml(p,true)}).join('')+'</div>';
+            }
+            if(profG.length){
+              html+='<div style="font-size:12px;color:var(--muted);margin:14px 0 8px;font-weight:700">PROFILE GALLERY</div>';
+              html+='<div class="user-posts-grid">'+profG.map(function(p){return postCardHtml(p,true)}).join('')+'</div>';
+            }
+            upBox.innerHTML=html||'<div class="gallery-empty">No photos yet</div>';
+          }
+        }
+      })();
     }
     async function handlePhoto(e){
       var files=e.target.files;if(!files||!files.length)return;
@@ -2606,6 +2759,339 @@
       }
       return out;
     }
+    
+    var idFaceImg=null,idBodyImg=null,idCardDataUrl='';
+    function loadIdImage(file){
+      return new Promise(function(resolve){
+        if(!file){resolve(null);return}
+        var reader=new FileReader();
+        reader.onload=function(){
+          var img=new Image();
+          img.onload=function(){resolve(img)};
+          img.onerror=function(){resolve(null)};
+          img.src=reader.result;
+        };
+        reader.onerror=function(){resolve(null)};
+        reader.readAsDataURL(file);
+      });
+    }
+    function idRoundRect(ctx,x,y,w,h,r){
+      r=Math.min(r||12,w/2,h/2);
+      ctx.beginPath();
+      ctx.moveTo(x+r,y);
+      ctx.arcTo(x+w,y,x+w,y+h,r);
+      ctx.arcTo(x+w,y+h,x,y+h,r);
+      ctx.arcTo(x,y+h,x,y,r);
+      ctx.arcTo(x,y,x+w,y,r);
+      ctx.closePath();
+    }
+    function drawIdPhoto(ctx,img,x,y,w,h){
+      if(!img){
+        ctx.fillStyle='#141414';
+        idRoundRect(ctx,x,y,w,h,12);ctx.fill();
+        ctx.strokeStyle='#333';ctx.lineWidth=2;
+        idRoundRect(ctx,x,y,w,h,12);ctx.stroke();
+        ctx.fillStyle='#555';ctx.font='14px sans-serif';ctx.textAlign='center';
+        ctx.fillText('PHOTO',x+w/2,y+h/2);
+        return;
+      }
+      ctx.save();
+      idRoundRect(ctx,x,y,w,h,12);ctx.clip();
+      var ir=img.width/img.height,br=w/h,dw,dh,dx,dy;
+      if(ir>br){dh=h;dw=h*ir;dx=x-(dw-w)/2;dy=y;}
+      else{dw=w;dh=w/ir;dx=x;dy=y-(dh-h)/2;}
+      ctx.drawImage(img,dx,dy,dw,dh);
+      ctx.restore();
+      ctx.strokeStyle='rgba(255,122,0,0.5)';ctx.lineWidth=2;
+      idRoundRect(ctx,x,y,w,h,12);ctx.stroke();
+    }
+    function renderIdCard(){
+      var c=document.getElementById('id-canvas');
+      if(!c)return;
+      c.width=900;c.height=700;
+      var ctx=c.getContext('2d');
+      var W=c.width,H=c.height;
+      ctx.fillStyle='#050505';ctx.fillRect(0,0,W,H);
+      var grd=ctx.createLinearGradient(0,0,W,H);
+      grd.addColorStop(0,'#ff7a00');grd.addColorStop(0.5,'#ffb347');grd.addColorStop(1,'#ff7a00');
+      ctx.strokeStyle=grd;ctx.lineWidth=7;
+      idRoundRect(ctx,14,14,W-28,H-28,22);ctx.stroke();
+      ctx.fillStyle='#0c0c0c';
+      idRoundRect(ctx,26,26,W-52,H-52,16);ctx.fill();
+      ctx.font='bold 38px system-ui,sans-serif';
+      var brandY=68;
+      var w1=ctx.measureText('Ruining').width;
+      var w2=ctx.measureText('Subs').width;
+      var gap=4;
+      var start=W/2-(w1+gap+w2)/2;
+      ctx.textAlign='left';
+      ctx.fillStyle='#ffffff';ctx.fillText('Ruining',start,brandY);
+      ctx.fillStyle='#ff7a00';ctx.fillText('Subs',start+w1+gap,brandY);
+      ctx.textAlign='center';
+      ctx.fillStyle='#ff7a00';ctx.font='bold 22px system-ui,sans-serif';
+      ctx.fillText('IDENTIFICATION CARD',W/2,102);
+      ctx.fillStyle='#888';ctx.font='14px system-ui,sans-serif';
+      ctx.fillText('EXPOSURE RECORD',W/2,124);
+      var name=(document.getElementById('id-name')||{}).value||'';
+      var weight=(document.getElementById('id-weight')||{}).value||'';
+      var height=(document.getElementById('id-height')||{}).value||'';
+      var dob=(document.getElementById('id-dob')||{}).value||'';
+      var loc=(document.getElementById('id-loc')||{}).value||'';
+      var social=(document.getElementById('id-social')||{}).value||'';
+      function field(label,val,y){
+        ctx.textAlign='left';
+        ctx.fillStyle='#ff7a00';
+        ctx.font='bold 13px system-ui,sans-serif';
+        ctx.fillText(label,48,y);
+        ctx.fillStyle='#ffffff';
+        ctx.font='bold 22px system-ui,sans-serif';
+        var text=String(val||'—');
+        if(ctx.measureText(text).width>340)ctx.font='bold 18px system-ui,sans-serif';
+        ctx.fillText(text,48,y+28);
+        ctx.strokeStyle='#2a2a2a';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(48,y+40);ctx.lineTo(390,y+40);ctx.stroke();
+      }
+      field('FULL LEGAL NAME',name,160);
+      field('WEIGHT',weight,220);
+      field('HEIGHT',height,280);
+      field('DATE OF BIRTH',dob,340);
+      field('LOCATION',loc,400);
+      field('SOCIAL / HANDLE',social,460);
+      // photos — clear of footer
+      drawIdPhoto(ctx,idFaceImg,430,150,200,300);
+      drawIdPhoto(ctx,idBodyImg,650,150,200,300);
+      ctx.fillStyle='#aaa';ctx.font='bold 13px system-ui,sans-serif';ctx.textAlign='center';
+      ctx.fillText('FACE',530,470);ctx.fillText('BODY',750,470);
+      // footer well below social (social ends ~500)
+      ctx.fillStyle='rgba(255,122,0,0.16)';
+      idRoundRect(ctx,48,560,W-96,52,12);ctx.fill();
+      ctx.strokeStyle='rgba(255,122,0,0.55)';ctx.lineWidth=1.5;
+      idRoundRect(ctx,48,560,W-96,52,12);ctx.stroke();
+      ctx.font='bold 17px system-ui,sans-serif';
+      var a=ctx.measureText('EXPOSED ON ').width;
+      var b=ctx.measureText('Ruining').width;
+      var c2=ctx.measureText('Subs').width;
+      var d=ctx.measureText('.com').width;
+      var tot=a+b+c2+d;
+      var fs=W/2-tot/2;
+      var fy=593;
+      ctx.textAlign='left';
+      ctx.fillStyle='#cccccc';ctx.fillText('EXPOSED ON ',fs,fy);
+      ctx.fillStyle='#ffffff';ctx.fillText('Ruining',fs+a,fy);
+      ctx.fillStyle='#ff7a00';ctx.fillText('Subs',fs+a+b,fy);
+      ctx.fillStyle='#cccccc';ctx.fillText('.com',fs+a+b+c2,fy);
+      try{idCardDataUrl=c.toDataURL('image/jpeg',0.92)}catch(e){idCardDataUrl=''}
+      var act=document.getElementById('id-actions');
+      if(act)act.style.display=idCardDataUrl?'block':'none';
+      toast('Card rendered');
+    }
+    async function onIdFace(e){
+      idFaceImg=await loadIdImage(e.target.files&&e.target.files[0]);
+      toast(idFaceImg?'Face loaded':'Face failed');
+    }
+    async function onIdBody(e){
+      idBodyImg=await loadIdImage(e.target.files&&e.target.files[0]);
+      toast(idBodyImg?'Body loaded':'Body failed');
+    }
+    function downloadIdCard(){
+      if(!idCardDataUrl)renderIdCard();
+      if(!idCardDataUrl){toast('Render first');return}
+      try{
+        // always show save sheet: works on iPhone Safari
+        var old=document.getElementById('id-save-sheet');
+        if(old)old.remove();
+        var sheet=document.createElement('div');
+        sheet.id='id-save-sheet';
+        sheet.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;';
+        sheet.innerHTML='<p style="color:#ff7a00;font-family:system-ui;font-weight:700;margin:0 0 10px;text-align:center">Hold the image → Save to Photos</p>'
+          +'<img src="'+idCardDataUrl+'" alt="ID" style="max-width:100%;max-height:70vh;border-radius:12px;border:2px solid #ff7a00"/>'
+          +'<button type="button" style="margin-top:14px;padding:12px 20px;border-radius:12px;border:0;background:#ff7a00;color:#000;font-weight:800;width:100%;max-width:320px">Close</button>';
+        sheet.querySelector('button').onclick=function(){sheet.remove()};
+        sheet.addEventListener('click',function(ev){if(ev.target===sheet)sheet.remove()});
+        document.body.appendChild(sheet);
+        // also try native download where supported
+        try{
+          var byteChars=atob(idCardDataUrl.split(',')[1]);
+          var byteNums=new Array(byteChars.length);
+          for(var i=0;i<byteChars.length;i++)byteNums[i]=byteChars.charCodeAt(i);
+          var blob=new Blob([new Uint8Array(byteNums)],{type:'image/jpeg'});
+          var url=URL.createObjectURL(blob);
+          var a=document.createElement('a');
+          a.href=url;a.download='ruiningsubs-id-card.jpg';
+          document.body.appendChild(a);a.click();a.remove();
+          setTimeout(function(){URL.revokeObjectURL(url)},2500);
+        }catch(e2){}
+        toast('Hold image to save');
+      }catch(e){
+        console.error(e);
+        toast('Could not open save — try screenshot');
+      }
+    }
+    function idCardToPost(){
+      idCardToFeed();
+    }
+    function idCardToFeed(){
+      if(!idCardDataUrl){toast('Render the card first');return}
+      // same flow as + publish: title, desc, tags, timer, up to 3 more photos
+      photos=[idCardDataUrl];
+      try{if(typeof renderPhotoPreview==='function')renderPhotoPreview()}catch(e){}
+      try{
+        var title=document.getElementById('new-title');
+        if(title)title.value=title.value||'My ID Card';
+        var desc=document.getElementById('new-desc');
+        if(desc&&!desc.value)desc.value='';
+        var tags=document.getElementById('new-tags');
+        if(tags)tags.value=tags.value||'idcard,exposed';
+      }catch(e){}
+      showPanel('create');
+      toast('Set title, timer & you can add up to 3 more photos');
+      try{
+        setTimeout(function(){
+          var el=document.getElementById('new-title');
+          if(el)el.focus();
+        },300);
+      }catch(e){}
+    }
+    async function idCardToProfile(){
+      if(!idCardDataUrl)renderIdCard();
+      if(!idCardDataUrl){toast('Render first');return}
+      if(!sb){toast('DB offline');return}
+      if(!currentUser||!currentUser.name){toast('Wait — user not ready');return}
+      if(!isRegistered()){toast('Register to add profile photos');return}
+      toast('Uploading to profile gallery…');
+      try{
+        var uploaded=[];
+        try{uploaded=await uploadPostPhotos([idCardDataUrl])}catch(e){uploaded=[idCardDataUrl]}
+        if(!uploaded.length)uploaded=[idCardDataUrl];
+        var imageField=uploaded[0];
+        // 10 years — permanent profile gallery (not in feed)
+        var exp=new Date(Date.now()+10*365*24*60*60*1000).toISOString();
+        var payload={
+          username:currentUser.name,
+          title:'Profile photo',
+          description:'ID / profile gallery',
+          tags:['profile_gallery'],
+          image_url:imageField,
+          expires_at:exp,
+          extend_amount:0,
+          views:0,likes_count:0,extensions_count:0
+        };
+        var res=await sb.from('posts').insert(payload).select('*').limit(1);
+        if(res.error){
+          res=await sb.from('posts').insert({
+            username:payload.username,title:payload.title,description:payload.description,
+            tags:payload.tags,image_url:payload.image_url,expires_at:payload.expires_at,extend_amount:0
+          }).select('*').limit(1);
+        }
+        if(res.error)throw res.error;
+        toast('Saved on your profile gallery');
+        try{openUser(currentUser.name)}catch(e){showPanel('profile')}
+      }catch(e){
+        console.error(e);
+        toast((e&&e.message)||'Could not save to profile');
+      }
+    }
+    function openIdCard(){showPanel('idcard');var act=document.getElementById('id-actions');if(act)act.style.display='none';}
+    function wireIdCard(){
+      var bId=document.getElementById('btn-open-idcard');if(bId)bId.onclick=function(){openIdCard()};
+      var bIdBack=document.getElementById('btn-idcard-back');if(bIdBack)bIdBack.onclick=function(){showPanel('explore')};
+      var bIdFace=document.getElementById('id-face');if(bIdFace)bIdFace.onchange=onIdFace;
+      var bIdBody=document.getElementById('id-body');if(bIdBody)bIdBody.onchange=onIdBody;
+      var bIdRen=document.getElementById('btn-id-render');if(bIdRen)bIdRen.onclick=renderIdCard;
+      var bIdDl=document.getElementById('btn-id-download');if(bIdDl)bIdDl.onclick=downloadIdCard;
+      var bIdFeed=document.getElementById('btn-id-feed');if(bIdFeed)bIdFeed.onclick=idCardToFeed;
+      var bIdProf=document.getElementById('btn-id-profile');if(bIdProf)bIdProf.onclick=idCardToProfile;
+    }
+
+    
+    function isProfileOnly(p){
+      if(!p)return false;
+      var tags=p.tags||[];
+      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+      if(Array.isArray(tags)&&tags.indexOf('profile_only')>=0)return true;
+      return false;
+    }
+    
+    
+    async function addProfilePhotos(files){
+      if(!sb||!isRegistered()){toast('Register first');return}
+      if(!files||!files.length)return;
+      toast('Uploading profile photos…');
+      try{
+        var list=[];
+        for(var i=0;i<files.length&&i<4;i++){
+          var dataUrl=await new Promise(function(res,rej){
+            var r=new FileReader();
+            r.onload=function(){res(r.result)};
+            r.onerror=rej;
+            r.readAsDataURL(files[i]);
+          });
+          if(typeof compressDataUrl==='function'){
+            try{dataUrl=await compressDataUrl(dataUrl,900,180000,0.55)}catch(e){}
+          }
+          list.push(dataUrl);
+        }
+        var uploaded=await uploadPostPhotos(list);
+        var imageField=uploaded.length===1?uploaded[0]:JSON.stringify(uploaded);
+        var far=new Date(Date.now()+10*365*24*3600*1000).toISOString();
+        var payload={
+          username:currentUser.name,
+          title:'Profile photo',
+          description:'',
+          tags:['profile_only'],
+          image_url:imageField,
+          expires_at:far,
+          extend_amount:0,
+          views:0,likes_count:0,extensions_count:0
+        };
+        var res=await sb.from('posts').insert(payload).select('*').limit(1);
+        if(res.error){
+          res=await sb.from('posts').insert({
+            username:payload.username,title:payload.title,description:'',
+            tags:payload.tags,image_url:payload.image_url,expires_at:far
+          }).select('*').limit(1);
+        }
+        if(res.error)throw res.error;
+        toast('Profile photo added');
+        try{loadMyGallery()}catch(e){}
+      }catch(e){
+        console.error(e);
+        toast((e&&e.message)||'Upload failed');
+      }
+    }
+    async function loadMyGallery(){
+      var box=document.getElementById('my-gallery');
+      if(!box||!isRegistered()||!sb)return;
+      box.innerHTML='<div style="color:var(--muted);font-size:13px">Loading gallery…</div>';
+      try{
+        var gr=await sb.from('posts').select('id,username,title,image_url,expires_at,created_at,tags,views,likes_count').eq('username',currentUser.name).order('created_at',{ascending:false}).limit(40);
+        var rows=(gr.data||[]).filter(function(r){
+          var tags=r.tags||[];
+          if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+          return Array.isArray(tags)&&tags.indexOf('profile_only')>=0;
+        });
+        if(!rows.length){
+          box.innerHTML='<div style="color:var(--muted);font-size:13px;margin-top:8px">No profile photos yet</div>';
+          return;
+        }
+        var html='<div style="font-weight:700;margin:10px 0 8px">My profile photos</div><div class="user-posts-grid">';
+        rows.forEach(function(r){
+          var imgs=[];try{imgs=parseImages(r.image_url)}catch(e){imgs=r.image_url?[r.image_url]:[]}
+          var src=imgs[0]||'';
+          html+='<div class="post" style="cursor:pointer" onclick="openDetail('+r.id+')"><div class="post-img-wrap">'+(src?'<img src="'+src+'" alt=""/>':'')+'</div></div>';
+          // ensure openDetail can find it
+          if(!posts.some(function(p){return String(p.id)===String(r.id)})){
+            posts.push({id:r.id,user:r.username,title:r.title,desc:'',tags:r.tags||['profile_only'],created:new Date(r.created_at).getTime(),expires:new Date(r.expires_at).getTime(),views:r.views||0,likes:r.likes_count||0,extensions:0,extendAmount:0,extenders:[],likedBy:[],image:r.image_url,images:imgs,featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:false});
+          }
+        });
+        html+='</div>';
+        box.innerHTML=html;
+      }catch(e){
+        console.warn(e);
+        box.innerHTML='';
+      }
+    }
+    
     async function createPost(){
       var title=document.getElementById('new-title').value.trim(),desc=document.getElementById('new-desc').value.trim();
       var tags=document.getElementById('new-tags').value.split(',').map(function(t){return t.trim()}).filter(Boolean);
