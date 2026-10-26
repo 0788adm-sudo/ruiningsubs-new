@@ -14825,8 +14825,9 @@ async function onIdFace(e){
     }
     function wireIdCard(){
       var bId=document.getElementById('btn-open-idcard');if(bId)bId.onclick=function(){openIdCard()};
-      var bId2=document.getElementById('btn-explore-idcard');if(bId2)bId2.onclick=function(){openIdCard('id')};
-      var bPea=document.getElementById('btn-explore-pea');if(bPea)bPea.onclick=function(){openIdCard('pea')};
+      // Keep scroll-safe taps from setupTaskUI — do not replace with raw onclick
+      var bId2=document.getElementById('btn-explore-idcard');if(bId2&&!bId2.__rsTapSafe)bId2.onclick=function(){openIdCard('id')};
+      var bPea=document.getElementById('btn-explore-pea');if(bPea&&!bPea.__rsTapSafe)bPea.onclick=function(){openIdCard('pea')};
       var bIdBack=document.getElementById('btn-idcard-back');if(bIdBack)bIdBack.onclick=function(){showPanel('wall')};
       var bIdFace=document.getElementById('id-face');if(bIdFace)bIdFace.onchange=onIdFace;
       var bIdBody=document.getElementById('id-body');if(bIdBody)bIdBody.onchange=onIdBody;
