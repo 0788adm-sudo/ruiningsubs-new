@@ -2912,10 +2912,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{if(typeof tags==='string')tags=JSON.parse(tags)}catch(e){tags=[]}
       if(!Array.isArray(tags))tags=[];
       // Drop huge album: blobs from tag arrays — they bloat every feed payload/render
-      tags=tags.filter(function(t){return String(t||'').indexOf('album:')!==0 && String(t||'').length<80});
+      tags=tags.filter(function(t){return String(t||'').indexOf('album:')!==0 && String(t||'').length<220});
       if(r.media_type==='video' && tags.indexOf('video')<0)tags.push('video');
       var created=r.created_at?Number(r.created_at):Date.now();
       var exp=r.expires_at?Number(r.expires_at):null;
+      var optimized='';
+      try{
+        for(var ti=0;ti<tags.length;ti++){
+          var ts=String(tags[ti]||'');
+          if(ts.indexOf('optv:')===0){optimized=ts.slice(5);break}
+        }
+      }catch(e){}
       return {
         id:r.id,
         username:r.username||'anon',
@@ -2925,6 +2932,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         image_url:(r.media_type==='video'?(r.thumb_url||''):(r.media_url||r.thumb_url||'')),
         media_url:r.media_url||'',
         thumb_url:r.thumb_url||'',
+        optimized_url:optimized||r.optimized_url||'',
         media_type:r.media_type||'',
         expires_at:exp?new Date(exp).toISOString():null,
         featured_until:r.featured_until?new Date(Number(r.featured_until)).toISOString():null,
@@ -3065,7 +3073,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }catch(e){}
           return by;
         })(),
-        image:imgs[0]||'',images:imgs,media_url:p.media_url||'',thumb_url:thumb||'',media_type:p.media_type||'',poster:(thumb && !(typeof isVideoUrl==='function' && isVideoUrl(thumb)))?thumb:'',featuredUntil:p.featured_until?new Date(p.featured_until).getTime():0,
+        image:imgs[0]||'',images:imgs,media_url:p.media_url||'',thumb_url:thumb||'',optimized_url:p.optimized_url||'',media_type:p.media_type||'',poster:(thumb && !(typeof isVideoUrl==='function' && isVideoUrl(thumb)))?thumb:'',featuredUntil:p.featured_until?new Date(p.featured_until).getTime():0,
         savesCount:Number(p.saves_count||0),downloadsCount:Number(p.downloads_count||0),reactions:(function(){
           var r={};
           try{if(p.reactions&&typeof p.reactions==='object')r=Object.assign({},p.reactions)}catch(e){}
@@ -9292,6 +9300,10 @@ function openRoulette(){
       post.video=post.video||vsrc;
       post.thumb_url=post.thumb_url||poster;
       post.poster=post.poster||poster;
+      try{
+        var opt=row.optimized_url||parseOptTag(post.tags)||'';
+        if(opt) post.optimized_url=opt;
+      }catch(e){}
       if(rowExp) post.expires=Math.max(Number(post.expires)||0,rowExp);
       function upsert(arr){
         arr=arr||[];
@@ -9634,7 +9646,7 @@ function openRoulette(){
         var rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:1800000});
         rec.ondataavailable=function(ev){if(ev.data&&ev.data.size)chunks.push(ev.data)};
         var done=new Promise(function(res){rec.onstop=function(){res()}});
-        updateVideoProgress('Compressing video…','Making a mobile-friendly copy',12);
+        try{if(typeof updateVideoProgress==='function') updateVideoProgress('Compressing video…','Making a mobile-friendly copy',12)}catch(e){}
         rec.start(250);
         v.playbackRate=1;
         await v.play().catch(function(){});
@@ -9655,8 +9667,10 @@ function openRoulette(){
         var blob=new Blob(chunks,{type:mime});
         if(blob.size<50000 || blob.size>file.size*0.98)return file;
         var ext=mime.indexOf('webm')>=0?'webm':'mp4';
-        updateVideoProgress('Compression done','Uploading optimized clip',28);
-        return new File([blob],'gt_'+Date.now()+'.'+ext,{type:mime});
+        try{if(typeof updateVideoProgress==='function') updateVideoProgress('Compression done','Uploading optimized clip',28)}catch(e){}
+        var outFile=new File([blob],'gt_'+Date.now()+'.'+ext,{type:mime});
+        outFile.__rsOptimized=1;
+        return outFile;
       }catch(e){
         console.warn('video compress skip',e);
         return file;
@@ -9664,8 +9678,12 @@ function openRoulette(){
     }
     async function uploadRawVideo(file){
       if(!file){window.__vpErr='No storage';return null}
+      window.__vpWasOptimized=false;
       try{
+        var before=file;
         file=await compressVideoForUpload(file);
+        if(file&&file.__rsOptimized) window.__vpWasOptimized=true;
+        if(file!==before && file&&file.size<before.size) window.__vpWasOptimized=true;
       }catch(e){}
       try{
         var cfUrl=await uploadCfFile(file);
@@ -9827,6 +9845,10 @@ function openRoulette(){
         var storeField=posterUrl?JSON.stringify([imageField,posterUrl]):imageField;
         var videoMins=Math.max(60, Number(selectedCreateMin||1440)||1440);
         var videoExpires=Date.now()+videoMins*60000;
+        // If upload was already mobile-optimized, stamp optv so GoonTok prefers it
+        try{
+          if(window.__vpWasOptimized) tags=withOptTag(tags, imageField);
+        }catch(e){}
         var cfVid=await createCfPost({
           username:(currentUser&&currentUser.name)||'anon',
           title:title,
@@ -9850,14 +9872,16 @@ function openRoulette(){
           image_url:imageField,
           media_url:imageField,
           thumb_url:posterUrl||saved.thumb_url||'',
+          optimized_url:parseOptTag(tags)||'',
           created_at:saved.created_at||Date.now(),
           expires_at:saved.expires_at||new Date(videoExpires).toISOString(),
           expires:videoExpires,
           views:0,likes_count:0
         });
         try{
-          (posts||[]).forEach(function(p){if(String(p.id)===String(saved.id)){p.expires=videoExpires;p.extendAmount=p.extendAmount||360;}});
+          (posts||[]).forEach(function(p){if(String(p.id)===String(saved.id)){p.expires=videoExpires;p.extendAmount=p.extendAmount||360;p.optimized_url=parseOptTag(tags)||p.optimized_url||'';}});
         }catch(e){}
+        try{markVideoPlayable(saved.id, imageField); if(parseOptTag(tags)) markVideoHealth(saved.id,'playable',{optimized:imageField,src:imageField})}catch(e){}
         rememberVideos((posts||[]).filter(function(p){return String(p.id)===String(saved.id)}));
         try{
           var map=JSON.parse(localStorage.getItem('rs_vposter')||'{}')||{};
@@ -9937,9 +9961,95 @@ function openRoulette(){
       }
     }
     var gtTab='feed';
+    var GT_TARGET=8;
+    var GT_PROBE_MS=8000;
+    var GT_BROKEN_TTL=7*24*60*60*1000;
+    function loadVideoHealth(){
+      try{return JSON.parse(localStorage.getItem('rs_video_health')||'{}')||{}}catch(e){return{}}
+    }
+    function saveVideoHealth(map){
+      try{
+        var keys=Object.keys(map||{});
+        if(keys.length>300){
+          keys.sort(function(a,b){return Number((map[a]&&map[a].at)||0)-Number((map[b]&&map[b].at)||0)});
+          keys.slice(0,keys.length-250).forEach(function(k){delete map[k]});
+        }
+        localStorage.setItem('rs_video_health',JSON.stringify(map||{}));
+      }catch(e){}
+    }
+    function videoHealthOf(id){
+      var m=loadVideoHealth();
+      var h=m[String(id)]||null;
+      if(!h)return null;
+      if(h.status==='broken' && h.at && Date.now()-Number(h.at)>GT_BROKEN_TTL){
+        // Allow retry after TTL (may have been optimized meanwhile)
+        delete m[String(id)];
+        saveVideoHealth(m);
+        return null;
+      }
+      return h;
+    }
+    function markVideoHealth(id, status, extra){
+      if(!id)return;
+      var m=loadVideoHealth();
+      var cur=m[String(id)]||{};
+      m[String(id)]=Object.assign({},cur,extra||{},{status:status,at:Date.now()});
+      saveVideoHealth(m);
+    }
+    function markVideoPlayable(id, src){
+      markVideoHealth(id,'playable',{src:src||''});
+    }
+    function markVideoBroken(id, reason, src){
+      markVideoHealth(id,'broken',{reason:String(reason||'fail').slice(0,80),src:src||''});
+      enqueueVideoOptimize(id, reason||'broken');
+    }
+    function markVideoNeedsOpt(id, reason){
+      var h=videoHealthOf(id);
+      if(h&&h.status==='playable'&&h.optimized)return;
+      markVideoHealth(id, (h&&h.status==='broken')?'broken':'needs_opt',{reason:String(reason||'needs_opt').slice(0,80)});
+      enqueueVideoOptimize(id, reason||'needs_opt');
+    }
+    function isVideoHiddenFromGoonTok(id){
+      var h=videoHealthOf(id);
+      return !!(h&&h.status==='broken');
+    }
+    function parseOptTag(tags){
+      tags=tags||[];
+      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+      if(!Array.isArray(tags))return '';
+      for(var i=0;i<tags.length;i++){
+        var t=String(tags[i]||'');
+        if(t.indexOf('optv:')===0) return t.slice(5);
+      }
+      return '';
+    }
+    function withOptTag(tags, url){
+      tags=Array.isArray(tags)?tags.slice():[];
+      tags=tags.filter(function(t){return String(t||'').indexOf('optv:')!==0});
+      if(url) tags.push('optv:'+String(url));
+      return tags;
+    }
+    function loadOptQueue(){
+      try{return JSON.parse(localStorage.getItem('rs_video_opt_queue')||'[]')||[]}catch(e){return[]}
+    }
+    function saveOptQueue(arr){
+      try{localStorage.setItem('rs_video_opt_queue',JSON.stringify((arr||[]).slice(0,80)))}catch(e){}
+    }
+    function enqueueVideoOptimize(id, reason){
+      id=String(id||'');
+      if(!id)return;
+      var q=loadOptQueue().filter(function(x){return x&&x.id!==id});
+      q.unshift({id:id,reason:String(reason||'').slice(0,60),at:Date.now()});
+      saveOptQueue(q);
+      try{scheduleVideoOptimizeWorker()}catch(e){}
+    }
     function goontokPrimaryVideo(p){
       if(!p)return null;
+      if(isVideoHiddenFromGoonTok(p.id))return null;
+      var health=videoHealthOf(p.id)||{};
+      var opt=p.optimized_url||health.optimized||parseOptTag(p.tags)||'';
       var candidates=[];
+      if(opt) candidates.push(opt);
       if(p.media_url) candidates.push(p.media_url);
       if(p.video) candidates.push(p.video);
       try{
@@ -9957,18 +10067,19 @@ function openRoulette(){
       var poster='';
       try{poster=p.thumb_url||p.poster||videoPosterOf(p, src)||''}catch(e){poster=p.thumb_url||p.poster||''}
       if(poster && (isVideoUrl(poster) || poster===src)) poster='';
-      return {type:'video',src:src,poster:poster};
+      return {type:'video',src:src,poster:poster,optimized:!!(opt&&src===opt)};
     }
     function goontokMedia(p){
       var m=goontokPrimaryVideo(p);
       return m?[m]:[];
     }
-    function goontokList(){
+    function goontokCandidatePool(){
       var seen={},out=[];
       function add(p){
         if(!p||p.id==null)return;
         var k=String(p.id);
         if(seen[k]||(typeof isDeletedId==='function'&&isDeletedId(k)))return;
+        if(isVideoHiddenFromGoonTok(k))return;
         var media=goontokPrimaryVideo(p);
         if(!media||!media.src)return;
         var blob=((p.title||'')+' '+(p.desc||'')+' '+(Array.isArray(p.tags)?p.tags.join(' '):'')+' '+(p.user||'')).toLowerCase();
@@ -9981,7 +10092,6 @@ function openRoulette(){
         vids.forEach(add);
       }catch(e){}
       (posts||[]).forEach(add);
-      // Never inject Wall photo/PEA/ID posts into GoonTok — video URLs only
       (normalFeedPosts||[]).forEach(function(p){
         if(typeof isVideoPost==='function'&&isVideoPost(p)) add(p);
       });
@@ -9990,16 +10100,23 @@ function openRoulette(){
         loadFollowingLocal().forEach(function(u){fol[String(u).toLowerCase()]=1});
         out=out.filter(function(p){return fol[String(p.user||'').toLowerCase()]});
       }
-      if(gtTab==='foryou'){
-        out.sort(function(a,b){
-          var sa=(Number(a.views)||0)+(Number(a.likes)||0)*8+(Number(a.extensions)||0)*4;
-          var sb=(Number(b.views)||0)+(Number(b.likes)||0)*8+(Number(b.extensions)||0)*4;
-          return sb-sa || (Number(b.created)||0)-(Number(a.created)||0);
-        });
-      } else {
-        out.sort(function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)});
-      }
-      return out.slice(0,24);
+      // Playable-known first, then unknown, never broken (already filtered)
+      out.sort(function(a,b){
+        var ha=videoHealthOf(a.id)||{}, hb=videoHealthOf(b.id)||{};
+        var sa=ha.status==='playable'?0:(ha.optimized||a.optimized_url||parseOptTag(a.tags)?1:2);
+        var sb=hb.status==='playable'?0:(hb.optimized||b.optimized_url||parseOptTag(b.tags)?1:2);
+        if(sa!==sb)return sa-sb;
+        if(gtTab==='foryou'){
+          var scoreA=(Number(a.views)||0)+(Number(a.likes)||0)*8+(Number(a.extensions)||0)*4;
+          var scoreB=(Number(b.views)||0)+(Number(b.likes)||0)*8+(Number(b.extensions)||0)*4;
+          if(scoreB!==scoreA) return scoreB-scoreA;
+        }
+        return (Number(b.created)||0)-(Number(a.created)||0);
+      });
+      return out;
+    }
+    function goontokList(){
+      return goontokCandidatePool().slice(0, Math.max(GT_TARGET, 12));
     }
     function setGoonTokTab(tab){
       gtTab=tab||'foryou';
@@ -10053,70 +10170,166 @@ function openRoulette(){
       if(exp>Date.now()+60*24*3600*1000)return false;
       return true;
     }
+    function goontokSlideHtml(p){
+      var m=goontokPrimaryVideo(p);
+      if(!m)return '';
+      var pst=m.poster||'';
+      var album='<div class="gt-media" data-i="0">'
+        +(pst?'<img class="gt-poster" src="'+esc(pst)+'" alt="" decoding="async" fetchpriority="high"/>':'<div class="gt-poster gt-poster-empty" aria-hidden="true"></div>')
+        +'<video playsinline webkit-playsinline loop muted preload="none" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:cover;background:#000"></video></div>';
+      var tags=(p.tags||[]).filter(function(t){var s=String(t||'');return s.indexOf('album:')!==0&&s.indexOf('optv:')!==0}).slice(0,6).map(function(t){return '#'+String(t).replace(/^#/,'')}).join(' ');
+      var av=avatarHtml(p.user);
+      var likes=Number(p.likes)||0;
+      var comments=Number(p.commentCount||p.comments||0);
+      var timed=goontokTimed(p);
+      var already=false;
+      try{already=localStorage.getItem('rs_ext_'+String(p.id))==='1'}catch(e){}
+      var expMs=Number(p.expires||0);
+      var leftMs=expMs?expMs-Date.now():0;
+      var expired=timed && leftMs<=0;
+      var rem='';
+      try{
+        if(timed&&typeof fmt==='function'){
+          rem=expired?'EXPIRED':fmt(Math.max(0,leftMs));
+        }
+      }catch(e){}
+      var extL=timed?(typeof fmtMin==='function'?fmtMin(Number(p.extendAmount||360)||360):'+6h'):'';
+      var dying=timed && !expired && leftMs<4*3600000;
+      var extBtn=timed?('<button class="gt-act gt-ext'+(already?' on':'')+'" type="button" '+(already?'disabled':'')+' onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">⏱</span>'+(already?'Done':(dying||expired?'KEEP +'+extL:('+'+extL)))+'</button>'):'';
+      var keepBar=timed?('<button class="gt-keep" type="button" onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')">⏱ '+(expired?'EXPIRED · pay to keep this up':((rem||'timer')+' · pay to keep this up'))+'</button>'):'';
+      return '<div class="gt-slide" data-gid="'+String(p.id).replace(/"/g,'')+'">'+
+        '<div class="gt-album">'+album+'</div>'+keepBar+
+        '<div class="gt-rail">'+
+          '<div class="gt-av" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">'+av+'</div>'+
+          '<span class="gt-plus">+</span>'+
+          '<button class="gt-act" type="button" onclick="event.stopPropagation();openReact(\''+String(p.id).replace(/'/g,'')+'\',event)"><span class="ico">♥</span>'+likes+'</button>'+
+          '<button class="gt-act" type="button" onclick="event.stopPropagation();openDetail(\''+String(p.id).replace(/'/g,'')+'\',true)"><span class="ico">💬</span>'+comments+'</button>'+
+          '<button class="gt-act gt-print" type="button" onclick="event.stopPropagation();openPrintDirty()"><span class="ico">🖨</span><span class="lab">Printed</span></button>'+
+          extBtn+
+          '<button class="gt-act gt-share" type="button" onclick="event.stopPropagation();sharePost && sharePost(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">↗</span>Share</button>'+
+        '</div>'+
+        '<div class="gt-meta">'+
+          '<div class="gt-user" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">@'+esc(p.user||'anon')+'</div>'+
+          '<div class="gt-title">'+esc(p.title||'')+'</div>'+
+          (p.desc?'<div class="gt-desc">'+esc(String(p.desc).slice(0,180))+(String(p.desc).length>180?'…':'')+'</div>':'')+
+          (tags?'<div class="gt-tags">'+esc(tags)+'</div>':'')+
+          (rem?'<div class="gt-timeleft">⏱ '+esc(rem)+(expired?'':' left')+'</div>':'')+
+        '</div>'+
+      '</div>';
+    }
     function renderGoonTok(){
       var box=document.getElementById('gt-scroller');
       if(!box)return;
       var list=goontokList();
       if(!list.length){
-        box.innerHTML='<div class="gt-empty">No videos yet. Upload with VIDEO + or open Feed first.</div>';
+        box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
+        try{refillGoonTokPlayable(true)}catch(e){}
         return;
       }
-      var sig=list.map(function(p){return String(p.id)}).join(',')+'|'+gtTab;
+      var sig=list.map(function(p){return String(p.id)}).join(',')+'|'+gtTab+'|h'+Object.keys(loadVideoHealth()).length;
       if(box.getAttribute('data-gt-sig')===sig && box.querySelector('.gt-slide')){
         bindGoonTok();
         return;
       }
       box.setAttribute('data-gt-sig',sig);
-      box.innerHTML=list.map(function(p){
-        var m=goontokPrimaryVideo(p);
-        if(!m)return '';
-        var pst=m.poster||'';
-        var album='<div class="gt-media" data-i="0">'
-          +(pst?'<img class="gt-poster" src="'+esc(pst)+'" alt="" decoding="async" fetchpriority="high"/>':'<div class="gt-poster gt-poster-empty" aria-hidden="true"></div>')
-          +'<div class="gt-fallback" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:#0c0c10;color:#fff;font-weight:800;z-index:2"><span style="font-size:28px">▶</span><span style="font-size:12px;opacity:.75">Tap to retry</span></div>'
-          +'<video playsinline webkit-playsinline loop muted preload="none" data-src="'+esc(m.src)+'" data-gt-vid="1" style="width:100%;height:100%;object-fit:cover;background:#000"></video></div>';
-        var tags=(p.tags||[]).filter(function(t){return String(t||'').indexOf('album:')!==0}).slice(0,6).map(function(t){return '#'+String(t).replace(/^#/,'')}).join(' ');
-        var av=avatarHtml(p.user);
-        var likes=Number(p.likes)||0;
-        var comments=Number(p.commentCount||p.comments||0);
-        var timed=goontokTimed(p);
-        var already=false;
-        try{already=localStorage.getItem('rs_ext_'+String(p.id))==='1'}catch(e){}
-        var expMs=Number(p.expires||0);
-        var leftMs=expMs?expMs-Date.now():0;
-        var expired=timed && leftMs<=0;
-        var rem='';
+      box.innerHTML=list.map(goontokSlideHtml).filter(Boolean).join('');
+      if(!box.querySelector('.gt-slide')){
+        box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
+      }
+      bindGoonTok();
+      try{refillGoonTokPlayable(false)}catch(e){}
+      try{scheduleVideoOptimizeWorker()}catch(e){}
+    }
+    function gtVisibleIds(){
+      var box=document.getElementById('gt-scroller');
+      if(!box)return [];
+      return [].slice.call(box.querySelectorAll('.gt-slide[data-gid]')).map(function(el){return el.getAttribute('data-gid')});
+    }
+    function silentlyDropGoonTokSlide(id, reason){
+      id=String(id||'');
+      if(!id)return;
+      markVideoBroken(id, reason||'playback_fail');
+      var box=document.getElementById('gt-scroller');
+      if(!box)return;
+      var slide=box.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"]');
+      var wasActive=false;
+      try{
+        var sc=box;
+        var slides=[].slice.call(sc.querySelectorAll('.gt-slide'));
+        var idx=slides.indexOf(slide);
+        var cur=typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():0;
+        wasActive=idx===cur;
+      }catch(e){}
+      if(slide){
+        try{slide.querySelectorAll('video').forEach(function(v){try{v.pause();v.removeAttribute('src');v.load()}catch(e){}})}catch(e){}
+        try{slide.remove()}catch(e){}
+      }
+      var left=gtVisibleIds();
+      if(!left.length){
+        box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
+      }
+      try{bindGoonTok()}catch(e){}
+      if(wasActive){
         try{
-          if(timed&&typeof fmt==='function'){
-            rem=expired?'EXPIRED':fmt(Math.max(0,leftMs));
+          if(typeof window.__gtWindowVideos==='function'){
+            window.__gtWindowVideos(typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():0);
           }
         }catch(e){}
-        var extL=timed?(typeof fmtMin==='function'?fmtMin(Number(p.extendAmount||360)||360):'+6h'):'';
-        var dying=timed && !expired && leftMs<4*3600000;
-        var extBtn=timed?('<button class="gt-act gt-ext'+(already?' on':'')+'" type="button" '+(already?'disabled':'')+' onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">⏱</span>'+(already?'Done':(dying||expired?'KEEP +'+extL:('+'+extL)))+'</button>'):'';
-        var keepBar=timed?('<button class="gt-keep" type="button" onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')">⏱ '+(expired?'EXPIRED · pay to keep this up':((rem||'timer')+' · pay to keep this up'))+'</button>'):'';
-        return '<div class="gt-slide" data-gid="'+String(p.id).replace(/"/g,'')+'">'+
-          '<div class="gt-album">'+album+'</div>'+keepBar+
-          '<div class="gt-rail">'+
-            '<div class="gt-av" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">'+av+'</div>'+
-            '<span class="gt-plus">+</span>'+
-            '<button class="gt-act" type="button" onclick="event.stopPropagation();openReact(\''+String(p.id).replace(/'/g,'')+'\',event)"><span class="ico">♥</span>'+likes+'</button>'+
-            '<button class="gt-act" type="button" onclick="event.stopPropagation();openDetail(\''+String(p.id).replace(/'/g,'')+'\',true)"><span class="ico">💬</span>'+comments+'</button>'+
-            '<button class="gt-act gt-print" type="button" onclick="event.stopPropagation();openPrintDirty()"><span class="ico">🖨</span><span class="lab">Printed</span></button>'+
-            extBtn+
-            '<button class="gt-act gt-share" type="button" onclick="event.stopPropagation();sharePost && sharePost(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">↗</span>Share</button>'+
-          '</div>'+
-          '<div class="gt-meta">'+
-            '<div class="gt-user" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">@'+esc(p.user||'anon')+'</div>'+
-            '<div class="gt-title">'+esc(p.title||'')+'</div>'+
-            (p.desc?'<div class="gt-desc">'+esc(String(p.desc).slice(0,180))+(String(p.desc).length>180?'…':'')+'</div>':'')+
-            (tags?'<div class="gt-tags">'+esc(tags)+'</div>':'')+
-            (rem?'<div class="gt-timeleft">⏱ '+esc(rem)+(expired?'':' left')+'</div>':'')+
-          '</div>'+
-        '</div>';
-      }).filter(Boolean).join('');
-      bindGoonTok();
+      }
+      try{refillGoonTokPlayable(true)}catch(e){}
     }
+    async function refillGoonTokPlayable(forceFetch){
+      if(window.__gtRefilling){
+        window.__gtRefillAgain=!!(window.__gtRefillAgain||forceFetch);
+        return;
+      }
+      window.__gtRefilling=true;
+      try{
+        var box=document.getElementById('gt-scroller');
+        if(!box)return;
+        var have=gtVisibleIds();
+        if(have.length>=GT_TARGET && !forceFetch)return;
+        if(forceFetch || have.length<GT_TARGET){
+          try{
+            // Bust short cache so we can discover more candidates when many are broken
+            window.__vidFetchAt=0;window.__vidFetchP=null;
+            await fetchCfFeed('video', 50).then(function(cf){
+              (cf||[]).forEach(function(row){try{mergeVideoRow(row)}catch(e){}});
+            });
+          }catch(e){
+            try{await fetchVideoPosts()}catch(e2){}
+          }
+        }
+        have=gtVisibleIds();
+        var pool=goontokCandidatePool();
+        var present={};have.forEach(function(id){present[id]=1});
+        var added=0;
+        for(var i=0;i<pool.length && have.length+added<GT_TARGET;i++){
+          var p=pool[i];
+          var id=String(p.id);
+          if(present[id])continue;
+          var html=goontokSlideHtml(p);
+          if(!html)continue;
+          if(box.querySelector('.gt-empty')) box.innerHTML='';
+          box.insertAdjacentHTML('beforeend', html);
+          present[id]=1;added++;
+        }
+        if(added){
+          box.setAttribute('data-gt-sig','');
+          bindGoonTok();
+        }else if(!gtVisibleIds().length){
+          box.innerHTML='<div class="gt-empty">No playable videos right now. Try again soon.</div>';
+        }
+      }finally{
+        window.__gtRefilling=false;
+        if(window.__gtRefillAgain){
+          window.__gtRefillAgain=false;
+          setTimeout(function(){refillGoonTokPlayable(true).catch(function(){})},0);
+        }
+      }
+    }
+    window.silentlyDropGoonTokSlide=silentlyDropGoonTokSlide;
+    window.refillGoonTokPlayable=refillGoonTokPlayable;
     window.__gtSound=false;
     function toggleGtSound(){window.__gtSound=!window.__gtSound}
     window.toggleGtSound=toggleGtSound;
@@ -10135,10 +10348,11 @@ function openRoulette(){
     window.gtAlbumMove=gtAlbumMove;
     function bindGoonTok(){
       var sc=document.getElementById('gt-scroller');
-      if(!sc)return;
+      if(!sc||typeof sc.addEventListener!=='function')return;
       if(window.__gtObs){try{window.__gtObs.disconnect()}catch(e){}}
       if(window.__gtIO){try{window.__gtIO.disconnect()}catch(e){}}
       var slides=[].slice.call(sc.querySelectorAll('.gt-slide'));
+      if(!slides.length)return;
       try{
         var h=sc.clientHeight||(window.innerHeight-82);
         sc.style.setProperty('--gt-h',h+'px');
@@ -10171,10 +10385,21 @@ function openRoulette(){
         }catch(e){}
         showPoster(v);
       }
+      function slideIdOf(v){
+        try{return v.getAttribute('data-gid')||(v.closest&&v.closest('.gt-slide')&&v.closest('.gt-slide').getAttribute('data-gid'))||''}catch(e){return ''}
+      }
+      function failVideo(v, reason){
+        var id=slideIdOf(v);
+        if(!id)return;
+        if(v.__gtFailed)return;
+        v.__gtFailed=1;
+        try{clearTimeout(v.__gtTimer)}catch(e){}
+        silentlyDropGoonTokSlide(id, reason||'error');
+      }
       function armVideo(v, play){
-        if(!v)return;
+        if(!v||v.__gtFailed)return;
         var s=v.getAttribute('data-src')||'';
-        if(!s)return;
+        if(!s){failVideo(v,'no_src');return}
         var needSet=v.getAttribute('src')!==s;
         if(needSet){
           try{v.preload=play?'auto':'metadata'}catch(e){}
@@ -10186,25 +10411,48 @@ function openRoulette(){
         v.defaultMuted=!window.__gtSound;
         v.autoplay=!!play;
         v.loop=true;
-        v.onplaying=function(){hidePoster(v)};
-        v.onwaiting=function(){/* keep poster hidden once started */};
-        v.onerror=function(){
-          try{
-            var fb=v.parentElement&&v.parentElement.querySelector('.gt-fallback');
-            if(fb)fb.style.display='flex';
-            showPoster(v);
-          }catch(e){}
+        v.onplaying=function(){
+          hidePoster(v);
+          try{clearTimeout(v.__gtTimer)}catch(e){}
+          var id=slideIdOf(v);
+          if(id) markVideoPlayable(id, s);
         };
+        v.onloadeddata=function(){
+          if(play||!v.paused) hidePoster(v);
+        };
+        v.onerror=function(){failVideo(v,'media_error')};
         if(!play){
           try{v.pause()}catch(e){}
+          // Soft metadata probe for next slide — fail only on hard error, not slow networks
+          try{clearTimeout(v.__gtTimer)}catch(e){}
+          v.__gtTimer=setTimeout(function(){
+            if(v.__gtFailed)return;
+            if(v.error) failVideo(v,'probe_error');
+          }, GT_PROBE_MS);
           return;
         }
+        try{clearTimeout(v.__gtTimer)}catch(e){}
+        v.__gtTimer=setTimeout(function(){
+          if(v.__gtFailed)return;
+          // Only drop if nothing arrived at all (readyState 0) — large MP4s can take longer to canplay
+          if(v.error){failVideo(v,'play_error');return}
+          if(v.readyState===0 && v.paused) failVideo(v,'start_timeout');
+        }, GT_PROBE_MS);
         var tryPlay=function(){
+          if(v.__gtFailed)return;
           var p=v.play();
           if(p&&p.then){
-            p.then(function(){hidePoster(v)}).catch(function(){
+            p.then(function(){
+              hidePoster(v);
+              var id=slideIdOf(v);
+              if(id) markVideoPlayable(id, s);
+            }).catch(function(){
               v.muted=true;window.__gtSound=false;
-              v.play().then(function(){hidePoster(v)}).catch(function(){});
+              v.play().then(function(){
+                hidePoster(v);
+                var id=slideIdOf(v);
+                if(id) markVideoPlayable(id, s);
+              }).catch(function(){failVideo(v,'play_reject')});
             });
           }else hidePoster(v);
         };
@@ -10212,7 +10460,7 @@ function openRoulette(){
         else{
           var once=function(){v.removeEventListener('loadeddata',once);tryPlay()};
           v.addEventListener('loadeddata',once);
-          setTimeout(tryPlay,280);
+          setTimeout(tryPlay,320);
         }
       }
       function activeIndex(){
@@ -10285,15 +10533,8 @@ function openRoulette(){
           if(ev.target&&ev.target.closest&&ev.target.closest('.gt-rail,.gt-meta,.gt-top,.gt-keep'))return;
           var slide=ev.target.closest?ev.target.closest('.gt-slide'):null;
           if(!slide)return;
-          var fb=ev.target.closest&&ev.target.closest('.gt-fallback');
           slide.querySelectorAll('video[data-gt-vid]').forEach(function(v){
             try{
-              if(fb){
-                try{v.removeAttribute('src')}catch(e){}
-                armVideo(v,true);
-                fb.style.display='none';
-                return;
-              }
               if(v.paused){
                 armVideo(v,true);
               }else{
@@ -10307,6 +10548,131 @@ function openRoulette(){
         });
       }
     }
+
+    /* —— Background optimize queue (client-side, rate-limited; never deletes posts) —— */
+    function findPostAnywhere(id){
+      id=String(id||'');
+      var pools=[window.__videoCache||[],posts||[],normalFeedPosts||[]];
+      try{pools.push(JSON.parse(localStorage.getItem('rs_videos')||'[]')||[])}catch(e){}
+      for(var i=0;i<pools.length;i++){
+        for(var j=0;j<(pools[i]||[]).length;j++){
+          if(String(pools[i][j]&&pools[i][j].id)===id) return pools[i][j];
+        }
+      }
+      return null;
+    }
+    function canRunVideoOptimizeNow(){
+      try{
+        if(document.hidden)return false;
+        var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+        if(c){
+          if(c.saveData)return false;
+          if(c.effectiveType && /^(slow-2g|2g)$/i.test(c.effectiveType))return false;
+        }
+      }catch(e){}
+      // At most one optimize every 3 minutes on this device
+      try{
+        var last=Number(localStorage.getItem('rs_video_opt_last')||0)||0;
+        if(Date.now()-last<3*60*1000)return false;
+      }catch(e){}
+      return true;
+    }
+    function scheduleVideoOptimizeWorker(){
+      if(window.__gtOptTimer)return;
+      window.__gtOptTimer=setTimeout(function(){
+        window.__gtOptTimer=null;
+        runVideoOptimizeWorker().catch(function(){});
+      }, 2500);
+    }
+    async function runVideoOptimizeWorker(){
+      if(window.__gtOptRunning)return;
+      if(!canRunVideoOptimizeNow())return;
+      var q=loadOptQueue();
+      if(!q.length)return;
+      var job=q.shift();
+      saveOptQueue(q);
+      if(!job||!job.id)return;
+      var post=findPostAnywhere(job.id);
+      if(!post)return;
+      var health=videoHealthOf(job.id)||{};
+      if(health.optimized||parseOptTag(post.tags)||post.optimized_url){
+        markVideoHealth(job.id,'playable',{optimized:health.optimized||post.optimized_url||parseOptTag(post.tags)});
+        return;
+      }
+      // Prefer original media for repair even if currently hidden from GoonTok as broken
+      var src=post.media_url||post.video||parseOptTag(post.tags)||post.optimized_url||'';
+      if(!src||!isVideoUrl(src))return;
+      // Light existence probe via Range — never full download for probing
+      var cl=0;
+      try{
+        var hr=await fetch(src,{method:'GET',headers:{Range:'bytes=0-0'},cache:'force-cache'});
+        if(!(hr.ok||hr.status===206)){
+          markVideoBroken(job.id,'origin_missing',src);
+          return;
+        }
+        var cr=hr.headers.get('Content-Range')||'';
+        var m=/\/(\d+)$/.exec(cr);
+        if(m) cl=Number(m[1])||0;
+      }catch(e){
+        markVideoNeedsOpt(job.id,'probe_network');
+        return;
+      }
+      // Skip huge files on-device (cost/battery). Keep queued as needs_opt for later/server.
+      if(cl && cl>35*1024*1024){
+        markVideoNeedsOpt(job.id,'too_large_'+Math.round(cl/1024/1024)+'mb');
+        return;
+      }
+      window.__gtOptRunning=true;
+      try{
+        localStorage.setItem('rs_video_opt_last',String(Date.now()));
+      }catch(e){}
+      try{
+        var blob=await fetch(src,{cache:'force-cache'}).then(function(r){
+          if(!r.ok)throw new Error('fetch '+r.status);
+          return r.blob();
+        });
+        if(!blob||blob.size<1000){markVideoBroken(job.id,'empty_blob',src);return}
+        var file=new File([blob],'src_'+job.id+'.mp4',{type:blob.type||'video/mp4'});
+        var out=file;
+        try{if(typeof compressVideoForUpload==='function') out=await compressVideoForUpload(file)}catch(e){}
+        if(!out||out.size<1000){markVideoNeedsOpt(job.id,'compress_fail');return}
+        // If compress didn't shrink much and original was already small/playable, just mark needs_opt lightly
+        var up=null;
+        try{up=await uploadCfFile(out)}catch(e){up=null}
+        if(!up){markVideoNeedsOpt(job.id,'upload_fail');return}
+        var tags=withOptTag(post.tags||[], up);
+        post.tags=tags;
+        post.optimized_url=up;
+        markVideoHealth(job.id,'playable',{optimized:up,src:up});
+        // Persist opt URL via tags (API has no dedicated optimized_url column in feed)
+        try{await patchCfPost(job.id,{tags:tags,thumb_url:post.thumb_url||post.poster||''})}catch(e){}
+        try{
+          // Reflect in local caches without deleting originals
+          function bump(arr){
+            return (arr||[]).map(function(x){
+              if(String(x.id)!==String(job.id))return x;
+              x.optimized_url=up;x.tags=tags;return x;
+            });
+          }
+          posts=bump(posts);
+          window.__videoCache=bump(window.__videoCache||[]);
+          normalFeedPosts=bump(normalFeedPosts||[]);
+          try{
+            var loc=JSON.parse(localStorage.getItem('rs_videos')||'[]')||[];
+            localStorage.setItem('rs_videos',JSON.stringify(bump(loc).slice(0,60)));
+          }catch(e){}
+        }catch(e){}
+      }catch(e){
+        console.warn('optimize worker',e);
+        markVideoNeedsOpt(job.id,'opt_exception');
+      }finally{
+        window.__gtOptRunning=false;
+        // Continue queue slowly
+        if(loadOptQueue().length) scheduleVideoOptimizeWorker();
+      }
+    }
+    window.scheduleVideoOptimizeWorker=scheduleVideoOptimizeWorker;
+    window.runVideoOptimizeWorker=runVideoOptimizeWorker;
     function showAuth(tab){
       tab=tab||'login';
       var login=document.getElementById('auth-login');
