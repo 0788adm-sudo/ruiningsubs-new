@@ -4025,10 +4025,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }else mp.innerHTML='';
       }
       try{
-        if(logged&&currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true);
+        if(currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true);
         else{
           var paw=document.getElementById('profile-av-wrap');
-          if(paw){paw.classList.remove('has-story','seen');paw.onclick=null;paw.removeAttribute('title')}
+          if(paw){paw.classList.remove('has-story','seen');paw.onclick=null;paw.title='';paw.removeAttribute('role')}
         }
       }catch(e){}
     }
@@ -4100,7 +4100,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(p&&p.twitter){var _tw=String(p.twitter).replace(/^@/,'');links.innerHTML+='<a href="'+linkUrl(p.twitter,'x')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">𝕏 @'+esc(_tw||'twitter')+'</a>';}
         if(p&&p.telegram){var _tg=String(p.telegram).replace(/^@/,'').replace(/^.*t.me\//i,'');links.innerHTML+='<a href="'+linkUrl(p.telegram,'tg')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">✈️ @'+esc(_tg||'telegram')+'</a>';}
         if(p&&p.link){links.innerHTML+='<a href="'+linkUrl(p.link,'web')+'" target="_blank" rel="noopener" style="color:var(--orange)">🔗 Link</a>';}
-        try{if(isRegistered()&&currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true)}catch(e){}
+        try{if(currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true)}catch(e){}
       });
     }
     function linkUrl(v,type){
