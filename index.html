@@ -16316,6 +16316,12 @@ async function onIdFace(e){
       var id=window.__removePostId||currentDetailId;
       if(!id){toast('Open the post first');return}
       var post=posts.find(function(p){return p.id===id||String(p.id)===String(id)});
+      try{if(!post && typeof findPostAnywhere==='function') post=findPostAnywhere(id)}catch(e){}
+      if(post && !isPaidRemovePost(post)){
+        toast('Normal posts cannot be removed with payment — only the publisher deletes them free');
+        closeModals();
+        return;
+      }
       var userName=(post&&post.user)||(currentUser&&currentUser.name)||'user';
       var title=(post&&post.title)||'';
       try{
