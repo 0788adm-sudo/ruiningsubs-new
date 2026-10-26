@@ -2034,11 +2034,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin:0 0 10px" onclick="navigator.clipboard.writeText('https://www.ruiningsubs.com/#coins');toast('Link copied')">Copy page link</button>
         <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay with Throne or Bitcoin. Then tap I paid on the pack you bought. Admin credits the coins.</p>
         <a class="btn btn-primary" href="https://throne.com/mastersan" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:0 0 12px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay on Throne</span></a>
-        <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 FC ($5) for 48 hours. Remove = 100 FC.</p>
+        <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 FC for 48 hours. Remove = 100 FC or $10.</p>
         <div id="coin-balance" style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:12px;padding:12px;margin-bottom:12px;font-weight:800;color:#f5c518">Balance: — FC</div>
         <div id="coin-packs"></div>
         <div style="margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5">
-          Pin 50 FC · Remove 100 FC · Roulette 100 FC · Print 350 FC
+          Pin 50 FC · Remove 100 FC / $10 · Roulette 50 FC (15 spins) · Print 350 FC / $40
         </div>
       </div>
       
@@ -2153,28 +2153,34 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div style="display:grid;gap:10px">
             <div style="border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--card)">
               <div style="font-size:11px;color:var(--muted);letter-spacing:1px">BASIC</div>
-              <div style="font-size:28px;font-weight:900">$10 <span style="font-size:14px;font-weight:700;color:var(--muted)">100 FC</span></div>
-              <p style="font-size:13px;color:var(--muted);margin:6px 0 10px">First boost. Pin + extra coins.</p>
+              <div style="font-size:28px;font-weight:900">$10 <span style="font-size:14px;font-weight:700;color:var(--muted)">110 FC</span></div>
+              <p style="font-size:13px;color:var(--muted);margin:6px 0 10px">First boost. Remove + extra coins.</p>
               <button class="btn btn-secondary" type="button" style="width:100%" onclick="openCoinShop()">Buy $10 pack</button>
             </div>
             <div style="border:1px solid #a855f7;border-radius:16px;padding:14px;background:#160c24;box-shadow:0 0 24px rgba(168,85,247,.2)">
               <div style="font-size:11px;color:#c4b5fd;letter-spacing:1px">MOST POPULAR</div>
-              <div style="font-size:28px;font-weight:900;color:#c4b5fd">$25 <span style="font-size:14px;font-weight:700">250 FC</span></div>
+              <div style="font-size:28px;font-weight:900;color:#c4b5fd">$25 <span style="font-size:14px;font-weight:700">290 FC</span></div>
               <p style="font-size:13px;color:var(--muted);margin:6px 0 10px">Pins, roulette, remove. Instant.</p>
               <button class="btn btn-primary" type="button" style="width:100%" onclick="openCoinShop()">Buy $25 pack</button>
             </div>
             <div style="border:1px solid #f5c518;border-radius:16px;padding:14px;background:#1a1408">
               <div style="font-size:11px;color:#f5c518;letter-spacing:1px">LIFE RUINING</div>
-              <div style="font-size:28px;font-weight:900;color:#f5c518">$50 <span style="font-size:14px;font-weight:700">500 FC</span></div>
+              <div style="font-size:28px;font-weight:900;color:#f5c518">$50 <span style="font-size:14px;font-weight:700">600 FC</span></div>
               <p style="font-size:13px;color:var(--muted);margin:6px 0 10px">Print + pins + vanish money.</p>
               <button class="btn btn-primary" type="button" style="width:100%;background:#f5c518;color:#000" onclick="openCoinShop()">Buy $50 pack</button>
+            </div>
+            <div style="border:1px solid rgba(52,211,153,.4);border-radius:16px;padding:14px;background:#06140f">
+              <div style="font-size:11px;color:#34d399;letter-spacing:1px">TOP PACK</div>
+              <div style="font-size:28px;font-weight:900;color:#34d399">$99 <span style="font-size:14px;font-weight:700">1200 FC</span></div>
+              <p style="font-size:13px;color:var(--muted);margin:6px 0 10px">Personal page + leftover coins.</p>
+              <button class="btn btn-primary" type="button" style="width:100%;background:#14532d;border-color:#15803d" onclick="openCoinShop()">Buy $99 pack</button>
             </div>
           </div>
 
           <h3 style="margin:22px 0 8px;font-size:20px">Push a post to the top</h3>
           <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Opens on the post you choose. Coins first = live now.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div style="border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center"><strong>48h</strong><div style="color:#f5c518;font-weight:800">50 FC</div><div style="font-size:11px;color:var(--muted)">$5</div></div>
+            <div style="border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center"><strong>48h</strong><div style="color:#f5c518;font-weight:800">50 FC</div><div style="font-size:11px;color:var(--muted)">coins only</div></div>
             <div style="border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center"><strong>7 days</strong><div style="color:#f5c518;font-weight:800">150 FC</div><div style="font-size:11px;color:var(--muted)">$15</div></div>
             <div style="border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center"><strong>30 days</strong><div style="color:#f5c518;font-weight:800">400 FC</div><div style="font-size:11px;color:var(--muted)">$40</div></div>
             <div style="border:1px solid var(--orange);border-radius:12px;padding:12px;text-align:center"><strong>Street print</strong><div style="color:var(--orange);font-weight:800" >350 FC</div><div style="font-size:11px;color:var(--muted)">$40 · pasted IRL</div></div>
@@ -2191,9 +2197,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div style="margin-top:12px;border:1px solid rgba(52,211,153,.35);border-radius:16px;padding:14px;background:#06140f">
             <div style="font-size:11px;letter-spacing:1px;color:#34d399">PERSONAL SITE</div>
             <h3 style="margin:4px 0">Your own page</h3>
-            <p style="font-size:13px;color:var(--muted);line-height:1.45">Your photos. Public comments. $100 or 1000 FC.</p>
-            <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px" onclick="buyPersonalPage()">Pay 1000 FC</button>
-            <a class="btn btn-secondary" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">Message admin</a>
+            <p style="font-size:13px;color:var(--muted);line-height:1.45">Your photos. Public comments. <strong style="color:#fff">1000 FC</strong> or <strong style="color:#fff">$99 on Throne</strong>. Leave Telegram or Twitter so admin can contact you.</p>
+            <input id="page-contact-tg" type="text" placeholder="Telegram @…" style="width:100%;margin:0 0 8px;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0a0a0a;color:#fff"/>
+            <input id="page-contact-x" type="text" placeholder="Twitter / X @…" style="width:100%;margin:0 0 10px;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0a0a0a;color:#fff"/>
+            <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:900" onclick="buyPersonalPage()">Pay 1000 FC</button>
+            <a class="btn btn-primary" id="page-throne-link" href="https://throne.com/mastersan/item/d7ae9529-3014-4403-954b-69a47d289e02" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;background:#4c1d95;font-weight:800">Pay $99 on Throne</a>
+            <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d;font-weight:800" onclick="confirmPersonalPagePaid()">I paid $99 — notify admin</button>
+            <a class="btn btn-ghost" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">Message admin</a>
           </div>
 
           <div style="margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5">
@@ -2210,7 +2220,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <button class="btn btn-primary" type="button" id="btn-post-task-free" style="width:100%;margin-bottom:8px" onclick="openIdCard('id')">Generate ID</button>
           <button class="btn btn-secondary" type="button" id="btn-generate-task" style="width:100%;margin-bottom:8px;display:none">Random task — 3 free</button>
           <div id="task-rolls-status" style="font-size:12px;color:var(--muted);text-align:center;margin:-2px 0 10px;display:none">3 free randoms left</div>
-          <div id="task-pack-box" style="display:none;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.35);border-radius:14px;padding:12px;margin-bottom:10px;text-align:left">
+          <div id="task-pack-box" style="display:none!important;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.35);border-radius:14px;padding:12px;margin-bottom:10px;text-align:left" hidden aria-hidden="true">
             <div style="font-weight:800;color:var(--orange);margin-bottom:4px">Unlock 20 random tasks — $10</div>
             <div style="font-size:12px;color:var(--muted);line-height:1.4;margin-bottom:8px">You used your 3 free randoms. Buy Fag Coins and unlock more tasks from the shop.</div>
             <a class="btn btn-primary" href="https://throne.com/mastersan/item/8808A465-B36A-4530-8D16-828F9C694C8A" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800" onclick="openCoinShop();return false">Buy Fag Coins</a>
@@ -2317,14 +2327,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             </div>
             <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:800" onclick="unlockRouletteWithCoins()">15 spins — 50 FC</button>
             <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px" onclick="openCoinShop()">Buy Fag Coins</button>
-            <a class="btn btn-primary" href="https://throne.com/mastersan/item/8808A465-B36A-4530-8D16-828F9C694C8A" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:900">
-              Pay $10 on Throne
+            <a class="btn btn-primary" href="https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:900" onclick="openCoinShop();return false">
+              Buy $10 → 110 FC on Throne
             </a>
-            <button class="btn btn-secondary" type="button" onclick="openCoinShop()" style="width:100%;margin-bottom:8px;font-weight:800">
-              Need coins? Buy Fag Coins
-            </button>
             <div style="font-size:11px;color:var(--muted);margin-top:9px;line-height:1.35">
-              After Throne, tap request. Only admin unlocks the 15 spins.
+              Extra spins cost <strong style="color:#fff">50 FC</strong> (15 spins). Coins only.
             </div>
           </div>
 
@@ -2339,10 +2346,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 <strong style="color:var(--orange)">After your 3 free spins:</strong>
                 <div style="font-size:12px;color:var(--muted);margin-top:4px">Buy Fag Coins, then pay 50 FC per extra pack.</div>
               </div>
-              <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="openCoinShop()" style="width:100%;margin-bottom:8px;font-weight:800">I paid — request 10-spin unlock</button>
-              <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;margin-bottom:8px">Check for approved unlock</button>
+              <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="unlockRouletteWithCoins()" style="width:100%;margin-bottom:8px;font-weight:800">Unlock 15 spins — 50 FC</button>
+              <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;margin-bottom:8px;display:none">Check for approved unlock</button>
               <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;font-weight:800" onclick="openCoinShop()">Buy Fag Coins</button>
-              <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px" onclick="startPayTicket({kind:'roulette',label:'Roulette unlock',amount:'$5'})">Pay $10 — create ticket</button>
+              <button class="btn btn-secondary" type="button" style="display:none;width:100%;margin-bottom:8px" onclick="openCoinShop()">Pay $10 — create ticket</button>
               <div id="roulette-btc" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:8px">
                 <div style="font-size:13px;font-weight:700;margin-bottom:4px">₿ Bitcoin</div>
                 <div style="font-family:monospace;font-size:11px;word-break:break-all;background:#0a0a0a;padding:8px;border-radius:8px;border:1px solid var(--border);user-select:all">135nMgiNWpSniDT7X9bhrJYGEA71N245V9</div>
@@ -2667,6 +2674,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </p>
       <p id="remove-post-id-label" style="display:none"></p>
       <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Remove — 100 FC</button>
+      <a class="btn btn-primary" id="btn-remove-throne" href="https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95">Pay $10 on Throne</a>
+      <a class="btn btn-secondary" href="https://www.paypal.me/MartinJimenez205/10" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:12px;font-weight:800">Pay $10 on PayPal</a>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid — send to admin</button>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" onclick="closeModals();openCoinShop()">Buy Fag Coins</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-rm" type="button">Keep it public</button>
@@ -2680,23 +2689,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <p style="text-align:center;color:#bdbdbd;font-size:13px;line-height:1.4;margin:0 0 14px">Pay once. Pin, print, remove or stay on Spotlight without leaving the site.</p>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
         <button type="button" onclick="closeBoost();openCoinShop()" style="width:100%;border:1px solid rgba(255,255,255,.1);background:#1b1b20;color:#fff;border-radius:14px;padding:12px 14px;text-align:left">
-          <b style="display:block;font-size:15px">$10 → 100 FC</b><span style="font-size:11px;color:#999">Remove a post · extra extends</span>
+          <b style="display:block;font-size:15px">$10 → 110 FC</b><span style="font-size:11px;color:#999">Remove a post · extra extends</span>
         </button>
         <button type="button" onclick="closeBoost();openCoinShop()" style="width:100%;border:1px solid rgba(255,106,0,.45);background:rgba(255,106,0,.12);color:#fff;border-radius:14px;padding:12px 14px;text-align:left">
           <b style="display:block;font-size:15px;color:#ffb35c">$25 → 290 FC · MOST USED</b><span style="font-size:11px;color:#ffd7a8">Pin + remove + leftover</span>
         </button>
         <button type="button" onclick="closeBoost();openCoinShop()" style="width:100%;border:1px solid rgba(245,197,24,.4);background:rgba(245,197,24,.08);color:#fff;border-radius:14px;padding:12px 14px;text-align:left">
-          <b style="display:block;font-size:15px;color:#f5c518">$50 → 500 FC</b><span style="font-size:11px;color:#e8d48a">Print + pin + leftover coins</span>
+          <b style="display:block;font-size:15px;color:#f5c518">$50 → 600 FC</b><span style="font-size:11px;color:#e8d48a">Print + pin + leftover coins</span>
         </button>
         <button type="button" onclick="closeBoost();openCoinShop()" style="width:100%;border:1px solid rgba(255,255,255,.16);background:#16161a;color:#fff;border-radius:14px;padding:12px 14px;text-align:left">
-          <b style="display:block;font-size:15px">$100 → 1000 FC</b><span style="font-size:11px;color:#999">Personal page</span>
+          <b style="display:block;font-size:15px">$99 → 1200 FC</b><span style="font-size:11px;color:#999">Personal page · top pack</span>
         </button>
       </div>
       <div style="font-size:12px;line-height:1.55;color:#cfcfcf;margin:0 0 14px;background:#0c0c0e;border-radius:12px;padding:10px 12px">
         ⭐ Spotlight pin — 50 FC / 48h<br>
         🗑 Remove — 100 FC<br>
         🖨 Street print — 350 FC (vs $40 cash)<br>
-        🌐 Personal page — 1000 FC = $100
+        🌐 Personal page — 1000 FC or $99 Throne
       </div>
       <button class="btn" type="button" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeBoost();openCoinShop()">Buy Fag Coins</button>
       <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -2829,6 +2838,26 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     var CF_API='https://ruiningsubs-api.0788adm.workers.dev';
     var THRONE_HOME='https://throne.com/mastersan';
+    var PAYPAL_ME='https://www.paypal.me/MartinJimenez205';
+    var BTC_WALLET='135nMgiNWpSniDT7X9bhrJYGEA71N245V9';
+    var THRONE_PACK_10='https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB';
+    var THRONE_PACK_25='https://throne.com/mastersan/item/4FF6EAA3-E5B1-4E11-A2E5-C5D7089062A7';
+    var THRONE_PACK_50='https://throne.com/mastersan/item/8808A465-B36A-4530-8D16-828F9C694C8A';
+    var THRONE_PACK_99='https://throne.com/mastersan/item/d7ae9529-3014-4403-954b-69a47d289e02';
+    var THRONE_PRINT='https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E';
+    var THRONE_REMOVE=THRONE_PACK_10;
+    var THRONE_PAGE=THRONE_PACK_99;
+    var PAY_LINKS={
+      coins10:{throne:THRONE_PACK_10,paypal:PAYPAL_ME+'/10'},
+      coins25:{throne:THRONE_PACK_25,paypal:PAYPAL_ME+'/25'},
+      coins50:{throne:THRONE_PACK_50,paypal:PAYPAL_ME+'/50'},
+      coins99:{throne:THRONE_PACK_99,paypal:PAYPAL_ME+'/99'},
+      remove:{throne:THRONE_REMOVE,paypal:PAYPAL_ME+'/10'},
+      print:{throne:THRONE_PRINT,paypal:PAYPAL_ME+'/40'},
+      page:{throne:THRONE_PAGE,paypal:PAYPAL_ME+'/99'},
+      roulette:{throne:THRONE_PACK_10,paypal:PAYPAL_ME+'/10'},
+      pin:{throne:THRONE_PACK_10,paypal:PAYPAL_ME+'/10'}
+    };
     var CF_MEDIA='https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
     var SUPABASE_URL='https://snlpdolzhzcbbdyxqlnb.supabase.co';
     var SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
@@ -4279,6 +4308,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return bank[Math.floor(Math.random()*bank.length)];
     }
     async function requestTaskPack(){
+      // Hidden on purpose (product rule): task pack is not sold.
+      toast('Task pack is not available');
+      return;
       if(!isRegistered()){toast('Login first so admin can unlock your 20 tasks');return}
       var user=(currentUser&&currentUser.name)||'guest';
       await notifyAdminPayment({
@@ -4298,6 +4330,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       else toast('No unlock found yet');
     }
     async function submitCustomTasks(){
+      // Hidden on purpose (product rule): custom tasks are not sold.
+      toast('Custom tasks are not available');
+      return;
       if(!isRegistered()){toast('Login first');return}
       var secrets=(document.getElementById('custom-task-secrets')||{}).value||'';
       secrets=secrets.trim();
@@ -5362,7 +5397,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
 
     function openTaskPin(id){
-      var FEATURE_URL='https://throne.com/mastersan/item/223B6B23-F5FA-4C52-BDD5-82D72182FE05';
+      // Hidden with task paid add-ons (product rule).
+      toast('Task pin is not available');
+      return;
+      var FEATURE_URL=(typeof THRONE_PACK_10!=='undefined'?THRONE_PACK_10:'https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB');
       var ov=document.getElementById('task-pin-modal');
       if(!ov){
         ov=document.createElement('div');
@@ -5427,8 +5465,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         +'<div style="display:flex;gap:8px;margin:10px 0 4px;flex-wrap:wrap">'
         +'<button class="btn btn-secondary btn-sm" type="button" onclick="likeTask(\''+String(t.id).replace(/'/g,'')+'\')">❤️ Like</button>'
         +'<button class="btn btn-primary btn-sm" type="button" onclick="document.getElementById(\'task-resp-text\')&&document.getElementById(\'task-resp-text\').focus()">Comment</button>'
-        +'<button class="btn btn-secondary btn-sm" type="button" onclick="openTaskPin(\''+String(t.id).replace(/'/g,'')+'\')">Pin $10</button>'
-        +'<button class="btn btn-remove-led" type="button" onclick="openDeleteTask(\''+String(t.id).replace(/'/g,'')+'\')">Remove $10</button>'
+        +'<button class="btn btn-secondary btn-sm" type="button" style="display:none" onclick="openTaskPin(\''+String(t.id).replace(/'/g,'')+'\')">Pin $10</button>'
+        +'<button class="btn btn-remove-led" type="button" style="display:none" onclick="openDeleteTask(\''+String(t.id).replace(/'/g,'')+'\')">Remove $10</button>'
         +'</div>'
         +'<div data-resps-wrap style="font-weight:700;margin:14px 0 8px">Comments</div>'
         +'<div id="task-comments-box">'+(resps.length?resps.map(function(r){
@@ -5440,7 +5478,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }
           var isRespOwner=currentUser&&r.username&&String(r.username)===String(currentUser.name);
           return '<div class="task-resp"><strong style="color:var(--orange)" '+(userClickable(r.username)?'onclick="openUser(\''+String(r.username).replace(/'/g,'')+'\')"':'')+'>@'+esc(r.username||'anon')+'</strong><div style="margin-top:4px">'+esc(r.body||'')+'</div>'+media
-            +(isRespOwner?'<button class="btn btn-danger btn-sm" type="button" style="margin-top:8px" onclick="openDeleteTaskResp('+r.id+','+t.id+')">🗑 Remove</button>':'')
+            +(isRespOwner?'<button class="btn btn-danger btn-sm" type="button" style="margin-top:8px;display:none" onclick="openDeleteTaskResp('+r.id+','+t.id+')">🗑 Remove</button>':'')
             +'</div>';
         }).join(''):'<div class="empty" style="padding:12px">No comments yet — be the first</div>')+'</div>';
       document.getElementById('task-resp-text').value='';
@@ -5523,6 +5561,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
 
     function openDeleteTask(id){
+      // Hidden on purpose (product rule): delete-task payments are not sold.
+      toast('Delete task is not available');
+      return;
       window.__deleteTaskId=id;
       var ov=document.getElementById('task-delete-modal');
       if(!ov){
@@ -5559,6 +5600,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       showPanel('tasks');
     }
     function openDeleteTaskResp(respId, taskId){
+      // Hidden on purpose (product rule): delete-task payments are not sold.
+      toast('Delete task is not available');
+      return;
       window.__deleteRespId=respId;
       window.__deleteRespTaskId=taskId;
       var ov=document.getElementById('task-resp-delete-modal');
@@ -5632,10 +5676,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       {title:'Final pose', desc:'Naked kneel, hands on thighs, 10 seconds on video, then freeze for a photo. Post both.', pay:false, color:'#4263eb'},
     ];
     var FC_PACKS = [
-      {usd:10, coins:110, url:'https://www.paypal.me/MrJennn/10'},
-      {usd:25, coins:290, url:'https://www.paypal.me/MrJennn/25'},
-      {usd:50, coins:600, url:'https://www.paypal.me/MrJennn/50'},
-      {usd:99, coins:1200, url:'https://www.paypal.me/MrJennn/99'}
+      {usd:10, coins:110, url:THRONE_PACK_10, paypal:PAYPAL_ME+'/10'},
+      {usd:25, coins:290, url:THRONE_PACK_25, paypal:PAYPAL_ME+'/25'},
+      {usd:50, coins:600, url:THRONE_PACK_50, paypal:PAYPAL_ME+'/50'},
+      {usd:99, coins:1200, url:THRONE_PACK_99, paypal:PAYPAL_ME+'/99'}
     ];
     var FC_COSTS = {pin:50, pin7:150, pin30:400, print:350, roulette:50, delete:100, vanish:200, page:1000, dice:20};
     window.__fcLast=0;
@@ -5800,8 +5844,9 @@ async function claimPayPalPack(p){
             x.onclick=fn;
             card.appendChild(x);
           }
-          addBtn('<span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Throne</span>','',function(){window.open(THRONE_HOME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' FC pack',amount:'$'+p.usd,coins:p.coins});});
-          addBtn('₿ Bitcoin — Copy Wallet','background:#111;color:#fff;border:1px solid #f7931a;font-weight:800',function(){try{navigator.clipboard.writeText('135nMgiNWpSniDT7X9bhrJYGEA71N245V9').then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: 135nMgiNWpSniDT7X9bhrJYGEA71N245V9')})}catch(e){toast('BTC wallet: 135nMgiNWpSniDT7X9bhrJYGEA71N245V9')}});
+          addBtn('<span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Throne</span>','',function(){window.open(p.url||THRONE_HOME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' FC pack',amount:'$'+p.usd,coins:p.coins});});
+          addBtn('PayPal','background:#003087;color:#fff;border:1px solid #009cde;font-weight:800',function(){window.open(p.paypal||PAYPAL_ME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' FC pack',amount:'$'+p.usd,coins:p.coins,provider:'paypal'});});
+          addBtn('₿ Bitcoin — Copy Wallet','background:#111;color:#fff;border:1px solid #f7931a;font-weight:800',function(){try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)})}catch(e){toast('BTC wallet: '+BTC_WALLET)}});
           addBtn('I paid — request '+p.coins+' FC','background:#f5c518;color:#000;font-weight:900',function(){confirmCoinPackPaid(p);});
           var note=document.createElement('p');
           note.style.cssText='font-size:11px;color:var(--muted);line-height:1.4;margin:4px 0 0;text-align:center';
@@ -6286,11 +6331,11 @@ async function claimPayPalPack(p){
         kind:'roulette_pack_request',
         postId:null,
         user:user,
-        amount:'$5',
+        amount:'50 FC',
         label:'ROULETTE 15 SPINS',
-        message:'🎰 ROULETTE $5 — @'+user+' paid/requested 15 extra spins. Admin verify payment, then unlock 15 spins.'
+        message:'🎰 ROULETTE 50 FC — @'+user+' paid/requested 15 extra spins. Admin verify, then unlock 15 spins.'
       });
-      toast('Request sent. Admin verifies $10 and unlocks 15 spins.');
+      toast('Request sent. Admin verifies 50 FC / coins and unlocks 15 spins.');
     }
 
     async function checkRouletteUnlock(){
@@ -8868,15 +8913,52 @@ function openRoulette(){
       }
       box.innerHTML=list.length?list.map(function(it){return videoCard(it,true)}).join(''):'<div class="empty" style="grid-column:1/-1">No clips yet</div>';
     }
+    function personalPageContact(){
+      var tg='', tw='';
+      try{tg=((document.getElementById('page-contact-tg')||{}).value||'').trim()}catch(e){}
+      try{tw=((document.getElementById('page-contact-x')||{}).value||'').trim()}catch(e){}
+      return {tg:tg.slice(0,60), tw:tw.slice(0,60)};
+    }
+    async function notifyPersonalPageRequest(opts){
+      opts=opts||{};
+      var user=(currentUser&&currentUser.name)||coinUserId()||'guest';
+      user=String(user).replace(/^@/,'');
+      var c=personalPageContact();
+      if(!c.tg && !c.tw){
+        toast('Add your Telegram or Twitter so admin can contact you');
+        return false;
+      }
+      var contact='TG: '+(c.tg||'—')+' · X: '+(c.tw||'—');
+      var amount=opts.amount||'1000 FC';
+      var msg='🌐 PERSONAL PAGE · @'+user+' · '+amount+' · contact '+contact+(opts.note?(' · '+opts.note):'');
+      try{
+        await cfCreateRequest({kind:'page_request',user:user,amount:amount,coins:opts.coins||0,provider:opts.provider||'fc',label:'PERSONAL PAGE',payload:{message:msg,telegram:c.tg,twitter:c.tw,product:'Personal page'}});
+      }catch(e){console.warn('page request',e)}
+      try{
+        await notifyAdminPayment({kind:'page_request',user:user,amount:amount,label:'PERSONAL PAGE',message:msg});
+      }catch(e){}
+      if(window.sb){
+        try{await sb.from('notifications').insert({to_username:'admin',from_username:user,type:'page_request',message:msg,created_at:new Date().toISOString(),read:false})}catch(e){}
+      }
+      try{
+        await pushNotif(user,'admin','page_request_ack',null,'Personal page request received. Admin will contact you on '+(c.tg||c.tw)+'.');
+      }catch(e){}
+      return true;
+    }
     async function buyPersonalPage(){
+      var c=personalPageContact();
+      if(!c.tg && !c.tw){toast('Add your Telegram or Twitter so admin can contact you');return}
       var ok=await spendFagCoins('page','personal');
       if(!ok){try{openCoinShop()}catch(e){}return}
-      if(window.sb){
-        try{await sb.from('notifications').insert({to_username:'admin',from_username:(currentUser&&currentUser.name)||coinUserId(),type:'page_request',message:'Personal site $100 / 1000 FC',created_at:new Date().toISOString(),read:false})}catch(e){}
-      }
-      toast('Paid. Admin will build your page.');
+      var sent=await notifyPersonalPageRequest({amount:'1000 FC',coins:1000,provider:'fc',note:'paid with FC'});
+      if(sent) toast('Paid 1000 FC. Admin was notified to contact you.');
+    }
+    async function confirmPersonalPagePaid(){
+      var sent=await notifyPersonalPageRequest({amount:'$99',coins:0,provider:'throne',note:'I paid $99 on Throne'});
+      if(sent) toast('Request sent. Admin will verify $99 and contact you.');
     }
     window.buyPersonalPage=buyPersonalPage;
+    window.confirmPersonalPagePaid=confirmPersonalPagePaid;
     function rowLooksVideo(row){
       if(!row)return false;
       var tags=row.tags||[];
@@ -10400,7 +10482,7 @@ function openRoulette(){
         +'</div></div>';
     }
     async function payPigOff(id){
-      var FEATURE_URL='https://throne.com/mastersan/item/223B6B23-F5FA-4C52-BDD5-82D72182FE05';
+      var FEATURE_URL=(typeof THRONE_PACK_10!=='undefined'?THRONE_PACK_10:'https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB');
       try{window.open(FEATURE_URL,'_blank')}catch(e){}
       try{
         await notifyAdminPayment({
@@ -13989,7 +14071,7 @@ async function onIdFace(e){
     function paidProof(id){
       var msg='Ya pagué $10 para eliminar post ID: '+id;
       try{navigator.clipboard.writeText(msg)}catch(e){}
-      alert(msg+'\n\nEnvía eso a Master por Telegram o en la nota de PayPal/Throne.\nPayPal: paypal.me/MrJennn');
+      alert(msg+'\n\nEnvía eso a Master por Telegram o en la nota de PayPal/Throne.\nPayPal: paypal.me/MartinJimenez205');
     }
 
     async function pingAdminMail(subject, body){
@@ -14053,7 +14135,10 @@ async function onIdFace(e){
       if(t.kind==='coins' && String(t.amount)==='$5')key='coins5';
       if(t.kind==='coins' && String(t.amount)==='$25')key='coins25';
       if(t.kind==='coins' && String(t.amount)==='$50')key='coins50';
-      if(t.kind==='coins' && (String(t.amount)==='$99'||String(t.amount)==='$100'))key='coins50';
+      if(t.kind==='coins' && (String(t.amount)==='$99'||String(t.amount)==='$100'))key='coins99';
+      if(t.kind==='page' || /personal/i.test(String(t.label||''))) key='page';
+      if(t.kind==='print' || /print/i.test(String(t.label||''))) key='print';
+      if(/remove/i.test(String(t.kind||'')+' '+String(t.label||''))) key='remove';
       var links=(typeof PAY_LINKS==='object'&&PAY_LINKS[key])||{};
       var throneUrl=links.throne||THRONE_HOME;
       var pp=links.paypal||(PAYPAL_ME+'/'+amtNum);
@@ -14321,21 +14406,21 @@ async function onIdFace(e){
     }
     async function remindPrintPayment(username){
       if(!username){toast('No user');return}
-      var msg='You requested a public print but payment is missing. Pay $30 on Throne to get approved: https://throne.com/mastersan/item/AFFB986B-EDD7-4590-9F21-AF197B6C11D6';
+      var msg='You requested a public print but payment is missing. Pay $40 on Throne to get approved: https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E';
       try{await pushNotif(username,'admin','print_reminder',null,msg);toast('Print reminder sent to @'+username)}
       catch(e){toast('Could not send reminder')}
     }
     async function remindRoulettePayment(username){
       if(!username){toast('No user');return}
-      var msg='Pay $10 to unlock 10 spins of humiliating tasks on the roulette.';
+      var msg='Pay 50 FC to unlock 15 spins of humiliating tasks on the roulette. Or buy Fag Coins first.';
       try{
         await pushNotif(username,'admin','roulette_reminder',null,msg);
         toast('Roulette reminder sent to @'+username);
       }catch(e){toast('Could not send reminder')}
     }
     
-    var FEATURE_URL='https://throne.com/mastersan/item/67a4d25f-9907-41fe-87cf-432425a4d52b';
-    var PREMIUM_URL='https://throne.com/mastersan/item/223B6B23-F5FA-4C52-BDD5-82D72182FE05';
+    var FEATURE_URL=(typeof THRONE_PACK_99!=='undefined'?THRONE_PACK_99:'https://throne.com/mastersan/item/d7ae9529-3014-4403-954b-69a47d289e02');
+    var PREMIUM_URL=FEATURE_URL;
     var PREMIUM_PRICE='';
     
     function stripHomePin(){
@@ -14528,11 +14613,9 @@ async function onIdFace(e){
         +'<label style="font-size:12px;color:var(--muted)">Photos (1–4)</label>'
         +'<input id="pinp-files" type="file" accept="image/*" multiple style="width:100%;margin:4px 0 8px"/>'
         +'<div id="pinp-preview" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px"></div>'
-        +'<div style="font-size:13px;margin-bottom:10px">Price: <strong style="color:#f5c518">50 FC · 48 hours</strong></div>'
+        +'<div style="font-size:13px;margin-bottom:10px">Price: <strong style="color:#f5c518">50 FC · 48 hours</strong> <span style="color:var(--muted)">(coins only)</span></div>'
         +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:800" onclick="payPinPublishCoins()">Pay 50 FC + send request</button>'
-        +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;font-weight:800;border:1px solid #15803d" onclick="submitPinPublish(true)">I paid — send to admin</button>'
         +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px" onclick="closePinPublish();openCoinShop()">Buy Fag Coins</button>'
-        +'<a class="btn btn-primary" style="display:block;text-align:center;margin-bottom:8px;text-decoration:none;background:linear-gradient(90deg,#4c1d95,#5b21b6);font-weight:800;padding:14px" href="'+((window.FEATURE_URL)||'https://throne.com/mastersan/item/223B6B23-F5FA-4C52-BDD5-82D72182FE05')+'" target="_blank" rel="noopener">👑 Throne — $10</a>'
         +'<button class="btn btn-ghost" type="button" style="width:100%" onclick="closePinPublish()">Cancel</button></div>';
       ov.style.display='block';
       ov.onclick=function(e){if(e.target===ov)closePinPublish()};
@@ -14725,11 +14808,10 @@ async function onIdFace(e){
         +'<div style="font-size:18px;font-weight:800;margin-bottom:8px">Premium Pin</div>'
         +'<p style="color:var(--text);font-size:14px;line-height:1.5;margin-bottom:8px;font-weight:600">Pin this exposure at the <span style="color:var(--orange)">top of the feed</span> for 48 hours.</p>'
         +'<p style="color:var(--muted);font-size:13px;line-height:1.45;margin-bottom:10px">Everyone sees you first. More views. More attention. More ruin.</p>'
-        +'<p style="margin-bottom:14px">Price: <strong style="color:#f5c518;font-size:16px">50 FC · 48 hours</strong></p>'
+        +'<p style="margin-bottom:14px">Price: <strong style="color:#f5c518;font-size:16px">50 FC · 48 hours</strong> <span style="color:var(--muted);font-size:12px">(coins only)</span></p>'
         +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" onclick="pinWithCoins('+jsId(id)+')">Pin — 50 FC</button>'
-        +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" onclick="confirmPinPaid('+jsId(id)+')">I paid — send to admin</button>'+'<div id="pin-request-status" style="font-size:12px;color:var(--muted);text-align:center;margin:2px 0 10px">Request progress will appear here after you submit.</div>'
+        +'<div id="pin-request-status" style="font-size:12px;color:var(--muted);text-align:center;margin:2px 0 10px"></div>'
         +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" onclick="document.getElementById(\'feature-modal\').style.display=\'none\';openCoinShop()">Buy Fag Coins</button>'
-        +'<a class="btn btn-primary" style="display:block;text-align:center;margin-bottom:8px;text-decoration:none;background:linear-gradient(90deg,#4c1d95,#5b21b6);font-weight:800;padding:14px" href="'+FEATURE_URL+'" target="_blank" rel="noopener">👑 Throne — $10</a>'
         +'<button class="btn btn-ghost" style="width:100%" type="button" id="btn-feature-cancel">Cancel</button>'
         +'</div>';
       // reuse a simple modal via toast-like overlay
@@ -15499,7 +15581,7 @@ async function onIdFace(e){
         var rouDismissed=[];try{rouDismissed=JSON.parse(localStorage.getItem('rs_roulette_dismissed')||'[]')||[]}catch(e){}
         rrq=rrq.filter(function(r){return rouDismissed.indexOf(String(r.id))<0});
         if(rrq.length){
-          html+='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px;margin-bottom:8px"><strong style="color:var(--orange)">🎰 Roulette unlocks ('+rrq.length+')</strong><p style="font-size:11px;color:var(--muted);margin:2px 0 0">Verify the $10 Throne payment, then unlock 10 spins.</p>'+rrq.slice(0,20).map(function(r){
+          html+='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px;margin-bottom:8px"><strong style="color:var(--orange)">🎰 Roulette unlocks ('+rrq.length+')</strong><p style="font-size:11px;color:var(--muted);margin:2px 0 0">Verify 50 FC / coin payment, then unlock 15 spins.</p>'+rrq.slice(0,20).map(function(r){
             var u=r.from_username||'?';
             var age=r.created_at?ago(new Date(r.created_at).getTime()):'';
             return '<div style="font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong>'+(age?' <span style="color:var(--muted);font-size:10px">'+age+'</span>':'')
@@ -15575,7 +15657,7 @@ async function onIdFace(e){
         }
         pereq.sort(function(a,b){return (b.at||0)-(a.at||0)});
         window.__peAdminCache=pereq;
-        html+='<div style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.45);border-radius:12px;padding:12px;margin-bottom:8px"><strong style="color:#c77dff">🖨 Public exposure requests ('+pereq.length+')</strong><p style="font-size:11px;color:var(--muted);margin:4px 0 0">$30 · newest first</p>';
+        html+='<div style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.45);border-radius:12px;padding:12px;margin-bottom:8px"><strong style="color:#c77dff">🖨 Public exposure requests ('+pereq.length+')</strong><p style="font-size:11px;color:var(--muted);margin:4px 0 0">$40 / 350 FC · newest first</p>';
         if(!pereq.length){
           html+='<div style="font-size:12px;color:var(--muted);margin-top:8px">No print requests yet</div></div>';
         } else {
@@ -15930,7 +16012,7 @@ async function onIdFace(e){
     }catch(e){}
   </script>
 
-  <div id="modal-task-req" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:5000;align-items:center;justify-content:center;padding:16px">
+  <div id="modal-task-req" style="display:none!important;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:5000;align-items:center;justify-content:center;padding:16px" hidden aria-hidden="true">
     <div style="max-width:360px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px">
       <h3 style="margin:0 0 8px">Request / assign task $10</h3>
       <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Title + description + optional photo. Examples: “I’m a submissive who does whatever you want” or “I want someone to write my name on their body.” Pay on Throne → submit → admin approves → 48h pin on top.</p>
@@ -15952,7 +16034,7 @@ async function onIdFace(e){
 
 
   
-  <div id="modal-custom-tasks" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:5000;align-items:center;justify-content:center;padding:16px">
+  <div id="modal-custom-tasks" style="display:none!important;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:5000;align-items:center;justify-content:center;padding:16px" hidden aria-hidden="true">
     <div style="max-width:380px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;max-height:90vh;overflow:auto">
       <h3 style="margin:0 0 8px">7 tasks. Built for you. $10</h3>
       <p style="font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.45">Pay $10. Send your secrets. You get 7 tasks made for you. Do them and post the proof.</p>
@@ -16094,6 +16176,7 @@ async function onIdFace(e){
       <p style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:14px">Send any amount. No excuses.</p>
       
       <a class="pay-btn" href="https://throne.com/mastersan" target="_blank" rel="noopener"><span>👑 Throne</span><span style="color:var(--orange)">PAY →</span></a>
+      <a class="pay-btn" href="https://www.paypal.me/MartinJimenez205" target="_blank" rel="noopener"><span>PayPal</span><span style="color:var(--orange)">PAY →</span></a>
       
       <div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:12px;padding:12px;margin:10px 0">
         <div style="font-size:14px;font-weight:700;margin-bottom:6px">₿ Bitcoin</div>
@@ -16323,7 +16406,7 @@ window.closeRuinedCommunity=function(){
     if(paid&&!paid.dataset.bound){paid.dataset.bound='1';paid.onclick=function(){try{requestTaskPack()}catch(e){console.warn(e)}}}
     var chk=document.getElementById('btn-task-pack-check');
     if(chk&&!chk.dataset.bound){chk.dataset.bound='1';chk.onclick=function(){try{checkTaskPackUnlock()}catch(e){console.warn(e)}}}
-    function openCustomModal(){var m=document.getElementById('modal-custom-tasks');if(m)m.style.display='flex'}
+    function openCustomModal(){toast('Custom tasks are not available');return;var m=document.getElementById('modal-custom-tasks');if(m)m.style.display='flex'}
     var cu=document.getElementById('btn-custom-tasks');
     if(cu&&!cu.dataset.bound){cu.dataset.bound='1';cu.onclick=openCustomModal}
     var cxp=document.getElementById('btn-explore-custom');
