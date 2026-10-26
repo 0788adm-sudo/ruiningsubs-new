@@ -2383,9 +2383,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 <div style="font-size:12px;color:var(--muted);margin-top:4px">Buy Fag Coins, then pay 50 FC per extra pack.</div>
               </div>
               <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="unlockRouletteWithCoins()" style="width:100%;margin-bottom:8px;font-weight:800">Unlock 15 spins — 50 FC</button>
-              <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;margin-bottom:8px;display:none">Check for approved unlock</button>
+              <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;margin-bottom:8px">Check for approved unlock</button>
               <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;font-weight:800" onclick="openCoinShop()">Buy Fag Coins</button>
-              <button class="btn btn-secondary" type="button" style="display:none;width:100%;margin-bottom:8px" onclick="openCoinShop()">Pay $10 — create ticket</button>
               <div id="roulette-btc" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:8px">
                 <div style="font-size:13px;font-weight:700;margin-bottom:4px">₿ Bitcoin</div>
                 <div style="font-family:monospace;font-size:11px;word-break:break-all;background:#0a0a0a;padding:8px;border-radius:8px;border:1px solid var(--border);user-select:all">135nMgiNWpSniDT7X9bhrJYGEA71N245V9</div>
@@ -6547,40 +6546,49 @@ async function claimPayPalPack(p){
       toast('Request sent. Admin verifies 50 FC / coins and unlocks 15 spins.');
     }
 
-    async function checkRouletteUnlock(){
+    async function checkRouletteUnlock(silent){
       if(!isRegistered()||!sb){
-        toast('Login required to check unlock');
+        if(!silent) toast('Login required to check unlock');
         return;
       }
       try{
+        var claimed={};
+        try{claimed=JSON.parse(localStorage.getItem('rs_roulette_claimed')||'{}')||{}}catch(e){claimed={}}
         var r=await sb.from('notifications').select('*')
           .eq('to_username',currentUser.name)
           .eq('type','roulette_unlock')
           .order('created_at',{ascending:false})
-          .limit(1);
-        var row=(r.data||[])[0];
-        if(!row){
-          toast('No roulette unlock found yet');
+          .limit(10);
+        var rows=((r&&r.data)||[]).filter(function(row){return row&&row.id&&!claimed[String(row.id)]});
+        if(!rows.length){
+          if(!silent) toast('No roulette unlock found yet');
           return;
         }
         var d=getRouletteSpins();
-        d.paidSpins=(d.paidSpins||0)+15;
+        var added=0;
+        for(var i=0;i<rows.length;i++){
+          var row=rows[i];
+          d.paidSpins=(d.paidSpins||0)+15;
+          added+=15;
+          claimed[String(row.id)]=Date.now();
+          try{await sb.from('notifications').delete().eq('id',row.id)}catch(e){}
+        }
+        try{localStorage.setItem('rs_roulette_claimed',JSON.stringify(claimed))}catch(e){}
         saveRouletteSpins(d);
-        try{await sb.from('notifications').delete().eq('id',row.id)}catch(e){}
         updateRouletteSpinsUI();
-        toast('✓ 15 roulette spins unlocked');
+        toast('✓ '+added+' roulette spins unlocked');
       }catch(e){
-        toast('Could not check unlock');
+        if(!silent) toast('Could not check unlock');
       }
     }
 
     function approveRoulettePack(id, username){
       if(!username){toast('No user');return}
-      pushNotif(username,'admin','roulette_unlock',null,'🎰 $10 verified — 15 roulette spins unlocked. Open Roulette and spin.');
+      pushNotif(username,'admin','roulette_unlock',null,'🎰 50 FC verified — 15 roulette spins unlocked. Open Roulette to claim.');
       if(sb && id){
         sb.from('notifications').delete().eq('id',id).then(function(){});
       }
-      toast('15 spins unlocked for @'+username);
+      toast('15 spins unlocked for @'+username+' — they claim when opening Roulette');
       try{renderAdmin()}catch(e){}
     }
 
@@ -7078,6 +7086,7 @@ function openRoulette(){
       try{updateRouletteSpinsUI()}catch(e){}
       var res = document.getElementById('roulette-result');
       if(res) res.classList.remove('show');
+      try{checkRouletteUnlock(true)}catch(e){}
     }
     function renderRouletteHistory(){
       var d = getRouletteSpins();
@@ -8345,6 +8354,43 @@ function openRoulette(){
       box.innerHTML=html;
     }
     
+    function loadFollowingLocal(){
+      try{
+        var raw=JSON.parse(localStorage.getItem('rs_following')||'[]')||[];
+        if(Array.isArray(raw)) return raw.map(function(u){return String(u||'')}).filter(Boolean);
+        return Object.keys(raw||{});
+      }catch(e){return []}
+    }
+    function saveFollowingLocal(list){
+      try{
+        var seen={};
+        var out=[];
+        (list||[]).forEach(function(u){
+          var s=String(u||'').replace(/^@/,'');
+          if(!s)return;
+          var k=s.toLowerCase();
+          if(seen[k])return;
+          seen[k]=1;out.push(s);
+        });
+        localStorage.setItem('rs_following',JSON.stringify(out.slice(0,500)));
+      }catch(e){}
+    }
+    function setFollowingLocal(user, on){
+      var list=loadFollowingLocal();
+      var k=String(user||'').toLowerCase();
+      list=list.filter(function(u){return String(u).toLowerCase()!==k});
+      if(on) list.unshift(String(user).replace(/^@/,''));
+      saveFollowingLocal(list);
+    }
+    async function syncFollowingFromServer(){
+      if(!isRegistered()||!sb||!currentUser||!currentUser.name)return loadFollowingLocal();
+      try{
+        var r=await sb.from('follows').select('following').eq('follower',currentUser.name);
+        var list=((r&&r.data)||[]).map(function(x){return x&&x.following}).filter(Boolean);
+        saveFollowingLocal(list);
+        return list;
+      }catch(e){return loadFollowingLocal()}
+    }
     async function toggleFollow(){
       if(!isRegistered()){toast('Login to follow');return}
       if(!viewingUser||viewingUser===currentUser.name)return;
@@ -8353,10 +8399,12 @@ function openRoulette(){
         var r=await sb.from('follows').select('*').eq('follower',currentUser.name).eq('following',viewingUser).maybeSingle();
         if(r.data){
           await sb.from('follows').delete().eq('follower',currentUser.name).eq('following',viewingUser);
+          setFollowingLocal(viewingUser,false);
           document.getElementById('btn-follow').textContent='Follow';
           toast('Unfollowed');
         }else{
           await sb.from('follows').insert({follower:currentUser.name,following:viewingUser});
+          setFollowingLocal(viewingUser,true);
           document.getElementById('btn-follow').textContent='Following';
           toast('Following');
         }
@@ -9876,10 +9924,7 @@ function openRoulette(){
       }
       if(gtTab==='follow'){
         var fol={};
-        try{
-          var raw=JSON.parse(localStorage.getItem('rs_following')||'[]')||[];
-          (Array.isArray(raw)?raw:Object.keys(raw||{})).forEach(function(u){fol[String(u).toLowerCase()]=1});
-        }catch(e){}
+        loadFollowingLocal().forEach(function(u){fol[String(u).toLowerCase()]=1});
         out=out.filter(function(p){return fol[String(p.user||'').toLowerCase()]});
       }
       if(gtTab==='foryou'){
@@ -9901,12 +9946,17 @@ function openRoulette(){
         var el=document.getElementById('gt-tab-'+t);
         if(el)el.classList.toggle('on',t===gtTab);
       });
+      if(gtTab==='follow'){
+        syncFollowingFromServer().then(function(){renderGoonTok()}).catch(function(){renderGoonTok()});
+        return;
+      }
       renderGoonTok();
     }
     function openGoonTok(){
       showPanel('goontok');
       var jobs=[];
       if(typeof fetchVideoPosts==='function') jobs.push(Promise.resolve(fetchVideoPosts()));
+      if(typeof syncFollowingFromServer==='function') jobs.push(Promise.resolve(syncFollowingFromServer()));
       if(jobs.length){
         Promise.all(jobs.map(function(j){return Promise.resolve(j).catch(function(){})})).then(function(){renderGoonTok()}).catch(function(){renderGoonTok()});
       } else renderGoonTok();
@@ -10578,11 +10628,41 @@ function openRoulette(){
             seenV[k]=v;
           });
           cur.views=Object.keys(seenV).map(function(k){return seenV[k]});
-          cur.likes=Object.assign({},cur.likes||{},likes);
+          var likeOut={};
+          function absorbLikes(src){
+            Object.keys(src||{}).forEach(function(k){
+              var lk=String(k).toLowerCase();
+              var at=Number(src[k]||0)||Date.now();
+              if(!likeOut[lk]||at>=Number(likeOut[lk]||0)) likeOut[lk]=at;
+            });
+          }
+          absorbLikes(cur.likes);
+          absorbLikes(likes);
+          cur.likes=likeOut;
           map[id]=cur;
         });
         saveStoryMeta(map);
       }catch(e){}
+    }
+    function loadStoryTombs(){
+      try{return JSON.parse(localStorage.getItem('rs_story_tombs')||'{}')||{}}catch(e){return{}}
+    }
+    function saveStoryTombs(map){
+      try{
+        var cut=Date.now()-48*60*60*1000;
+        var out={};
+        Object.keys(map||{}).forEach(function(id){
+          var at=Number(map[id]||0)||0;
+          if(at>=cut) out[id]=at;
+        });
+        localStorage.setItem('rs_story_tombs',JSON.stringify(out));
+      }catch(e){}
+    }
+    function markStoryTomb(id){
+      if(!id)return;
+      var m=loadStoryTombs();
+      m[String(id)]=Date.now();
+      saveStoryTombs(m);
     }
     async function pullStoriesRemote(){
       try{
@@ -10592,9 +10672,11 @@ function openRoulette(){
           try{return JSON.parse(n.message||'{}')}catch(e){return null}
         }).filter(Boolean);
         var rawLocal=loadStoriesLocal();
+        var tombs=loadStoryTombs();
         var del={};
-        remote.concat(rawLocal).forEach(function(s){if(s&&s.deleted&&s.id)del[String(s.id)]=1});
-        var tombs=Object.keys(del).map(function(id){return{id:id,deleted:true,at:Date.now()}});
+        Object.keys(tombs).forEach(function(id){del[id]=1});
+        remote.concat(rawLocal).forEach(function(s){if(s&&s.deleted&&s.id){del[String(s.id)]=1;tombs[String(s.id)]=Number(s.at||Date.now())||Date.now()}});
+        saveStoryTombs(tombs);
         var seen={};
         var merged=[];
         pruneStories(rawLocal).concat(remote).forEach(function(s){
@@ -10607,7 +10689,7 @@ function openRoulette(){
           merged.push(s);
         });
         merged=pruneStories(merged).sort(function(a,b){return (b.at||0)-(a.at||0)});
-        saveStoriesLocal(merged.concat(tombs).slice(0,80));
+        saveStoriesLocal(merged.slice(0,80));
         try{await pullStoryMetaRemote()}catch(e){}
         return pruneStories(merged);
       }catch(e){return pruneStories(loadStoriesLocal())}
@@ -10801,7 +10883,7 @@ function openRoulette(){
       if(!story||!story.id)return;
       var me=(currentUser&&currentUser.name)||'';
       if(!me||me==='guest')return;
-      if(String(story.user||'')===String(me))return;
+      if(String(story.user||'').toLowerCase()===String(me).toLowerCase())return;
       var meta=storyMetaOf(story.id);
       var low=String(me).toLowerCase();
       var hit=meta.views.find(function(v){return String(v.user||'').toLowerCase()===low});
@@ -10810,15 +10892,29 @@ function openRoulette(){
       writeStoryMeta(story.id, meta);
       pushStoryMetaRemote(story.id, meta);
     }
+    function storyLikeKey(name){return String(name||'').toLowerCase()}
+    function storyLikedBy(meta, name){
+      var likes=(meta&&meta.likes)||{};
+      var k=storyLikeKey(name);
+      if(!k)return false;
+      if(likes[k])return true;
+      return Object.keys(likes).some(function(x){return String(x).toLowerCase()===k});
+    }
+    function storyLikeCount(meta){
+      var likes=(meta&&meta.likes)||{};
+      var seen={};
+      Object.keys(likes).forEach(function(k){seen[String(k).toLowerCase()]=1});
+      return Object.keys(seen).length;
+    }
     function paintStoryActions(story){
       var box=document.getElementById('sv-actions');
       if(!box||!story)return;
       var me=(currentUser&&currentUser.name)||'';
       var meta=storyMetaOf(story.id);
-      var liked=!!(meta.likes&&meta.likes[String(me)]);
-      var likeN=Object.keys(meta.likes||{}).length;
+      var liked=storyLikedBy(meta, me);
+      var likeN=storyLikeCount(meta);
       var viewN=(meta.views||[]).length;
-      var isOwner=me&&String(story.user||'')===String(me);
+      var isOwner=me&&String(story.user||'').toLowerCase()===String(me).toLowerCase();
       var html='';
       html+='<button type="button" class="'+(liked?'on':'')+'" onclick="event.stopPropagation();toggleStoryLike(\''+String(story.id).replace(/'/g,'')+'\')">'+(liked?'♥':'♡')+' '+(likeN||'')+'</button>';
       if(!isOwner){
@@ -10924,9 +11020,13 @@ function openRoulette(){
     function toggleStoryLike(id){
       if(!isRegistered()){toast('Login to like');return}
       var me=String(currentUser.name||'');
+      var key=storyLikeKey(me);
       var meta=storyMetaOf(id);
-      if(meta.likes[me]) delete meta.likes[me];
-      else meta.likes[me]=Date.now();
+      var was=storyLikedBy(meta, me);
+      Object.keys(meta.likes||{}).forEach(function(k){
+        if(String(k).toLowerCase()===key) delete meta.likes[k];
+      });
+      if(!was) meta.likes[key]=Date.now();
       writeStoryMeta(id, meta);
       pushStoryMetaRemote(id, meta);
       var s=window.__storyQueue[window.__storyIdx];
@@ -10940,18 +11040,17 @@ function openRoulette(){
     function openStoryViews(id){
       var me=(currentUser&&currentUser.name)||'';
       var s=(window.__storyQueue||[]).find(function(x){return String(x.id)===String(id)})||pruneStories(loadStoriesLocal()).find(function(x){return String(x.id)===String(id)});
-      if(!s||String(s.user||'')!==String(me)){toast('Only you can see viewers');return}
+      if(!s||String(s.user||'').toLowerCase()!==String(me).toLowerCase()){toast('Only you can see viewers');return}
       clearTimeout(window.__storyTimer);
       var meta=storyMetaOf(id);
       var sh=ensureStoryViewsSheet();
       var list=document.getElementById('svs-list');
       var views=(meta.views||[]).slice().sort(function(a,b){return (b.at||0)-(a.at||0)});
-      var likes=meta.likes||{};
       if(!views.length){
         list.innerHTML='<div style="color:#9a9aa3;padding:12px 0">No views yet</div>';
       }else{
         list.innerHTML=views.map(function(v){
-          var liked=!!likes[String(v.user||'')];
+          var liked=storyLikedBy(meta, v.user);
           return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #1c1c22">'
             +'<button type="button" onclick="closeStoryViewer();openUser(\''+String(v.user||'').replace(/'/g,'')+'\')" style="background:none;border:0;color:#fff;font-weight:800;padding:0">@'+esc(v.user||'')+'</button>'
             +'<span style="color:#9a9aa3;font-size:12px">'+(liked?'♥ ':'')+(typeof ago==='function'?ago(v.at):'')+'</span></div>';
@@ -10963,13 +11062,12 @@ function openRoulette(){
       var me=(currentUser&&currentUser.name)||'';
       var arr=loadStoriesLocal();
       var s=arr.find(function(x){return String(x.id)===String(id)});
-      if(!s||String(s.user||'')!==String(me)){toast('Not your story');return}
+      if(!s||String(s.user||'').toLowerCase()!==String(me).toLowerCase()){toast('Not your story');return}
       var used=storyDeletesToday();
       if(used>=2){toast('Free deletes used (2/day)');return}
       if(!confirm('Delete this story? Free deletes left today: '+(2-used)))return;
-      s.deleted=true;
-      s.url='';
-      saveStoriesLocal(arr.map(function(x){return String(x.id)===String(id)?{id:String(id),deleted:true,user:me,at:Date.now()}:x}));
+      markStoryTomb(id);
+      saveStoriesLocal(arr.filter(function(x){return String(x.id)!==String(id)}));
       bumpStoryDeleteCount();
       try{
         await fetch(CF_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:'__STORIES__',from_username:me,type:'story_delete',post_id:String(id),message:JSON.stringify({id:String(id),deleted:true,user:me,at:Date.now()})})});
@@ -16563,7 +16661,7 @@ async function onIdFace(e){
             return '<div style="font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong>'+(age?' <span style="color:var(--muted);font-size:10px">'+age+'</span>':'')
               +'<div style="font-size:11px;color:var(--muted);margin:4px 0">'+esc(r.message||'Roulette $10 request')+'</div>'
               +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
-              +'<button class="btn btn-primary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">✓ Unlock 10</button>'
+              +'<button class="btn btn-primary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">✓ Unlock 15</button>'
               +'<button class="btn btn-secondary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">📩 Remind</button>'
               +'<button class="btn btn-ghost btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕ Dismiss</button>'
               +'</div></div>';
