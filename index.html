@@ -10744,19 +10744,25 @@ function openRoulette(){
     }
     function ensureStoryViewer(){
       var ov=document.getElementById('story-viewer');
-      if(ov)return ov;
-      ov=document.createElement('div');
-      ov.id='story-viewer';
-      ov.innerHTML='<div class="sv-progress" id="sv-progress"></div>'
-        +'<div class="sv-head"><strong id="sv-user"></strong><span id="sv-ago" style="opacity:.7;font-size:12px"></span><button type="button" class="sv-close" onclick="closeStoryViewer()">×</button></div>'
-        +'<div class="sv-media" id="sv-media"></div>'
-        +'<div class="sv-actions" id="sv-actions"></div>';
-      document.body.appendChild(ov);
-      ov.addEventListener('click',function(e){
-        if(e.target&&e.target.closest&&e.target.closest('.sv-close,.sv-actions,#story-views-sheet'))return;
-        var mid=ov.clientWidth/2;
-        if(e.clientX<mid) storyStep(-1); else storyStep(1);
-      });
+      if(!ov){
+        ov=document.createElement('div');
+        ov.id='story-viewer';
+        ov.innerHTML='<div class="sv-progress" id="sv-progress"></div>'
+          +'<div class="sv-head"><strong id="sv-user"></strong><span id="sv-ago" style="opacity:.7;font-size:12px"></span><button type="button" class="sv-close" onclick="closeStoryViewer()">×</button></div>'
+          +'<div class="sv-media" id="sv-media"></div>'
+          +'<div class="sv-actions" id="sv-actions"></div>';
+        document.body.appendChild(ov);
+        ov.addEventListener('click',function(e){
+          if(e.target&&e.target.closest&&e.target.closest('.sv-close,.sv-actions,#story-views-sheet'))return;
+          var mid=ov.clientWidth/2;
+          if(e.clientX<mid) storyStep(-1); else storyStep(1);
+        });
+      }
+      if(!document.getElementById('sv-actions')){
+        var act=document.createElement('div');
+        act.className='sv-actions';act.id='sv-actions';
+        ov.appendChild(act);
+      }
       return ov;
     }
     function ensureStoryViewsSheet(){
