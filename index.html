@@ -1384,9 +1384,11 @@
 .vup-fill{height:100%;width:0%;background:linear-gradient(90deg,#5b21b6,#ff6a00);border-radius:99px;transition:width .22s ease}
 .vup-percent{margin-top:8px;font-size:12px;color:#ffb020;font-weight:900}
 
-body.gt-on header,body.gt-on .fc-ad{display:none!important}
-body.gt-on main{padding:0!important;max-width:none!important}
-body.gt-on .bottom-nav .stats-strip{display:none}
+body.gt-on header,body.gt-on .fc-ad,
+body.rc-on header,body.rc-on .fc-ad{display:none!important}
+body.gt-on main,body.rc-on main{padding:0!important;max-width:none!important}
+body.gt-on .bottom-nav .stats-strip,body.rc-on .bottom-nav .stats-strip{display:none}
+body.rc-on #hdr-fc{display:none!important}
 #panel-goontok{position:fixed;inset:0 0 82px 0;z-index:80;background:#000;padding:0!important;margin:0;max-width:none!important;display:none}
 #panel-goontok.active{display:flex!important;flex-direction:column}
 .gt-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:10px 10px 0;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);pointer-events:none}
@@ -2053,8 +2055,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <h2>Buy Fag Coins</h2>
         </div>
         <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin:0 0 10px" onclick="navigator.clipboard.writeText('https://www.ruiningsubs.com/#coins');toast('Link copied')">Copy page link</button>
-        <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay Throne / PayPal / BTC → tap <b style="color:#f5c518">I paid</b> → watch <b style="color:#f5c518">Pending credit</b> until Master adds your FC.</p>
-        <a class="btn btn-primary" href="https://throne.com/mastersan" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:0 0 12px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay on Throne</span></a>
+        <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay Throne / PayPal / BTC on a pack below → tap <b style="color:#f5c518">I paid</b> → watch <b style="color:#f5c518">Pending credit</b> until Master adds your FC.</p>
         <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 FC for 48 hours. Remove = 100 FC or $10.</p>
         <div id="coin-balance" style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:12px;padding:12px;margin-bottom:12px;font-weight:800;color:#f5c518">Balance: — FC</div>
         <div id="coin-pending" style="display:none;margin:0 0 14px"></div>
@@ -3772,13 +3773,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function boot(){
       initUser();setupUI();
       try{openHashPost()}catch(e){}
+      // Restore section link immediately so refresh keeps the user on Wall/GoonTok/etc.
+      try{applyLocationRoute()}catch(e){}
       // Never let the optional banned-users request block the initial feed.
       // If that request is slow/fails, the user should still see posts without
       // having to manually open the Feed tab to trigger loadPosts().
       loadBannedUsers().catch(function(e){console.warn('banned users bootstrap',e)}).then(function(){
         var slug='';
         try{slug=currentRouteSlug()}catch(e){}
-        if(slug==='coins'||slug==='buy'||slug==='wall'||slug==='explore') return;
+        if(slug && slug!=='feed' && slug!=='home') return;
         return loadPosts();
       }).then(function(){applyLocationRoute();openHashPost(); setTimeout(openHashPost,700); checkRecoveryHash();updateProfilePanel();}).catch(function(e){
         console.warn('initial feed bootstrap',e);
@@ -8835,10 +8838,16 @@ function openRoulette(){
       setTimeout(go,120);
     }
     var PANEL_ROUTE={
-      'feed':'',
+      'feed':'feed',
+      'wall':'wall',
+      'explore':'explore',
+      'goontok':'goontok',
+      'randomcam':'randomcam',
+      'videos':'videos',
+      'map':'map',
+      'coins':'coins',
       'print-dirty':'print',
       'roulette':'roulette',
-      'explore':'explore',
       'messages':'messages',
       'profile':'profile',
       'admin':'admin',
@@ -8849,16 +8858,19 @@ function openRoulette(){
       'idcard':'idcard',
       'detail':'',
       'auth':'login',
-      'coins':'coins',
-      'explore':'wall',
-      'goontok':'goontok',
-      'doms':'doms','randomcam':'randomcam'
+      'doms':'doms',
+      'dice':'dice'
     };
     var ROUTE_PANEL={
       '':'feed','feed':'feed','home':'feed',
+      'wall':'wall','thewall':'wall',
+      'explore':'explore','search':'explore',
+      'goontok':'goontok','goon':'goontok','tiktok':'goontok',
+      'randomcam':'randomcam','random':'randomcam','ome':'randomcam','chat':'randomcam',
+      'videos':'videos','video':'videos',
+      'map':'map','exposuremap':'map',
       'print':'print-dirty','print-dirty':'print-dirty','exposure':'print-dirty',
       'roulette':'roulette','ruleta':'roulette',
-      'explore':'explore','search':'explore',
       'messages':'messages','inbox':'messages',
       'profile':'profile','me':'profile',
       'admin':'admin',
@@ -8866,11 +8878,10 @@ function openRoulette(){
       'alerts':'notifs','notifs':'notifs',
       'new':'post','post':'post',
       'idcard':'idcard','id':'idcard','pea':'idcard',
-      'login':'auth','normal':'feed',
+      'login':'auth','normal':'wall',
       'coins':'coins','buy':'coins','fagcoins':'coins',
-      'wall':'explore',
-      'goontok':'goontok','goon':'goontok','tiktok':'goontok',
-      'doms':'doms','dominants':'doms','verified':'doms','randomcam':'randomcam'
+      'doms':'doms','dominants':'doms','verified':'doms',
+      'dice':'dice'
     };
     function currentRouteSlug(){
       var h=(location.hash||'').replace(/^#\/?/,'').split('?')[0];
@@ -8896,20 +8907,15 @@ function openRoulette(){
       var slug=PANEL_ROUTE[name];
       if(slug===undefined)slug=name;
       if(name==='print-dirty'){try{fillPrintVideos()}catch(e){}}
-      if(name==='feed'){
-        try{
-          var nf=document.getElementById('normal-feed-panel');
-          if(nf&&nf.style.display==='block')slug='normal';
-          else slug='';
-        }catch(e){slug=''}
-      }
+      if(!slug) slug='feed';
       try{
-        var next=slug?('#'+slug):'#feed';
-        if(location.hash===next || (!slug && (!location.hash||location.hash==='#'||location.hash==='#feed'))) return;
+        var next='#'+slug;
+        if(location.hash===next) return;
         history.replaceState({panel:name},'',next);
       }catch(e){
         try{location.hash=slug||'feed'}catch(e2){}
       }
+      try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
     }
     function applyLocationRoute(){
       if(typeof parseSharedPostId==='function' && parseSharedPostId()) return false;
@@ -8917,11 +8923,14 @@ function openRoulette(){
       if(!slug){
         try{
           var last=sessionStorage.getItem('rs_panel')||'';
-          if(last==='explore')slug='wall';
-          else if(last && last!=='feed' && last!=='detail') slug=last;
+          if(last && last!=='detail'){
+            slug=PANEL_ROUTE[last]!==undefined?PANEL_ROUTE[last]:last;
+            if(!slug)slug='feed';
+          }
         }catch(e){}
       }
-      if(slug==='normal'||slug==='wall'){
+      if(!slug)return false;
+      if(slug==='normal'||slug==='wall'||slug==='thewall'){
         window.__routing=true;
         try{showPanel('wall');if(typeof loadNormalFeed==='function')loadNormalFeed()}catch(e){}
         window.__routing=false;
@@ -8939,11 +8948,30 @@ function openRoulette(){
         window.__routing=false;
         return true;
       }
+      if(slug==='randomcam'||slug==='random'||slug==='ome'||slug==='chat'){
+        window.__routing=true;
+        try{if(typeof openRandomCam==='function')openRandomCam();else showPanel('randomcam')}catch(e){}
+        window.__routing=false;
+        return true;
+      }
+      if(slug==='map'||slug==='exposuremap'){
+        window.__routing=true;
+        try{if(typeof openExposureMap==='function')openExposureMap();else showPanel('map')}catch(e){}
+        window.__routing=false;
+        return true;
+      }
+      if(slug==='dice'){
+        window.__routing=true;
+        try{if(typeof openDiceGame==='function')openDiceGame();else showPanel('dice')}catch(e){}
+        window.__routing=false;
+        return true;
+      }
       var panel=ROUTE_PANEL[slug];
       if(!panel)return false;
       window.__routing=true;
       try{
         if(slug==='pea'&&typeof openIdCard==='function')openIdCard('pea');
+        else if(slug==='id'||slug==='idcard'){if(typeof openIdCard==='function')openIdCard('id');else showPanel('idcard')}
         else showPanel(panel);
       }catch(e){}
       window.__routing=false;
@@ -9741,7 +9769,8 @@ function openRoulette(){
       opts=opts||{};
       if(name==='packages'){openCoinShop();return;}
       try{document.body.classList.toggle('gt-on',name==='goontok')}catch(e){}
-      if(name!=='goontok'){try{stopAllMedia()}catch(e){}}
+      try{document.body.classList.toggle('rc-on',name==='randomcam')}catch(e){}
+      if(name!=='goontok'&&name!=='randomcam'){try{stopAllMedia()}catch(e){}}
       if(name!=='feed')viewingSaved=false;
       try{var ad=document.getElementById('fc-ad');if(ad)ad.style.display=(name==='feed'||name==='explore')?'flex':'none'}catch(e){}
       var keep=!!(opts.keepScroll||opts.fromDetail||name==='detail');
@@ -16910,7 +16939,7 @@ async function onIdFace(e){
 <script id="randomcam-client">
 (function(){
   var RC_API=window.CF_API||'https://ruiningsubs-api.0788adm.workers.dev';
-  var rc={ws:null,pc:null,dc:null,local:null,partner:null,started:false,initiator:false,ice:[],closed:false,facing:'user',muted:false,skip:{},seen:{},matching:false};
+  var rc={ws:null,pc:null,dc:null,local:null,partner:null,pendingPeer:null,started:false,initiator:false,ice:[],closed:false,facing:'user',muted:false,skip:{},seen:{},matching:false,remoteStream:null,connectAt:0,offerAt:0};
   function el(id){return document.getElementById(id)}
   function status(t){var x=el('rc-status');if(x)x.textContent=t}
   function clearChat(placeholder){
@@ -16921,7 +16950,7 @@ async function onIdFace(e){
   function log(text,me){
     var box=el('rc-chat-log');
     if(!box)return;
-    if(box.children.length===1 && /Your chat appears|Say hi|Finding next/i.test(box.firstChild.textContent||'')) box.innerHTML='';
+    if(box.children.length===1 && /Your chat appears|Say hi|Finding next|Tap Start/i.test(box.firstChild.textContent||'')) box.innerHTML='';
     var d=document.createElement('div');
     d.className='rc-msg'+(me?' me':'');
     d.textContent=text;
@@ -16940,9 +16969,21 @@ async function onIdFace(e){
     if(!id){id='p'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36);try{sessionStorage.setItem('rs_rc_peer',id)}catch(e){}}
     return id;
   }
-  function box(name){return '__RC__'+String(name||'').replace(/[^a-zA-Z0-9_]/g,'').slice(0,24)}
+  function box(name){return '__RC__'+String(name||'').replace(/[^a-zA-Z0-9_]/g,'').slice(0,28)}
   function postSig(to, type, msg){
     return fetch(RC_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:to,from_username:rc.me||me(),type:type,post_id:rc.sid||('s'+Date.now()),message:typeof msg==='string'?msg:JSON.stringify(msg||{})})}).catch(function(){});
+  }
+  function icePayload(cand){
+    if(!cand)return null;
+    try{
+      if(typeof cand.toJSON==='function') return cand.toJSON();
+    }catch(e){}
+    return {
+      candidate:cand.candidate||'',
+      sdpMid:cand.sdpMid==null?null:cand.sdpMid,
+      sdpMLineIndex:cand.sdpMLineIndex==null?null:cand.sdpMLineIndex,
+      usernameFragment:cand.usernameFragment||undefined
+    };
   }
   function setupDc(ch){
     if(!ch)return;
@@ -16955,43 +16996,71 @@ async function onIdFace(e){
     };
     ch.onclose=function(){if(rc.dc===ch)rc.dc=null};
   }
+  function attachRemote(stream){
+    if(!stream)return;
+    rc.remoteStream=stream;
+    var v=el('rc-remote');
+    var a=el('rc-remote-audio');
+    if(v){v.muted=false;v.volume=1;v.srcObject=stream;v.playsInline=true;v.play().catch(function(){})}
+    if(a){a.muted=false;a.volume=1;a.srcObject=stream;a.play().catch(function(){status('Tap Sound if you cannot hear')})}
+    var q=el('rc-remote-empty');if(q)q.style.display='none';
+    status('Live · stranger connected');
+    clearTimeout(rc.connectTimer);
+  }
   async function makePc(){
     if(rc.pc)try{rc.pc.close()}catch(e){}
     rc.dc=null;
+    rc.remoteStream=null;
     rc.pc=new RTCPeerConnection({
       iceServers:[
         {urls:'stun:stun.cloudflare.com:3478'},
         {urls:'stun:stun.l.google.com:19302'},
         {urls:'stun:stun1.l.google.com:19302'},
-        {urls:'stun:stun2.l.google.com:19302'}
-      ]
+        {urls:'stun:stun2.l.google.com:19302'},
+        {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+        {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
+        {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'},
+        {urls:'turns:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}
+      ],
+      iceCandidatePoolSize:4
     });
     rc.pc.onicecandidate=function(e){
-      if(e.candidate&&rc.partner) postSig(box(rc.partner),'ice',{candidate:e.candidate});
+      if(!e.candidate||!rc.partner)return;
+      var payload=icePayload(e.candidate);
+      if(!payload||!payload.candidate)return;
+      postSig(box(rc.partner),'ice',{candidate:payload});
     };
-    function attachRemote(stream){
-      var v=el('rc-remote');
-      var a=el('rc-remote-audio');
-      if(v){v.muted=false;v.volume=1;v.srcObject=stream;v.play().catch(function(){})}
-      if(a){a.muted=false;a.volume=1;a.srcObject=stream;a.play().catch(function(){status('Tap Sound if you cannot hear')})}
-      var q=el('rc-remote-empty');if(q)q.style.display='none';
-      status('Live · stranger connected');
-    }
     rc.pc.ontrack=function(e){
-      if(e.streams&&e.streams[0]) attachRemote(e.streams[0]);
-      else if(e.track){
-        var ms=new MediaStream([e.track]);
-        attachRemote(ms);
-      }
+      try{
+        if(e.streams&&e.streams[0]){attachRemote(e.streams[0]);return}
+        if(!rc.remoteStream) rc.remoteStream=new MediaStream();
+        if(e.track) rc.remoteStream.addTrack(e.track);
+        attachRemote(rc.remoteStream);
+      }catch(err){}
     };
     rc.pc.ondatachannel=function(ev){setupDc(ev.channel)};
     rc.pc.onconnectionstatechange=function(){
       if(!rc.pc)return;
       var st=rc.pc.connectionState;
-      if(st==='connected') status('Live · stranger connected');
-      if(st==='failed'||st==='disconnected'){
-        status('Connection lost · next…');
-        setTimeout(function(){if(rc.started&&!rc.closed) randomCamNext()},900);
+      if(st==='connected'){status('Live · stranger connected');clearTimeout(rc.connectTimer)}
+      if(st==='failed'){
+        status('Connection failed · next…');
+        setTimeout(function(){if(rc.started&&!rc.closed) randomCamNext()},700);
+      }
+      if(st==='disconnected'){
+        status('Unstable…');
+        setTimeout(function(){
+          if(rc.pc&&rc.pc.connectionState==='disconnected'&&rc.started&&!rc.closed) randomCamNext();
+        },4000);
+      }
+    };
+    rc.pc.oniceconnectionstatechange=function(){
+      if(!rc.pc)return;
+      var st=rc.pc.iceConnectionState;
+      if(st==='connected'||st==='completed') status('Live · stranger connected');
+      if(st==='failed'){
+        status('ICE failed · next…');
+        setTimeout(function(){if(rc.started&&!rc.closed) randomCamNext()},700);
       }
     };
     if(rc.initiator){
@@ -17014,27 +17083,44 @@ async function onIdFace(e){
     if(!rc.pc||!rc.partner)return;
     var o=await rc.pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:true});
     await rc.pc.setLocalDescription(o);
+    rc.offerAt=Date.now();
     postSig(box(rc.partner),'offer',{sdp:o.sdp});
   }
   async function answer(sdp){
-    if(!rc.pc)return;
+    if(!rc.pc||!sdp)return;
+    if(rc.pc.signalingState==='have-local-offer')return;
     await rc.pc.setRemoteDescription({type:'offer',sdp:sdp});
     await flushIce();
     var a=await rc.pc.createAnswer();
     await rc.pc.setLocalDescription(a);
     if(rc.partner) postSig(box(rc.partner),'answer',{sdp:a.sdp});
   }
+  function armConnectWatch(){
+    clearTimeout(rc.connectTimer);
+    rc.connectAt=Date.now();
+    rc.connectTimer=setTimeout(function(){
+      if(!rc.started||rc.closed||!rc.partner)return;
+      var live=rc.pc&&(rc.pc.connectionState==='connected'||rc.pc.iceConnectionState==='connected'||rc.pc.iceConnectionState==='completed');
+      if(live)return;
+      status('No video · trying next…');
+      randomCamNext();
+    },18000);
+  }
   function matched(m){
     if(rc.partner && rc.partner===m.peer) return;
     rc.partner=m.peer||'User';
+    rc.pendingPeer=null;
     rc.initiator=!!m.initiator;
     rc.matching=false;
     rc.ice=[];
     clearChat('Say hi — private chat with this match.');
     var q=el('rc-remote-empty');
     if(q){q.style.display='flex';q.textContent='Connecting video…'}
-    status('Matched · connecting…');
+    status('Matched · connecting video…');
     setButtons(true,true);
+    armConnectWatch();
+    clearInterval(rc.poll);
+    rc.poll=setInterval(pollLobby,700);
     makePc().then(function(){
       if(rc.initiator) return offer();
     }).catch(function(){status('Could not start WebRTC')});
@@ -17047,23 +17133,24 @@ async function onIdFace(e){
     rc.sid='s'+Date.now();
     rc.seen={};
     rc.partner=null;
+    rc.pendingPeer=null;
     rc.matching=false;
     setButtons(true,false);
     status('Starting camera…');
     var mediaPromise=rc.local
       ? Promise.resolve(rc.local)
-      : navigator.mediaDevices.getUserMedia({video:{facingMode:rc.facing},audio:{echoCancellation:true,noiseSuppression:true}});
+      : navigator.mediaDevices.getUserMedia({video:{facingMode:rc.facing,width:{ideal:640},height:{ideal:480}},audio:{echoCancellation:true,noiseSuppression:true}});
     mediaPromise.then(function(stream){
       rc.local=stream;
       var lv=el('rc-local');
-      if(lv){lv.srcObject=stream;lv.muted=true;lv.playsInline=true;lv.play().catch(function(){})}
+      if(lv){lv.srcObject=stream;lv.muted=true;lv.playsInline=true;lv.setAttribute('playsinline','');lv.play().catch(function(){})}
       status('Searching for someone…');
       var q0=el('rc-remote-empty');
       if(q0){q0.style.display='flex';q0.textContent='Searching like OmeTV…'}
       clearChat('Chat unlocks when you match.');
       postSig('__RC_LOBBY__','waiting',{user:rc.me,ts:Date.now()});
       clearInterval(rc.poll);
-      rc.poll=setInterval(pollLobby,1200);
+      rc.poll=setInterval(pollLobby,900);
       pollLobby();
     }).catch(function(){
       status('Camera permission required');
@@ -17078,6 +17165,10 @@ async function onIdFace(e){
       var mine=await fetch(RC_API+'/notifs?to='+encodeURIComponent(box(rc.me)),{cache:'no-store'}).then(function(r){return r.json()}).catch(function(){return{}});
       var list=(mine&&mine.notifs)||[];
       for(var i=0;i<list.length;i++){await handleSig(list[i])}
+      // Resend offer if still waiting for answer
+      if(rc.partner&&rc.initiator&&rc.pc&&rc.pc.signalingState==='have-local-offer'&&rc.offerAt&&Date.now()-rc.offerAt>4500){
+        try{await offer()}catch(e){}
+      }
       if(rc.partner) return;
       var lobby=await fetch(RC_API+'/notifs?to=__RC_LOBBY__',{cache:'no-store'}).then(function(r){return r.json()}).catch(function(){return{}});
       var now=Date.now();
@@ -17088,8 +17179,8 @@ async function onIdFace(e){
         return {user:String(d.user||n.from_username||''),ts:Number(d.ts||n.created_at||0)};
       }).filter(function(x){
         if(!x.user||x.user===rc.me) return false;
-        if(now-x.ts>90000) return false;
-        if(rc.skip[x.user] && now-rc.skip[x.user]<45000) return false;
+        if(now-x.ts>45000) return false;
+        if(rc.skip[x.user] && now-rc.skip[x.user]<60000) return false;
         if(uniq[x.user]) return false;
         uniq[x.user]=1;
         return true;
@@ -17097,12 +17188,20 @@ async function onIdFace(e){
       if(!others.length){status('Searching… keep this tab open');return}
       others.sort(function(a,b){return b.ts-a.ts});
       var partner=others[0].user;
-      // Deterministic: lower id invites so both don't pick different peers.
       if(String(rc.me)<String(partner)){
-        if(rc.matching) return;
+        if(rc.matching||rc.pendingPeer) return;
         rc.matching=true;
+        rc.pendingPeer=partner;
         postSig(box(partner),'match',{peer:rc.me,initiator:true,ts:now});
-        matched({peer:partner,initiator:true});
+        status('Found someone · waiting accept…');
+        clearTimeout(rc.matchWait);
+        rc.matchWait=setTimeout(function(){
+          if(rc.partner||rc.pendingPeer!==partner)return;
+          rc.skip[partner]=Date.now();
+          rc.matching=false;
+          rc.pendingPeer=null;
+          status('No response · searching…');
+        },9000);
       }else{
         status('Someone nearby · waiting handshake…');
       }
@@ -17122,23 +17221,31 @@ async function onIdFace(e){
       return;
     }
     if(n.type==='match-ack'){
-      if(!rc.partner) matched({peer:String(d.peer||from),initiator:true});
+      var ackPeer=String(d.peer||from);
+      if(rc.partner) return;
+      if(rc.pendingPeer && ackPeer && ackPeer!==rc.pendingPeer && from!==rc.pendingPeer) return;
+      matched({peer:ackPeer||rc.pendingPeer,initiator:true});
       return;
     }
     if(n.type==='offer'){
-      if(!rc.partner && from){rc.partner=from;rc.matching=false}
+      if(!rc.partner && from){rc.partner=from;rc.matching=false;rc.pendingPeer=null;setButtons(true,true);armConnectWatch()}
       if(!rc.pc){rc.initiator=false;await makePc()}
       await answer(d.sdp);
       return;
     }
     if(n.type==='answer'&&rc.pc){
-      await rc.pc.setRemoteDescription({type:'answer',sdp:d.sdp});
-      await flushIce();
+      if(rc.pc.signalingState==='have-local-offer'||rc.pc.signalingState==='have-local-pranswer'){
+        await rc.pc.setRemoteDescription({type:'answer',sdp:d.sdp});
+        await flushIce();
+      }
       return;
     }
     if(n.type==='ice'&&d.candidate){
-      if(rc.pc&&rc.pc.remoteDescription){try{await rc.pc.addIceCandidate(d.candidate)}catch(e){}}
-      else rc.ice.push(d.candidate);
+      var cand=d.candidate;
+      if(typeof cand==='string') cand={candidate:cand,sdpMid:d.sdpMid||'0',sdpMLineIndex:d.sdpMLineIndex||0};
+      if(!cand||(!cand.candidate&&cand.candidate!==''))return;
+      if(rc.pc&&rc.pc.remoteDescription){try{await rc.pc.addIceCandidate(cand)}catch(e){}}
+      else rc.ice.push(cand);
       return;
     }
     if(n.type==='chat'){log(String(d.text||n.message||''),false);return}
@@ -17157,18 +17264,22 @@ async function onIdFace(e){
   };
   window.randomCamNext=function(){
     if(!rc.started)return;
-    var prev=rc.partner;
+    var prev=rc.partner||rc.pendingPeer;
     try{if(prev) postSig(box(prev),'peer-left',{ts:Date.now()})}catch(e){}
     if(prev) rc.skip[prev]=Date.now();
+    clearTimeout(rc.connectTimer);clearTimeout(rc.matchWait);
     try{if(rc.dc)rc.dc.close()}catch(e){}
     try{if(rc.pc)rc.pc.close()}catch(e){}
-    rc.dc=null;rc.pc=null;rc.partner=null;rc.ice=[];rc.matching=false;rc.sid='s'+Date.now();
+    rc.dc=null;rc.pc=null;rc.partner=null;rc.pendingPeer=null;rc.ice=[];rc.matching=false;rc.remoteStream=null;rc.sid='s'+Date.now();
     var v=el('rc-remote');if(v){v.srcObject=null;try{v.pause()}catch(e){}}
     var q=el('rc-remote-empty');if(q){q.style.display='flex';q.textContent='Finding someone…'}
     clearChat('Finding next match…');
     status('Finding next match…');
     setButtons(true,false);
+    clearInterval(rc.poll);
+    rc.poll=setInterval(pollLobby,900);
     postSig('__RC_LOBBY__','waiting',{user:rc.me,ts:Date.now()});
+    pollLobby();
   };
   window.flipRandomCam=async function(){
     rc.facing=rc.facing==='user'?'environment':'user';
@@ -17214,11 +17325,12 @@ async function onIdFace(e){
   window.closeRandomCam=function(){
     rc.closed=true;
     clearInterval(rc.poll);
+    clearTimeout(rc.connectTimer);clearTimeout(rc.matchWait);
     try{if(rc.partner)postSig(box(rc.partner),'peer-left',{ts:Date.now()})}catch(e){}
     try{if(rc.dc)rc.dc.close()}catch(e){}
     try{if(rc.pc)rc.pc.close()}catch(e){}
     if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}
-    rc.ws=null;rc.dc=null;rc.pc=null;rc.local=null;rc.partner=null;rc.started=false;rc.matching=false;
+    rc.ws=null;rc.dc=null;rc.pc=null;rc.local=null;rc.partner=null;rc.pendingPeer=null;rc.started=false;rc.matching=false;rc.remoteStream=null;
     var lv=el('rc-local'),rv=el('rc-remote');
     if(lv)lv.srcObject=null;if(rv)rv.srcObject=null;
     var q=el('rc-remote-empty');
