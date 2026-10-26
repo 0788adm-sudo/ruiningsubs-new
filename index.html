@@ -7388,8 +7388,7 @@ function openRoulette(){
       if(exT) exT.onclick = function(){ openTasks(); };
       var exGen=document.getElementById('btn-explore-gentask');if(exGen)exGen.onclick=function(){try{openGenerateTask()}catch(e){}};
       softClick('btn-explore-idcard', function(){ try{openIdCard('id')}catch(e){} });
-      var exPea=document.getElementById('btn-explore-pea');
-      if(exPea) exPea.onclick = function(){ try{openIdCard('pea')}catch(e){} };
+      softClick('btn-explore-pea', function(){ try{openIdCard('pea')}catch(e){} });
       var exNb=document.getElementById('btn-explore-namebody');
       if(exNb) exNb.onclick=function(){try{openNameOnBody()}catch(e){}};
       var back = document.getElementById('btn-roulette-back');
