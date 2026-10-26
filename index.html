@@ -389,9 +389,15 @@
     .panel.active{min-height:50vh}
 
   
-    .tasks-entry{margin:7px 0;padding:13px 14px;border-radius:14px;background:#0a0a0c;border:1px solid #1c1c24;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+    .tasks-entry{margin:7px 0;padding:13px 14px;border-radius:14px;background:#0a0a0c;border:1px solid #1c1c24;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;touch-action:pan-y;-webkit-user-select:none;user-select:none}
     .tasks-entry strong{font-size:15px}
     .tasks-entry span{font-size:12px;color:var(--muted)}
+    .wall-filter-bar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 4px 10px;margin:0 0 4px;touch-action:pan-x}
+    .wall-filter-bar::-webkit-scrollbar{display:none}
+    .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
+    .wall-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 2px 12px}
+    .wall-quick-actions .btn{padding:12px 10px;font-weight:900;border-radius:14px;touch-action:manipulation}
     .task-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
     .task-card.pinned{border-color:var(--orange);box-shadow:0 0 0 1px rgba(217,70,239,.32)}
     .task-card h3{font-size:15px;margin:0 0 6px}
@@ -1970,6 +1976,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 <button class="btn btn-ghost btn-sm" type="button" onclick="navigator.clipboard.writeText('https://www.ruiningsubs.com/#wall');toast('Wall link copied')">Link</button>
               </div>
               <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" style="width:min(320px,92%);padding:14px 18px;font-weight:900;font-size:16px;border-radius:16px;box-shadow:0 0 22px rgba(124,58,237,.45)">＋ Post</button>
+            </div>
+            <div class="wall-quick-actions">
+              <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
+              <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
+            </div>
+            <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
+              <button type="button" class="wall-filter-chip on" data-wall-filter="moment" role="tab" aria-selected="true">🔥 Moment</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Normal</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">⏱ Timed</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
             </div>
             <div id="wall-stories" class="wall-stories" style="margin:0 0 12px"></div>
             <div id="wall-hot-slot"></div>
@@ -7356,19 +7373,21 @@ function openRoulette(){
     }
 
     function setupRouletteUI(){
-      var openBtn = document.getElementById('btn-open-roulette');
-      if(openBtn) openBtn.onclick = function(){ openRoulette(); };
-      var exR = document.getElementById('btn-explore-roulette');
-      if(exR) exR.onclick = function(){ openRoulette(); };
-      var exP = document.getElementById('btn-explore-print');
-      if(exP) exP.onclick = function(){ openPrintDirty(); };
+      // Prefer scroll-safe taps from setupTaskUI; do not clobber with raw onclick
+      function softClick(id, fn){
+        var el=document.getElementById(id);
+        if(!el||el.__rsTapSafe)return;
+        el.onclick=fn;
+      }
+      softClick('btn-open-roulette', function(){ openRoulette(); });
+      softClick('btn-explore-roulette', function(){ openRoulette(); });
+      softClick('btn-explore-print', function(){ openPrintDirty(); });
       var exT = document.getElementById('btn-explore-tasks');
       var exC = document.getElementById('btn-explore-custom');
       if(exC) exC.onclick=function(){var m=document.getElementById('modal-custom-tasks');if(m)m.style.display='flex'};
       if(exT) exT.onclick = function(){ openTasks(); };
       var exGen=document.getElementById('btn-explore-gentask');if(exGen)exGen.onclick=function(){try{openGenerateTask()}catch(e){}};
-      var exId = document.getElementById('btn-explore-idcard');
-      if(exId) exId.onclick = function(){ try{openIdCard('id')}catch(e){} };
+      softClick('btn-explore-idcard', function(){ try{openIdCard('id')}catch(e){} });
       var exPea=document.getElementById('btn-explore-pea');
       if(exPea) exPea.onclick = function(){ try{openIdCard('pea')}catch(e){} };
       var exNb=document.getElementById('btn-explore-namebody');
@@ -7443,15 +7462,55 @@ function openRoulette(){
       var b=document.getElementById('btn-open-tasks');
       if(b)b.onclick=function(){openTasks()};
       function tapOpen(el, fn){
-        if(!el)return;
-        var lock=0;
-        function fire(ev){var n=Date.now();if(n-lock<400)return;lock=n;try{if(ev)ev.preventDefault()}catch(e){}fn()}
-        el.addEventListener('touchend', fire, {passive:false});
-        el.addEventListener('click', fire);
+        if(!el||el.__rsTapSafe)return;
+        el.__rsTapSafe=1;
+        var sx=0,sy=0,moved=0,lock=0;
+        // iPhone Safari/Chrome: ignore taps that were actually scrolls
+        el.addEventListener('touchstart',function(e){
+          var t=e.changedTouches&&e.changedTouches[0];
+          if(!t)return;
+          sx=t.clientX;sy=t.clientY;moved=0;
+        },{passive:true});
+        el.addEventListener('touchmove',function(e){
+          var t=e.changedTouches&&e.changedTouches[0];
+          if(!t)return;
+          if(Math.abs(t.clientX-sx)>14||Math.abs(t.clientY-sy)>14) moved=1;
+        },{passive:true});
+        function fire(ev){
+          if(moved){try{if(ev){ev.preventDefault();ev.stopPropagation()}}catch(e){} return}
+          var n=Date.now();
+          if(n-lock<550)return;
+          lock=n;
+          try{if(ev){ev.preventDefault();ev.stopPropagation()}}catch(e){}
+          fn();
+        }
+        el.addEventListener('touchend',fire,{passive:false});
+        el.addEventListener('click',function(ev){
+          if(moved){ev.preventDefault();ev.stopPropagation();return}
+          fire(ev);
+        });
       }
       tapOpen(document.getElementById('btn-open-print-dirty'), function(){openPrintDirty()});
       tapOpen(document.getElementById('btn-open-roulette'), function(){openRoulette()});
       tapOpen(document.getElementById('btn-open-tasks'), function(){openTasks()});
+      // Explore + Wall entry rows — same scroll-safe tap (replace fragile inline onclick)
+      [
+        ['btn-explore-idcard', function(){openIdCard('id')}],
+        ['btn-explore-pea', function(){openIdCard('pea')}],
+        ['btn-explore-print', function(){openPrintDirty()}],
+        ['btn-explore-roulette', function(){openRoulette()}],
+        ['btn-explore-randomcam', function(){openRandomCam()}],
+        ['btn-explore-goontok', function(){openGoonTok()}],
+        ['btn-explore-dice', function(){openDiceGame()}],
+        ['btn-explore-videos', function(){showPanel('videos')}],
+        ['btn-wall-generate-id', function(){openIdCard('id')}],
+        ['btn-wall-generate-pea', function(){openIdCard('pea')}]
+      ].forEach(function(pair){
+        var el=document.getElementById(pair[0]);
+        if(!el)return;
+        try{el.removeAttribute('onclick')}catch(e){}
+        tapOpen(el, function(){try{pair[1]()}catch(e){}});
+      });
       var printBack=document.getElementById('btn-print-dirty-back');
       if(printBack)printBack.onclick=function(){showPanel('feed')};
       try{setupPublicExposureForm()}catch(e){console.warn(e)}
@@ -11067,22 +11126,96 @@ function openRoulette(){
         }).join('')
         +'</div>';
     }
-    function renderNormalFeed(){
-      var q=(normalFeedQuery||'').trim().toLowerCase();
-      function wallKind(p){
-        var tg=(p&&p.tags)||[];
-        if(!Array.isArray(tg))tg=[];
-        tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
-        var title=String(p&&p.title||'').toLowerCase();
-        if(p&&p._kind)return p._kind;
-        if(tg.indexOf('roulette')>=0||tg.indexOf('roulette_task')>=0||title.indexOf('roulette')>=0)return 'roulette';
-        if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||title.indexOf('pea')>=0)return 'pea';
-        if(tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0||title.indexOf('published id')>=0)return 'id';
-        if(tg.indexOf('video')>=0||(typeof isVideoPost==='function'&&isVideoPost(p)))return 'video';
-        if(tg.indexOf('normal_feed')>=0||tg.indexOf('profile_gallery')>=0||tg.indexOf('profile_only')>=0)return 'wall';
-        if(title==='photo'||title==='status'||title==='wall post')return 'wall';
-        return 'other';
+    var wallFilter=(function(){try{return localStorage.getItem('rs_wall_filter')||'moment'}catch(e){return'moment'}})();
+    function setWallFilter(f){
+      f=String(f||'moment');
+      if(['moment','normal','timed','generated','text'].indexOf(f)<0) f='moment';
+      wallFilter=f;
+      try{localStorage.setItem('rs_wall_filter',f)}catch(e){}
+      syncWallFilterChips();
+      // Instant client filter — no full refetch
+      window.__wallVisible=12;
+      renderNormalFeed();
+      // Soft top-up in background if this slice looks thin
+      try{
+        var n=(window.__lastWallListLen||0);
+        if(n<8 && typeof loadNormalFeed==='function') loadNormalFeed(true);
+      }catch(e){}
+    }
+    window.setWallFilter=setWallFilter;
+    function syncWallFilterChips(){
+      document.querySelectorAll('#wall-filter-bar .wall-filter-chip').forEach(function(b){
+        var on=b.getAttribute('data-wall-filter')===wallFilter;
+        b.classList.toggle('on',on);
+        b.setAttribute('aria-selected',on?'true':'false');
+      });
+    }
+    function setupWallFilters(){
+      var bar=document.getElementById('wall-filter-bar');
+      if(bar&&!bar.__wired){
+        bar.__wired=1;
+        bar.addEventListener('click',function(ev){
+          var b=ev.target&&ev.target.closest?ev.target.closest('[data-wall-filter]'):null;
+          if(!b)return;
+          ev.preventDefault();
+          setWallFilter(b.getAttribute('data-wall-filter'));
+        });
       }
+      syncWallFilterChips();
+    }
+    function wallPostHasMedia(p){
+      if(!p)return false;
+      if(p.media_url&&typeof isVideoUrl==='function'&&isVideoUrl(p.media_url))return true;
+      if(typeof isVideoPost==='function'&&isVideoPost(p))return true;
+      var imgs=p.images&&p.images.length?p.images:null;
+      if(!imgs){try{imgs=parseImages(p.image||'')}catch(e){imgs=[]}}
+      return !!(imgs&&imgs.length);
+    }
+    function isWallTimedPost(p){
+      if(!p)return false;
+      if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))return false;
+      var exp=Number(p.expires||0);
+      if(!exp||!isFinite(exp))return false;
+      var now=Date.now();
+      return exp>now && exp<=now+60*24*3600*1000;
+    }
+    function isWallTextPost(p){
+      if(!p)return false;
+      if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))return false;
+      if(isWallTimedPost(p))return false;
+      if(!isTimelessWallPost(p))return false;
+      return !wallPostHasMedia(p);
+    }
+    function isWallNormalPost(p){
+      // Timeless posts without timer — Hot🔥 eligible (photos/video/status, not generated cards)
+      if(!p)return false;
+      if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))return false;
+      if(isWallTimedPost(p))return false;
+      return isTimelessWallPost(p);
+    }
+    function isWallMomentPost(p){
+      if(!p)return false;
+      var age=Date.now()-Number(p.created||0);
+      if(age>=0 && age<48*3600*1000) return true;
+      if(isWallTimedPost(p) && Number(p.expires||0)-Date.now()<8*3600*1000) return true;
+      var hot=(typeof postHotCount==='function'?postHotCount(p):0)||0;
+      if(hot>0 && age<7*24*3600*1000) return true;
+      var score=(Number(p.likes)||0)*8+(Number(p.views)||0)+(Number(p.commentCount||p.comments)||0)*5+(Number(p.extensions)||0)*6;
+      if(score>=18 && age<5*24*3600*1000) return true;
+      return false;
+    }
+    function matchesWallFilter(p, filter){
+      filter=filter||wallFilter||'moment';
+      if(filter==='timed') return isWallTimedPost(p);
+      if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
+      if(filter==='text') return isWallTextPost(p);
+      if(filter==='normal') return isWallNormalPost(p);
+      // moment = live mix
+      return isWallMomentPost(p);
+    }
+    function renderNormalFeed(){
+      try{setupWallFilters()}catch(e){}
+      var q=(normalFeedQuery||'').trim().toLowerCase();
       var mixed=(normalFeedPosts||[]).concat(posts||[]).concat(window.__videoCache||[]);
       var list=dedupePostList(mixed.slice()).filter(function(p){
         if(!p||p.id==null)return false;
@@ -11099,13 +11232,26 @@ function openRoulette(){
           var title=String(p.title||'').toUpperCase();
           if(title.indexOf('PIN REQUEST')===0||title.indexOf('PRINT REQUEST')===0) return false;
         }catch(e){}
-        // Wall = ALL live publications (timed + timeless + video + PEA/ID + roulette)
-        return true;
-      }).sort(function(a,b){
-        var sb=wallRankScore(b), sa=wallRankScore(a);
-        if(sb!==sa) return sb-sa;
-        return String(b.id||'').localeCompare(String(a.id||''));
+        return matchesWallFilter(p, wallFilter);
       });
+      if(wallFilter==='normal'){
+        list.sort(function(a,b){
+          var hb=typeof postHotCount==='function'?postHotCount(b):0;
+          var ha=typeof postHotCount==='function'?postHotCount(a):0;
+          if(hb!==ha) return hb-ha;
+          return wallRankScore(b)-wallRankScore(a);
+        });
+      }else if(wallFilter==='timed'){
+        list.sort(function(a,b){return (Number(a.expires)||0)-(Number(b.expires)||0)});
+      }else if(wallFilter==='moment'){
+        list.sort(function(a,b){
+          var sb=wallRankScore(b)+((Number(b.likes)||0)*3600000)+((Number(b.views)||0)*60000);
+          var sa=wallRankScore(a)+((Number(a.likes)||0)*3600000)+((Number(a.views)||0)*60000);
+          return sb-sa;
+        });
+      }else{
+        list.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
+      }
       if(q){
         list=list.filter(function(p){
           var u=String(p.user||'').toLowerCase();
@@ -11117,10 +11263,18 @@ function openRoulette(){
           return u.indexOf(q)>=0||d.indexOf(q)>=0||t.indexOf(q)>=0||tags.indexOf(q)>=0;
         });
       }
+      window.__lastWallListLen=list.length;
       var vis=Math.max(8, Number(window.__wallVisible)||12);
       var first=list.slice(0,vis);
       var html=first.map(function(p){try{return normalFeedPostHtml(p)}catch(e){return ''}}).filter(Boolean).join('');
-      var empty='<div class="normal-feed-empty">Nothing on the wall yet. Be the first.</div>';
+      var emptyLabels={
+        moment:'Nothing hot right now. Pull more or post.',
+        normal:'No normal posts yet. Post without a timer — Hot🔥 boosts them.',
+        timed:'No timed posts live right now.',
+        generated:'No generated IDs / PEAs yet.',
+        text:'No text posts yet.'
+      };
+      var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing on the wall yet.')+'</div>';
       var more='';
       if(vis<list.length){
         more='<div id="wall-more-sentinel" style="padding:16px 0 28px;text-align:center;color:var(--muted);font-size:12px">Loading more…</div>';
@@ -11136,7 +11290,6 @@ function openRoulette(){
       try{bindImpressions('wall')}catch(e){}
       try{prefetchAvatars(first).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
       try{bindWallInfiniteScroll()}catch(e){}
-      // Never warm full MP4s on Wall — posters come from thumb_url only
     }
     function bindWallInfiniteScroll(){
       var sent=document.getElementById('wall-more-sentinel');
@@ -11880,10 +12033,10 @@ function openRoulette(){
         if(st && Date.now()-st>500)return false;
         var t=tapPoint(e);
         if(!t)return false;
-        if(Math.abs((t.clientX||0)-sx)>18||Math.abs((t.clientY||0)-sy)>18)return false;
+        if(Math.abs((t.clientX||0)-sx)>32||Math.abs((t.clientY||0)-sy)>32)return false;
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
-        if(el.closest('.modal-bg,.bottom-nav,.gt-rail,.gt-top,.gt-keep,.dx-actions,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox'))return false;
+        if(el.closest('.modal-bg,.bottom-nav,.gt-rail,.gt-top,.gt-keep,.dx-actions,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico'))return false;
         var like=el.closest('.btn-like,[data-nf-act="picker"],[data-nf-act="react"]');
         if(like){
           var artL=like.closest('[data-pid],[data-normal-post-id],[data-gid]');
@@ -13373,15 +13526,22 @@ function profileStatsHtml(userPosts, extra){
       }catch(e){}
       var box=document.getElementById('posts-container');
       var featBox=document.getElementById('featured-slot');
+      // Extend tab = ONLY real timed exposures that can expire / be extended.
+      // Generated IDs & PEAs have no timer and must never appear here.
       var list=posts.slice().filter(function(p){
+        if(!p||isDeletedId(p.id))return false;
+        if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) return false;
         var tg=p.tags||[];if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-        if(tg.indexOf('generated_id')>=0||tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('idcard')>=0)return true;
+        if(!Array.isArray(tg))tg=[];
+        if(tg.indexOf('generated_id')>=0||tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('idcard')>=0)return false;
+        var title=String(p.title||'').toLowerCase();
+        if(title.indexOf('published id')>=0||title.indexOf('published pea')>=0)return false;
         var exp=Number(p.expires||0);
-        if(!(exp>Date.now())){
-          var created=Number(p.created||0);
-          if(created && Date.now()-created<36*3600000){p.expires=Date.now()+24*3600000;return true;}
-          return false;
-        }
+        if(!exp||!isFinite(exp))return false;
+        var now=Date.now();
+        if(exp<=now)return false;
+        // Far-future / permanent expiry is Wall territory, not Extend
+        if(exp>now+60*24*3600*1000)return false;
         return true;
       });
       if(currentFilter==='time')list.sort(function(a,b){return (b.expires||0)-(a.expires||0)});
