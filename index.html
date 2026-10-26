@@ -2032,10 +2032,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <h2>Buy Fag Coins</h2>
         </div>
         <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin:0 0 10px" onclick="navigator.clipboard.writeText('https://www.ruiningsubs.com/#coins');toast('Link copied')">Copy page link</button>
-        <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay with Throne or Bitcoin. Then tap I paid on the pack you bought. Admin credits the coins.</p>
+        <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay Throne / PayPal / BTC → tap <b style="color:#f5c518">I paid</b> → watch <b style="color:#f5c518">Pending credit</b> until Master adds your FC.</p>
         <a class="btn btn-primary" href="https://throne.com/mastersan" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:0 0 12px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay on Throne</span></a>
         <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 FC for 48 hours. Remove = 100 FC or $10.</p>
         <div id="coin-balance" style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:12px;padding:12px;margin-bottom:12px;font-weight:800;color:#f5c518">Balance: — FC</div>
+        <div id="coin-pending" style="display:none;margin:0 0 14px"></div>
         <div id="coin-packs"></div>
         <div style="margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5">
           Pin 50 FC · Remove 100 FC / $10 · Roulette 50 FC (15 spins) · Print 350 FC / $40
@@ -2045,7 +2046,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <div id="panel-randomcam" class="panel">
         <div class="rc-head">
           <button class="back" type="button" onclick="closeRandomCam();showPanel('explore')">←</button>
-          <div><h2>Random Video Chat</h2><div class="rc-status" id="rc-status">Ready · 0/20</div></div>
+          <div><h2>Random Video Chat</h2><div class="rc-status" id="rc-status">Ready · tap Start</div></div>
           <button class="btn btn-ghost btn-sm" type="button" onclick="closeRandomCam();showPanel('explore')">Close</button>
         </div>
         <div class="rc-body" id="rc-main-body">
@@ -2062,8 +2063,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             </div>
           </div>
           <div class="rc-chat">
-            <div class="rc-chat-head">Private chat<div class="rc-counter">Only your current match</div></div>
-            <div class="rc-chat-log" id="rc-chat-log"><div style="color:#666;font-size:12px;text-align:center;padding:20px">Your chat appears here when matched.</div></div>
+            <div class="rc-chat-head">Private chat<div class="rc-counter">Like OmeTV · only this stranger</div></div>
+            <div class="rc-chat-log" id="rc-chat-log"><div style="color:#666;font-size:12px;text-align:center;padding:20px">Tap Start to find a stranger.</div></div>
             <div class="rc-chat-form"><input id="rc-chat-input" maxlength="500" placeholder="Message…" autocomplete="off"/><button type="button" onclick="sendRandomChat()">↑</button></div>
           </div>
         </div>
@@ -5832,6 +5833,99 @@ async function claimPayPalPack(p){
     }
     window.claimPayPalPack=claimPayPalPack;
 
+    function loadCoinPending(){
+      try{return JSON.parse(localStorage.getItem('rs_coin_pending')||'[]')||[]}catch(e){return []}
+    }
+    function saveCoinPending(arr){
+      try{localStorage.setItem('rs_coin_pending',JSON.stringify((arr||[]).slice(0,25)))}catch(e){}
+    }
+    function pushCoinPending(row){
+      var arr=loadCoinPending();
+      arr.unshift(row);
+      saveCoinPending(arr);
+      return arr;
+    }
+    function markCoinPendingStatus(id, status, extra){
+      var arr=loadCoinPending();
+      for(var i=0;i<arr.length;i++){
+        if(String(arr[i].id)===String(id)){
+          arr[i].status=status;
+          if(extra){for(var k in extra){if(Object.prototype.hasOwnProperty.call(extra,k))arr[i][k]=extra[k]}}
+          arr[i].updatedAt=Date.now();
+          break;
+        }
+      }
+      saveCoinPending(arr);
+      return arr;
+    }
+    function renderCoinPending(){
+      var box=document.getElementById('coin-pending');
+      if(!box)return;
+      var uid=String(coinUserId()||'').replace(/^@/,'');
+      var arr=loadCoinPending().filter(function(x){
+        if(!x)return false;
+        var u=String(x.user||'').replace(/^@/,'');
+        return !u || !uid || u===uid || u==='anon';
+      });
+      var pending=arr.filter(function(x){return String(x.status||'pending')==='pending'});
+      var recent=arr.filter(function(x){return String(x.status||'')==='credited'}).slice(0,3);
+      if(!pending.length && !recent.length){box.style.display='none';box.innerHTML='';return}
+      box.style.display='block';
+      var html='';
+      if(pending.length){
+        html+='<div style="border:1px solid rgba(245,197,24,.55);border-radius:14px;padding:12px;background:rgba(245,197,24,.1);margin:0 0 10px">'
+          +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">'
+          +'<div style="font-size:11px;letter-spacing:1.2px;color:#f5c518;font-weight:900">PENDING CREDIT</div>'
+          +'<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px" onclick="refreshCoinPending()">Refresh</button></div>'
+          +'<div style="font-size:12px;color:#ddd;line-height:1.45;margin:0 0 10px">You tapped <b>I paid</b>. Master is crediting your FC. Keep this page open or come back — balance updates when approved.</div>'
+          +pending.map(function(p){
+            var when=p.at?ago(p.at):'just now';
+            return '<div style="border-top:1px solid rgba(245,197,24,.22);padding:8px 0;display:flex;justify-content:space-between;gap:10px;align-items:flex-start">'
+              +'<div><div style="font-weight:800;color:#fff">+'+esc(String(p.coins||0))+' FC · $'+esc(String(p.usd||''))+'</div>'
+              +'<div style="font-size:11px;color:var(--muted);margin-top:2px">@'+esc(String(p.user||uid||'you'))+' · '+esc(when)+'</div></div>'
+              +'<span style="flex-shrink:0;font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#f5c518;border-radius:999px;padding:4px 8px">PENDING</span></div>';
+          }).join('')
+          +'<a href="https://t.me/mastersan01" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:12px;color:#f5c518;font-weight:800;text-decoration:none">Telegram @mastersan01 if it takes long →</a>'
+          +'</div>';
+      }
+      if(recent.length){
+        html+='<div style="border:1px solid rgba(52,211,153,.35);border-radius:14px;padding:10px 12px;background:rgba(6,20,15,.65);margin:0 0 10px">'
+          +'<div style="font-size:11px;letter-spacing:1.2px;color:#34d399;font-weight:900;margin-bottom:6px">CREDITED</div>'
+          +recent.map(function(p){
+            return '<div style="font-size:12px;color:#ddd;padding:3px 0">+'+esc(String(p.coins||0))+' FC · $'+esc(String(p.usd||''))+' <span style="color:#34d399;font-weight:800">✓</span></div>';
+          }).join('')
+          +'</div>';
+      }
+      box.innerHTML=html;
+    }
+    async function refreshCoinPending(){
+      var before=Number(window.__fcLast||0);
+      var after=0;
+      try{after=await loadFagBalance()}catch(e){after=before}
+      var arr=loadCoinPending();
+      var pending=arr.filter(function(x){return String(x.status||'pending')==='pending'});
+      if(pending.length && after>before){
+        var gained=after-before;
+        for(var i=0;i<arr.length && gained>0;i++){
+          if(String(arr[i].status||'pending')!=='pending')continue;
+          var c=Number(arr[i].coins||0)||0;
+          if(c>0 && gained>=c){
+            arr[i].status='credited';
+            arr[i].creditedAt=Date.now();
+            gained-=c;
+          }
+        }
+        saveCoinPending(arr);
+        toast('FC credited · balance updated');
+      }else if(pending.length){
+        toast('Still pending · Master credits soon');
+      }
+      renderCoinPending();
+      return after;
+    }
+    window.refreshCoinPending=refreshCoinPending;
+    window.renderCoinPending=renderCoinPending;
+
     function openCoinShop(){
       showPanel('coins');
       var box=document.getElementById('coin-packs');
@@ -5839,11 +5933,11 @@ async function claimPayPalPack(p){
         box.innerHTML='';
         var tip=document.createElement('p');
         tip.style.cssText='font-size:12px;color:var(--muted);line-height:1.45;margin:0 0 14px';
-        tip.innerHTML='<strong style="font-size:18px;color:#fff">Choose your FC pack</strong><br><span style="display:inline-block;margin-top:5px">Pay Throne or BTC. Then tap <b>I paid</b> — that is your receipt. Credit usually lands in a few minutes while Master is online. I paid is the backup, not a maybe.</span>';
+        tip.innerHTML='<strong style="font-size:18px;color:#fff">Choose your FC pack</strong><br><span style="display:inline-block;margin-top:5px"><b>1.</b> Pay Throne / PayPal / BTC → <b>2.</b> Tap <b>I paid</b> → <b>3.</b> Status shows in <b>Pending credit</b> until Master adds the FC.</span>';
         box.appendChild(tip);
         var paidBar=document.createElement('div');
         paidBar.style.cssText='border:1px solid #f5c518;border-radius:14px;padding:12px;margin:0 0 14px;background:rgba(245,197,24,.08)';
-        paidBar.innerHTML='<div style="font-weight:900;margin-bottom:6px">After you pay</div><div style="font-size:12px;color:var(--muted);line-height:1.45">Tap I paid on the same pack. Typical credit: a few minutes. If it takes longer, message Master on Telegram with the amount.</div>';
+        paidBar.innerHTML='<div style="font-weight:900;margin-bottom:6px">How credit works</div><div style="font-size:12px;color:var(--muted);line-height:1.45">I paid creates your receipt. Pending = waiting for Master. Credited = FC already in your balance. Typical wait: a few minutes while Master is online.</div>';
         box.appendChild(paidBar);
         FC_PACKS.forEach(function(p){
           var card=document.createElement('div');
@@ -5870,7 +5964,7 @@ async function claimPayPalPack(p){
           addBtn('I paid — request '+p.coins+' FC','background:#f5c518;color:#000;font-weight:900',function(){confirmCoinPackPaid(p);});
           var note=document.createElement('p');
           note.style.cssText='font-size:11px;color:var(--muted);line-height:1.4;margin:4px 0 0;text-align:center';
-          note.textContent='Pay first. Then tap I paid so Admin can credit this user.';
+          note.textContent='Pay first. Then tap I paid — it appears under Pending credit.';
           card.appendChild(note);
           box.appendChild(card);
         });
@@ -5880,6 +5974,15 @@ async function claimPayPalPack(p){
         box.appendChild(page);
       }
       loadFagBalance();
+      renderCoinPending();
+      try{
+        clearInterval(window.__coinPendingPoll);
+        window.__coinPendingPoll=setInterval(function(){
+          var arr=loadCoinPending().filter(function(x){return String(x.status||'pending')==='pending'});
+          if(!arr.length){clearInterval(window.__coinPendingPoll);return}
+          refreshCoinPending();
+        },12000);
+      }catch(e){}
     }
 
     function coinReqProgress(on, label){
@@ -5904,17 +6007,43 @@ async function claimPayPalPack(p){
       var usd=Number(p.usd||10), coins=Number(p.coins||110);
       var user=coinUserId()||((currentUser&&currentUser.name)||'anon');
       user=String(user).replace(/^@/,'');
+      var localId='cp_'+Date.now().toString(36)+Math.floor(Math.random()*1e5).toString(36);
+      var balBefore=Number(window.__fcLast||0);
       coinReqProgress(true,'Sending I paid · '+coins+' FC for @'+user);
       toast('Sending request…');
+      function rememberPending(reqId){
+        pushCoinPending({
+          id:localId,
+          reqId:reqId||'',
+          user:user,
+          usd:usd,
+          coins:coins,
+          status:'pending',
+          balBefore:balBefore,
+          at:Date.now()
+        });
+        renderCoinPending();
+        try{
+          var box=document.getElementById('coin-pending');
+          if(box) box.scrollIntoView({behavior:'smooth',block:'nearest'});
+        }catch(e){}
+      }
       try{
         var req=await cfCreateRequest({kind:'coins',user:user,amount:'$'+usd,coins:coins,provider:'manual',label:coins+' FC recharge',payload:{requested_coins:coins,usd:usd}});
         try{await notifyAdminPayment({kind:'coins',user:user,amount:'$'+usd,label:coins+' FC pack',message:'COIN RECHARGE REQUEST · @'+user+' · $'+usd+' · '+coins+' FC'});}catch(e){}
-        coinReqProgress(true,'Request sent. Waiting for admin…');
+        rememberPending(req&&(req.id||req.request_id)||'');
+        coinReqProgress(true,'In Pending credit · waiting for Master…');
         setTimeout(function(){coinReqProgress(false)},2500);
-        toast('Request sent for @'+user+' · '+coins+' FC');
+        toast('Pending · +'+coins+' FC for @'+user);
         try{renderAdminReqTab('pays')}catch(e){}
       }catch(e){
-        try{await notifyAdminPayment({kind:'coins',user:user,amount:'$'+usd,label:coins+' FC pack',message:'COIN RECHARGE REQUEST · @'+user+' · $'+usd+' · '+coins+' FC'});coinReqProgress(true,'Request sent. Waiting for admin…');setTimeout(function(){coinReqProgress(false)},2500);toast('Request sent to admin for @'+user);}catch(e2){coinReqProgress(false);toast((e&&e.message)||'Could not send request.');}
+        try{
+          await notifyAdminPayment({kind:'coins',user:user,amount:'$'+usd,label:coins+' FC pack',message:'COIN RECHARGE REQUEST · @'+user+' · $'+usd+' · '+coins+' FC'});
+          rememberPending('');
+          coinReqProgress(true,'In Pending credit · waiting for Master…');
+          setTimeout(function(){coinReqProgress(false)},2500);
+          toast('Pending · request sent for @'+user);
+        }catch(e2){coinReqProgress(false);toast((e&&e.message)||'Could not send request.');}
       }
     }
     window.confirmCoinPackPaid=confirmCoinPackPaid;
@@ -5947,7 +6076,22 @@ async function claimPayPalPack(p){
         if(hn)hn.textContent=n+' FC';
         else if(h)h.textContent=n+' FC';
       }catch(e){}
+      try{
+        var prev=Number(window.__fcLast||0);
+        if(n>prev){
+          var arr=loadCoinPending();
+          var gained=n-prev;
+          var changed=false;
+          for(var i=0;i<arr.length && gained>0;i++){
+            if(String(arr[i].status||'pending')!=='pending')continue;
+            var c=Number(arr[i].coins||0)||0;
+            if(c>0 && gained>=c){arr[i].status='credited';arr[i].creditedAt=Date.now();gained-=c;changed=true}
+          }
+          if(changed){saveCoinPending(arr);try{renderCoinPending()}catch(e){}}
+        }
+      }catch(e){}
       window.__fcLast=n;
+      try{renderCoinPending()}catch(e){}
       return n;
     }
     async function claimFagCoins(){
@@ -14315,6 +14459,7 @@ async function onIdFace(e){
       if(t&&/remove/i.test(t.kind||t.label||'')) kind='remove_request';
       if(t&&/pin|feature/i.test(t.kind||t.label||'')) kind='feature_request';
       if(t&&/print/i.test(t.kind||t.label||'')) kind='print_request';
+      if(t&&(/coins/i.test(String(t.kind||''))||Number(t.coins||0)>0)&&!/pin|remove|print|page|feature/i.test(String(t.kind||'')+' '+String(t.label||''))) kind='coins';
       await notifyAdminPayment({
         kind:kind,
         postId:t&&t.postId,
@@ -14323,15 +14468,35 @@ async function onIdFace(e){
         label:t&&t.label,
         message:'💰 TICKET '+(t&&t.code)+' · @'+(t&&t.user)+' · '+(t&&t.label)+' · '+(t&&t.amount)+((t&&t.coins)?' → '+t.coins+' FC':'')+(t&&t.postId?' · post #'+t.postId:'')+' · PAID'
       });
+      if(kind==='coins' && t && Number(t.coins||0)>0){
+        try{
+          var usd=Number(String(t.amount||'').replace(/[^0-9.]/g,''))||0;
+          var user=String((t.user||coinUserId()||'anon')).replace(/^@/,'');
+          var req=null;
+          try{req=await cfCreateRequest({kind:'coins',user:user,amount:t.amount||('$'+(usd||'')),coins:Number(t.coins||0),provider:'manual',label:(t.coins||0)+' FC recharge',payload:{requested_coins:Number(t.coins||0),usd:usd,ticket:t.code||''}})}catch(e){}
+          pushCoinPending({
+            id:'cp_'+Date.now().toString(36)+Math.floor(Math.random()*1e5).toString(36),
+            reqId:(req&&(req.id||req.request_id))||'',
+            user:user,
+            usd:usd,
+            coins:Number(t.coins||0),
+            status:'pending',
+            balBefore:Number(window.__fcLast||0),
+            at:Date.now()
+          });
+          try{renderCoinPending()}catch(e){}
+          try{showPanel('coins')}catch(e){}
+        }catch(e){}
+      }
       if(t&&t.postId&&kind==='remove_request'){
         try{
-          var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
-          req.unshift({id:t.postId,title:t.label||'REMOVE',user:t.user||'',at:Date.now()});
-          localStorage.setItem('rs_remove_req',JSON.stringify(req.slice(0,40)));
+          var reqR=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+          reqR.unshift({id:t.postId,title:t.label||'REMOVE',user:t.user||'',at:Date.now()});
+          localStorage.setItem('rs_remove_req',JSON.stringify(reqR.slice(0,40)));
         }catch(e){}
       }
       try{await pingAdminMail('RS PAID '+(t&&t.code),'@'+(t&&t.user)+' paid '+(t&&t.amount)+' for '+(t&&t.label)+(t&&t.postId?' post #'+t.postId:''))}catch(e){}
-      toast('Sent to Master');
+      toast(kind==='coins'?'Pending credit · waiting for Master':'Sent to Master');
       try{document.getElementById('pay-ticket-modal').classList.remove('show');document.getElementById('pay-ticket-modal').style.display='none'}catch(e){}
     }
     window.startPayTicket=startPayTicket;
@@ -16351,30 +16516,30 @@ async function onIdFace(e){
 <script id="randomcam-client">
 (function(){
   var RC_API=window.CF_API||'https://ruiningsubs-api.0788adm.workers.dev';
-  var rc={ws:null,pc:null,local:null,partner:null,started:false,initiator:false,ice:[],closed:false,facing:'user',muted:false};
+  var rc={ws:null,pc:null,dc:null,local:null,partner:null,started:false,initiator:false,ice:[],closed:false,facing:'user',muted:false,skip:{},seen:{},matching:false};
   function el(id){return document.getElementById(id)}
   function status(t){var x=el('rc-status');if(x)x.textContent=t}
-  function log(text,me){var box=el('rc-chat-log');if(!box)return;if(box.children.length===1&&box.firstChild.textContent.indexOf('Your chat appears')===0)box.innerHTML='';var d=document.createElement('div');d.className='rc-msg'+(me?' me':'');d.textContent=text;box.appendChild(d);box.scrollTop=box.scrollHeight}
-  function setButtons(on,matched){var a=el('rc-start'),n=el('rc-next'),e=el('rc-end');if(a){a.disabled=on;a.textContent=on?'Searching…':'Start'}if(n)n.disabled=!on;if(e)e.disabled=!on}
-  async function makePc(){
-    if(rc.pc)try{rc.pc.close()}catch(e){}
-    rc.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.l.google.com:19302'}]});
-    rc.pc.onicecandidate=function(e){if(e.candidate&&rc.partner)postSig(box(rc.partner),'ice',{candidate:e.candidate})};
-    function attachRemote(stream){
-      var v=el('rc-remote');
-      var a=el('rc-remote-audio');
-      if(v){v.muted=false;v.volume=1;v.srcObject=stream;v.play().catch(function(){})}
-      if(a){a.muted=false;a.volume=1;a.srcObject=stream;a.play().catch(function(){status('Tap Sound if you cannot hear')})}
-      var q=el('rc-remote-empty');if(q)q.style.display='none';
-    }
-    rc.pc.ontrack=function(e){if(e.streams&&e.streams[0])attachRemote(e.streams[0])};
-    rc.pc.onconnectionstatechange=function(){var st=rc.pc.connectionState;if(st==='failed'||st==='disconnected'){status('Connection lost');setTimeout(function(){if(rc.started)randomCamNext()},800)}};
-    if(rc.local){rc.local.getTracks().forEach(function(t){try{rc.pc.addTrack(t,rc.local)}catch(e){}})}
+  function clearChat(placeholder){
+    var box=el('rc-chat-log');
+    if(!box)return;
+    box.innerHTML='<div style="color:#666;font-size:12px;text-align:center;padding:20px">'+(placeholder||'Your chat appears here when matched.')+'</div>';
   }
-  async function flushIce(){if(!rc.pc)return;while(rc.ice.length){var c=rc.ice.shift();try{await rc.pc.addIceCandidate(c)}catch(e){}}}
-  async function offer(){if(!rc.pc)return;var o=await rc.pc.createOffer();await rc.pc.setLocalDescription(o);postSig(box(rc.partner),'offer',{sdp:o.sdp})}
-  async function answer(sdp){if(!rc.pc)return;await rc.pc.setRemoteDescription({type:'offer',sdp:sdp});await flushIce();var a=await rc.pc.createAnswer();await rc.pc.setLocalDescription(a);postSig(box(rc.partner),'answer',{sdp:a.sdp})}
-  function matched(m){rc.partner=m.peer||'User';rc.initiator=!!m.initiator;rc.ice=[];var q=el('rc-remote-empty');if(q)q.style.display='none';makePc().then(function(){status('Connected · waiting for video');setButtons(true,true);if(rc.initiator)return offer()}).catch(function(){status('Could not start camera')})}
+  function log(text,me){
+    var box=el('rc-chat-log');
+    if(!box)return;
+    if(box.children.length===1 && /Your chat appears|Say hi|Finding next/i.test(box.firstChild.textContent||'')) box.innerHTML='';
+    var d=document.createElement('div');
+    d.className='rc-msg'+(me?' me':'');
+    d.textContent=text;
+    box.appendChild(d);
+    box.scrollTop=box.scrollHeight;
+  }
+  function setButtons(on,matched){
+    var a=el('rc-start'),n=el('rc-next'),e=el('rc-end');
+    if(a){a.disabled=on;a.textContent=on?(matched?'Matched':'Searching…'):'Start'}
+    if(n)n.disabled=!on;
+    if(e)e.disabled=!on;
+  }
   function me(){
     var id='';
     try{id=sessionStorage.getItem('rs_rc_peer')||''}catch(e){}
@@ -16383,71 +16548,306 @@ async function onIdFace(e){
   }
   function box(name){return '__RC__'+String(name||'').replace(/[^a-zA-Z0-9_]/g,'').slice(0,24)}
   function postSig(to, type, msg){
-    return fetch(RC_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:to,from_username:rc.me,type:type,post_id:rc.sid,message:typeof msg==='string'?msg:JSON.stringify(msg)})}).catch(function(){})
+    return fetch(RC_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:to,from_username:rc.me||me(),type:type,post_id:rc.sid||('s'+Date.now()),message:typeof msg==='string'?msg:JSON.stringify(msg||{})})}).catch(function(){});
+  }
+  function setupDc(ch){
+    if(!ch)return;
+    rc.dc=ch;
+    ch.onopen=function(){status('Live · video + chat')};
+    ch.onmessage=function(ev){
+      var d={};
+      try{d=JSON.parse(ev.data||'{}')}catch(e){d={text:String(ev.data||'')}}
+      if(d.type==='chat'||d.text) log(String(d.text||''),false);
+    };
+    ch.onclose=function(){if(rc.dc===ch)rc.dc=null};
+  }
+  async function makePc(){
+    if(rc.pc)try{rc.pc.close()}catch(e){}
+    rc.dc=null;
+    rc.pc=new RTCPeerConnection({
+      iceServers:[
+        {urls:'stun:stun.cloudflare.com:3478'},
+        {urls:'stun:stun.l.google.com:19302'},
+        {urls:'stun:stun1.l.google.com:19302'},
+        {urls:'stun:stun2.l.google.com:19302'}
+      ]
+    });
+    rc.pc.onicecandidate=function(e){
+      if(e.candidate&&rc.partner) postSig(box(rc.partner),'ice',{candidate:e.candidate});
+    };
+    function attachRemote(stream){
+      var v=el('rc-remote');
+      var a=el('rc-remote-audio');
+      if(v){v.muted=false;v.volume=1;v.srcObject=stream;v.play().catch(function(){})}
+      if(a){a.muted=false;a.volume=1;a.srcObject=stream;a.play().catch(function(){status('Tap Sound if you cannot hear')})}
+      var q=el('rc-remote-empty');if(q)q.style.display='none';
+      status('Live · stranger connected');
+    }
+    rc.pc.ontrack=function(e){
+      if(e.streams&&e.streams[0]) attachRemote(e.streams[0]);
+      else if(e.track){
+        var ms=new MediaStream([e.track]);
+        attachRemote(ms);
+      }
+    };
+    rc.pc.ondatachannel=function(ev){setupDc(ev.channel)};
+    rc.pc.onconnectionstatechange=function(){
+      if(!rc.pc)return;
+      var st=rc.pc.connectionState;
+      if(st==='connected') status('Live · stranger connected');
+      if(st==='failed'||st==='disconnected'){
+        status('Connection lost · next…');
+        setTimeout(function(){if(rc.started&&!rc.closed) randomCamNext()},900);
+      }
+    };
+    if(rc.initiator){
+      try{setupDc(rc.pc.createDataChannel('chat',{ordered:true}))}catch(e){}
+    }
+    if(rc.local){
+      rc.local.getTracks().forEach(function(t){
+        try{rc.pc.addTrack(t,rc.local)}catch(e){}
+      });
+    }
+  }
+  async function flushIce(){
+    if(!rc.pc)return;
+    while(rc.ice.length){
+      var c=rc.ice.shift();
+      try{await rc.pc.addIceCandidate(c)}catch(e){}
+    }
+  }
+  async function offer(){
+    if(!rc.pc||!rc.partner)return;
+    var o=await rc.pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:true});
+    await rc.pc.setLocalDescription(o);
+    postSig(box(rc.partner),'offer',{sdp:o.sdp});
+  }
+  async function answer(sdp){
+    if(!rc.pc)return;
+    await rc.pc.setRemoteDescription({type:'offer',sdp:sdp});
+    await flushIce();
+    var a=await rc.pc.createAnswer();
+    await rc.pc.setLocalDescription(a);
+    if(rc.partner) postSig(box(rc.partner),'answer',{sdp:a.sdp});
+  }
+  function matched(m){
+    if(rc.partner && rc.partner===m.peer) return;
+    rc.partner=m.peer||'User';
+    rc.initiator=!!m.initiator;
+    rc.matching=false;
+    rc.ice=[];
+    clearChat('Say hi — private chat with this match.');
+    var q=el('rc-remote-empty');
+    if(q){q.style.display='flex';q.textContent='Connecting video…'}
+    status('Matched · connecting…');
+    setButtons(true,true);
+    makePc().then(function(){
+      if(rc.initiator) return offer();
+    }).catch(function(){status('Could not start WebRTC')});
   }
   function connect(){
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Camera is not available in this browser');return}
-    rc.closed=false;rc.started=true;rc.me=me();rc.sid='s'+Date.now();rc.seen={};setButtons(true,false);status('Starting camera…');
-    var mediaPromise=rc.local?Promise.resolve(rc.local):navigator.mediaDevices.getUserMedia({video:{facingMode:rc.facing},audio:{echoCancellation:true,noiseSuppression:true}});
+    rc.closed=false;
+    rc.started=true;
+    rc.me=me();
+    rc.sid='s'+Date.now();
+    rc.seen={};
+    rc.partner=null;
+    rc.matching=false;
+    setButtons(true,false);
+    status('Starting camera…');
+    var mediaPromise=rc.local
+      ? Promise.resolve(rc.local)
+      : navigator.mediaDevices.getUserMedia({video:{facingMode:rc.facing},audio:{echoCancellation:true,noiseSuppression:true}});
     mediaPromise.then(function(stream){
       rc.local=stream;
       var lv=el('rc-local');
       if(lv){lv.srcObject=stream;lv.muted=true;lv.playsInline=true;lv.play().catch(function(){})}
       status('Searching for someone…');
-      var q0=el('rc-remote-empty');if(q0){q0.style.display='flex';q0.textContent='Searching…'}
+      var q0=el('rc-remote-empty');
+      if(q0){q0.style.display='flex';q0.textContent='Searching like OmeTV…'}
+      clearChat('Chat unlocks when you match.');
       postSig('__RC_LOBBY__','waiting',{user:rc.me,ts:Date.now()});
       clearInterval(rc.poll);
-      rc.poll=setInterval(pollLobby, 1500);
+      rc.poll=setInterval(pollLobby,1200);
       pollLobby();
-    }).catch(function(){status('Camera permission required');toast('Allow camera and microphone');setButtons(false,false)})
+    }).catch(function(){
+      status('Camera permission required');
+      toast('Allow camera and microphone');
+      setButtons(false,false);
+      rc.started=false;
+    });
   }
   async function pollLobby(){
     if(!rc.started||rc.closed)return;
     try{
       var mine=await fetch(RC_API+'/notifs?to='+encodeURIComponent(box(rc.me)),{cache:'no-store'}).then(function(r){return r.json()}).catch(function(){return{}});
-      ((mine&&mine.notifs)||[]).forEach(handleSig);
-      if(rc.partner)return;
+      var list=(mine&&mine.notifs)||[];
+      for(var i=0;i<list.length;i++){await handleSig(list[i])}
+      if(rc.partner) return;
       var lobby=await fetch(RC_API+'/notifs?to=__RC_LOBBY__',{cache:'no-store'}).then(function(r){return r.json()}).catch(function(){return{}});
       var now=Date.now();
       postSig('__RC_LOBBY__','waiting',{user:rc.me,ts:now});
-      var others=((lobby&&lobby.notifs)||[]).map(function(n){var d={};try{d=JSON.parse(n.message||'{}')}catch(e){}return {user:d.user||n.from_username,ts:Number(d.ts||n.created_at||0)}}).filter(function(x){return x.user && x.user!==rc.me && now-x.ts<90000});
-      if(!others.length){status('Searching… open this on the other phone');return}
+      var uniq={};
+      var others=((lobby&&lobby.notifs)||[]).map(function(n){
+        var d={};try{d=JSON.parse(n.message||'{}')}catch(e){}
+        return {user:String(d.user||n.from_username||''),ts:Number(d.ts||n.created_at||0)};
+      }).filter(function(x){
+        if(!x.user||x.user===rc.me) return false;
+        if(now-x.ts>90000) return false;
+        if(rc.skip[x.user] && now-rc.skip[x.user]<45000) return false;
+        if(uniq[x.user]) return false;
+        uniq[x.user]=1;
+        return true;
+      });
+      if(!others.length){status('Searching… keep this tab open');return}
       others.sort(function(a,b){return b.ts-a.ts});
       var partner=others[0].user;
-      var initiator=String(rc.me)<String(partner);
-      matched({peer:partner,initiator:initiator});
+      // Deterministic: lower id invites so both don't pick different peers.
+      if(String(rc.me)<String(partner)){
+        if(rc.matching) return;
+        rc.matching=true;
+        postSig(box(partner),'match',{peer:rc.me,initiator:true,ts:now});
+        matched({peer:partner,initiator:true});
+      }else{
+        status('Someone nearby · waiting handshake…');
+      }
     }catch(e){}
   }
   async function handleSig(n){
     if(!n||rc.seen[n.id])return;
     rc.seen[n.id]=1;
-    var d={};try{d=JSON.parse(n.message||'{}')}catch(e){}
-    if(n.type==='offer'){if(!rc.pc)await makePc();await answer(d.sdp);return}
-    if(n.type==='answer'&&rc.pc){await rc.pc.setRemoteDescription({type:'answer',sdp:d.sdp});await flushIce();return}
-    if(n.type==='ice'&&d.candidate){if(rc.pc&&rc.pc.remoteDescription)try{await rc.pc.addIceCandidate(d.candidate)}catch(e){}else rc.ice.push(d.candidate);return}
-    if(n.type==='chat'){log(String(d.text||''),false);return}
-    if(n.type==='peer-left'){status('Partner left · finding next…');if(rc.started)setTimeout(function(){randomCamNext()},300)}
+    var d={};try{d=JSON.parse(n.message||'{}')}catch(e){d={}}
+    var from=String(n.from_username||d.peer||'');
+    if(n.type==='match'){
+      if(rc.partner) return;
+      var peer=String(d.peer||from);
+      if(!peer||peer===rc.me) return;
+      postSig(box(peer),'match-ack',{peer:rc.me,ts:Date.now()});
+      matched({peer:peer,initiator:false});
+      return;
+    }
+    if(n.type==='match-ack'){
+      if(!rc.partner) matched({peer:String(d.peer||from),initiator:true});
+      return;
+    }
+    if(n.type==='offer'){
+      if(!rc.partner && from){rc.partner=from;rc.matching=false}
+      if(!rc.pc){rc.initiator=false;await makePc()}
+      await answer(d.sdp);
+      return;
+    }
+    if(n.type==='answer'&&rc.pc){
+      await rc.pc.setRemoteDescription({type:'answer',sdp:d.sdp});
+      await flushIce();
+      return;
+    }
+    if(n.type==='ice'&&d.candidate){
+      if(rc.pc&&rc.pc.remoteDescription){try{await rc.pc.addIceCandidate(d.candidate)}catch(e){}}
+      else rc.ice.push(d.candidate);
+      return;
+    }
+    if(n.type==='chat'){log(String(d.text||n.message||''),false);return}
+    if(n.type==='peer-left'){
+      status('Partner left · finding next…');
+      if(rc.started) setTimeout(function(){randomCamNext()},250);
+    }
   }
 
   window.startRandomCam=connect;
-  window.openRandomCam=function(){showPanel('randomcam');status('Ready · 0/20');setButtons(false,false)};
+  window.openRandomCam=function(){
+    showPanel('randomcam');
+    status('Ready · tap Start');
+    setButtons(false,false);
+    clearChat('Tap Start to find a stranger.');
+  };
   window.randomCamNext=function(){
     if(!rc.started)return;
-    rc.partner=null;
-    var v=el('rc-remote');if(v){v.srcObject=null;v.pause()};
-    var q=el('rc-remote-empty');if(q){q.style.display='flex';q.textContent='Finding someone…'};
-    log('— New match —',false);status('Finding next match…');
+    var prev=rc.partner;
+    try{if(prev) postSig(box(prev),'peer-left',{ts:Date.now()})}catch(e){}
+    if(prev) rc.skip[prev]=Date.now();
+    try{if(rc.dc)rc.dc.close()}catch(e){}
     try{if(rc.pc)rc.pc.close()}catch(e){}
-    rc.pc=null;rc.ice=[];
-    if(rc.ws&&rc.ws.readyState===1){try{rc.ws.send(JSON.stringify({type:'next'}));return}catch(e){}}
-    try{if(rc.ws)rc.ws.close()}catch(e){}
-    setTimeout(function(){if(rc.started&&!rc.closed)connect()},300);
+    rc.dc=null;rc.pc=null;rc.partner=null;rc.ice=[];rc.matching=false;rc.sid='s'+Date.now();
+    var v=el('rc-remote');if(v){v.srcObject=null;try{v.pause()}catch(e){}}
+    var q=el('rc-remote-empty');if(q){q.style.display='flex';q.textContent='Finding someone…'}
+    clearChat('Finding next match…');
+    status('Finding next match…');
+    setButtons(true,false);
+    postSig('__RC_LOBBY__','waiting',{user:rc.me,ts:Date.now()});
   };
-  window.flipRandomCam=async function(){rc.facing=rc.facing==='user'?'environment':'user';if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}rc.local=null;try{var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:rc.facing},audio:!rc.muted});rc.local=stream;var lv=el('rc-local');if(lv){lv.srcObject=stream;lv.muted=true;lv.play().catch(function(){})}if(rc.pc){var senders=rc.pc.getSenders();stream.getTracks().forEach(function(t){var s=senders.filter(function(x){return x.track&&x.track.kind===t.kind})[0];if(s)s.replaceTrack(t);else rc.pc.addTrack(t,stream)})}}catch(e){toast('Could not flip camera')}};window.unlockRandomSound=function(){var a=el('rc-remote-audio'),v=el('rc-remote');if(v){v.muted=false;v.volume=1;v.play().catch(function(){})}if(a){a.muted=false;a.volume=1;a.play().then(function(){toast('Sound on')}).catch(function(){toast('Allow sound for this site')})}};window.muteRandomCam=function(){rc.muted=!rc.muted;if(rc.local)rc.local.getAudioTracks().forEach(function(t){t.enabled=!rc.muted});var b=el('rc-mute');if(b)b.textContent=rc.muted?'Unmute':'Mute'};window.sendRandomChat=function(){var i=el('rc-chat-input');if(!i||!i.value.trim()||!rc.ws||rc.ws.readyState!==1)return;var t=i.value.trim();i.value='';log(t,true);rc.ws.send(JSON.stringify({type:'chat',text:t.slice(0,500)}))};
-  window.closeRandomCam=function(){rc.closed=true;clearInterval(rc.poll);try{if(rc.partner)postSig(box(rc.partner),'peer-left','')}catch(e){}try{if(rc.pc)rc.pc.close()}catch(e){}if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}rc.ws=null;rc.pc=null;rc.local=null;rc.partner=null;rc.started=false;var lv=el('rc-local'),rv=el('rc-remote');if(lv)lv.srcObject=null;if(rv)rv.srcObject=null;var q=el('rc-remote-empty');if(q){q.style.display='flex';q.textContent='Tap Start to find someone.'}setButtons(false,false);status('Ready · 0/20')};
+  window.flipRandomCam=async function(){
+    rc.facing=rc.facing==='user'?'environment':'user';
+    if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}
+    rc.local=null;
+    try{
+      var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:rc.facing},audio:!rc.muted});
+      rc.local=stream;
+      var lv=el('rc-local');
+      if(lv){lv.srcObject=stream;lv.muted=true;lv.play().catch(function(){})}
+      if(rc.pc){
+        var senders=rc.pc.getSenders();
+        stream.getTracks().forEach(function(t){
+          var s=senders.filter(function(x){return x.track&&x.track.kind===t.kind})[0];
+          if(s)s.replaceTrack(t);else rc.pc.addTrack(t,stream);
+        });
+      }
+    }catch(e){toast('Could not flip camera')}
+  };
+  window.unlockRandomSound=function(){
+    var a=el('rc-remote-audio'),v=el('rc-remote');
+    if(v){v.muted=false;v.volume=1;v.play().catch(function(){})}
+    if(a){a.muted=false;a.volume=1;a.play().then(function(){toast('Sound on')}).catch(function(){toast('Allow sound for this site')})}
+  };
+  window.muteRandomCam=function(){
+    rc.muted=!rc.muted;
+    if(rc.local) rc.local.getAudioTracks().forEach(function(t){t.enabled=!rc.muted});
+    var b=el('rc-mute');if(b)b.textContent=rc.muted?'Unmute':'Mute';
+  };
+  window.sendRandomChat=function(){
+    var i=el('rc-chat-input');
+    if(!i||!i.value.trim())return;
+    if(!rc.partner){toast('Wait until you match');return}
+    var t=i.value.trim().slice(0,500);
+    i.value='';
+    log(t,true);
+    var sent=false;
+    if(rc.dc&&rc.dc.readyState==='open'){
+      try{rc.dc.send(JSON.stringify({type:'chat',text:t}));sent=true}catch(e){}
+    }
+    if(!sent) postSig(box(rc.partner),'chat',{text:t});
+  };
+  window.closeRandomCam=function(){
+    rc.closed=true;
+    clearInterval(rc.poll);
+    try{if(rc.partner)postSig(box(rc.partner),'peer-left',{ts:Date.now()})}catch(e){}
+    try{if(rc.dc)rc.dc.close()}catch(e){}
+    try{if(rc.pc)rc.pc.close()}catch(e){}
+    if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}
+    rc.ws=null;rc.dc=null;rc.pc=null;rc.local=null;rc.partner=null;rc.started=false;rc.matching=false;
+    var lv=el('rc-local'),rv=el('rc-remote');
+    if(lv)lv.srcObject=null;if(rv)rv.srcObject=null;
+    var q=el('rc-remote-empty');
+    if(q){q.style.display='flex';q.textContent='Tap Start to find someone.'}
+    setButtons(false,false);
+    clearChat('Tap Start to find a stranger.');
+    status('Ready · tap Start');
+  };
   var oldShow=window.showPanel;
-  if(typeof oldShow==='function'&&!oldShow.__rcWrapped){var wrap=function(name,opts){if(name!=='randomcam')try{if(window.closeRandomCam)window.closeRandomCam()}catch(e){}return oldShow.call(this,name,opts)};wrap.__rcWrapped=true;window.showPanel=wrap}
-  document.addEventListener('keydown',function(e){if(e.key==='Enter'&&document.activeElement===el('rc-chat-input')){e.preventDefault();sendRandomChat()}});
+  if(typeof oldShow==='function'&&!oldShow.__rcWrapped){
+    var wrap=function(name,opts){
+      if(name!=='randomcam'){try{if(window.closeRandomCam)window.closeRandomCam()}catch(e){}}
+      return oldShow.call(this,name,opts);
+    };
+    wrap.__rcWrapped=true;
+    window.showPanel=wrap;
+  }
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&document.activeElement===el('rc-chat-input')){
+      e.preventDefault();
+      sendRandomChat();
+    }
+  });
 })();
 </script>
 
