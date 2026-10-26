@@ -5643,6 +5643,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
 
     /* ========== RUIN ROULETTE (16) ========== */
+    var rouletteAngle=0;
+    var rouletteSpinning=false;
+    var lastRouletteOpt=null;
+    var PAY10_URL=(typeof THRONE_PACK_10!=='undefined'?THRONE_PACK_10:'https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB');
     var ROULETTE_OPTIONS = [
       {title:'Confession video', desc:'Film 20s at home. Say your name and “I pay to be exposed.” Face on camera. Post the video.', pay:true, color:'#5b21b6'},
       {title:'Humiliation video', desc:'Film 15s on your knees saying “I am a pathetic pig.” Shirt up or off. Post it.', pay:false, color:'#4c1d95'},
@@ -5687,6 +5691,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       opts=opts||{};
       var cost=Number(opts.cost||0);
       var why=opts.why||'this';
+      var isPrint=(String(why).toLowerCase()==='print' || cost>=350);
+      var pack=null;
+      try{
+        for(var i=0;i<(FC_PACKS||[]).length;i++){
+          if(Number(FC_PACKS[i].coins||0)>=cost){pack=FC_PACKS[i];break}
+        }
+        if(!pack && FC_PACKS && FC_PACKS.length) pack=FC_PACKS[FC_PACKS.length-1];
+      }catch(e){}
+      if(!pack) pack={usd:50,coins:600,url:(typeof THRONE_PACK_50!=='undefined'?THRONE_PACK_50:'')};
       var ov=document.getElementById('need-coins-modal');
       if(!ov){
         ov=document.createElement('div');
@@ -5694,13 +5707,20 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:9200;display:flex;align-items:flex-end;justify-content:center;padding:16px';
         document.body.appendChild(ov);
       }
+      var primary='';
+      if(isPrint){
+        primary='<a class="btn" href="'+(typeof THRONE_PRINT!=='undefined'?THRONE_PRINT:'https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E')+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;width:100%;margin-bottom:8px;background:#4c1d95;color:#fff;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins()">Pay $40 on Throne</a>'
+          +'<button type="button" class="btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins();openCoinShop()">Buy $50 pack · 600 FC</button>';
+      }else{
+        primary='<button type="button" class="btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins();openCoinShop()">Buy $'+pack.usd+' pack · '+pack.coins+' FC</button>';
+      }
       ov.innerHTML='<div style="width:100%;max-width:400px;background:#121214;border:1px solid rgba(255,106,0,.4);border-radius:20px 20px 14px 14px;padding:18px 16px 16px">'
         +'<div style="font-size:11px;letter-spacing:1.4px;color:#ffb35c;font-weight:800;margin-bottom:6px">NOT ENOUGH COINS</div>'
         +'<div style="font-size:22px;font-weight:900;margin-bottom:6px">Need '+cost+' FC for '+esc(why)+'</div>'
-        +'<p style="color:#bdbdbd;font-size:13px;line-height:1.4;margin:0 0 12px">Cash on Throne costs more. Recharge once and spend inside.</p>'
+        +'<p style="color:#bdbdbd;font-size:13px;line-height:1.4;margin:0 0 12px">'+(isPrint?'Print needs 350 FC. $25 only gives 290 FC — pay $40 cash or buy the $50 pack.':'Recharge once and spend inside.')+'</p>'
         +'<div style="background:#0c0c0e;border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.55;margin-bottom:12px;color:#ddd">'
         +'⭐ Pin 50 FC · 🗑 Remove 100 FC · 🖨 Print 350 FC vs $40 cash</div>'
-        +'<button type="button" class="btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins();openCoinShop()">Buy $25 pack · 290 FC</button>'
+        +primary
         +'<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeNeedCoins();openCoinShop()">See all packs</button>'
         +'<button type="button" class="btn btn-ghost" style="width:100%" onclick="closeNeedCoins()">Not now</button>'
         +'</div>';
@@ -6883,34 +6903,43 @@ function openRoulette(){
       }).join('');
     }
     window.spinRoulette=function spinRoulette(){
+      if(rouletteSpinning) return;
       if(window.__spinLock && Date.now()-window.__spinLock<800) return;
       window.__spinLock=Date.now();
       var state = {freeLeft:3,paidLeft:0};
       try{state = updateRouletteSpinsUI()||state}catch(e){}
-      var freeLeft = state.freeLeft||0;
-      var paidLeft = state.paidLeft||0;
+      var freeLeft = Number(state.freeLeft)||0;
+      var paidLeft = Number(state.paidLeft)||0;
       if(freeLeft <= 0 && paidLeft <= 0){
         try{openRoulettePayment()}catch(e){}
+        toast('0 spins left — pay 50 FC for 15 more');
         return;
       }
+      if(!isFinite(rouletteAngle)) rouletteAngle=0;
       rouletteSpinning = true;
-      updateRouletteSpinsUI();
+      try{updateRouletteSpinsUI()}catch(e){}
       var resBox = document.getElementById('roulette-result');
       if(resBox) resBox.classList.remove('show');
 
-      var n = ROULETTE_OPTIONS.length;
+      var n = ROULETTE_OPTIONS.length||1;
       var seg = 360 / n;
       var idx = Math.floor(Math.random() * n);
       var targetCenter = idx * seg + seg / 2;
       var extraTurns = 4 + Math.floor(Math.random()*3);
       var finalAngle = extraTurns * 360 + (360 - targetCenter);
       var currentMod = ((rouletteAngle % 360) + 360) % 360;
+      if(!isFinite(currentMod)) currentMod=0;
       var delta = finalAngle - currentMod;
       if(delta < 360*3) delta += 360 * 3;
+      rouletteAngle = Number(rouletteAngle)||0;
       rouletteAngle += delta;
 
       var wheel = document.getElementById('roulette-wheel');
       if(wheel){
+        // force reflow so transition always restarts
+        wheel.style.transition='none';
+        wheel.style.transform='rotate('+((rouletteAngle-delta)%360)+'deg)';
+        void wheel.offsetWidth;
         wheel.style.willChange='transform';
         wheel.style.transition = 'transform 4.2s cubic-bezier(0.12, 0.75, 0.18, 1)';
         wheel.style.transform = 'rotate(' + rouletteAngle + 'deg)';
@@ -6942,8 +6971,8 @@ function openRoulette(){
         if(descEl) descEl.textContent = opt.desc;
         if(payBox) payBox.style.display = 'none';
         if(payLink){
-          payLink.href = PAY10_URL;
-          payLink.textContent = (opt.title.indexOf('$30')>=0) ? 'Pay $30 on Throne' : 'Pay $10 on Throne';
+          payLink.href = (typeof PAY10_URL!=='undefined'&&PAY10_URL)?PAY10_URL:(typeof THRONE_PACK_10!=='undefined'?THRONE_PACK_10:'https://throne.com/mastersan');
+          payLink.textContent = 'Buy Fag Coins for extra spins';
         }
         if(pubBtn){
           pubBtn.style.display = 'block';
