@@ -10621,11 +10621,12 @@ function openRoulette(){
       try{localStorage.setItem('rs_stories_seen',JSON.stringify(m))}catch(e){}
     }
     function userHasActiveStory(user){
-      user=String(user||'');
-      return pruneStories(loadStoriesLocal()).some(function(s){return String(s.user||'')===user});
+      var u=String(user||'').toLowerCase();
+      return pruneStories(loadStoriesLocal()).some(function(s){return String(s.user||'').toLowerCase()===u});
     }
     function storiesForUser(user){
-      return pruneStories(loadStoriesLocal()).filter(function(s){return String(s.user||'')===String(user)}).sort(function(a,b){return (a.at||0)-(b.at||0)});
+      var u=String(user||'').toLowerCase();
+      return pruneStories(loadStoriesLocal()).filter(function(s){return String(s.user||'').toLowerCase()===u}).sort(function(a,b){return (a.at||0)-(b.at||0)});
     }
     function storyDeletesToday(){
       try{
@@ -10651,12 +10652,20 @@ function openRoulette(){
       var last=list.length?list[list.length-1]:null;
       var isSeen=last && Number(seen[String(user||'').toLowerCase()]||0)>=Number(last.at||0);
       wrap.classList.toggle('seen',!!(has&&isSeen&&!isSelf));
-      wrap.onclick=function(ev){
-        if(ev.target&&ev.target.closest&&ev.target.closest('.av-pen'))return;
+      function openFromRing(ev){
+        if(ev&&ev.target&&ev.target.closest&&ev.target.closest('.av-pen'))return;
+        if(ev){ev.preventDefault();ev.stopPropagation()}
         if(has){openStoryUser(user);return}
         if(isSelf) openAddStory();
-      };
-      if(!wrap.getAttribute('title')) wrap.title=has?'View story':(isSelf?'Add story':'');
+      }
+      wrap.onclick=openFromRing;
+      var av=wrap.querySelector('.av');
+      if(av){
+        av.style.cursor=(has||isSelf)?'pointer':'';
+        av.onclick=openFromRing;
+      }
+      wrap.title=has?'View story':(isSelf?'Add story':'');
+      wrap.setAttribute('role', has||isSelf?'button':'presentation');
     }
     function renderWallStories(){
       var box=document.getElementById('wall-stories');
