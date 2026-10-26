@@ -10025,40 +10025,106 @@ function openRoulette(){
     }
 
     function interactionScore(p){
-      return (Number(p.likes||0)||0) + (Number(p.views||0)||0) + (Number(p.commentCount||p.comments||0)||0);
+      return (Number(p.likes||0)||0) + (Number(p.views||0)||0) + (Number(p.commentCount||p.comments||0)||0) + (Number(p.extensions||0)||0)*2;
+    }
+    function isPeaOrIdPost(p){
+      if(!p)return false;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0)return true;
+      var title=String(p.title||'').toLowerCase();
+      return title.indexOf('published pea')>=0||title.indexOf('published id')>=0||title==='pea'||title.indexOf('pea ')===0;
     }
     function wallDayKey(){
       var d=new Date();
       return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     }
     function pickWallHot(list){
+      var weekAgo=Date.now()-7*24*60*60*1000;
       var pool=(list||[]).filter(function(p){
         if(!p||p.id==null)return false;
+        if(typeof isDeletedId==='function'&&isDeletedId(p.id))return false;
         if(typeof isVideoPost==='function'&&isVideoPost(p))return false;
         var imgs=p.images&&p.images.length?p.images:(p.image?[p.image]:[]);
-        return imgs.length>0 && interactionScore(p)>0;
-      }).sort(function(a,b){return interactionScore(b)-interactionScore(a)});
+        if(!imgs.length)return false;
+        var created=Number(p.created||0)||0;
+        // Prefer recent + interacted posts; keep PEA/ID eligible
+        if(interactionScore(p)>0) return true;
+        if(isPeaOrIdPost(p) && created>=weekAgo) return true;
+        return false;
+      }).sort(function(a,b){
+        var sb=interactionScore(b), sa=interactionScore(a);
+        if(sb!==sa) return sb-sa;
+        return (Number(b.created||0)||0)-(Number(a.created||0)||0);
+      });
       if(pool.length<3){
         var more=(list||[]).filter(function(p){
           if(!p||p.id==null)return false;
+          if(typeof isDeletedId==='function'&&isDeletedId(p.id))return false;
           var imgs=p.images&&p.images.length?p.images:(p.image?[p.image]:[]);
           return imgs.length>0 && !pool.some(function(x){return String(x.id)===String(p.id)});
-        });
+        }).sort(function(a,b){return (Number(b.created||0)||0)-(Number(a.created||0)||0)});
         pool=pool.concat(more);
       }
       return pool.slice(0,3);
     }
+    function stopWallHotRotation(){
+      try{if(window.__wallHotRot){clearInterval(window.__wallHotRot);window.__wallHotRot=null}}catch(e){}
+      try{if(window.__wallHotRefresh){clearInterval(window.__wallHotRefresh);window.__wallHotRefresh=null}}catch(e){}
+    }
+    function startWallHotRotation(){
+      stopWallHotRotation();
+      window.__wallHotIdx=0;
+      window.__wallHotRot=setInterval(function(){
+        try{
+          var panel=document.getElementById('panel-wall');
+          if(!panel||!panel.classList.contains('active'))return;
+          var car=document.getElementById('wall-hot-carousel');
+          if(!car)return;
+          var slides=car.querySelectorAll('.feat-slide');
+          if(slides.length<2)return;
+          window.__wallHotIdx=((window.__wallHotIdx||0)+1)%slides.length;
+          var w=car.clientWidth||1;
+          car.scrollTo({left:window.__wallHotIdx*w,behavior:'smooth'});
+          var box=document.getElementById('wall-hot-slot');
+          if(box) box.querySelectorAll('.feat-dot').forEach(function(d,n){d.classList.toggle('on',n===window.__wallHotIdx)});
+        }catch(e){}
+      },4800);
+      window.__wallHotRefresh=setInterval(function(){
+        try{
+          var panel=document.getElementById('panel-wall');
+          if(!panel||!panel.classList.contains('active'))return;
+          renderWallHot();
+        }catch(e){}
+      },45000);
+    }
     function renderWallHot(){
       var box=document.getElementById('wall-hot-slot');
       if(!box)return;
-      var hot=pickWallHot(normalFeedPosts||[]);
+      var pool=[];
+      try{
+        var seen={};
+        [(normalFeedPosts||[]),(posts||[]),(window.__videoCache||[])].forEach(function(arr){
+          (arr||[]).forEach(function(p){
+            if(!p||p.id==null)return;
+            var k=String(p.id);
+            if(seen[k])return;
+            seen[k]=1;
+            pool.push(p);
+          });
+        });
+      }catch(e){pool=normalFeedPosts||[]}
+      var hot=pickWallHot(pool);
       if(!hot.length){box.innerHTML='';return}
       var slides=hot.map(function(p,i){
         var imgs=p.images&&p.images.length?p.images:parseImages(p.image||'');
         var src=imgs[0]||'';
         var score=interactionScore(p);
+        var badge=isPeaOrIdPost(p)?(String(p.title||'').toLowerCase().indexOf('pea')>=0?'PEA':'ID'):'HOT';
         return '<div class="feat-slide" data-fi="'+i+'" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')">'
-          +'<div class="featured-label">Hot this week · '+(i+1)+'/3 · '+score+' hits</div>'
+          +'<div class="featured-label">'+badge+' · '+(i+1)+'/3 · '+score+' hits</div>'
           +'<div class="featured-wrap" style="border-radius:16px;overflow:hidden;border:1px solid rgba(255,122,24,.35)">'
           +'<div style="display:flex;align-items:center;gap:8px;padding:8px 10px 6px"><span class="av">'+avatarHtml(p.user)+'</span><strong style="color:var(--orange)">@'+esc(p.user||'')+'</strong></div>'
           +(src?'<img src="'+esc(feedThumb(src,480))+'" alt="" style="width:100%;max-height:280px;object-fit:cover;display:block"/>':'')
@@ -10067,17 +10133,19 @@ function openRoulette(){
           +'</div></div>';
       }).join('');
       var dots=hot.length>1?('<div class="feat-dots">'+hot.map(function(_,i){return '<span class="feat-dot'+(i===0?' on':'')+'"></span>'}).join('')+'</div>'):'';
-      box.innerHTML='<div style="width:100%;padding:0 4px 6px;font-size:13px;font-weight:900;letter-spacing:1.2px">MOST INTERACTIONS</div><div class="feat-carousel" id="wall-hot-carousel">'+slides+'</div>'+dots;
+      box.innerHTML='<div style="width:100%;padding:0 4px 6px;font-size:13px;font-weight:900;letter-spacing:1.2px">MOST INTERACTIONS · auto</div><div class="feat-carousel" id="wall-hot-carousel">'+slides+'</div>'+dots;
       try{
         var car=document.getElementById('wall-hot-carousel');
         if(car && !car.__bound){
           car.__bound=1;
           car.addEventListener('scroll',function(){
             var w=car.clientWidth||1,i=Math.round(car.scrollLeft/w);
+            window.__wallHotIdx=i;
             box.querySelectorAll('.feat-dot').forEach(function(d,n){d.classList.toggle('on',n===i)});
           },{passive:true});
         }
       }catch(e){}
+      try{startWallHotRotation()}catch(e){}
     }
     function renderNormalFeed(){
       var q=(normalFeedQuery||'').trim().toLowerCase();
@@ -10100,6 +10168,12 @@ function openRoulette(){
         if(exp>0 && exp<=Date.now()) return false;
         var media=String((p.image||p.media_url||'')+(p.images||[]).join(' '));
         if(media.indexOf('1792566465151')>=0) return false;
+        // Keep PEA / ID / wall posts; drop pure timer feed noise if somehow mixed in without wall tags
+        try{
+          if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) return true;
+          if(typeof isNormalFeedPost==='function' && isNormalFeedPost(p)) return true;
+          if(typeof isFeedTimerPost==='function' && isFeedTimerPost(p)) return false;
+        }catch(e){}
         return true;
       }).sort(function(a,b){
         var bd=Number(b.created||0), ad=Number(a.created||0);
@@ -10561,6 +10635,37 @@ function openRoulette(){
           if(title.indexOf('PIN REQUEST')===0||title.indexOf('PRINT REQUEST')===0)return false;
           return true;
         }).map(function(r){return cfRowToFeed(r)}).filter(Boolean);
+        // Force-include PEA / ID cards from the wider feed + local sources so they always land on The Wall
+        try{
+          var wide=await fetchCfFeed();
+          (wide||[]).forEach(function(r){
+            var mapped=cfRowToFeed(r);
+            if(!mapped||isDeletedId(mapped.id))return;
+            if(!isPeaOrIdPost(mapped) && !isNormalFeedPost(mapped))return;
+            if(!list.some(function(p){return String(p.id)===String(mapped.id)})) list.push(mapped);
+          });
+        }catch(e){}
+        try{
+          (posts||[]).forEach(function(p){
+            if(!p||!isPeaOrIdPost(p)||isDeletedId(p.id))return;
+            if(!list.some(function(x){return String(x.id)===String(p.id)})) list.push(p);
+          });
+        }catch(e){}
+        try{
+          var arch=JSON.parse(localStorage.getItem('rs_id_archive')||'[]')||[];
+          arch.forEach(function(r){
+            if(!r||!r.id||isDeletedId(r.id))return;
+            var imgs=[];try{imgs=parseImages(r.image_url||r.image||'')}catch(e){imgs=r.image_url?[r.image_url]:[]}
+            var mapped={
+              id:r.id,user:r.username||r.user||'anon',title:r.title||'Published card',desc:r.description||r.desc||'',
+              tags:r.tags||['generated_id','normal_feed'],created:new Date(r.created_at||r.created||Date.now()).getTime(),
+              expires:0,views:r.views||0,likes:r.likes_count||r.likes||0,image:imgs[0]||'',images:imgs,
+              featuredUntil:0,commentCount:0,_cf:true
+            };
+            if(!isPeaOrIdPost(mapped)) mapped.tags=(mapped.tags||[]).concat(['generated_id','normal_feed']);
+            if(!list.some(function(x){return String(x.id)===String(mapped.id)})) list.push(mapped);
+          });
+        }catch(e){}
         normalFeedPosts=list.sort(function(a,b){return (b.created||0)-(a.created||0)});
         window.__wallDone=true;
         try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
@@ -12767,7 +12872,8 @@ async function onIdFace(e){
             media_url:payload.image_url,
             thumb_url:payload.image_url,
             media_type:'image',
-            expires_at:null
+            expires_at:null,
+            feed:'wall'
           });
         }catch(e){console.warn('cf id share',e)}
         var row=(cfShare&&(cfShare.post||cfShare.data))||null;
@@ -12788,19 +12894,26 @@ async function onIdFace(e){
         if(Array.isArray(payload.tags)){
           if(payload.tags.indexOf('profile_gallery')<0) payload.tags.push('profile_gallery');
           if(payload.tags.indexOf('normal_feed')<0) payload.tags.push('normal_feed');
+          if(isPea){
+            if(payload.tags.indexOf('generated_pea')<0) payload.tags.push('generated_pea');
+            if(payload.tags.indexOf('pea')<0) payload.tags.push('pea');
+          }else{
+            if(payload.tags.indexOf('generated_id')<0) payload.tags.push('generated_id');
+            if(payload.tags.indexOf('idcard')<0) payload.tags.push('idcard');
+          }
           row.tags=payload.tags;
         }
         if(typeof isGuestUser==='function' && isGuestUser()){
           try{bumpGuestPublishCount()}catch(e){}
           var left=Math.max(0,(GUEST_DAILY_PUBLISH_LIMIT||1)-((typeof getGuestPublishCount==='function')?getGuestPublishCount():0));
-          toast(isPea?'PEA published anonymously ✓':'ID published anonymously ✓');
+          toast(isPea?'PEA published on The Wall ✓':'ID published on The Wall ✓');
           setTimeout(function(){
             toast(left>0
               ?('Anonymous post. '+left+' left today. Register to attach posts to your account.')
               :('Anonymous limit reached (1/day). Register for unlimited.'));
           },1600);
         } else {
-          toast(isPea?'PEA published — others can see it ✓':'ID published — others can see it ✓');
+          toast(isPea?'PEA published on The Wall ✓':'ID published on The Wall ✓');
         }
         try{
           var arch=JSON.parse(localStorage.getItem('rs_id_archive')||'[]')||[];
@@ -12816,7 +12929,7 @@ async function onIdFace(e){
               tags:row.tags||payload.tags,created:new Date(row.created_at||Date.now()).getTime(),
               expires:0,views:0,likes:0,extensions:0,extendAmount:0,
               extenders:[],likedBy:[],image:imgs[0]||uploaded[0],images:imgs.length?imgs:[uploaded[0]],
-              featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:false,_cf:true
+              featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:false,_cf:true,_kind:'wall'
             };
             posts.unshift(shared);
             normalFeedPosts=normalFeedPosts||[];
@@ -12824,7 +12937,14 @@ async function onIdFace(e){
             try{localStorage.setItem('rs_last_pub',JSON.stringify({id:shared.id,user:shared.user,title:shared.title,desc:shared.desc,tags:shared.tags,image:shared.image,expires:0,t:Date.now()}))}catch(e){}
             try{if(typeof renderFeed==='function')renderFeed()}catch(e){}
             try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
-            try{if(row&&row.id&&typeof openDetail==='function'){setTimeout(function(){openDetail(row.id)},400)}}catch(e){}
+            try{if(typeof renderWallHot==='function')renderWallHot()}catch(e){}
+            try{
+              showPanel('wall');
+              setTimeout(function(){
+                try{renderNormalFeed()}catch(e){}
+                try{if(row&&row.id&&typeof openDetail==='function')openDetail(row.id)}catch(e){}
+              },350);
+            }catch(e){}
           }
         }catch(e){console.warn(e)}
       }catch(e){
