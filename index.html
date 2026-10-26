@@ -10287,7 +10287,15 @@ function openRoulette(){
         var have=gtVisibleIds();
         if(have.length>=GT_TARGET && !forceFetch)return;
         if(forceFetch || have.length<GT_TARGET){
-          try{await fetchVideoPosts()}catch(e){}
+          try{
+            // Bust short cache so we can discover more candidates when many are broken
+            window.__vidFetchAt=0;window.__vidFetchP=null;
+            await fetchCfFeed('video', 50).then(function(cf){
+              (cf||[]).forEach(function(row){try{mergeVideoRow(row)}catch(e){}});
+            });
+          }catch(e){
+            try{await fetchVideoPosts()}catch(e2){}
+          }
         }
         var pool=goontokCandidatePool();
         var present={};have.forEach(function(id){present[id]=1});
