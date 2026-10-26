@@ -1454,6 +1454,19 @@ body.gt-on .nav-row{overflow:visible;padding-top:14px}
 #story-viewer .sv-media img,#story-viewer .sv-media video{max-width:100%;max-height:100%;object-fit:contain}
 #story-viewer .sv-head{position:absolute;top:22px;left:12px;right:12px;z-index:3;display:flex;align-items:center;gap:10px;color:#fff;text-shadow:0 1px 4px #000}
 #story-viewer .sv-close{margin-left:auto;background:none;border:0;color:#fff;font-size:28px;line-height:1;padding:4px 8px}
+#story-viewer .sv-actions{position:absolute;left:12px;right:12px;bottom:28px;z-index:4;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#story-viewer .sv-actions button{border:0;border-radius:999px;padding:10px 14px;font-weight:800;font-size:13px;font-family:inherit;background:rgba(20,20,24,.82);color:#fff;backdrop-filter:blur(8px)}
+#story-viewer .sv-actions button.on{background:#ff2d55;color:#fff}
+#story-viewer .sv-actions .sv-del{background:rgba(248,113,113,.2);color:#fecaca}
+#story-views-sheet{position:fixed;inset:auto 0 0 0;z-index:9700;background:#121218;border-radius:18px 18px 0 0;border:1px solid #2a2a32;max-height:55vh;display:none;flex-direction:column;padding:14px}
+#story-views-sheet.on{display:flex}
+#story-views-sheet .svs-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+#story-views-sheet .svs-list{overflow:auto;flex:1;font-size:13px}
+.x-av-wrap.has-story{cursor:pointer}
+.x-av-wrap.has-story::before{content:'';position:absolute;inset:-5px;border-radius:26px;background:linear-gradient(135deg,#ff6a00,#f5c518 45%,#ff2d55);z-index:0}
+.x-av-wrap.has-story.seen::before{background:#2a2a32}
+.x-av-wrap.has-story .av{position:relative;z-index:1}
+.x-av-wrap.has-story .av-pen{z-index:2}
 body.gt-on .nav-center{
   width:54px;height:54px;margin-top:-26px;
   background:linear-gradient(135deg,#ff6a00,#ff2d55)!important;
@@ -1959,7 +1972,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div class="panel-h"><h2>My Profile</h2></div>
         <div class="profile-card x-prof">
           <div class="x-banner"></div>
-          <div class="x-av-wrap">
+          <div class="x-av-wrap" id="profile-av-wrap">
             <div class="av" id="profile-avatar">A</div>
             <button class="av-pen" id="btn-av-pencil" type="button" title="Change photo" aria-label="Change photo">
               <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -2472,7 +2485,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div class="panel-h"><button class="back" id="btn-user-back" type="button">←</button><h2 id="user-title">Profile</h2><span></span></div>
         <div class="profile-card x-prof">
           <div class="x-banner"></div>
-          <div class="x-av-wrap">
+          <div class="x-av-wrap" id="user-av-wrap">
             <div class="av" id="user-avatar">A</div>
           </div>
           <div id="user-stats"></div>
@@ -4011,6 +4024,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }else mp.innerHTML='<div class="empty" style="padding:16px">No active posts</div>';
         }else mp.innerHTML='';
       }
+      try{
+        if(logged&&currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true);
+        else{
+          var paw=document.getElementById('profile-av-wrap');
+          if(paw){paw.classList.remove('has-story','seen');paw.onclick=null;paw.removeAttribute('title')}
+        }
+      }catch(e){}
     }
     var VERIFIED_USERS = ['mastersan','mastersan01','master_san'];
     function displayViews(n){
@@ -4080,6 +4100,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(p&&p.twitter){var _tw=String(p.twitter).replace(/^@/,'');links.innerHTML+='<a href="'+linkUrl(p.twitter,'x')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">𝕏 @'+esc(_tw||'twitter')+'</a>';}
         if(p&&p.telegram){var _tg=String(p.telegram).replace(/^@/,'').replace(/^.*t.me\//i,'');links.innerHTML+='<a href="'+linkUrl(p.telegram,'tg')+'" target="_blank" rel="noopener" style="color:var(--orange);margin-right:10px">✈️ @'+esc(_tg||'telegram')+'</a>';}
         if(p&&p.link){links.innerHTML+='<a href="'+linkUrl(p.link,'web')+'" target="_blank" rel="noopener" style="color:var(--orange)">🔗 Link</a>';}
+        try{if(isRegistered()&&currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true)}catch(e){}
       });
     }
     function linkUrl(v,type){
@@ -10403,6 +10424,8 @@ function openRoulette(){
     function renderWallHot(){
       var box=document.getElementById('wall-hot-slot');
       if(!box)return;
+      // MOST INTERACTIONS / top-3 carousel removed by request — keep only daily random 3
+      try{stopWallHotRotation()}catch(e){}
       var pool=[];
       try{
         var seen={};
@@ -10416,57 +10439,19 @@ function openRoulette(){
           });
         });
       }catch(e){pool=normalFeedPosts||[]}
-      var hot=pickWallHot(pool);
-      var rand=pickWallRandom(pool, hot.map(function(p){return p.id}), 3);
-      if(!hot.length && !rand.length){box.innerHTML='';return}
-      function slideHtml(p,i,kind){
-        var imgs=p.images&&p.images.length?p.images:parseImages(p.image||'');
-        var src=imgs[0]||'';
-        var score=interactionScore(p);
-        var badge=kind==='random'?'RANDOM':(isPeaOrIdPost(p)?(String(p.title||'').toLowerCase().indexOf('pea')>=0?'PEA':'ID'):'HOT');
-        var border=kind==='random'?'rgba(96,165,250,.4)':'rgba(255,122,24,.35)';
-        return '<div class="feat-slide" data-fi="'+i+'" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')">'
-          +'<div class="featured-label">'+badge+(kind==='hot'?' · '+(i+1)+'/3 · '+score+' hits':' · today')+'</div>'
-          +'<div class="featured-wrap" style="border-radius:16px;overflow:hidden;border:1px solid '+border+'">'
-          +'<div style="display:flex;align-items:center;gap:8px;padding:8px 10px 6px"><span class="av">'+avatarHtml(p.user)+'</span><strong style="color:var(--orange)">@'+esc(p.user||'')+'</strong></div>'
-          +(src?'<img src="'+esc(feedThumb(src,480))+'" alt="" style="width:100%;max-height:280px;object-fit:cover;display:block"/>':'')
-          +'<div style="padding:8px 10px 10px;font-size:13px;font-weight:700">'+esc(p.title||p.desc||'Post')+'</div>'
-          +'<div style="display:flex;gap:10px;padding:0 10px 10px;font-size:11px;color:var(--muted)">👁 '+(p.views||0)+' · ❤ '+(p.likes||0)+' · 💬 '+(p.commentCount||p.comments||0)+'</div>'
-          +'</div></div>';
-      }
-      var hotBlock='';
-      if(hot.length){
-        var slides=hot.map(function(p,i){return slideHtml(p,i,'hot')}).join('');
-        var dots=hot.length>1?('<div class="feat-dots">'+hot.map(function(_,i){return '<span class="feat-dot'+(i===0?' on':'')+'"></span>'}).join('')+'</div>'):'';
-        hotBlock='<div style="width:100%;padding:0 4px 6px;font-size:13px;font-weight:900;letter-spacing:1.2px">MOST INTERACTIONS · top 3</div><div class="feat-carousel" id="wall-hot-carousel">'+slides+'</div>'+dots;
-      }
-      var randBlock='';
-      if(rand.length){
-        randBlock='<div style="width:100%;padding:14px 4px 6px;font-size:13px;font-weight:900;letter-spacing:1.2px">RANDOM 3 · changes daily</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 2px 8px">'
-          +rand.map(function(p){
-            var imgs=p.images&&p.images.length?p.images:parseImages(p.image||'');
-            var src=imgs[0]||'';
-            return '<button type="button" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')" style="border:1px solid rgba(96,165,250,.35);border-radius:14px;overflow:hidden;padding:0;background:#121218;color:#fff;text-align:left">'
-              +(src?'<img src="'+esc(feedThumb(src,220))+'" alt="" style="width:100%;height:96px;object-fit:cover;display:block"/>':'<div style="height:96px;background:#1a1a22"></div>')
-              +'<div style="padding:6px 7px;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@'+esc(p.user||'')+'</div>'
-              +'</button>';
-          }).join('')
-          +'</div>';
-      }
-      box.innerHTML=hotBlock+randBlock;
-      try{
-        var car=document.getElementById('wall-hot-carousel');
-        if(car && !car.__bound){
-          car.__bound=1;
-          car.addEventListener('scroll',function(){
-            var w=car.clientWidth||1,i=Math.round(car.scrollLeft/w);
-            window.__wallHotIdx=i;
-            box.querySelectorAll('.feat-dot').forEach(function(d,n){d.classList.toggle('on',n===i)});
-          },{passive:true});
-        }
-      }catch(e){}
-      try{startWallHotRotation()}catch(e){}
+      var rand=pickWallRandom(pool, [], 3);
+      if(!rand.length){box.innerHTML='';return}
+      box.innerHTML='<div style="width:100%;padding:0 4px 6px;font-size:13px;font-weight:900;letter-spacing:1.2px">RANDOM 3 · changes daily</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 2px 8px">'
+        +rand.map(function(p){
+          var imgs=p.images&&p.images.length?p.images:parseImages(p.image||'');
+          var src=imgs[0]||'';
+          return '<button type="button" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')" style="border:1px solid rgba(96,165,250,.35);border-radius:14px;overflow:hidden;padding:0;background:#121218;color:#fff;text-align:left">'
+            +(src?'<img src="'+esc(feedThumb(src,220))+'" alt="" style="width:100%;height:96px;object-fit:cover;display:block"/>':'<div style="height:96px;background:#1a1a22"></div>')
+            +'<div style="padding:6px 7px;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@'+esc(p.user||'')+'</div>'
+            +'</button>';
+        }).join('')
+        +'</div>';
     }
     function renderNormalFeed(){
       var q=(normalFeedQuery||'').trim().toLowerCase();
@@ -10542,7 +10527,62 @@ function openRoulette(){
     }
     function pruneStories(arr){
       var cut=Date.now()-24*60*60*1000;
-      return (arr||[]).filter(function(s){return s&&s.url&&Number(s.at||0)>cut});
+      return (arr||[]).filter(function(s){return s&&s.url&&!s.deleted&&Number(s.at||0)>cut});
+    }
+    function loadStoryMeta(){
+      try{return JSON.parse(localStorage.getItem('rs_story_meta')||'{}')||{}}catch(e){return{}}
+    }
+    function saveStoryMeta(map){
+      try{localStorage.setItem('rs_story_meta',JSON.stringify(map||{}))}catch(e){}
+    }
+    function storyMetaOf(id){
+      var map=loadStoryMeta();
+      var m=map[String(id)]||{views:[],likes:{}};
+      if(!Array.isArray(m.views))m.views=[];
+      if(!m.likes||typeof m.likes!=='object')m.likes={};
+      return m;
+    }
+    function writeStoryMeta(id, meta){
+      var map=loadStoryMeta();
+      map[String(id)]=meta;
+      saveStoryMeta(map);
+    }
+    async function pushStoryMetaRemote(id, meta){
+      try{
+        await fetch(CF_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          to_username:'__STORY_META__',
+          from_username:(currentUser&&currentUser.name)||'guest',
+          type:'story_meta',
+          post_id:String(id),
+          message:JSON.stringify({id:String(id),views:meta.views||[],likes:meta.likes||{}})
+        })});
+      }catch(e){}
+    }
+    async function pullStoryMetaRemote(){
+      try{
+        var r=await fetch(CF_API+'/notifs?to=__STORY_META__',{cache:'no-store'});
+        var j=await r.json().catch(function(){return{}});
+        var map=loadStoryMeta();
+        ((j&&j.notifs)||[]).forEach(function(n){
+          var d={};try{d=JSON.parse(n.message||'{}')}catch(e){}
+          var id=String(d.id||n.post_id||'');
+          if(!id)return;
+          var cur=map[id]||{views:[],likes:{}};
+          var views=Array.isArray(d.views)?d.views:[];
+          var likes=(d.likes&&typeof d.likes==='object')?d.likes:{};
+          var seenV={};
+          (cur.views||[]).concat(views).forEach(function(v){
+            if(!v||!v.user)return;
+            var k=String(v.user).toLowerCase();
+            if(seenV[k]){if(Number(v.at||0)>Number(seenV[k].at||0))seenV[k]=v;return}
+            seenV[k]=v;
+          });
+          cur.views=Object.keys(seenV).map(function(k){return seenV[k]});
+          cur.likes=Object.assign({},cur.likes||{},likes);
+          map[id]=cur;
+        });
+        saveStoryMeta(map);
+      }catch(e){}
     }
     async function pullStoriesRemote(){
       try{
@@ -10551,18 +10591,25 @@ function openRoulette(){
         var remote=((j&&j.notifs)||[]).map(function(n){
           try{return JSON.parse(n.message||'{}')}catch(e){return null}
         }).filter(Boolean);
-        var local=pruneStories(loadStoriesLocal());
+        var rawLocal=loadStoriesLocal();
+        var del={};
+        remote.concat(rawLocal).forEach(function(s){if(s&&s.deleted&&s.id)del[String(s.id)]=1});
+        var tombs=Object.keys(del).map(function(id){return{id:id,deleted:true,at:Date.now()}});
         var seen={};
         var merged=[];
-        local.concat(remote).forEach(function(s){
+        pruneStories(rawLocal).concat(remote).forEach(function(s){
+          if(!s||!s.url)return;
           var k=String(s.id||(s.user+'|'+s.at+'|'+s.url));
+          if(del[k]||del[String(s.id||'')])return;
+          if(s.deleted)return;
           if(seen[k])return;
           seen[k]=1;
           merged.push(s);
         });
         merged=pruneStories(merged).sort(function(a,b){return (b.at||0)-(a.at||0)});
-        saveStoriesLocal(merged);
-        return merged;
+        saveStoriesLocal(merged.concat(tombs).slice(0,80));
+        try{await pullStoryMetaRemote()}catch(e){}
+        return pruneStories(merged);
       }catch(e){return pruneStories(loadStoriesLocal())}
     }
     function storySeenMap(){
@@ -10572,6 +10619,44 @@ function openRoulette(){
       var m=storySeenMap();
       m[String(user||'').toLowerCase()]=Date.now();
       try{localStorage.setItem('rs_stories_seen',JSON.stringify(m))}catch(e){}
+    }
+    function userHasActiveStory(user){
+      user=String(user||'');
+      return pruneStories(loadStoriesLocal()).some(function(s){return String(s.user||'')===user});
+    }
+    function storiesForUser(user){
+      return pruneStories(loadStoriesLocal()).filter(function(s){return String(s.user||'')===String(user)}).sort(function(a,b){return (a.at||0)-(b.at||0)});
+    }
+    function storyDeletesToday(){
+      try{
+        var m=JSON.parse(localStorage.getItem('rs_story_del')||'{}')||{};
+        return Number(m[wallDayKey()]||0)||0;
+      }catch(e){return 0}
+    }
+    function bumpStoryDeleteCount(){
+      try{
+        var m=JSON.parse(localStorage.getItem('rs_story_del')||'{}')||{};
+        var k=wallDayKey();
+        m[k]=(Number(m[k]||0)||0)+1;
+        localStorage.setItem('rs_story_del',JSON.stringify(m));
+      }catch(e){}
+    }
+    function paintProfileStoryRing(wrapId, user, isSelf){
+      var wrap=document.getElementById(wrapId);
+      if(!wrap)return;
+      var has=userHasActiveStory(user);
+      wrap.classList.toggle('has-story',!!has);
+      var seen=storySeenMap();
+      var list=storiesForUser(user);
+      var last=list.length?list[list.length-1]:null;
+      var isSeen=last && Number(seen[String(user||'').toLowerCase()]||0)>=Number(last.at||0);
+      wrap.classList.toggle('seen',!!(has&&isSeen&&!isSelf));
+      wrap.onclick=function(ev){
+        if(ev.target&&ev.target.closest&&ev.target.closest('.av-pen'))return;
+        if(has){openStoryUser(user);return}
+        if(isSelf) openAddStory();
+      };
+      if(!wrap.getAttribute('title')) wrap.title=has?'View story':(isSelf?'Add story':'');
     }
     function renderWallStories(){
       var box=document.getElementById('wall-stories');
@@ -10604,11 +10689,49 @@ function openRoulette(){
           +'</div><div class="ws-name">@'+esc(u)+'</div></button>';
       }).join('');
       box.innerHTML=html;
-      // soft refresh from remote
+      try{
+        if(currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true);
+        if(viewingUser) paintProfileStoryRing('user-av-wrap', viewingUser, false);
+      }catch(e){}
       pullStoriesRemote().then(function(remote){
-        if(!remote||!remote.length)return;
-        if(remote.length!==list.length) renderWallStories();
+        if(!remote)return;
+        renderWallStoriesRefreshOnly(remote);
       }).catch(function(){});
+    }
+    function renderWallStoriesRefreshOnly(remote){
+      // Avoid infinite pull loop: only re-paint wall strip if count changed
+      var box=document.getElementById('wall-stories');
+      if(!box)return;
+      var local=pruneStories(loadStoriesLocal());
+      if((remote||[]).length && remote.length!==local.length){
+        // already saved in pullStoriesRemote; redraw once
+        var byUser={};
+        local.forEach(function(s){var u=String(s.user||'anon');if(!byUser[u])byUser[u]=[];byUser[u].push(s)});
+        // fall through to full render without another pull
+        var me=(currentUser&&currentUser.name)||'';
+        var seen=storySeenMap();
+        var users=Object.keys(byUser).sort(function(a,b){
+          if(me&&a===me)return -1; if(me&&b===me)return 1;
+          return (byUser[b][byUser[b].length-1].at||0)-(byUser[a][byUser[a].length-1].at||0);
+        });
+        var html='<button type="button" class="ws-item" onclick="openAddStory()"><div class="ws-ring add"><div class="ws-add-ico">+</div></div><div class="ws-name">Your story</div></button>';
+        html+=users.map(function(u){
+          var items=byUser[u].sort(function(a,b){return (a.at||0)-(b.at||0)});
+          var last=items[items.length-1];
+          var isSeen=Number(seen[String(u).toLowerCase()]||0)>=Number(last.at||0);
+          var thumb=last.thumb||last.url||'';
+          var isVid=typeof isVideoUrl==='function'&&isVideoUrl(thumb);
+          return '<button type="button" class="ws-item" onclick="openStoryUser(\''+String(u).replace(/'/g,'')+'\')">'
+            +'<div class="ws-ring'+(isSeen?' seen':'')+'">'
+            +(isVid?'<div class="ws-av" style="display:flex;align-items:center;justify-content:center;font-size:22px">▶</div>':'<img class="ws-av" src="'+esc(typeof feedThumb==='function'?feedThumb(thumb,120):thumb)+'" alt=""/>')
+            +'</div><div class="ws-name">@'+esc(u)+'</div></button>';
+        }).join('');
+        box.innerHTML=html;
+      }
+      try{
+        if(currentUser&&currentUser.name) paintProfileStoryRing('profile-av-wrap', currentUser.name, true);
+        if(viewingUser) paintProfileStoryRing('user-av-wrap', viewingUser, false);
+      }catch(e){}
     }
     function ensureStoryViewer(){
       var ov=document.getElementById('story-viewer');
@@ -10617,20 +10740,31 @@ function openRoulette(){
       ov.id='story-viewer';
       ov.innerHTML='<div class="sv-progress" id="sv-progress"></div>'
         +'<div class="sv-head"><strong id="sv-user"></strong><span id="sv-ago" style="opacity:.7;font-size:12px"></span><button type="button" class="sv-close" onclick="closeStoryViewer()">×</button></div>'
-        +'<div class="sv-media" id="sv-media"></div>';
+        +'<div class="sv-media" id="sv-media"></div>'
+        +'<div class="sv-actions" id="sv-actions"></div>';
       document.body.appendChild(ov);
       ov.addEventListener('click',function(e){
-        if(e.target&&e.target.closest&&e.target.closest('.sv-close'))return;
+        if(e.target&&e.target.closest&&e.target.closest('.sv-close,.sv-actions,#story-views-sheet'))return;
         var mid=ov.clientWidth/2;
         if(e.clientX<mid) storyStep(-1); else storyStep(1);
       });
       return ov;
+    }
+    function ensureStoryViewsSheet(){
+      var sh=document.getElementById('story-views-sheet');
+      if(sh)return sh;
+      sh=document.createElement('div');
+      sh.id='story-views-sheet';
+      sh.innerHTML='<div class="svs-head"><strong>Viewers</strong><button type="button" class="btn btn-ghost btn-sm" onclick="closeStoryViews()">Close</button></div><div class="svs-list" id="svs-list"></div>';
+      document.body.appendChild(sh);
+      return sh;
     }
     window.__storyQueue=[];
     window.__storyIdx=0;
     window.__storyTimer=null;
     function closeStoryViewer(){
       clearTimeout(window.__storyTimer);
+      closeStoryViews();
       var ov=document.getElementById('story-viewer');
       if(ov){
         ov.classList.remove('on');
@@ -10638,29 +10772,69 @@ function openRoulette(){
         if(m){m.querySelectorAll('video').forEach(function(v){try{v.pause()}catch(e){}});m.innerHTML='';}
       }
     }
+    function closeStoryViews(){
+      var sh=document.getElementById('story-views-sheet');
+      if(sh)sh.classList.remove('on');
+    }
     function storyStep(dir){
       window.__storyIdx+=(dir||1);
       if(window.__storyIdx<0){window.__storyIdx=0;return}
       if(window.__storyIdx>=window.__storyQueue.length){closeStoryViewer();return}
       paintStoryFrame();
     }
+    function recordStoryView(story){
+      if(!story||!story.id)return;
+      var me=(currentUser&&currentUser.name)||'';
+      if(!me||me==='guest')return;
+      if(String(story.user||'')===String(me))return;
+      var meta=storyMetaOf(story.id);
+      var low=String(me).toLowerCase();
+      var hit=meta.views.find(function(v){return String(v.user||'').toLowerCase()===low});
+      if(hit){hit.at=Date.now()}
+      else meta.views.push({user:me,at:Date.now()});
+      writeStoryMeta(story.id, meta);
+      pushStoryMetaRemote(story.id, meta);
+    }
+    function paintStoryActions(story){
+      var box=document.getElementById('sv-actions');
+      if(!box||!story)return;
+      var me=(currentUser&&currentUser.name)||'';
+      var meta=storyMetaOf(story.id);
+      var liked=!!(meta.likes&&meta.likes[String(me)]);
+      var likeN=Object.keys(meta.likes||{}).length;
+      var viewN=(meta.views||[]).length;
+      var isOwner=me&&String(story.user||'')===String(me);
+      var html='';
+      html+='<button type="button" class="'+(liked?'on':'')+'" onclick="event.stopPropagation();toggleStoryLike(\''+String(story.id).replace(/'/g,'')+'\')">'+(liked?'♥':'♡')+' '+(likeN||'')+'</button>';
+      if(!isOwner){
+        html+='<button type="button" onclick="event.stopPropagation();replyStoryDm(\''+String(story.user||'').replace(/'/g,'')+'\')">💬 Reply</button>';
+      }
+      if(isOwner){
+        html+='<button type="button" onclick="event.stopPropagation();openStoryViews(\''+String(story.id).replace(/'/g,'')+'\')">👁 '+viewN+' views</button>';
+        html+='<button type="button" class="sv-del" onclick="event.stopPropagation();deleteStoryNow(\''+String(story.id).replace(/'/g,'')+'\')">🗑 Delete</button>';
+      }
+      box.innerHTML=html;
+    }
     function paintStoryFrame(){
       clearTimeout(window.__storyTimer);
+      closeStoryViews();
       var s=window.__storyQueue[window.__storyIdx];
       if(!s){closeStoryViewer();return}
       markStorySeen(s.user);
+      recordStoryView(s);
       var ov=ensureStoryViewer();
       ov.classList.add('on');
       var prog=document.getElementById('sv-progress');
       if(prog){
         prog.innerHTML=window.__storyQueue.map(function(_,i){
-          return '<div class="sv-bar"><i style="width:'+(i<window.__storyIdx?'100%':(i===window.__storyIdx?'0%':'0%'))+'"></i></div>';
+          return '<div class="sv-bar"><i style="width:'+(i<window.__storyIdx?'100%':'0%')+'"></i></div>';
         }).join('');
       }
       var u=document.getElementById('sv-user');
       var a=document.getElementById('sv-ago');
       if(u)u.textContent='@'+(s.user||'anon');
       if(a)a.textContent=typeof ago==='function'?ago(s.at):'';
+      paintStoryActions(s);
       var media=document.getElementById('sv-media');
       if(!media)return;
       media.innerHTML='';
@@ -10688,8 +10862,7 @@ function openRoulette(){
       window.__storyTimer=setTimeout(function(){storyStep(1)},dur);
     }
     function openStoryUser(user){
-      var list=pruneStories(loadStoriesLocal()).filter(function(s){return String(s.user||'')===String(user)});
-      list.sort(function(a,b){return (a.at||0)-(b.at||0)});
+      var list=storiesForUser(user);
       if(!list.length){toast('No stories');return}
       window.__storyQueue=list;
       window.__storyIdx=0;
@@ -10730,13 +10903,78 @@ function openRoulette(){
         await fetch(CF_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:'__STORIES__',from_username:user,type:'story',post_id:story.id,message:JSON.stringify(story)})});
       }catch(e){}
       renderWallStories();
+      try{paintProfileStoryRing('profile-av-wrap', user, true)}catch(e){}
       toast('Story live · 24h');
+    }
+    function toggleStoryLike(id){
+      if(!isRegistered()){toast('Login to like');return}
+      var me=String(currentUser.name||'');
+      var meta=storyMetaOf(id);
+      if(meta.likes[me]) delete meta.likes[me];
+      else meta.likes[me]=Date.now();
+      writeStoryMeta(id, meta);
+      pushStoryMetaRemote(id, meta);
+      var s=window.__storyQueue[window.__storyIdx];
+      if(s&&String(s.id)===String(id)) paintStoryActions(s);
+    }
+    function replyStoryDm(user){
+      closeStoryViewer();
+      if(!user){toast('No user');return}
+      try{openChat(user)}catch(e){toast('Could not open chat')}
+    }
+    function openStoryViews(id){
+      var me=(currentUser&&currentUser.name)||'';
+      var s=(window.__storyQueue||[]).find(function(x){return String(x.id)===String(id)})||pruneStories(loadStoriesLocal()).find(function(x){return String(x.id)===String(id)});
+      if(!s||String(s.user||'')!==String(me)){toast('Only you can see viewers');return}
+      clearTimeout(window.__storyTimer);
+      var meta=storyMetaOf(id);
+      var sh=ensureStoryViewsSheet();
+      var list=document.getElementById('svs-list');
+      var views=(meta.views||[]).slice().sort(function(a,b){return (b.at||0)-(a.at||0)});
+      var likes=meta.likes||{};
+      if(!views.length){
+        list.innerHTML='<div style="color:#9a9aa3;padding:12px 0">No views yet</div>';
+      }else{
+        list.innerHTML=views.map(function(v){
+          var liked=!!likes[String(v.user||'')];
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #1c1c22">'
+            +'<button type="button" onclick="closeStoryViewer();openUser(\''+String(v.user||'').replace(/'/g,'')+'\')" style="background:none;border:0;color:#fff;font-weight:800;padding:0">@'+esc(v.user||'')+'</button>'
+            +'<span style="color:#9a9aa3;font-size:12px">'+(liked?'♥ ':'')+(typeof ago==='function'?ago(v.at):'')+'</span></div>';
+        }).join('');
+      }
+      sh.classList.add('on');
+    }
+    async function deleteStoryNow(id){
+      var me=(currentUser&&currentUser.name)||'';
+      var arr=loadStoriesLocal();
+      var s=arr.find(function(x){return String(x.id)===String(id)});
+      if(!s||String(s.user||'')!==String(me)){toast('Not your story');return}
+      var used=storyDeletesToday();
+      if(used>=2){toast('Free deletes used (2/day)');return}
+      if(!confirm('Delete this story? Free deletes left today: '+(2-used)))return;
+      s.deleted=true;
+      s.url='';
+      saveStoriesLocal(arr.map(function(x){return String(x.id)===String(id)?{id:String(id),deleted:true,user:me,at:Date.now()}:x}));
+      bumpStoryDeleteCount();
+      try{
+        await fetch(CF_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:'__STORIES__',from_username:me,type:'story_delete',post_id:String(id),message:JSON.stringify({id:String(id),deleted:true,user:me,at:Date.now()})})});
+      }catch(e){}
+      toast('Story deleted · '+(2-used-1)+' free left today');
+      closeStoryViewer();
+      renderWallStories();
+      try{paintProfileStoryRing('profile-av-wrap', me, true)}catch(e){}
     }
     window.renderWallStories=renderWallStories;
     window.openAddStory=openAddStory;
     window.openStoryUser=openStoryUser;
     window.closeStoryViewer=closeStoryViewer;
+    window.closeStoryViews=closeStoryViews;
     window.storyStep=storyStep;
+    window.toggleStoryLike=toggleStoryLike;
+    window.replyStoryDm=replyStoryDm;
+    window.openStoryViews=openStoryViews;
+    window.deleteStoryNow=deleteStoryNow;
+    window.paintProfileStoryRing=paintProfileStoryRing;
 
 
     function fillHomePostStrip(){
@@ -12634,6 +12872,7 @@ function profileStatsHtml(userPosts, extra){
       }catch(e){console.warn('xp fetch',e)}
       if(p&&p.avatar_url)av.innerHTML='<img src="'+p.avatar_url+'" alt=""/>';
       else av.textContent=username.charAt(0).toUpperCase();
+      try{paintProfileStoryRing('user-av-wrap', username, String(username)===String(currentUser&&currentUser.name))}catch(e){}
       var pxu=parseProfileExtra(p&&p.bio?p.bio:'');
       document.getElementById('user-bio').innerHTML=(pxu.text?esc(pxu.text):'No bio yet')+profileChipsHtml(pxu);
       var links=document.getElementById('user-links');links.innerHTML='';
