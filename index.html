@@ -13697,7 +13697,15 @@ function profileStatsHtml(userPosts, extra){
           var list=hold.querySelector('.cmt-box > div:last-of-type')||hold.querySelector('.cmt-box');
         }
       }).catch(function(){});
-      var permanent=isProfileOnly(post)||!post.expires||!isFinite(post.expires);var rem=permanent?0:post.expires-Date.now(),already=localStorage.getItem('rs_ext_'+id)==='1';
+      var timeless=false;
+      try{timeless=typeof isTimelessWallPost==='function'?isTimelessWallPost(post):false}catch(e){}
+      var timedLive=false;
+      try{timedLive=typeof isWallTimedPost==='function'?isWallTimedPost(post):false}catch(e){}
+      if(!timedLive){
+        try{timedLive=typeof isFeedTimerPost==='function'?isFeedTimerPost(post):false}catch(e){}
+      }
+      var permanent=isProfileOnly(post)||timeless||!post.expires||!isFinite(post.expires);
+      var rem=permanent?0:post.expires-Date.now(),already=localStorage.getItem('rs_ext_'+id)==='1';
       var rank=getRank(post.id);var featDetail=isFeatured(post);
       var liked=(post.likedBy||[]).indexOf((currentUser&&currentUser.name)||'')>=0,isOwner=currentUser&&post.user===currentUser.name;
       var imgs=(post.images&&post.images.length>1)?post.images:mergePostImages(post.image, post.tags, (post.images||[]).concat(extractAlbumMarker(post.desc)));var media='<div style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, post.poster||'')+'</div>';
@@ -13707,16 +13715,25 @@ function profileStatsHtml(userPosts, extra){
       var extHtml='';
       var ownProfilePermanent=isOwner&&permanent&&isProfileOnly(post)&&isRegistered()&&String(post.user||'').indexOf('Anon_')!==0;
       var wallOwned=false;
-      try{wallOwned=!!(isOwner && typeof isWallPost==='function' && isWallPost(post))}catch(e){wallOwned=!!(isOwner&&permanent)}
+      try{wallOwned=!!(isOwner && (timeless || (typeof isWallPost==='function' && isWallPost(post)) || (typeof isWallNormalPost==='function' && isWallNormalPost(post))))}catch(e){wallOwned=!!(isOwner&&permanent)}
       if(isOwner&&post.extenders&&post.extenders.length){extHtml='<div style="background:var(--elev);border:1px solid var(--border);border-radius:12px;padding:12px;margin:12px 14px"><strong style="color:var(--orange)">Who extended</strong>'+post.extenders.map(function(e){return '<div style="font-size:13px;color:var(--muted);padding:3px 0">@'+esc(e)+'</div>'}).join('')+'</div>'}
       var who='@'+String(post.user||'him').replace(/^@/,'');
       var mineR=getMyReaction(post);
-      var extLed=permanent?'':('<button class="dx-ext" type="button" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+extL)+'</b><i>'+(already?'already added':'keep him on the board')+'</i></button>');
-      var removeBtn=wallOwned
-        ?'<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your wall post</i></button>'
-        :(ownProfilePermanent
-          ?'<button class="dx-wipe" type="button" onclick="deleteOwnProfilePost('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>your photo</i></button>'
-          :'<button class="dx-wipe" type="button" onclick="openRemove()" id="btn-remove-led-label"><b>Remove</b><i>100 FC</i></button>');
+      var extLed=(permanent||timeless||!timedLive)?'':('<button class="dx-ext" type="button" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+extL)+'</b><i>'+(already?'already added':'keep him on the board')+'</i></button>');
+      // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
+      // Timed exposures keep paid Remove for anyone.
+      var removeBtn='';
+      if(timeless || (permanent && !timedLive)){
+        if(wallOwned || (isOwner && isRegistered())){
+          removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
+        }else if(ownProfilePermanent){
+          removeBtn='<button class="dx-wipe" type="button" onclick="deleteOwnProfilePost('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>your photo</i></button>';
+        }
+      }else if(ownProfilePermanent){
+        removeBtn='<button class="dx-wipe" type="button" onclick="deleteOwnProfilePost('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>your photo</i></button>';
+      }else if(timedLive){
+        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove()" id="btn-remove-led-label"><b>Remove</b><i>100 FC</i></button>';
+      }
       var acts='<div class="dx-actions">'
         +extLed
         +'<button class="dx-row'+(mineR?' on':'')+'" type="button" onclick="quickLike('+jsId(post.id)+',event)">'+(mineR||'❤️')+' '+(mineR?'Liked':'Like')+'</button>'
@@ -16166,11 +16183,23 @@ async function onIdFace(e){
       var exp=Number(p.expires||0);
       return !exp || exp<=0 || exp>Date.now()+20*24*3600*1000;
     }
+    function isPaidRemovePost(p){
+      if(!p)return false;
+      try{if(typeof isTimelessWallPost==='function' && isTimelessWallPost(p)) return false}catch(e){}
+      try{if(typeof isWallTimedPost==='function' && isWallTimedPost(p)) return true}catch(e){}
+      try{if(typeof isFeedTimerPost==='function' && isFeedTimerPost(p)) return true}catch(e){}
+      var exp=Number(p.expires||0);
+      if(!exp||!isFinite(exp))return false;
+      var now=Date.now();
+      return exp>now && exp<=now+60*24*3600*1000;
+    }
     function openRemove(id){
       window.__removePostId=id||currentDetailId;
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(window.__removePostId):null}catch(e){}
       var wall=isWallPost(post);
+      var timeless=false;
+      try{timeless=typeof isTimelessWallPost==='function'?isTimelessWallPost(post):false}catch(e){}
       var owner=post && currentUser && String(post.user||'')===String(currentUser.name||'');
       var lab=document.getElementById('remove-post-id-label');
       if(lab) lab.textContent=String(window.__removePostId||'—');
@@ -16178,7 +16207,17 @@ async function onIdFace(e){
       var pEl=document.querySelector('#remove-modal p');
       var fc=document.getElementById('btn-remove-fc');
       var paid=document.getElementById('btn-remove-paid');
-      if(wall && (owner || (typeof isAdmin==='function' && isAdmin()))){
+      // Normal / timeless: only publisher (or admin) can delete — never charge 100 FC
+      if((timeless || wall) && !isPaidRemovePost(post)){
+        if(!(owner || (typeof isAdmin==='function' && isAdmin()))){
+          toast('Only the publisher can delete a normal post');
+          return;
+        }
+        if(title) title.textContent='Delete wall post';
+        if(pEl) pEl.innerHTML='Normal posts delete for free. Only you (the publisher) can remove it.';
+        if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
+        if(paid) paid.style.display='none';
+      }else if(wall && (owner || (typeof isAdmin==='function' && isAdmin())) && !isPaidRemovePost(post)){
         if(title) title.textContent='Delete wall post';
         if(pEl) pEl.innerHTML='Wall posts delete for free. It disappears for everyone.';
         if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
@@ -16194,6 +16233,13 @@ async function onIdFace(e){
     window.deleteWallFree=async function(){
       var id=window.__removePostId||currentDetailId;
       if(!id){toast('Open the post first');return}
+      var post=null;
+      try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+      var owner=post && currentUser && String(post.user||'')===String(currentUser.name||'');
+      if(post && !(owner || (typeof isAdmin==='function' && isAdmin()))){
+        toast('Only the publisher can delete this post');
+        return;
+      }
       closeModals();
       toast('Deleting…');
       try{await deletePost(id)}catch(e){toast('Could not delete')}
@@ -16221,6 +16267,18 @@ async function onIdFace(e){
     async function removeWithCoins(){
       var id=window.__removePostId||currentDetailId;
       if(!id){toast('Open the post first');return}
+      var post=null;
+      try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):((posts||[]).find(function(p){return String(p.id)===String(id)}))}catch(e){}
+      // Hard block: never charge Remove on normal / timeless posts
+      if(post && !isPaidRemovePost(post)){
+        var owner=currentUser && String(post.user||'')===String(currentUser.name||'');
+        if(owner || (typeof isAdmin==='function' && isAdmin())){
+          return deleteWallFree();
+        }
+        toast('Normal posts cannot be removed with coins');
+        closeModals();
+        return;
+      }
       payProgress(true,'Remove · 100 FC','Charging coins…',25);
       var ok=await spendFagCoins('delete', String(id));
       if(!ok){payProgress(false);try{closeModals();openNeedCoins({cost:100,why:'remove'})}catch(e){try{openCoinShop()}catch(err){}}return}
@@ -16258,6 +16316,12 @@ async function onIdFace(e){
       var id=window.__removePostId||currentDetailId;
       if(!id){toast('Open the post first');return}
       var post=posts.find(function(p){return p.id===id||String(p.id)===String(id)});
+      try{if(!post && typeof findPostAnywhere==='function') post=findPostAnywhere(id)}catch(e){}
+      if(post && !isPaidRemovePost(post)){
+        toast('Normal posts cannot be removed with payment — only the publisher deletes them free');
+        closeModals();
+        return;
+      }
       var userName=(post&&post.user)||(currentUser&&currentUser.name)||'user';
       var title=(post&&post.title)||'';
       try{
