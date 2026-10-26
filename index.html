@@ -912,8 +912,12 @@
     .normal-feed-post-media{background:#000}
     .normal-feed-post-media img{display:block;width:100%;max-height:380px;object-fit:cover}
     .normal-feed-post-stats{display:none}
-    .normal-feed-post-actions{display:flex;gap:6px;padding:6px 12px 12px}
-    .normal-feed-post-actions .btn{padding:8px 10px;font-size:12px;flex:1}
+    .normal-feed-post-actions{display:flex;gap:6px;padding:6px 12px 12px;flex-wrap:wrap}
+    .normal-feed-post-actions .btn{padding:8px 10px;font-size:12px;flex:1;min-width:0}
+    .btn-hot{background:linear-gradient(90deg,#ff6a00,#ff2d55)!important;color:#fff!important;border:0!important;font-weight:900!important;box-shadow:0 0 14px rgba(255,106,0,.35)}
+    .btn-hot.on{opacity:.72;filter:saturate(.85)}
+    .nf-timer-chip{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.3px;background:rgba(255,59,48,.16);color:#ff8a8a;border:1px solid rgba(255,59,48,.4)}
+    .nf-hot-chip{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.3px;background:rgba(255,106,0,.18);color:#ffb35c;border:1px solid rgba(255,106,0,.4)}
     .normal-feed-reacts{display:flex;gap:6px;padding:0 14px 8px;flex-wrap:wrap}
     .normal-feed-reacts button{flex:1;min-width:44px;border:1px solid var(--border);background:var(--elev);border-radius:999px;padding:8px 6px;font-size:18px;cursor:pointer;color:var(--text)}
     .normal-feed-reacts button.on{border-color:var(--orange);background:rgba(124,58,237,.16)}
@@ -3073,7 +3077,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }catch(e){}
           return by;
         })(),
-        image:imgs[0]||'',images:imgs,media_url:p.media_url||'',thumb_url:thumb||'',optimized_url:p.optimized_url||'',media_type:p.media_type||'',poster:(thumb && !(typeof isVideoUrl==='function' && isVideoUrl(thumb)))?thumb:'',featuredUntil:p.featured_until?new Date(p.featured_until).getTime():0,
+        image:imgs[0]||'',images:imgs,media_url:p.media_url||'',thumb_url:thumb||'',optimized_url:p.optimized_url||'',media_type:p.media_type||'',poster:(thumb && !(typeof isVideoUrl==='function' && isVideoUrl(thumb)))?thumb:'',featuredUntil:p.featured_until?new Date(p.featured_until).getTime():0,hotCount:(typeof parseHotTag==='function'?parseHotTag(tags):0)||0,
         savesCount:Number(p.saves_count||0),downloadsCount:Number(p.downloads_count||0),reactions:(function(){
           var r={};
           try{if(p.reactions&&typeof p.reactions==='object')r=Object.assign({},p.reactions)}catch(e){}
@@ -10734,14 +10738,114 @@ function openRoulette(){
       return false;
     }
 
+    function isTimelessWallPost(p){
+      if(!p)return false;
+      var exp=Number(p.expires||0);
+      if(!exp||!isFinite(exp))return true;
+      // Far-future / permanent expiry = timeless (eligible for Hot)
+      return exp>Date.now()+60*24*3600*1000;
+    }
+    function loadWallHotMap(){
+      try{return JSON.parse(localStorage.getItem('rs_wall_hots')||'{}')||{}}catch(e){return{}}
+    }
+    function saveWallHotMap(map){
+      try{
+        var keys=Object.keys(map||{});
+        if(keys.length>400){
+          keys.sort(function(a,b){return Number((map[a]&&map[a].at)||0)-Number((map[b]&&map[b].at)||0)});
+          keys.slice(0,keys.length-320).forEach(function(k){delete map[k]});
+        }
+        localStorage.setItem('rs_wall_hots',JSON.stringify(map||{}));
+      }catch(e){}
+    }
+    function parseHotTag(tags){
+      tags=tags||[];
+      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+      if(!Array.isArray(tags))return 0;
+      for(var i=0;i<tags.length;i++){
+        var m=String(tags[i]||'').match(/^hot:(\d+)$/i);
+        if(m) return Number(m[1])||0;
+      }
+      return 0;
+    }
+    function withHotTag(tags, n){
+      tags=Array.isArray(tags)?tags.slice():[];
+      tags=tags.filter(function(t){return !/^hot:\d+$/i.test(String(t||''))});
+      n=Math.max(0, Number(n)||0);
+      if(n>0) tags.push('hot:'+n);
+      return tags;
+    }
+    function postHotCount(p){
+      if(!p)return 0;
+      var fromTag=parseHotTag(p.tags);
+      var loc=0;
+      try{loc=Number((loadWallHotMap()[String(p.id)]||{}).n)||0}catch(e){}
+      return Math.max(Number(p.hotCount)||0, fromTag, loc);
+    }
+    function wallRankScore(p){
+      // Newest-first base; each Hot lifts ~12h so timeless posts can climb the wall
+      var created=Number(p&&p.created||0)||0;
+      var hot=postHotCount(p);
+      return created + hot * 12 * 3600 * 1000;
+    }
+    function iAlreadyHotted(id){
+      try{
+        var u=(currentUser&&currentUser.name)||'guest';
+        var m=JSON.parse(localStorage.getItem('rs_hot_votes')||'{}')||{};
+        var at=Number(m[u+'|'+String(id)]||0)||0;
+        return at && (Date.now()-at)<12*3600*1000;
+      }catch(e){return false}
+    }
+    function markIHotted(id){
+      try{
+        var u=(currentUser&&currentUser.name)||'guest';
+        var m=JSON.parse(localStorage.getItem('rs_hot_votes')||'{}')||{};
+        m[u+'|'+String(id)]=Date.now();
+        var keys=Object.keys(m);
+        if(keys.length>250){
+          keys.sort(function(a,b){return Number(m[a])-Number(m[b])});
+          keys.slice(0,keys.length-200).forEach(function(k){delete m[k]});
+        }
+        localStorage.setItem('rs_hot_votes',JSON.stringify(m));
+      }catch(e){}
+    }
+    async function hotBumpWall(id){
+      id=String(id||'');
+      if(!id)return;
+      if(!isRegistered()){toast('Log in to mark Hot');return}
+      if(iAlreadyHotted(id)){toast('Already marked Hot');return}
+      var p=null;
+      try{p=(normalFeedPosts||[]).find(function(x){return String(x.id)===id})}catch(e){}
+      if(!p) try{p=(posts||[]).find(function(x){return String(x.id)===id})}catch(e){}
+      if(!p) try{p=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+      if(!p){toast('Post not found');return}
+      if(!isTimelessWallPost(p)){toast('Hot is for posts without a timer');return}
+      var next=postHotCount(p)+1;
+      p.hotCount=next;
+      p.tags=withHotTag(p.tags||[], next);
+      var map=loadWallHotMap();
+      map[id]={n:next,at:Date.now()};
+      saveWallHotMap(map);
+      markIHotted(id);
+      try{
+        (normalFeedPosts||[]).forEach(function(x){if(String(x.id)===id){x.hotCount=next;x.tags=withHotTag(x.tags||[],next)}});
+        (posts||[]).forEach(function(x){if(String(x.id)===id){x.hotCount=next;x.tags=withHotTag(x.tags||[],next)}});
+      }catch(e){}
+      try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
+      try{renderNormalFeed()}catch(e){}
+      toast('Hot🔥 · climbed the wall');
+      try{await patchCfPost(id,{tags:p.tags})}catch(e){}
+    }
+    window.hotBumpWall=hotBumpWall;
     function normalFeedPostHtml(p){
       var imgs=p.images&&p.images.length?p.images:parseImages(p.image);
       var media='';
       var viewSrc=p;
       try{var hit=(posts||[]).find(function(x){return String(x.id)===String(p.id)});if(hit)viewSrc=hit}catch(e){}
       var viewLabel=displayViews((viewSrc&&viewSrc.views)||p.views||0);
+      var vsrc='';
       if(imgs&&imgs.length){
-        var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0];
+        vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
         var poster=(p.poster||'')||(imgs||[]).filter(function(u){return u&&!(typeof isVideoUrl==='function'&&isVideoUrl(u))})[0]||'';
         if(vsrc){
           var cached='';
@@ -10783,6 +10887,17 @@ function openRoulette(){
           kindBadge='<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#fbbf24;border-radius:999px;padding:2px 7px;margin-left:6px">VIDEO</span>';
         }
       }catch(e){}
+      var timeless=isTimelessWallPost(p);
+      var hotN=postHotCount(p);
+      var timerChip='';
+      if(!timeless){
+        var rem=Number(p.expires||0)-Date.now();
+        if(rem>0 && typeof fmt==='function'){
+          timerChip='<span class="nf-timer-chip">⏱ '+esc(fmt(rem))+'</span>';
+        }
+      }else if(hotN>0){
+        timerChip='<span class="nf-hot-chip">🔥 '+hotN+'</span>';
+      }
       var isMine=false;
       try{isMine=!!(currentUser&&currentUser.name&&String(p.user||'')===String(currentUser.name))}catch(e){}
       var delBtn=isMine
@@ -10796,14 +10911,19 @@ function openRoulette(){
           +(n?'<span class="n">'+n+'</span>':'')
           +'</button>';
       }).join('')+'</div>';
+      var alreadyHot=iAlreadyHotted(p.id);
+      var hotBtn=timeless
+        ?('<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>')
+        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'"><span class="nf-action-icon">⏱</span> Extend</button>');
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
-        +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
+        +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
         +media
         +'<div class="normal-feed-post-body">'+body+'</div>'
         +'<span class="nf-action-hint">Tap a reaction to leave your mark</span>'
         +reactRow
         +'<div class="normal-feed-post-actions">'
+        +hotBtn
         +'<button class="btn btn-like'+(mine?' liked':'')+'" type="button" data-nf-act="picker" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · '+(p.likes||0)+'</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span> '+(saved?'Saved':'Save')+'</button>'
@@ -10965,22 +11085,26 @@ function openRoulette(){
       }
       var mixed=(normalFeedPosts||[]).concat(posts||[]).concat(window.__videoCache||[]);
       var list=dedupePostList(mixed.slice()).filter(function(p){
+        if(!p||p.id==null)return false;
+        if(typeof isDeletedId==='function'&&isDeletedId(p.id))return false;
         var exp=Number(p.expires||0);
-        if(exp>0 && exp<=Date.now()) return false;
+        // Drop only truly expired timer posts (keep permanent / far-future)
+        if(exp>0 && exp<=Date.now() && exp<Date.now()+60*24*3600*1000) return false;
         var media=String((p.image||p.media_url||'')+(p.images||[]).join(' '));
         if(media.indexOf('1792566465151')>=0) return false;
-        // Wall shows: PEA, ID, videos, roulette tasks, normal posts. Drop pure timed exposure noise.
         try{
-          if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) return true;
-          if(typeof isRouletteWallPost==='function' && isRouletteWallPost(p)) return true;
-          if(typeof isVideoPost==='function' && isVideoPost(p)) return true;
-          if(typeof isNormalFeedPost==='function' && isNormalFeedPost(p)) return true;
-          if(typeof isFeedTimerPost==='function' && isFeedTimerPost(p)) return false;
+          var tags=p.tags||[];
+          if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+          if(Array.isArray(tags) && (tags.indexOf('pin_request')>=0||tags.indexOf('print_request')>=0)) return false;
+          var title=String(p.title||'').toUpperCase();
+          if(title.indexOf('PIN REQUEST')===0||title.indexOf('PRINT REQUEST')===0) return false;
         }catch(e){}
+        // Wall = ALL live publications (timed + timeless + video + PEA/ID + roulette)
         return true;
       }).sort(function(a,b){
-        var bd=Number(b.created||0), ad=Number(a.created||0);
-        return bd===ad ? String(b.id||'').localeCompare(String(a.id||'')) : bd-ad;
+        var sb=wallRankScore(b), sa=wallRankScore(a);
+        if(sb!==sa) return sb-sa;
+        return String(b.id||'').localeCompare(String(a.id||''));
       });
       if(q){
         list=list.filter(function(p){
@@ -11858,6 +11982,10 @@ function openRoulette(){
             if(!p){toast('Post not found');return;}
             reactFromFeed(p.id, emoji);
           });
+        } else if(act==='hot'){
+          hotBumpWall(id);
+        } else if(act==='extend'){
+          if(typeof openExtend==='function') openExtend(id);
         }
       }, true);
     }
@@ -11999,7 +12127,7 @@ function openRoulette(){
       try{
         (posts||[]).concat(window.__videoCache||[]).forEach(function(p){
           if(!p||isDeletedId(p.id))return;
-          if(!isPeaOrIdPost(p) && !isRouletteWallPost(p) && !(typeof isVideoPost==='function'&&isVideoPost(p)) && !isNormalFeedPost(p))return;
+          // Include timed exposure posts too — Wall is the live board for everything
           if(!list.some(function(x){return String(x.id)===String(p.id)})) list.push(p);
         });
       }catch(e){}
@@ -12027,10 +12155,12 @@ function openRoulette(){
         window.__wallPage=0;
         window.__wallDone=false;
         window.__wallVisible=12;
-        // Cache-first: paint instantly, then refresh in background
+        // Cache-first: paint instantly, then always refresh so new timed + timeless posts appear
         try{
           var cached=readPostCache('rs_wall_cache');
           if(cached&&cached.length){
+            // Restore hot counts onto cached rows
+            cached.forEach(function(p){try{p.hotCount=postHotCount(p)}catch(e){}});
             normalFeedPosts=wallFilterMapped(cached);
             renderNormalFeed();
           }else{
@@ -12042,34 +12172,45 @@ function openRoulette(){
       }
       window.__wallLoading=true;
       try{
-        // ONE primary fetch — no sequential wall+wide double pull on first paint
-        var pageSize=more?48:24;
-        var rows=await fetchCfFeed('wall', pageSize);
-        var list=wallFilterMapped((rows||[]).map(function(r){return cfRowToFeed(r)}).filter(Boolean));
-        list=wallMergeLocalExtras(list).sort(function(a,b){return (b.created||0)-(a.created||0)});
-        normalFeedPosts=list;
+        // Wider primary fetch so timed + timeless publications both land on The Wall
+        var pageSize=more?60:48;
+        var rows=await fetchCfFeed(null, pageSize);
+        var list=wallFilterMapped((rows||[]).map(function(r){
+          var mapped=cfRowToFeed(r);
+          if(mapped) mapped.hotCount=postHotCount(mapped);
+          return mapped;
+        }).filter(Boolean));
+        list=wallMergeLocalExtras(list).sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
+        if(more){
+          // Append new ids only
+          var seen={};(normalFeedPosts||[]).forEach(function(p){seen[String(p.id)]=1});
+          list.forEach(function(p){if(!seen[String(p.id)]) normalFeedPosts.push(p)});
+          normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
+        }else{
+          normalFeedPosts=list;
+        }
+        window.__wallFetchedAt=Date.now();
         window.__wallDone=list.length<pageSize;
-        if(more) window.__wallVisible=Math.min(list.length, (window.__wallVisible||12)+12);
-        else window.__wallVisible=Math.min(12, list.length);
+        if(more) window.__wallVisible=Math.min(normalFeedPosts.length, (window.__wallVisible||12)+12);
+        else window.__wallVisible=Math.min(12, normalFeedPosts.length);
         try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
         renderNormalFeed();
-        // Soft avatar paint — never force a second full wall re-render
         try{prefetchAvatars(normalFeedPosts.slice(0,window.__wallVisible||12)).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
-        // Background enrichment: PEA/ID/videos from wider feed without blocking UI
+        // Background enrichment from a second wider pull (videos + anything missed)
         if(!more && !window.__wallEnriching){
           window.__wallEnriching=true;
-          Promise.resolve(fetchCfFeed(null, 40)).then(function(wide){
+          Promise.resolve(fetchCfFeed(null, 80)).then(function(wide){
             var changed=false;
             (wide||[]).forEach(function(r){
               var mapped=cfRowToFeed(r);
               if(!mapped||isDeletedId(mapped.id))return;
-              if(!isPeaOrIdPost(mapped) && !isNormalFeedPost(mapped) && !isRouletteWallPost(mapped) && !(typeof isVideoPost==='function'&&isVideoPost(mapped)))return;
+              mapped.hotCount=postHotCount(mapped);
               if(!normalFeedPosts.some(function(p){return String(p.id)===String(mapped.id)})){
                 normalFeedPosts.push(mapped);changed=true;
               }
             });
             if(changed){
-              normalFeedPosts.sort(function(a,b){return (b.created||0)-(a.created||0)});
+              normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
               try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
               renderNormalFeed();
             }
@@ -12143,14 +12284,15 @@ function openRoulette(){
     }
     function writePostCache(key,list){
       try{
-        var slim=(list||[]).slice(0,40).map(function(p){
-          var tags=(p.tags||[]).filter(function(t){return String(t||'').indexOf('album:')!==0 && String(t||'').length<64}).slice(0,12);
+        var slim=(list||[]).slice(0,60).map(function(p){
+          var tags=(p.tags||[]).filter(function(t){return String(t||'').indexOf('album:')!==0 && String(t||'').length<80}).slice(0,14);
           var imgs=(p.images||[]).slice(0,3);
           return {
             id:p.id,user:p.user,username:p.user,title:p.title,desc:String(p.desc||'').slice(0,280),
             tags:tags,expires:p.expires,created:p.created,views:p.views,
             likes:p.likes,image:p.image,images:imgs,media_url:p.media_url||'',thumb_url:p.thumb_url||p.poster||'',
-            poster:p.poster||'',media_type:p.media_type||'',featuredUntil:p.featuredUntil,_cf:!!p._cf
+            poster:p.poster||'',media_type:p.media_type||'',featuredUntil:p.featuredUntil,
+            hotCount:typeof postHotCount==='function'?postHotCount(p):(p.hotCount||0),_cf:!!p._cf
           };
         });
         localStorage.setItem(key,JSON.stringify(slim));
