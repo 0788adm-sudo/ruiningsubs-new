@@ -10279,7 +10279,10 @@ function openRoulette(){
       try{refillGoonTokPlayable(true)}catch(e){}
     }
     async function refillGoonTokPlayable(forceFetch){
-      if(window.__gtRefilling)return;
+      if(window.__gtRefilling){
+        window.__gtRefillAgain=!!(window.__gtRefillAgain||forceFetch);
+        return;
+      }
       window.__gtRefilling=true;
       try{
         var box=document.getElementById('gt-scroller');
@@ -10297,6 +10300,7 @@ function openRoulette(){
             try{await fetchVideoPosts()}catch(e2){}
           }
         }
+        have=gtVisibleIds();
         var pool=goontokCandidatePool();
         var present={};have.forEach(function(id){present[id]=1});
         var added=0;
@@ -10318,6 +10322,10 @@ function openRoulette(){
         }
       }finally{
         window.__gtRefilling=false;
+        if(window.__gtRefillAgain){
+          window.__gtRefillAgain=false;
+          setTimeout(function(){refillGoonTokPlayable(true).catch(function(){})},0);
+        }
       }
     }
     window.silentlyDropGoonTokSlide=silentlyDropGoonTokSlide;
@@ -10340,10 +10348,11 @@ function openRoulette(){
     window.gtAlbumMove=gtAlbumMove;
     function bindGoonTok(){
       var sc=document.getElementById('gt-scroller');
-      if(!sc)return;
+      if(!sc||typeof sc.addEventListener!=='function')return;
       if(window.__gtObs){try{window.__gtObs.disconnect()}catch(e){}}
       if(window.__gtIO){try{window.__gtIO.disconnect()}catch(e){}}
       var slides=[].slice.call(sc.querySelectorAll('.gt-slide'));
+      if(!slides.length)return;
       try{
         var h=sc.clientHeight||(window.innerHeight-82);
         sc.style.setProperty('--gt-h',h+'px');
@@ -10590,7 +10599,8 @@ function openRoulette(){
         markVideoHealth(job.id,'playable',{optimized:health.optimized||post.optimized_url||parseOptTag(post.tags)});
         return;
       }
-      var src=(goontokPrimaryVideo(post)||{}).src||post.media_url||post.video||'';
+      // Prefer original media for repair even if currently hidden from GoonTok as broken
+      var src=post.media_url||post.video||parseOptTag(post.tags)||post.optimized_url||'';
       if(!src||!isVideoUrl(src))return;
       // Light existence probe via Range — never full download for probing
       var cl=0;
