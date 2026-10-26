@@ -2355,6 +2355,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
           <button type="button" class="btn btn-primary" style="width:100%;max-width:280px;margin:12px auto 0;font-weight:900" onclick="spinRoulette()">SPIN</button>
           <div class="roulette-spins" id="roulette-spins-left">3 spins left today</div>
+          <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;max-width:280px;margin:6px auto 0">Check for approved unlock</button>
 
           <div id="roulette-unlock-box" style="display:none;width:100%;max-width:360px;background:var(--card);border:1px solid var(--orange);border-radius:16px;padding:16px;margin-top:14px;text-align:center;box-shadow:0 0 18px rgba(217,70,239,.12)">
             <div style="font-size:18px;font-weight:900;color:var(--orange);margin-bottom:6px">Today’s 3 spins used</div>
@@ -2383,7 +2384,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 <div style="font-size:12px;color:var(--muted);margin-top:4px">Buy Fag Coins, then pay 50 FC per extra pack.</div>
               </div>
               <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="unlockRouletteWithCoins()" style="width:100%;margin-bottom:8px;font-weight:800">Unlock 15 spins — 50 FC</button>
-              <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;margin-bottom:8px">Check for approved unlock</button>
               <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;font-weight:800" onclick="openCoinShop()">Buy Fag Coins</button>
               <div id="roulette-btc" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:8px">
                 <div style="font-size:13px;font-weight:700;margin-bottom:4px">₿ Bitcoin</div>
