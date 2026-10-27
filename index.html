@@ -405,6 +405,15 @@
     .rs-streak-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.4);color:#ffb35c;font-size:11px;font-weight:900;margin-top:8px}
     .rs-badge-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#14141a;border:1px solid #2a2a32;font-size:11px;font-weight:800;color:#e8e8ec}
     .notif-item .ni-ico{font-size:18px;width:28px;flex:0 0 auto}
+    #rs-levelup{display:none;position:fixed;inset:0;z-index:9200;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+    #rs-levelup.show{display:flex}
+    #rs-levelup .rs-lu-card{width:min(340px,100%);text-align:center;padding:28px 22px 22px;border-radius:20px;background:linear-gradient(160deg,#16161e 0%,#0e0e14 100%);border:1px solid rgba(124,58,237,.45);box-shadow:0 0 0 1px rgba(255,106,0,.15),0 20px 50px rgba(0,0,0,.55);animation:rsLuIn .45s ease-out}
+    #rs-levelup .rs-lu-eyebrow{font-size:11px;font-weight:900;letter-spacing:.18em;color:#ffb35c;margin-bottom:8px}
+    #rs-levelup .rs-lu-icon{font-size:42px;line-height:1;margin-bottom:8px}
+    #rs-levelup .rs-lu-title{font-size:22px;font-weight:900;margin:0 0 6px}
+    #rs-levelup .rs-lu-sub{font-size:13px;color:#cfcfd6;margin:0 0 16px}
+    #rs-levelup .btn{width:100%}
+    @keyframes rsLuIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
     .task-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
     .task-card.pinned{border-color:var(--orange);box-shadow:0 0 0 1px rgba(217,70,239,.32)}
     .task-card h3{font-size:15px;margin:0 0 6px}
@@ -2795,6 +2804,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     </div>
   </div>
   <div class="toast" id="toast"></div>
+  <div id="rs-levelup" role="dialog" aria-modal="true" aria-labelledby="rs-lu-title" onclick="if(event.target===this)hideLevelUp()">
+    <div class="rs-lu-card">
+      <div class="rs-lu-eyebrow">LEVEL UP</div>
+      <div class="rs-lu-icon" id="rs-lu-icon">⭐</div>
+      <h3 class="rs-lu-title" id="rs-lu-title">You reached Rookie</h3>
+      <p class="rs-lu-sub" id="rs-lu-sub">Keep engaging to climb the ranks.</p>
+      <button type="button" class="btn" onclick="hideLevelUp()">Continue</button>
+    </div>
+  </div>
 
   <script>
     function enterSite(){
@@ -13247,7 +13265,8 @@ function profileStatsHtml(userPosts, extra){
         +'</div>';
     }
     /* —— Community retention (XP / levels / streak / badges) ——
-       Modular client layer on top of existing profiles.xp + notifications + follows.
+       Modular layer on profiles.xp + notifications + follows.
+       PHASE 1: XP + Levels hardened (caps, event IDs, remote sync, level-up UI).
        Does NOT touch payments, auth, publish, or delete rules. */
     var RS_LEVELS=[
       {id:'rookie',name:'Rookie',min:0,icon:'🌱'},
@@ -13256,6 +13275,8 @@ function profileStatsHtml(userPosts, extra){
       {id:'elite',name:'Elite',min:2000,icon:'👑'},
       {id:'legend',name:'Legend',min:5000,icon:'💎'}
     ];
+    // Hard daily ceiling across ALL XP actions (anti-farm). Games will share this later.
+    var RS_DAILY_XP_CAP=400;
     var RS_XP_ACTIONS={
       daily_login:{xp:10,dailyCap:1,dedupe:'day'},
       like:{xp:5,dailyCap:40,dedupe:'post'},
@@ -13273,6 +13294,7 @@ function profileStatsHtml(userPosts, extra){
       download:{xp:2,dailyCap:10,dedupe:'post'},
       extend:{xp:3,dailyCap:15,dedupe:'post'}
     };
+    var __xpGrantBusy=false;
     var RS_BADGE_DEFS={
       first_post:{icon:'🏆',label:'First Post'},
       streak_7:{icon:'🔥',label:'7 Day Streak'},
@@ -13308,7 +13330,7 @@ function profileStatsHtml(userPosts, extra){
         return 0;
       }catch(e){return 0}
     }
-    function setUserXp(n){
+    function setUserXp(n, meta){
       if(!currentUser||!currentUser.name)return;
       n=Math.max(0,Number(n)||0);
       try{
@@ -13316,8 +13338,10 @@ function profileStatsHtml(userPosts, extra){
         m[currentUser.name]=n;
         localStorage.setItem('rs_xp',JSON.stringify(m));
       }catch(e){}
+      // Sync total to existing profiles.xp (no new payment tables; no throne_events).
       if(sb&&isRegistered()){
-        sb.from('profiles').upsert({username:currentUser.name,xp:n,updated_at:new Date().toISOString()}).then(function(r){
+        var payload={username:currentUser.name,xp:n,updated_at:new Date().toISOString()};
+        sb.from('profiles').upsert(payload).then(function(r){
           if(r&&r.error)console.warn('xp save',r.error.message);
         }).catch(function(){});
       }
@@ -13335,12 +13359,18 @@ function profileStatsHtml(userPosts, extra){
       var pct=Math.max(0,Math.min(100, Math.round(((xp-floor)/Math.max(1,ceil-floor))*100)));
       return {current:cur,next:next,xp:xp,need:need,pct:pct,ceil:ceil};
     }
+    function makeXpEventId(action, refId, day){
+      var user=(currentUser&&currentUser.name)||'anon';
+      var rule=RS_XP_ACTIONS[action]||{};
+      var ref=rule.dedupe==='day' ? String(day||rsDayKey()) : String(refId||'');
+      // Stable unique reward id — refresh-safe, not Date.now()-based
+      return 'xp:'+user+':'+action+':'+ref+':'+String(day||rsDayKey());
+    }
     function loadXpLedger(){
       try{return JSON.parse(localStorage.getItem('rs_xp_ledger')||'{}')||{}}catch(e){return{}}
     }
     function saveXpLedger(m){
       try{
-        // prune old days (>10)
         Object.keys(m||{}).forEach(function(user){
           var days=Object.keys(m[user]||{});
           if(days.length>12){
@@ -13351,60 +13381,168 @@ function profileStatsHtml(userPosts, extra){
         localStorage.setItem('rs_xp_ledger',JSON.stringify(m||{}));
       }catch(e){}
     }
+    function dayXpTotal(bucket){
+      var total=0;
+      try{
+        var counts=bucket&&bucket.counts||{};
+        Object.keys(counts).forEach(function(a){
+          var rule=RS_XP_ACTIONS[a];
+          if(!rule)return;
+          total+=(Number(counts[a])||0)*(Number(rule.xp)||0);
+        });
+      }catch(e){}
+      return total;
+    }
     function canGrantXp(action, refId){
-      if(!isRegistered()||!currentUser||!currentUser.name)return {ok:false};
+      if(!isRegistered()||!currentUser||!currentUser.name)return {ok:false,reason:'auth'};
+      if(__xpGrantBusy) return {ok:false,reason:'busy'};
       var rule=RS_XP_ACTIONS[action];
-      if(!rule)return {ok:false};
+      if(!rule)return {ok:false,reason:'unknown'};
       var day=rsDayKey();
       var ledger=loadXpLedger();
       var u=ledger[currentUser.name]||(ledger[currentUser.name]={});
-      var bucket=u[day]||(u[day]={counts:{},seen:{}});
+      var bucket=u[day]||(u[day]={counts:{},seen:{},events:{},earned:0});
       var count=Number(bucket.counts[action]||0)||0;
-      if(count>=(rule.dailyCap||0)) return {ok:false,reason:'cap'};
+      if(count>=(rule.dailyCap||0)) return {ok:false,reason:'action_cap'};
+      var earned=Number(bucket.earned);
+      if(!isFinite(earned)||earned<0) earned=dayXpTotal(bucket);
+      if(earned+(Number(rule.xp)||0)>RS_DAILY_XP_CAP) return {ok:false,reason:'daily_cap'};
       var dedupeKey=action+'|'+(rule.dedupe==='day'?day:String(refId||''));
       if(rule.dedupe && bucket.seen[dedupeKey]) return {ok:false,reason:'dup'};
-      return {ok:true,day:day,ledger:ledger,bucket:bucket,dedupeKey:dedupeKey,rule:rule};
+      var eventId=makeXpEventId(action, refId, day);
+      if(bucket.events&&bucket.events[eventId]) return {ok:false,reason:'dup_event'};
+      return {ok:true,day:day,ledger:ledger,bucket:bucket,dedupeKey:dedupeKey,rule:rule,eventId:eventId,earned:earned};
     }
+    function persistXpEventRemote(eventId, action, amount){
+      // Reuse notifications table as append-only event log (type xp_event).
+      // Filtered out of the user inbox. Avoids new tables / payment tables.
+      if(!sb||!isRegistered()||!currentUser||!currentUser.name||!eventId)return;
+      try{
+        sb.from('notifications').insert({
+          to_username:currentUser.name,
+          from_username:'system',
+          type:'xp_event',
+          post_id:null,
+          message:JSON.stringify({id:eventId,action:action,xp:amount,day:rsDayKey()})
+        }).then(function(){}).catch(function(){});
+      }catch(e){}
+    }
+    function mergeRemoteXpEventsIntoLedger(){
+      if(!sb||!isRegistered()||!currentUser||!currentUser.name)return Promise.resolve();
+      return sb.from('notifications').select('message,created_at,type')
+        .eq('to_username',currentUser.name).eq('type','xp_event')
+        .order('created_at',{ascending:false}).limit(120)
+        .then(function(r){
+          var rows=(r&&r.data)||[];
+          if(!rows.length)return;
+          var ledger=loadXpLedger();
+          var u=ledger[currentUser.name]||(ledger[currentUser.name]={});
+          rows.forEach(function(row){
+            var msg=row.message, obj=null;
+            try{obj=typeof msg==='string'?JSON.parse(msg):msg}catch(e){obj=null}
+            var eventId=obj&&obj.id?String(obj.id):(typeof msg==='string'?msg:'');
+            if(!eventId)return;
+            var day=(obj&&obj.day)||rsDayKey(new Date(row.created_at).getTime());
+            var bucket=u[day]||(u[day]={counts:{},seen:{},events:{},earned:0});
+            if(bucket.events[eventId])return;
+            bucket.events[eventId]=1;
+            var action=obj&&obj.action;
+            if(action&&RS_XP_ACTIONS[action]){
+              var refPart=eventId.split(':')[3]||day;
+              var dedupeKey=action+'|'+(RS_XP_ACTIONS[action].dedupe==='day'?day:refPart);
+              bucket.seen[dedupeKey]=1;
+              bucket.counts[action]=(Number(bucket.counts[action]||0)||0)+1;
+              bucket.earned=(Number(bucket.earned)||0)+(Number(obj.xp)||Number(RS_XP_ACTIONS[action].xp)||0);
+            }
+          });
+          ledger[currentUser.name]=u;
+          saveXpLedger(ledger);
+        }).catch(function(){});
+    }
+    function showLevelUp(level){
+      try{
+        var el=document.getElementById('rs-levelup');
+        if(!el||!level)return;
+        var icon=document.getElementById('rs-lu-icon');
+        var title=document.getElementById('rs-lu-title');
+        var sub=document.getElementById('rs-lu-sub');
+        if(icon)icon.textContent=level.icon||'⭐';
+        if(title)title.textContent='You reached '+String(level.name||'').toUpperCase();
+        if(sub){
+          var next=null;
+          for(var i=0;i<RS_LEVELS.length;i++){if(RS_LEVELS[i].id===level.id){next=RS_LEVELS[i+1]||null;break}}
+          sub.textContent=next?('Next: '+next.icon+' '+next.name+' at '+next.min.toLocaleString()+' XP'):'You are at the top rank.';
+        }
+        el.classList.add('show');
+        clearTimeout(window.__rsLuTimer);
+        window.__rsLuTimer=setTimeout(function(){hideLevelUp()},5200);
+      }catch(e){}
+    }
+    function hideLevelUp(){
+      try{document.getElementById('rs-levelup').classList.remove('show')}catch(e){}
+    }
+    window.hideLevelUp=hideLevelUp;
     function grantXp(action, refId, silent){
       var gate=canGrantXp(action, refId);
       if(!gate.ok)return 0;
       var amount=Number(gate.rule.xp)||0;
       if(amount<=0)return 0;
-      var before=getUserXp();
-      var beforeLv=levelForXp(before).current.id;
-      gate.bucket.counts[action]=(Number(gate.bucket.counts[action]||0)||0)+1;
-      if(gate.dedupeKey) gate.bucket.seen[gate.dedupeKey]=1;
-      saveXpLedger(gate.ledger);
-      var next=before+amount;
-      setUserXp(next);
-      var afterLv=levelForXp(next).current;
-      if(afterLv.id!==beforeLv){
-        try{unlockBadge(afterLv.id==='elite'||afterLv.id==='legend'?'elite':null)}catch(e){}
+      __xpGrantBusy=true;
+      try{
+        var before=getUserXp();
+        var beforeLv=levelForXp(before).current;
+        gate.bucket.counts[action]=(Number(gate.bucket.counts[action]||0)||0)+1;
+        if(gate.dedupeKey) gate.bucket.seen[gate.dedupeKey]=1;
+        gate.bucket.events=gate.bucket.events||{};
+        gate.bucket.events[gate.eventId]=1;
+        gate.bucket.earned=(Number(gate.earned)||0)+amount;
+        saveXpLedger(gate.ledger);
+        var next=before+amount;
+        setUserXp(next,{eventId:gate.eventId,action:action});
+        persistXpEventRemote(gate.eventId, action, amount);
+        var afterLv=levelForXp(next).current;
+        if(afterLv.id!==beforeLv.id){
+          try{unlockBadge(afterLv.id==='elite'||afterLv.id==='legend'?'elite':null)}catch(e){}
+          try{
+            if(typeof pushNotif==='function'){
+              pushNotif(currentUser.name,'system','level',null,'👑 You reached '+afterLv.icon+' '+afterLv.name);
+            }
+          }catch(e){}
+          try{showLevelUp(afterLv)}catch(e){}
+          if(!silent) try{toast(afterLv.icon+' Level up · '+afterLv.name)}catch(e){}
+        }
         try{
-          if(typeof pushNotif==='function'){
-            pushNotif(currentUser.name,'system','level',null,'👑 You reached '+afterLv.icon+' '+afterLv.name);
+          if(document.getElementById('panel-profile')&&document.getElementById('panel-profile').classList.contains('active')){
+            paintProfileRetention();
+            updateProfilePanel();
           }
         }catch(e){}
-        if(!silent) try{toast(afterLv.icon+' Level up · '+afterLv.name)}catch(e){}
+        return amount;
+      }finally{
+        __xpGrantBusy=false;
       }
-      try{
-        if(document.getElementById('panel-profile')&&document.getElementById('panel-profile').classList.contains('active')){
-          paintProfileRetention();
-          updateProfilePanel();
-        }
-      }catch(e){}
-      return amount;
     }
-    // Back-compat wrapper used across the app — routes through anti-abuse grants
-    async function awardXp(amount, reason){
+    // Back-compat wrapper — MUST use stable refs (never Date.now) to avoid farm-by-refresh
+    async function awardXp(amount, reason, refId){
       if(!isRegistered()||!currentUser||!currentUser.name)return;
       reason=String(reason||'misc');
       var map={react:'like',comment:'comment',publish:'publish',profile_gallery:'profile_gallery',save:'save',download:'download',extend:'extend',daily:'daily_login'};
       var action=map[reason]||(RS_XP_ACTIONS[reason]?reason:null);
-      if(action){grantXp(action, reason+':'+Date.now(), true);return}
-      // Unknown legacy reason: tiny soft grant once/day max 20
-      var soft=canGrantXp('save', 'legacy:'+reason);
-      if(soft.ok) grantXp('save', 'legacy:'+reason, true);
+      if(!action){
+        var soft=canGrantXp('save', 'legacy:'+reason);
+        if(soft.ok) grantXp('save', 'legacy:'+reason, true);
+        return;
+      }
+      var rule=RS_XP_ACTIONS[action];
+      var stable=refId!=null&&String(refId)!==''?String(refId):null;
+      if(!stable){
+        if(rule&&rule.dedupe==='day') stable=rsDayKey();
+        else{
+          // No stable ref for post-scoped actions → refuse (prevents timestamp farming)
+          return;
+        }
+      }
+      grantXp(action, stable, true);
     }
     function loadStreakMap(){
       try{return JSON.parse(localStorage.getItem('rs_streak')||'{}')||{}}catch(e){return{}}
@@ -13542,11 +13680,21 @@ function profileStatsHtml(userPosts, extra){
         if(!b[id])return;
         badgeHtml+='<span class="rs-badge-pill">'+(RS_BADGE_DEFS[id].icon||'🏆')+' '+esc(RS_BADGE_DEFS[id].label)+'</span>';
       });
+      var dayBucket=null;
+      try{
+        var led=loadXpLedger();
+        var un=(currentUser&&currentUser.name)||'';
+        dayBucket=(led[un]&&led[un][rsDayKey()])||null;
+      }catch(e){}
+      var earnedToday=dayBucket?Number(dayBucket.earned)||dayXpTotal(dayBucket):0;
+      var remain=Math.max(0,RS_DAILY_XP_CAP-earnedToday);
       return '<div class="rs-level-title">'+(lv.current.icon||'⭐')+' '+esc(lv.current.name.toUpperCase())+'</div>'
         +'<div class="rs-level-meta">'+Number(xp||0).toLocaleString()+' / '+Number(lv.ceil||0).toLocaleString()+' XP'
         +(lv.next?(' · '+lv.need.toLocaleString()+' to '+nextLabel):' · Legend')
         +'</div>'
         +'<div class="rs-xp-bar"><i style="width:'+lv.pct+'%"></i></div>'
+        +'<div style="font-size:11px;color:#9a9aa3;margin:6px 0 0">Today '+earnedToday.toLocaleString()+' / '+RS_DAILY_XP_CAP.toLocaleString()+' XP'
+        +(remain<=0?' · daily cap reached':' · '+remain.toLocaleString()+' left')+'</div>'
         +'<div class="rs-streak-chip">🔥 '+(Number(st.current)||0)+' day streak · best '+(Number(st.best)||0)
         +' · next reward @ '+nextStreakReward(Number(st.current)||0)+'d</div>'
         +streakCalendarHtml(st)
@@ -13619,11 +13767,13 @@ function profileStatsHtml(userPosts, extra){
     }
     async function loadXpFromProfile(){
       if(!sb||!isRegistered()||!currentUser||!currentUser.name)return;
+      try{await mergeRemoteXpEventsIntoLedger()}catch(e){}
       try{
         var r=await sb.from('profiles').select('xp').eq('username',currentUser.name).maybeSingle();
         if(r.data&&r.data.xp!=null){
           var local=getUserXp();
           var remote=Number(r.data.xp)||0;
+          // Prefer higher total to avoid clobbering cross-device progress; ledger blocks re-grants.
           if(remote>local)setUserXp(remote);
           else if(local>remote){try{await sb.from('profiles').update({xp:local}).eq('username',currentUser.name)}catch(e){}}
         }
@@ -13639,6 +13789,10 @@ function profileStatsHtml(userPosts, extra){
     window.evaluateProfileBadges=evaluateProfileBadges;
     window.notifyFollowersOfPublish=notifyFollowersOfPublish;
     window.bumpCommentsGiven=bumpCommentsGiven;
+    window.canGrantXp=canGrantXp;
+    window.makeXpEventId=makeXpEventId;
+    window.RS_DAILY_XP_CAP=RS_DAILY_XP_CAP;
+    window.RS_LEVELS=RS_LEVELS;
 
     function getLocalFeatured(){
       try{return JSON.parse(localStorage.getItem('rs_featured')||'{}')||{}}catch(e){return {}}
@@ -16187,6 +16341,8 @@ async function onIdFace(e){
       try{
         var r=await sb.from('notifications').select('*').eq('to_username',currentUser.name).order('created_at',{ascending:false}).limit(80);
         notifs=(r.data||[]).filter(function(n){return n&&n.to_username===currentUser.name});
+        // Hide internal XP event log rows from the inbox UI
+        notifs=notifs.filter(function(n){return String(n.type||'')!=='xp_event'});
         var gone=getNotifGone();
         notifs=notifs.filter(function(n){return gone.indexOf(notifKey(n))<0});
         var unread=open?0:notifs.filter(notifIsUnread).length;
