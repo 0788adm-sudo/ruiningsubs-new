@@ -398,6 +398,13 @@
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
     .wall-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 2px 12px}
     .wall-quick-actions .btn{padding:12px 10px;font-weight:900;border-radius:14px;touch-action:manipulation}
+    .rs-level-title{font-size:15px;font-weight:900;letter-spacing:.3px;margin-bottom:4px}
+    .rs-level-meta{font-size:12px;color:#cfcfd6;margin-bottom:8px}
+    .rs-xp-bar{height:8px;border-radius:999px;background:#1b1b22;overflow:hidden;border:1px solid #2a2a32}
+    .rs-xp-bar>i{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#ff6a00);border-radius:999px}
+    .rs-streak-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.4);color:#ffb35c;font-size:11px;font-weight:900;margin-top:8px}
+    .rs-badge-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#14141a;border:1px solid #2a2a32;font-size:11px;font-weight:800;color:#e8e8ec}
+    .notif-item .ni-ico{font-size:18px;width:28px;flex:0 0 auto}
     .task-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
     .task-card.pinned{border-color:var(--orange);box-shadow:0 0 0 1px rgba(217,70,239,.32)}
     .task-card h3{font-size:15px;margin:0 0 6px}
@@ -1981,8 +1988,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
             </div>
+            <div style="text-align:center;font-size:12px;color:#9a9aa3;margin:0 8px 10px;line-height:1.4">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
-              <button type="button" class="wall-filter-chip on" data-wall-filter="moment" role="tab" aria-selected="true">🔥 Moment</button>
+              <button type="button" class="wall-filter-chip on" data-wall-filter="trending" role="tab" aria-selected="true">🔥 Trending</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="following" role="tab" aria-selected="false">👤 Following</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="new" role="tab" aria-selected="false">🆕 New</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="foryou" role="tab" aria-selected="false">❤️ For You</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="moment" role="tab" aria-selected="false">⚡ Moment</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Normal</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">⏱ Timed</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
@@ -2011,6 +2023,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div id="my-stats" style="display:none;color:var(--muted)"></div>
           <div class="x-name" id="profile-name">@Anon</div>
           <div class="x-role" id="profile-role">Guest</div>
+          <div id="profile-level-card" style="display:none;margin:8px 10px 4px;padding:12px;border-radius:14px;background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(255,106,0,.12));border:1px solid rgba(124,58,237,.35);text-align:left"></div>
+          <div id="profile-badges-row" style="display:none;flex-wrap:wrap;gap:6px;justify-content:center;padding:6px 10px 2px"></div>
           <div id="my-follow-stats" style="display:none;justify-content:center;gap:22px;margin:4px 0 8px;font-size:13px;color:var(--muted)"></div>
           <div id="profile-bio" style="color:var(--muted);font-size:13px;margin-top:4px;padding:0 10px"></div>
           <div class="profile-links" id="profile-links" style="margin-top:8px"></div>
@@ -3816,6 +3830,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         try{applyLocationRoute();openHashPost()}catch(e2){}
       });
       loadNotifs();updateMsgBadge();loadXpFromProfile();updateProfilePanel();setupPullRefresh();
+      try{setTimeout(function(){tickDailyRetention();paintProfileRetention()},600)}catch(e){}
       setInterval(function(){try{pollMessagesLive()}catch(e){}},8000);
       window.addEventListener('hashchange',function(){applyLocationRoute();openHashPost()});
       window.addEventListener('popstate',function(){applyLocationRoute();openHashPost()});
@@ -4014,9 +4029,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           :posts.filter(function(p){return p.user===currentUser.name});
         stats.style.display=logged?'block':'none';
         stats.innerHTML=profileStatsHtml(mine,{comments:0,saves:sumSavesOnPosts(mine),username:currentUser.name,xp:getUserXp()})+savedPostsBtnHtml();
+        try{if(logged){evaluateProfileBadges(mine);paintProfileRetention()}}catch(e){}
         if(logged&&mine.length){
           countCommentsForPosts(mine.map(function(p){return p.id})).then(function(c){
             stats.innerHTML=profileStatsHtml(mine,{comments:c,saves:sumSavesOnPosts(mine),username:currentUser.name,xp:getUserXp()})+savedPostsBtnHtml();
+            try{evaluateProfileBadges(mine);paintProfileRetention()}catch(e){}
           });
         }
       }
@@ -8463,6 +8480,7 @@ function openRoulette(){
           setFollowingLocal(viewingUser,true);
           document.getElementById('btn-follow').textContent='Following';
           toast('Following');
+          try{await pushNotif(viewingUser,currentUser.name,'follow',null,'👤 @'+currentUser.name+' started following you')}catch(e){}
         }
       }catch(e){toast('Error')}
     }
@@ -11125,10 +11143,10 @@ function openRoulette(){
         }).join('')
         +'</div>';
     }
-    var wallFilter=(function(){try{return localStorage.getItem('rs_wall_filter')||'moment'}catch(e){return'moment'}})();
+    var wallFilter=(function(){try{return localStorage.getItem('rs_wall_filter')||'trending'}catch(e){return'trending'}})();
     function setWallFilter(f){
-      f=String(f||'moment');
-      if(['moment','normal','timed','generated','text'].indexOf(f)<0) f='moment';
+      f=String(f||'trending');
+      if(['trending','following','new','foryou','moment','normal','timed','generated','text'].indexOf(f)<0) f='trending';
       wallFilter=f;
       try{localStorage.setItem('rs_wall_filter',f)}catch(e){}
       syncWallFilterChips();
@@ -11203,12 +11221,58 @@ function openRoulette(){
       if(score>=18 && age<5*24*3600*1000) return true;
       return false;
     }
+    function wallTrendingScore(p){
+      var ageH=Math.max(0.5,(Date.now()-Number(p&&p.created||0))/3600000);
+      var score=(Number(p.likes)||0)*10+(Number(p.views)||0)*0.4+(Number(p.commentCount||p.comments)||0)*8+(Number(p.extensions)||0)*6;
+      try{score+=(typeof postHotCount==='function'?postHotCount(p):0)*18}catch(e){}
+      return score/ageH;
+    }
+    function isWallTrendingPost(p){
+      if(!p)return false;
+      var age=Date.now()-Number(p.created||0);
+      if(age>5*24*3600*1000)return false;
+      return wallTrendingScore(p)>=1.2 || isWallMomentPost(p);
+    }
+    function isWallFollowingPost(p){
+      if(!p||!p.user)return false;
+      try{
+        var fol={};
+        (typeof loadFollowingLocal==='function'?loadFollowingLocal():[]).forEach(function(u){fol[String(u).toLowerCase()]=1});
+        return !!fol[String(p.user).toLowerCase()];
+      }catch(e){return false}
+    }
+    function isWallNewPost(p){
+      if(!p)return false;
+      return (Date.now()-Number(p.created||0))<72*3600*1000;
+    }
+    function isWallForYouPost(p){
+      if(!p)return false;
+      if(isWallFollowingPost(p))return true;
+      try{
+        var authors=JSON.parse(localStorage.getItem('rs_eng_authors')||'{}')||{};
+        if(authors[String(p.user||'').toLowerCase()]>=2) return true;
+      }catch(e){}
+      try{
+        var tags=JSON.parse(localStorage.getItem('rs_eng_tags')||'{}')||{};
+        var pt=p.tags||[];
+        if(typeof pt==='string'){try{pt=JSON.parse(pt)}catch(e){pt=[]}}
+        for(var i=0;i<(pt||[]).length;i++){
+          var t=String(pt[i]||'').toLowerCase().replace(/^#/,'');
+          if(tags[t]>=2) return true;
+        }
+      }catch(e){}
+      return isWallMomentPost(p)||isWallTrendingPost(p);
+    }
     function matchesWallFilter(p, filter){
-      filter=filter||wallFilter||'moment';
+      filter=filter||wallFilter||'trending';
       if(filter==='timed') return isWallTimedPost(p);
       if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
       if(filter==='text') return isWallTextPost(p);
       if(filter==='normal') return isWallNormalPost(p);
+      if(filter==='following') return isWallFollowingPost(p);
+      if(filter==='new') return isWallNewPost(p);
+      if(filter==='foryou') return isWallForYouPost(p);
+      if(filter==='trending') return isWallTrendingPost(p);
       // moment = live mix
       return isWallMomentPost(p);
     }
@@ -11242,12 +11306,10 @@ function openRoulette(){
         });
       }else if(wallFilter==='timed'){
         list.sort(function(a,b){return (Number(a.expires)||0)-(Number(b.expires)||0)});
-      }else if(wallFilter==='moment'){
-        list.sort(function(a,b){
-          var sb=wallRankScore(b)+((Number(b.likes)||0)*3600000)+((Number(b.views)||0)*60000);
-          var sa=wallRankScore(a)+((Number(a.likes)||0)*3600000)+((Number(a.views)||0)*60000);
-          return sb-sa;
-        });
+      }else if(wallFilter==='trending'||wallFilter==='foryou'||wallFilter==='moment'){
+        list.sort(function(a,b){return wallTrendingScore(b)-wallTrendingScore(a) || wallRankScore(b)-wallRankScore(a)});
+      }else if(wallFilter==='new'||wallFilter==='following'){
+        list.sort(function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)});
       }else{
         list.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
       }
@@ -11267,6 +11329,10 @@ function openRoulette(){
       var first=list.slice(0,vis);
       var html=first.map(function(p){try{return normalFeedPostHtml(p)}catch(e){return ''}}).filter(Boolean).join('');
       var emptyLabels={
+        trending:'Nothing trending yet. Interact and check back soon.',
+        following:'Follow creators to fill this feed.',
+        new:'No new posts in the last 72h.',
+        foryou:'Keep liking and following — For You learns from you.',
         moment:'Nothing hot right now. Pull more or post.',
         normal:'No normal posts yet. Post without a timer — Hot🔥 boosts them.',
         timed:'No timed posts live right now.',
@@ -13156,7 +13222,19 @@ function profileStatsHtml(userPosts, extra){
       function cell(iconCls, val, label){
         return '<div class="ps neon-stat"><div class="neon-ico '+iconCls+'"></div><strong>'+val+'</strong><span>'+label+'</span></div>';
       }
-      return '<div class="xp-banner"><div class="neon-ico ico-xp"></div><div><strong>'+xp.toLocaleString()+'</strong><span>XP</span></div></div>'
+      var lv=typeof levelForXp==='function'?levelForXp(xp):null;
+      var st=isOwn&&typeof getStreakState==='function'?getStreakState(extra.username||(currentUser&&currentUser.name)):{current:0,best:0};
+      var levelLine=lv
+        ?('<div class="xp-banner" style="flex-direction:column;align-items:stretch;gap:6px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+          +'<div><strong style="font-size:15px">'+(lv.current.icon||'⭐')+' '+esc(lv.current.name)+'</strong>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+xp.toLocaleString()+' / '+lv.ceil.toLocaleString()+' XP'
+          +(lv.next?(' · '+lv.need.toLocaleString()+' to '+lv.next.name):'')
+          +'</div></div>'
+          +'<div class="rs-streak-chip" style="margin:0">🔥 '+(Number(st.current)||0)+'d</div></div>'
+          +'<div class="rs-xp-bar"><i style="width:'+lv.pct+'%"></i></div></div>')
+        :('<div class="xp-banner"><div class="neon-ico ico-xp"></div><div><strong>'+xp.toLocaleString()+'</strong><span>XP</span></div></div>');
+      return levelLine
         +'<div class="profile-stats-grid">'
         +cell('ico-views',v,'Views')
         +cell('ico-likes',l,'Likes')
@@ -13168,13 +13246,58 @@ function profileStatsHtml(userPosts, extra){
         +'<div class="ps neon-stat" style="grid-column:1/-1"><div class="neon-ico ico-time"></div><strong>'+exposedLabel+'</strong><span>Total time exposed</span></div>'
         +'</div>';
     }
+    /* —— Community retention (XP / levels / streak / badges) ——
+       Modular client layer on top of existing profiles.xp + notifications + follows.
+       Does NOT touch payments, auth, publish, or delete rules. */
+    var RS_LEVELS=[
+      {id:'rookie',name:'Rookie',min:0,icon:'🌱'},
+      {id:'regular',name:'Regular',min:200,icon:'⭐'},
+      {id:'insider',name:'Insider',min:800,icon:'🔥'},
+      {id:'elite',name:'Elite',min:2000,icon:'👑'},
+      {id:'legend',name:'Legend',min:5000,icon:'💎'}
+    ];
+    var RS_XP_ACTIONS={
+      daily_login:{xp:10,dailyCap:1,dedupe:'day'},
+      like:{xp:5,dailyCap:40,dedupe:'post'},
+      react:{xp:5,dailyCap:40,dedupe:'post'},
+      comment:{xp:10,dailyCap:20,dedupe:'post'},
+      publish:{xp:25,dailyCap:8,dedupe:'post'},
+      profile_gallery:{xp:25,dailyCap:8,dedupe:'post'},
+      viral:{xp:50,dailyCap:5,dedupe:'post'},
+      streak_3:{xp:15,dailyCap:1,dedupe:'day'},
+      streak_7:{xp:40,dailyCap:1,dedupe:'day'},
+      streak_14:{xp:80,dailyCap:1,dedupe:'day'},
+      streak_30:{xp:150,dailyCap:1,dedupe:'day'},
+      // legacy soft awards — capped so old callers cannot farm
+      save:{xp:2,dailyCap:15,dedupe:'post'},
+      download:{xp:2,dailyCap:10,dedupe:'post'},
+      extend:{xp:3,dailyCap:15,dedupe:'post'}
+    };
+    var RS_BADGE_DEFS={
+      first_post:{icon:'🏆',label:'First Post'},
+      streak_7:{icon:'🔥',label:'7 Day Streak'},
+      likes_100:{icon:'❤️',label:'100 Likes'},
+      comments_50:{icon:'💬',label:'50 Comments'},
+      elite:{icon:'👑',label:'Reached Elite'},
+      trending_creator:{icon:'🚀',label:'Trending Creator'}
+    };
+    function rsDayKey(ts){
+      var d=new Date(ts||Date.now());
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
+    function rsPrevDayKey(key){
+      var p=String(key||'').split('-');
+      if(p.length!==3)return '';
+      var d=new Date(Number(p[0]),Number(p[1])-1,Number(p[2]));
+      d.setDate(d.getDate()-1);
+      return rsDayKey(d.getTime());
+    }
     function getUserXp(){
       if(!currentUser||!currentUser.name)return 0;
       try{
         var m=JSON.parse(localStorage.getItem('rs_xp')||'{}')||{};
         var n=Number(m[currentUser.name]||0)||0;
         if(n>0)return n;
-        // after username change, recover highest local XP on this phone
         var best=0;
         Object.keys(m).forEach(function(k){var v=Number(m[k]||0)||0;if(v>best)best=v});
         if(best>0){
@@ -13199,15 +13322,300 @@ function profileStatsHtml(userPosts, extra){
         }).catch(function(){});
       }
     }
+    function levelForXp(xp){
+      xp=Math.max(0,Number(xp)||0);
+      var cur=RS_LEVELS[0], next=null;
+      for(var i=0;i<RS_LEVELS.length;i++){
+        if(xp>=RS_LEVELS[i].min) cur=RS_LEVELS[i];
+        else{next=RS_LEVELS[i];break}
+      }
+      var floor=cur.min;
+      var ceil=next?next.min:(cur.min+1000);
+      var need=Math.max(0,ceil-xp);
+      var pct=Math.max(0,Math.min(100, Math.round(((xp-floor)/Math.max(1,ceil-floor))*100)));
+      return {current:cur,next:next,xp:xp,need:need,pct:pct,ceil:ceil};
+    }
+    function loadXpLedger(){
+      try{return JSON.parse(localStorage.getItem('rs_xp_ledger')||'{}')||{}}catch(e){return{}}
+    }
+    function saveXpLedger(m){
+      try{
+        // prune old days (>10)
+        Object.keys(m||{}).forEach(function(user){
+          var days=Object.keys(m[user]||{});
+          if(days.length>12){
+            days.sort();
+            days.slice(0,days.length-10).forEach(function(d){delete m[user][d]});
+          }
+        });
+        localStorage.setItem('rs_xp_ledger',JSON.stringify(m||{}));
+      }catch(e){}
+    }
+    function canGrantXp(action, refId){
+      if(!isRegistered()||!currentUser||!currentUser.name)return {ok:false};
+      var rule=RS_XP_ACTIONS[action];
+      if(!rule)return {ok:false};
+      var day=rsDayKey();
+      var ledger=loadXpLedger();
+      var u=ledger[currentUser.name]||(ledger[currentUser.name]={});
+      var bucket=u[day]||(u[day]={counts:{},seen:{}});
+      var count=Number(bucket.counts[action]||0)||0;
+      if(count>=(rule.dailyCap||0)) return {ok:false,reason:'cap'};
+      var dedupeKey=action+'|'+(rule.dedupe==='day'?day:String(refId||''));
+      if(rule.dedupe && bucket.seen[dedupeKey]) return {ok:false,reason:'dup'};
+      return {ok:true,day:day,ledger:ledger,bucket:bucket,dedupeKey:dedupeKey,rule:rule};
+    }
+    function grantXp(action, refId, silent){
+      var gate=canGrantXp(action, refId);
+      if(!gate.ok)return 0;
+      var amount=Number(gate.rule.xp)||0;
+      if(amount<=0)return 0;
+      var before=getUserXp();
+      var beforeLv=levelForXp(before).current.id;
+      gate.bucket.counts[action]=(Number(gate.bucket.counts[action]||0)||0)+1;
+      if(gate.dedupeKey) gate.bucket.seen[gate.dedupeKey]=1;
+      saveXpLedger(gate.ledger);
+      var next=before+amount;
+      setUserXp(next);
+      var afterLv=levelForXp(next).current;
+      if(afterLv.id!==beforeLv){
+        try{unlockBadge(afterLv.id==='elite'||afterLv.id==='legend'?'elite':null)}catch(e){}
+        try{
+          if(typeof pushNotif==='function'){
+            pushNotif(currentUser.name,'system','level',null,'👑 You reached '+afterLv.icon+' '+afterLv.name);
+          }
+        }catch(e){}
+        if(!silent) try{toast(afterLv.icon+' Level up · '+afterLv.name)}catch(e){}
+      }
+      try{
+        if(document.getElementById('panel-profile')&&document.getElementById('panel-profile').classList.contains('active')){
+          paintProfileRetention();
+          updateProfilePanel();
+        }
+      }catch(e){}
+      return amount;
+    }
+    // Back-compat wrapper used across the app — routes through anti-abuse grants
     async function awardXp(amount, reason){
       if(!isRegistered()||!currentUser||!currentUser.name)return;
-      amount=amount||5;
-      var next=getUserXp()+amount;
-      setUserXp(next);
-      // soft refresh profile stats if visible
+      reason=String(reason||'misc');
+      var map={react:'like',comment:'comment',publish:'publish',profile_gallery:'profile_gallery',save:'save',download:'download',extend:'extend',daily:'daily_login'};
+      var action=map[reason]||(RS_XP_ACTIONS[reason]?reason:null);
+      if(action){grantXp(action, reason+':'+Date.now(), true);return}
+      // Unknown legacy reason: tiny soft grant once/day max 20
+      var soft=canGrantXp('save', 'legacy:'+reason);
+      if(soft.ok) grantXp('save', 'legacy:'+reason, true);
+    }
+    function loadStreakMap(){
+      try{return JSON.parse(localStorage.getItem('rs_streak')||'{}')||{}}catch(e){return{}}
+    }
+    function saveStreakMap(m){
+      try{localStorage.setItem('rs_streak',JSON.stringify(m||{}))}catch(e){}
+    }
+    function getStreakState(username){
+      username=username||(currentUser&&currentUser.name)||'';
+      var m=loadStreakMap();
+      return m[username]||{current:0,best:0,lastDay:'',days:[]};
+    }
+    function streakRewardAction(n){
+      if(n===3)return 'streak_3';
+      if(n===7)return 'streak_7';
+      if(n===14)return 'streak_14';
+      if(n===30)return 'streak_30';
+      return '';
+    }
+    function nextStreakReward(n){
+      var steps=[3,7,14,30];
+      for(var i=0;i<steps.length;i++){if(n<steps[i])return steps[i]}
+      return 30+Math.ceil((n-30+1)/30)*30;
+    }
+    function tickDailyRetention(){
+      if(!isRegistered()||!currentUser||!currentUser.name)return null;
+      var user=currentUser.name;
+      var today=rsDayKey();
+      var map=loadStreakMap();
+      var st=map[user]||{current:0,best:0,lastDay:'',days:[]};
+      if(st.lastDay===today){
+        grantXp('daily_login','login:'+today,true);
+        return st;
+      }
+      var yest=rsPrevDayKey(today);
+      if(st.lastDay===yest) st.current=(Number(st.current)||0)+1;
+      else st.current=1;
+      st.best=Math.max(Number(st.best)||0, st.current);
+      st.lastDay=today;
+      st.days=(st.days||[]).concat([today]).slice(-40);
+      map[user]=st;
+      saveStreakMap(map);
+      grantXp('daily_login','login:'+today,true);
+      var reward=streakRewardAction(st.current);
+      if(reward){
+        grantXp(reward,'streak:'+st.current,false);
+        if(st.current>=7) unlockBadge('streak_7');
+        try{pushNotif(user,'system','streak',null,'🔥 '+st.current+' day streak')}catch(e){}
+      }
+      try{paintProfileRetention()}catch(e){}
+      return st;
+    }
+    function loadBadgeMap(){
+      try{return JSON.parse(localStorage.getItem('rs_badges')||'{}')||{}}catch(e){return{}}
+    }
+    function saveBadgeMap(m){
+      try{localStorage.setItem('rs_badges',JSON.stringify(m||{}))}catch(e){}
+    }
+    function userBadges(username){
+      username=username||(currentUser&&currentUser.name)||'';
+      return (loadBadgeMap()[username])||{};
+    }
+    function unlockBadge(id){
+      if(!id||!RS_BADGE_DEFS[id]||!currentUser||!currentUser.name)return false;
+      var m=loadBadgeMap();
+      var u=m[currentUser.name]||(m[currentUser.name]={});
+      if(u[id])return false;
+      u[id]=Date.now();
+      saveBadgeMap(m);
+      try{pushNotif(currentUser.name,'system','badge',null,(RS_BADGE_DEFS[id].icon||'🏆')+' Badge unlocked · '+RS_BADGE_DEFS[id].label)}catch(e){}
+      try{paintProfileRetention()}catch(e){}
+      return true;
+    }
+    function noteEngagementAuthor(username){
+      if(!username)return;
       try{
-        if(document.getElementById('panel-profile')&&document.getElementById('panel-profile').classList.contains('active'))updateProfilePanel();
+        var m=JSON.parse(localStorage.getItem('rs_eng_authors')||'{}')||{};
+        m[String(username).toLowerCase()]=(Number(m[String(username).toLowerCase()]||0)||0)+1;
+        localStorage.setItem('rs_eng_authors',JSON.stringify(m));
       }catch(e){}
+    }
+    function noteEngagementTags(tags){
+      try{
+        var m=JSON.parse(localStorage.getItem('rs_eng_tags')||'{}')||{};
+        (tags||[]).slice(0,8).forEach(function(t){
+          t=String(t||'').toLowerCase().replace(/^#/,'');
+          if(!t||t.indexOf('album:')===0||t.indexOf('hot:')===0||t.indexOf('optv:')===0)return;
+          m[t]=(Number(m[t]||0)||0)+1;
+        });
+        localStorage.setItem('rs_eng_tags',JSON.stringify(m));
+      }catch(e){}
+    }
+    function maybeViralReward(post){
+      if(!post||!post.id)return;
+      var score=(Number(post.likes)||0)*8+(Number(post.views)||0)+(Number(post.commentCount||post.comments)||0)*5+(typeof postHotCount==='function'?postHotCount(post):0)*12;
+      if(score<80)return;
+      // Reward the AUTHOR once when their post gets hot — via local flag only (author device may learn later via notif)
+      try{
+        var key='rs_viral_'+String(post.id);
+        if(localStorage.getItem(key)==='1')return;
+        localStorage.setItem(key,'1');
+      }catch(e){}
+      if(currentUser&&post.user&&String(post.user)===String(currentUser.name)){
+        grantXp('viral', String(post.id), false);
+        unlockBadge('trending_creator');
+      }else if(post.user && typeof pushNotif==='function'){
+        try{pushNotif(post.user,'system','trending',post.id,'🔥 Your post is trending')}catch(e){}
+      }
+    }
+    function streakCalendarHtml(st){
+      st=st||{days:[]};
+      var set={};
+      (st.days||[]).forEach(function(d){set[String(d)]=1});
+      var today=rsDayKey();
+      var parts=[];
+      for(var i=6;i>=0;i--){
+        var d=new Date();
+        d.setDate(d.getDate()-i);
+        var key=rsDayKey(d.getTime());
+        var on=!!set[key]||(key===today&&(Number(st.current)||0)>0);
+        var lab=String(d.getDate());
+        parts.push('<span title="'+esc(key)+'" style="display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border-radius:8px;font-size:10px;font-weight:800;'
+          +(on?'background:rgba(255,106,0,.35);color:#ffd7a8;border:1px solid rgba(255,106,0,.55)':'background:#14141a;color:#6a6a72;border:1px solid #2a2a32')
+          +'">'+lab+'</span>');
+      }
+      return '<div style="display:flex;gap:4px;margin-top:10px;justify-content:space-between" aria-label="Last 7 days">'+parts.join('')+'</div>';
+    }
+    function retentionCardHtml(xp, streak, badges){
+      var lv=levelForXp(xp);
+      var st=streak||{current:0,best:0,days:[]};
+      var nextLabel=lv.next?(lv.next.icon+' '+lv.next.name):'MAX';
+      var badgeHtml='';
+      var b=badges||{};
+      Object.keys(RS_BADGE_DEFS).forEach(function(id){
+        if(!b[id])return;
+        badgeHtml+='<span class="rs-badge-pill">'+(RS_BADGE_DEFS[id].icon||'🏆')+' '+esc(RS_BADGE_DEFS[id].label)+'</span>';
+      });
+      return '<div class="rs-level-title">'+(lv.current.icon||'⭐')+' '+esc(lv.current.name.toUpperCase())+'</div>'
+        +'<div class="rs-level-meta">'+Number(xp||0).toLocaleString()+' / '+Number(lv.ceil||0).toLocaleString()+' XP'
+        +(lv.next?(' · '+lv.need.toLocaleString()+' to '+nextLabel):' · Legend')
+        +'</div>'
+        +'<div class="rs-xp-bar"><i style="width:'+lv.pct+'%"></i></div>'
+        +'<div class="rs-streak-chip">🔥 '+(Number(st.current)||0)+' day streak · best '+(Number(st.best)||0)
+        +' · next reward @ '+nextStreakReward(Number(st.current)||0)+'d</div>'
+        +streakCalendarHtml(st)
+        +(badgeHtml?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+badgeHtml+'</div>':'');
+    }
+    function bumpCommentsGiven(){
+      if(!currentUser||!currentUser.name)return;
+      try{
+        var m=JSON.parse(localStorage.getItem('rs_cmt_given')||'{}')||{};
+        var u=currentUser.name;
+        m[u]=(Number(m[u]||0)||0)+1;
+        localStorage.setItem('rs_cmt_given',JSON.stringify(m));
+        if(m[u]>=50) unlockBadge('comments_50');
+      }catch(e){}
+    }
+    function evaluateProfileBadges(userPosts){
+      if(!isRegistered()||!currentUser||!currentUser.name)return;
+      try{
+        var likes=0, posts=0;
+        (userPosts||[]).forEach(function(p){
+          if(!p)return;
+          posts++;
+          likes+=Number(p.likes||0)||0;
+        });
+        if(posts>=1) unlockBadge('first_post');
+        if(likes>=100) unlockBadge('likes_100');
+        var lv=levelForXp(getUserXp());
+        if(lv&&(lv.current.id==='elite'||lv.current.id==='legend')) unlockBadge('elite');
+        var st=getStreakState(currentUser.name);
+        if((Number(st.current)||0)>=7||(Number(st.best)||0)>=7) unlockBadge('streak_7');
+      }catch(e){}
+    }
+    async function notifyFollowersOfPublish(postId, title){
+      if(!sb||!isRegistered()||!currentUser||!currentUser.name||!postId)return;
+      try{
+        var r=await sb.from('follows').select('follower').eq('following',currentUser.name).limit(60);
+        var rows=(r&&r.data)||[];
+        var msg='🔔 @'+currentUser.name+' posted'+(title?(' · '+String(title).slice(0,60)):'');
+        for(var i=0;i<rows.length;i++){
+          var f=rows[i]&&rows[i].follower;
+          if(!f||f===currentUser.name)continue;
+          try{await pushNotif(f,currentUser.name,'post',postId,msg)}catch(e){}
+        }
+      }catch(e){}
+    }
+    function paintProfileRetention(){
+      var card=document.getElementById('profile-level-card');
+      var row=document.getElementById('profile-badges-row');
+      if(!card)return;
+      if(!isRegistered()||!currentUser||!currentUser.name){
+        card.style.display='none';
+        if(row)row.style.display='none';
+        return;
+      }
+      tickDailyRetention();
+      var xp=getUserXp();
+      var st=getStreakState(currentUser.name);
+      var badges=userBadges(currentUser.name);
+      card.style.display='block';
+      card.innerHTML=retentionCardHtml(xp,st,badges);
+      if(row){
+        var html='';
+        Object.keys(RS_BADGE_DEFS).forEach(function(id){
+          if(!badges[id])return;
+          html+='<span class="rs-badge-pill">'+(RS_BADGE_DEFS[id].icon||'🏆')+' '+esc(RS_BADGE_DEFS[id].label)+'</span>';
+        });
+        row.innerHTML=html;
+        row.style.display=html?'flex':'none';
+      }
     }
     async function loadXpFromProfile(){
       if(!sb||!isRegistered()||!currentUser||!currentUser.name)return;
@@ -13220,7 +13628,17 @@ function profileStatsHtml(userPosts, extra){
           else if(local>remote){try{await sb.from('profiles').update({xp:local}).eq('username',currentUser.name)}catch(e){}}
         }
       }catch(e){}
+      try{tickDailyRetention();paintProfileRetention()}catch(e){}
     }
+    window.grantXp=grantXp;
+    window.levelForXp=levelForXp;
+    window.getStreakState=getStreakState;
+    window.tickDailyRetention=tickDailyRetention;
+    window.unlockBadge=unlockBadge;
+    window.paintProfileRetention=paintProfileRetention;
+    window.evaluateProfileBadges=evaluateProfileBadges;
+    window.notifyFollowersOfPublish=notifyFollowersOfPublish;
+    window.bumpCommentsGiven=bumpCommentsGiven;
 
     function getLocalFeatured(){
       try{return JSON.parse(localStorage.getItem('rs_featured')||'{}')||{}}catch(e){return {}}
@@ -15195,7 +15613,16 @@ async function onIdFace(e){
           }catch(e){}
         }
         if(!profileMode)toast('Published in Extended · ID '+(row&&row.id?row.id:'')+' · visible to everyone while the timer runs');
-        try{awardXp(10,profileMode?'profile_gallery':'publish')}catch(e){}
+        try{
+          var pubId=(row&&row.id)||(saved&&saved.id)||('pub:'+Date.now());
+          grantXp(profileMode?'profile_gallery':'publish', String(pubId), false);
+        }catch(e){try{awardXp(25,profileMode?'profile_gallery':'publish')}catch(e2){}}
+        try{unlockBadge('first_post')}catch(e){}
+        try{
+          if(row&&row.id){
+            notifyFollowersOfPublish(row.id, row.title||payload.title||'');
+          }
+        }catch(e){}
         try{removePhoto()}catch(e){}
         try{
           document.getElementById('new-title').value='';
@@ -15471,9 +15898,23 @@ async function onIdFace(e){
       } else {
         reactions[name]=emoji;
         if(likedBy.indexOf(name)<0)likedBy.push(name);
-        if(!prev){try{awardXp(5,'react')}catch(e){}}
+        if(!prev){
+          try{grantXp('like', String(id), true)}catch(e){try{awardXp(5,'react')}catch(e2){}}
+          try{noteEngagementAuthor(post.user);noteEngagementTags(post.tags)}catch(e){}
+          try{
+            if(post.user && String(post.user)!==String(name)){
+              pushNotif(post.user,name,'like',id,'❤️ @'+name+' liked your post');
+            }
+          }catch(e){}
+        }
       }
       post.reactions=reactions;post.likedBy=likedBy;post.likes=Math.max(Number(post.likes||0),likedBy.length);
+      try{
+        if(emoji&&!prev){
+          maybeViralReward(post);
+          if((Number(post.likes)||0)>=100 && String(post.user)===String(name)) unlockBadge('likes_100');
+        }
+      }catch(e){}
       try{rememberFeedPost(post)}catch(e){}
       try{
         var loc=JSON.parse(localStorage.getItem('rs_reactions')||'{}');
@@ -15648,9 +16089,11 @@ async function onIdFace(e){
         arr.push({username:who,text:text,created_at:new Date().toISOString()});
         localStorage.setItem(key,JSON.stringify(arr.slice(-80)));
       }catch(e){}
-      try{if(isRegistered())awardXp(5,'comment')}catch(e){}
+      try{if(isRegistered()){grantXp('comment', String(postId), true);bumpCommentsGiven()}}catch(e){try{awardXp(10,'comment')}catch(e2){}}
       var post=(posts||[]).find(function(p){return String(p.id)===String(postId)});
-      if(post&&sb)try{await pushNotif(post.user,who,'comment',postId,'@'+who+' commented')}catch(e){}
+      try{if(!post&&typeof findPostAnywhere==='function')post=findPostAnywhere(postId)}catch(e){}
+      try{if(post){noteEngagementAuthor(post.user);noteEngagementTags(post.tags);maybeViralReward(post)}}catch(e){}
+      if(post&&sb)try{await pushNotif(post.user,who,'comment',postId,'💬 @'+who+' commented on your post')}catch(e){}
       if(input)input.value='';
       toast(saved?'Comment posted':'Comment saved');
       try{openDetail(postId,true)}catch(e){}
@@ -15755,6 +16198,19 @@ async function onIdFace(e){
       }catch(e){notifs=[];if(open)renderNotifs()}
     }
     
+    function notifIconFor(type){
+      type=String(type||'').toLowerCase();
+      if(type==='like'||type==='react')return '❤️';
+      if(type==='comment')return '💬';
+      if(type==='follow')return '👤';
+      if(type==='level')return '👑';
+      if(type==='streak')return '🔥';
+      if(type==='badge')return '🏆';
+      if(type==='trending')return '🚀';
+      if(type==='post'||type==='publish')return '🆕';
+      if(type.indexOf('print')>=0)return '🖨';
+      return '🔔';
+    }
     function prettyNotifHtml(n){
       n=n||{};
       var raw=n.message||'';
@@ -15797,9 +16253,10 @@ async function onIdFace(e){
       if(!mine.length){box.innerHTML='<div class="empty">No notifications yet</div>';return}
       box.innerHTML=mine.map(function(n,i){
         var unread=notifIsUnread(n);
-        return '<div class="notif-item" data-ni="'+i+'" style="cursor:pointer;border-left:3px solid '+(unread?'#ff6a00':'transparent')+';background:'+(unread?'rgba(255,106,0,.08)':'transparent')+'">'
-          +prettyNotifHtml(n)
-          +'<div class="t">'+ago(new Date(n.created_at).getTime())+(unread?' · new':'')+'</div></div>';
+        return '<div class="notif-item" data-ni="'+i+'" style="cursor:pointer;display:flex;gap:10px;align-items:flex-start;border-left:3px solid '+(unread?'#ff6a00':'transparent')+';background:'+(unread?'rgba(255,106,0,.08)':'transparent')+'">'
+          +'<div class="ni-ico">'+notifIconFor(n.type)+'</div>'
+          +'<div style="flex:1;min-width:0">'+prettyNotifHtml(n)
+          +'<div class="t">'+ago(new Date(n.created_at).getTime())+(unread?' · new':'')+'</div></div></div>';
       }).join('');
       Array.prototype.forEach.call(box.querySelectorAll('.notif-item'),function(el){
         el.onclick=function(){
@@ -15807,7 +16264,11 @@ async function onIdFace(e){
           var n=mine[i];
           if(!n)return;
           dismissNotif(n);
-          if(n.post_id){try{openDetail(n.post_id)}catch(e){}}
+          if(n.post_id){try{openDetail(n.post_id);return}catch(e){}}
+          if(String(n.type||'')==='follow' && n.from_username){try{openUser(n.from_username);return}catch(e){}}
+          if(String(n.type||'')==='level'||String(n.type||'')==='streak'||String(n.type||'')==='badge'){
+            try{showPanel('profile')}catch(e){}
+          }
         };
       });
     }
