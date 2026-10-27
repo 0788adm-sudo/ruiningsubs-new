@@ -405,6 +405,38 @@
     .rs-streak-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.4);color:#ffb35c;font-size:11px;font-weight:900;margin-top:8px}
     .rs-badge-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#14141a;border:1px solid #2a2a32;font-size:11px;font-weight:800;color:#e8e8ec}
     .notif-item .ni-ico{font-size:18px;width:28px;flex:0 0 auto}
+    .rs-games-hero{padding:16px 14px;border-radius:18px;margin:0 0 14px;background:linear-gradient(145deg,rgba(124,58,237,.2),rgba(255,106,0,.1));border:1px solid rgba(124,58,237,.35)}
+    .rs-games-kicker{font-size:11px;font-weight:900;letter-spacing:.16em;color:#ffb35c;margin-bottom:6px}
+    .rs-games-title{font-size:20px;font-weight:900;line-height:1.25;margin:0 0 8px}
+    .rs-games-meta{font-size:12px;color:#cfcfd6;line-height:1.4}
+    .rs-game-card{display:block;width:100%;text-align:left;padding:16px 14px;margin:0 0 12px;border-radius:18px;background:#101014;border:1px solid #2a2a32;box-shadow:0 0 0 1px rgba(124,58,237,.08),inset 0 1px 0 rgba(255,255,255,.03)}
+    .rs-daily-card{border-color:rgba(255,106,0,.4);background:linear-gradient(160deg,rgba(255,106,0,.12),#101014)}
+    .rs-game-cat{font-size:10px;font-weight:900;letter-spacing:.14em;color:#9a9aa3;margin-bottom:6px}
+    .rs-game-ico{font-size:28px;line-height:1;margin-bottom:6px}
+    .rs-game-name{font-size:17px;font-weight:900;margin:0 0 6px}
+    .rs-game-desc{font-size:13px;color:#9a9aa3;line-height:1.4;margin:0 0 12px}
+    .rs-game-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .rs-game-xp{font-size:12px;font-weight:800;color:#ffb35c}
+    .rs-game-done{font-size:11px;font-weight:900;color:#6ee7b7;letter-spacing:.04em}
+    .rs-game-btn{flex:0 0 auto;min-height:44px;padding:10px 14px;font-weight:900;border-radius:12px}
+    .rs-game-play-title{font-size:22px;font-weight:900;margin:12px 0 4px}
+    .rs-game-play-sub{font-size:13px;color:#9a9aa3;margin:0 0 14px}
+    .rs-quiz-q{font-size:16px;font-weight:800;margin:0 0 12px;line-height:1.35}
+    .rs-quiz-opts{display:flex;flex-direction:column;gap:8px}
+    .rs-quiz-opt{width:100%;min-height:48px;text-align:left;justify-content:flex-start;padding:12px 14px;border-radius:14px}
+    .rs-mem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 12px}
+    .rs-mem-card{aspect-ratio:1;border-radius:14px;border:1px solid #2a2a32;background:#16161e;color:#fff;font-size:22px;font-weight:900;min-height:64px}
+    .rs-mem-card.open,.rs-mem-card.done{background:rgba(124,58,237,.25);border-color:rgba(124,58,237,.5)}
+    .rs-react-pad{width:100%;min-height:180px;border-radius:20px;border:1px solid #2a2a32;background:#16161e;color:#fff;font-size:20px;font-weight:900;margin:8px 0}
+    .rs-react-pad.armed{background:#3f1d1d;border-color:#ef4444;color:#fecaca}
+    .rs-react-pad.go{background:#14532d;border-color:#22c55e;color:#dcfce7;animation:rsPulse .5s ease infinite alternate}
+    .rs-react-pad.fail{background:#450a0a}
+    .rs-word-scramble{font-size:28px;font-weight:900;letter-spacing:.2em;text-align:center;padding:18px;border-radius:16px;background:#16161e;border:1px solid #2a2a32;margin:8px 0 12px}
+    .rs-word-input{width:100%;min-height:48px;border-radius:14px;border:1px solid #2a2a32;background:#0c0c10;color:#fff;font-size:18px;font-weight:800;text-align:center;padding:10px;text-transform:uppercase}
+    .rs-game-result{margin-top:14px}
+    .rs-game-ok{color:#6ee7b7;font-weight:800;margin-bottom:10px}
+    .rs-game-fail{color:#fca5a5;font-weight:800;margin-bottom:10px}
+    @keyframes rsPulse{from{filter:brightness(1)}to{filter:brightness(1.15)}}
     #rs-levelup{display:none;position:fixed;inset:0;z-index:9200;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
     #rs-levelup.show{display:flex}
     #rs-levelup .rs-lu-card{width:min(340px,100%);text-align:center;padding:28px 22px 22px;border-radius:20px;background:linear-gradient(160deg,#16161e 0%,#0e0e14 100%);border:1px solid rgba(124,58,237,.45);box-shadow:0 0 0 1px rgba(255,106,0,.15),0 20px 50px rgba(0,0,0,.55);animation:rsLuIn .45s ease-out}
@@ -1801,6 +1833,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div id="map-pin-list" style="margin-top:12px"></div>
       </div>
 
+      <div id="panel-games" class="panel">
+        <div class="panel-h">
+          <button class="back" type="button" onclick="showPanel('explore')">←</button>
+          <h2>Games</h2>
+          <span></span>
+        </div>
+        <div id="games-hub"></div>
+        <div id="games-play" style="display:none"></div>
+      </div>
       <div id="panel-explore" class="panel">
         <div class="panel-h"><h2>Explore</h2></div>
         <div class="form-group"><input type="text" id="search-q" placeholder="Search @accounts, words or #tags..." /></div>
@@ -1827,6 +1868,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div style="font-size:12px;color:#9a9aa3;margin-top:2px">Drop a pin. Others can see the city, not your exact door.</div>
         </button>
         <div style="font-size:11px;letter-spacing:1.4px;color:#9a9aa3;font-weight:800;margin:6px 0 0;grid-column:1 / -1">PLAY</div>
+        <div class="tasks-entry" id="btn-explore-games" role="button" style="margin:0 0 14px;grid-column:1 / -1;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(255,106,0,.1));border:1px solid rgba(124,58,237,.4)" onclick="openGamesHub()">
+          <span class="entry-ico" style="color:#c4b5fd;border-color:rgba(167,139,250,.5);box-shadow:0 0 16px rgba(124,58,237,.3)">🎮</span>
+          <div class="entry-body">
+            <strong>Games</strong>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Quiz · Memory · Reaction · Word · Daily XP</div>
+          </div>
+          <span style="font-size:20px;color:#c4b5fd">›</span>
+        </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
           <div style="font-size:11px;letter-spacing:1.4px;color:#9a9aa3;font-weight:800;margin:8px 0 0;grid-column:1 / -1">TOOLS</div>
@@ -7536,6 +7585,7 @@ function openRoulette(){
         ['btn-explore-randomcam', function(){openRandomCam()}],
         ['btn-explore-goontok', function(){openGoonTok()}],
         ['btn-explore-dice', function(){openDiceGame()}],
+        ['btn-explore-games', function(){openGamesHub()}],
         ['btn-explore-videos', function(){showPanel('videos')}],
         ['btn-wall-generate-id', function(){openIdCard('id')}],
         ['btn-wall-generate-pea', function(){openIdCard('pea')}]
@@ -10045,6 +10095,7 @@ function openRoulette(){
       }
       if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
       if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
+      if(name==='games'){try{renderGamesHub()}catch(e){}}
       if(name==='goontok'){try{if(typeof fetchVideoPosts==='function')fetchVideoPosts().then(function(){renderGoonTok()}).catch(function(){renderGoonTok()});else renderGoonTok()}catch(e){try{renderGoonTok()}catch(e2){}}startViewVisit('goontok')}
       if(name==='videos'){try{fetchVideoPosts().then(function(){try{renderVideos()}catch(e){}})}catch(e){}try{renderVideos()}catch(e){}startViewVisit('videos')}
       if(name==='idcard'){try{loadIdArchive()}catch(e){}startViewVisit('idcard')}
@@ -13275,8 +13326,9 @@ function profileStatsHtml(userPosts, extra){
       {id:'elite',name:'Elite',min:2000,icon:'👑'},
       {id:'legend',name:'Legend',min:5000,icon:'💎'}
     ];
-    // Hard daily ceiling across ALL XP actions (anti-farm). Games will share this later.
+    // Hard daily ceiling across ALL XP actions (anti-farm). Games share this + their own sub-cap.
     var RS_DAILY_XP_CAP=400;
+    var RS_GAME_XP_CAP=80;
     var RS_XP_ACTIONS={
       daily_login:{xp:10,dailyCap:1,dedupe:'day'},
       like:{xp:5,dailyCap:40,dedupe:'post'},
@@ -13289,6 +13341,18 @@ function profileStatsHtml(userPosts, extra){
       streak_7:{xp:40,dailyCap:1,dedupe:'day'},
       streak_14:{xp:80,dailyCap:1,dedupe:'day'},
       streak_30:{xp:150,dailyCap:1,dedupe:'day'},
+      // Phase 2 — daily claim calendar + games (all capped / deduped)
+      daily_reward:{xp:10,dailyCap:1,dedupe:'day'},
+      daily_reward_bonus:{xp:20,dailyCap:1,dedupe:'day'},
+      game_quiz:{xp:12,dailyCap:3,dedupe:'post',game:1},
+      game_quiz_bonus:{xp:5,dailyCap:1,dedupe:'day',game:1},
+      game_memory:{xp:15,dailyCap:2,dedupe:'post',game:1},
+      game_memory_perfect:{xp:8,dailyCap:1,dedupe:'day',game:1},
+      game_reaction:{xp:8,dailyCap:5,dedupe:'post',game:1},
+      game_reaction_best:{xp:5,dailyCap:1,dedupe:'day',game:1},
+      game_word:{xp:12,dailyCap:2,dedupe:'post',game:1},
+      game_first_today:{xp:5,dailyCap:1,dedupe:'day',game:1},
+      level_reward:{xp:30,dailyCap:20,dedupe:'forever'},
       // legacy soft awards — capped so old callers cannot farm
       save:{xp:2,dailyCap:15,dedupe:'post'},
       download:{xp:2,dailyCap:10,dedupe:'post'},
@@ -13301,7 +13365,14 @@ function profileStatsHtml(userPosts, extra){
       likes_100:{icon:'❤️',label:'100 Likes'},
       comments_50:{icon:'💬',label:'50 Comments'},
       elite:{icon:'👑',label:'Reached Elite'},
-      trending_creator:{icon:'🚀',label:'Trending Creator'}
+      trending_creator:{icon:'🚀',label:'Trending Creator'},
+      first_game:{icon:'🎮',label:'First Game'},
+      gamer_7:{icon:'🕹️',label:'7 Day Gamer'},
+      quiz_ace:{icon:'🧠',label:'Quiz Ace'},
+      memory_master:{icon:'🃏',label:'Memory Master'},
+      speed_demon:{icon:'⚡',label:'Speed Demon'},
+      word_smith:{icon:'🔤',label:'Word Smith'},
+      daily_7:{icon:'📅',label:'7 Day Claim'}
     };
     function rsDayKey(ts){
       var d=new Date(ts||Date.now());
@@ -13363,8 +13434,9 @@ function profileStatsHtml(userPosts, extra){
       var user=(currentUser&&currentUser.name)||'anon';
       var rule=RS_XP_ACTIONS[action]||{};
       var ref=rule.dedupe==='day' ? String(day||rsDayKey()) : String(refId||'');
+      var dayPart=rule.dedupe==='forever'?'once':String(day||rsDayKey());
       // Stable unique reward id — refresh-safe, not Date.now()-based
-      return 'xp:'+user+':'+action+':'+ref+':'+String(day||rsDayKey());
+      return 'xp:'+user+':'+action+':'+ref+':'+dayPart;
     }
     function loadXpLedger(){
       try{return JSON.parse(localStorage.getItem('rs_xp_ledger')||'{}')||{}}catch(e){return{}}
@@ -13401,17 +13473,29 @@ function profileStatsHtml(userPosts, extra){
       var day=rsDayKey();
       var ledger=loadXpLedger();
       var u=ledger[currentUser.name]||(ledger[currentUser.name]={});
-      var bucket=u[day]||(u[day]={counts:{},seen:{},events:{},earned:0});
+      var forever=u.__forever||(u.__forever={});
+      var bucket=u[day]||(u[day]={counts:{},seen:{},events:{},earned:0,gameEarned:0});
+      var amount=Number(rule.xp)||0;
       var count=Number(bucket.counts[action]||0)||0;
-      if(count>=(rule.dailyCap||0)) return {ok:false,reason:'action_cap'};
+      if(rule.dedupe!=='forever' && count>=(rule.dailyCap||0)) return {ok:false,reason:'action_cap'};
+      if(rule.dedupe==='forever' && count>=(rule.dailyCap||99)) return {ok:false,reason:'action_cap'};
       var earned=Number(bucket.earned);
       if(!isFinite(earned)||earned<0) earned=dayXpTotal(bucket);
-      if(earned+(Number(rule.xp)||0)>RS_DAILY_XP_CAP) return {ok:false,reason:'daily_cap'};
+      if(earned+amount>RS_DAILY_XP_CAP) return {ok:false,reason:'daily_cap'};
+      if(rule.game){
+        var ge=Number(bucket.gameEarned)||0;
+        if(ge+amount>RS_GAME_XP_CAP) return {ok:false,reason:'game_cap'};
+      }
       var dedupeKey=action+'|'+(rule.dedupe==='day'?day:String(refId||''));
-      if(rule.dedupe && bucket.seen[dedupeKey]) return {ok:false,reason:'dup'};
+      if(rule.dedupe==='forever'){
+        if(forever[dedupeKey]) return {ok:false,reason:'dup'};
+      }else if(rule.dedupe && bucket.seen[dedupeKey]){
+        return {ok:false,reason:'dup'};
+      }
       var eventId=makeXpEventId(action, refId, day);
       if(bucket.events&&bucket.events[eventId]) return {ok:false,reason:'dup_event'};
-      return {ok:true,day:day,ledger:ledger,bucket:bucket,dedupeKey:dedupeKey,rule:rule,eventId:eventId,earned:earned};
+      if(rule.dedupe==='forever' && forever[eventId]) return {ok:false,reason:'dup_event'};
+      return {ok:true,day:day,ledger:ledger,bucket:bucket,forever:forever,dedupeKey:dedupeKey,rule:rule,eventId:eventId,earned:earned};
     }
     function persistXpEventRemote(eventId, action, amount){
       // Reuse notifications table as append-only event log (type xp_event).
@@ -13448,30 +13532,48 @@ function profileStatsHtml(userPosts, extra){
             bucket.events[eventId]=1;
             var action=obj&&obj.action;
             if(action&&RS_XP_ACTIONS[action]){
+              var rule=RS_XP_ACTIONS[action];
               var refPart=eventId.split(':')[3]||day;
-              var dedupeKey=action+'|'+(RS_XP_ACTIONS[action].dedupe==='day'?day:refPart);
-              bucket.seen[dedupeKey]=1;
+              var dedupeKey=action+'|'+(rule.dedupe==='day'?day:refPart);
+              if(rule.dedupe==='forever'){
+                u.__forever=u.__forever||{};
+                u.__forever[dedupeKey]=1;
+                u.__forever[eventId]=1;
+              }else{
+                bucket.seen[dedupeKey]=1;
+              }
               bucket.counts[action]=(Number(bucket.counts[action]||0)||0)+1;
-              bucket.earned=(Number(bucket.earned)||0)+(Number(obj.xp)||Number(RS_XP_ACTIONS[action].xp)||0);
+              var amt=(Number(obj.xp)||Number(rule.xp)||0);
+              bucket.earned=(Number(bucket.earned)||0)+amt;
+              if(rule.game) bucket.gameEarned=(Number(bucket.gameEarned)||0)+amt;
             }
           });
           ledger[currentUser.name]=u;
           saveXpLedger(ledger);
         }).catch(function(){});
     }
-    function showLevelUp(level){
+    function showLevelUp(level, extra){
       try{
         var el=document.getElementById('rs-levelup');
         if(!el||!level)return;
+        extra=extra||{};
         var icon=document.getElementById('rs-lu-icon');
         var title=document.getElementById('rs-lu-title');
         var sub=document.getElementById('rs-lu-sub');
         if(icon)icon.textContent=level.icon||'⭐';
-        if(title)title.textContent='You reached '+String(level.name||'').toUpperCase();
+        var num=extra.toNum||numericLevelForXp(extra.xp!=null?extra.xp:getUserXp());
+        if(title)title.textContent='LEVEL UP · '+num+' · '+String(level.name||'').toUpperCase();
         if(sub){
-          var next=null;
-          for(var i=0;i<RS_LEVELS.length;i++){if(RS_LEVELS[i].id===level.id){next=RS_LEVELS[i+1]||null;break}}
-          sub.textContent=next?('Next: '+next.icon+' '+next.name+' at '+next.min.toLocaleString()+' XP'):'You are at the top rank.';
+          var bits=[];
+          if(extra.fromNum!=null) bits.push('Was level '+extra.fromNum);
+          bits.push((Number(extra.xp!=null?extra.xp:getUserXp())||0).toLocaleString()+' XP');
+          if(extra.reward) bits.push(extra.reward);
+          else{
+            var next=null;
+            for(var i=0;i<RS_LEVELS.length;i++){if(RS_LEVELS[i].id===level.id){next=RS_LEVELS[i+1]||null;break}}
+            if(next) bits.push('Next rank: '+next.icon+' '+next.name);
+          }
+          sub.textContent=bits.join(' · ');
         }
         el.classList.add('show');
         clearTimeout(window.__rsLuTimer);
@@ -13491,30 +13593,47 @@ function profileStatsHtml(userPosts, extra){
       try{
         var before=getUserXp();
         var beforeLv=levelForXp(before).current;
+        var beforeNum=numericLevelForXp(before);
         gate.bucket.counts[action]=(Number(gate.bucket.counts[action]||0)||0)+1;
-        if(gate.dedupeKey) gate.bucket.seen[gate.dedupeKey]=1;
+        if(gate.rule.dedupe==='forever'){
+          gate.forever[gate.dedupeKey]=1;
+          gate.forever[gate.eventId]=1;
+          gate.ledger[currentUser.name].__forever=gate.forever;
+        }else if(gate.dedupeKey){
+          gate.bucket.seen[gate.dedupeKey]=1;
+        }
         gate.bucket.events=gate.bucket.events||{};
         gate.bucket.events[gate.eventId]=1;
         gate.bucket.earned=(Number(gate.earned)||0)+amount;
+        if(gate.rule.game) gate.bucket.gameEarned=(Number(gate.bucket.gameEarned)||0)+amount;
         saveXpLedger(gate.ledger);
         var next=before+amount;
         setUserXp(next,{eventId:gate.eventId,action:action});
         persistXpEventRemote(gate.eventId, action, amount);
         var afterLv=levelForXp(next).current;
-        if(afterLv.id!==beforeLv.id){
+        var afterNum=numericLevelForXp(next);
+        if(afterLv.id!==beforeLv.id || afterNum>beforeNum){
           try{unlockBadge(afterLv.id==='elite'||afterLv.id==='legend'?'elite':null)}catch(e){}
           try{
             if(typeof pushNotif==='function'){
-              pushNotif(currentUser.name,'system','level',null,'👑 You reached '+afterLv.icon+' '+afterLv.name);
+              pushNotif(currentUser.name,'system','level',null,'👑 Level '+afterNum+' · '+afterLv.icon+' '+afterLv.name);
             }
           }catch(e){}
-          try{showLevelUp(afterLv)}catch(e){}
+          // Nested level-reward grants need the busy lock released briefly
+          __xpGrantBusy=false;
+          var rewardTxt='';
+          try{rewardTxt=claimLevelRewardsUpTo(afterNum)||''}catch(e){}
+          __xpGrantBusy=true;
+          try{showLevelUp(afterLv,{fromNum:beforeNum,toNum:afterNum,xp:next,reward:rewardTxt})}catch(e){}
           if(!silent) try{toast(afterLv.icon+' Level up · '+afterLv.name)}catch(e){}
         }
         try{
           if(document.getElementById('panel-profile')&&document.getElementById('panel-profile').classList.contains('active')){
             paintProfileRetention();
             updateProfilePanel();
+          }
+          if(document.getElementById('panel-games')&&document.getElementById('panel-games').classList.contains('active')){
+            renderGamesHub();
           }
         }catch(e){}
         return amount;
@@ -13695,10 +13814,14 @@ function profileStatsHtml(userPosts, extra){
         +'<div class="rs-xp-bar"><i style="width:'+lv.pct+'%"></i></div>'
         +'<div style="font-size:11px;color:#9a9aa3;margin:6px 0 0">Today '+earnedToday.toLocaleString()+' / '+RS_DAILY_XP_CAP.toLocaleString()+' XP'
         +(remain<=0?' · daily cap reached':' · '+remain.toLocaleString()+' left')+'</div>'
+        +'<div style="font-size:12px;color:#cfcfd6;margin:8px 0 0">Level '+numericLevelForXp(xp)
+        +' · Games played: '+(function(){try{return Number(gameStatsFor().played)||0}catch(e){return 0}})()
+        +'</div>'
         +'<div class="rs-streak-chip">🔥 '+(Number(st.current)||0)+' day streak · best '+(Number(st.best)||0)
         +' · next reward @ '+nextStreakReward(Number(st.current)||0)+'d</div>'
         +streakCalendarHtml(st)
-        +(badgeHtml?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+badgeHtml+'</div>':'');
+        +(badgeHtml?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+badgeHtml+'</div>':'')
+        +'<button type="button" class="btn btn-secondary" style="width:100%;margin-top:12px;min-height:44px;font-weight:900" onclick="openGamesHub()">🎮 Open Games</button>';
     }
     function bumpCommentsGiven(){
       if(!currentUser||!currentUser.name)return;
@@ -13793,6 +13916,474 @@ function profileStatsHtml(userPosts, extra){
     window.makeXpEventId=makeXpEventId;
     window.RS_DAILY_XP_CAP=RS_DAILY_XP_CAP;
     window.RS_LEVELS=RS_LEVELS;
+    window.RS_GAME_XP_CAP=RS_GAME_XP_CAP;
+
+    /* —— Phase 2: Games + daily/level rewards (modular, reuses grantXp) ——
+       No new currency. No payment/FC grants. Optional SQL in migrations/. */
+    var RS_XP_PER_NUMERIC_LEVEL=100;
+    var RS_LEVEL_REWARDS={
+      2:{xpAction:'level_reward',ref:'lvl2',badge:null,label:'+30 XP kickoff'},
+      3:{xpAction:'level_reward',ref:'lvl3',badge:null,label:'+30 XP boost'},
+      5:{xpAction:'level_reward',ref:'lvl5',badge:'quiz_ace',label:'+30 XP · Quiz Ace path'},
+      10:{xpAction:'level_reward',ref:'lvl10',badge:'memory_master',label:'+30 XP · Memory path'},
+      15:{xpAction:'level_reward',ref:'lvl15',badge:'speed_demon',label:'+30 XP · Speed path'},
+      20:{xpAction:'level_reward',ref:'lvl20',badge:'word_smith',label:'+30 XP · Word path'}
+    };
+    var RS_DAILY_CLAIM_PLAN=[
+      {day:1,bonus:0},{day:2,bonus:0},{day:3,bonus:1},{day:4,bonus:0},
+      {day:5,bonus:1},{day:6,bonus:0},{day:7,bonus:1}
+    ];
+    var RS_GAMES=[
+      {id:'quiz',name:'Daily Quiz',cat:'DAILY',icon:'🧠',desc:'Answer one question. Correct answers earn XP.',xpHint:'+12 XP',action:'game_quiz'},
+      {id:'memory',name:'Memory',cat:'ARCADE',icon:'🃏',desc:'Find all pairs. Faster clears earn a bonus.',xpHint:'+15 XP',action:'game_memory'},
+      {id:'reaction',name:'Reaction',cat:'ARCADE',icon:'⚡',desc:'Tap when the signal appears. Beat your best time.',xpHint:'+8 XP',action:'game_reaction'},
+      {id:'word',name:'Word Puzzle',cat:'SOLO',icon:'🔤',desc:'Unscramble the word. Short and sharp.',xpHint:'+12 XP',action:'game_word'}
+    ];
+    var __rsGameSession=null;
+    var __rsGameView='hub';
+
+    function numericLevelForXp(xp){
+      xp=Math.max(0,Number(xp)||0);
+      return Math.max(1, Math.min(40, 1+Math.floor(xp/RS_XP_PER_NUMERIC_LEVEL)));
+    }
+    function loadGameStats(){
+      try{return JSON.parse(localStorage.getItem('rs_game_stats')||'{}')||{}}catch(e){return{}}
+    }
+    function saveGameStats(m){
+      try{localStorage.setItem('rs_game_stats',JSON.stringify(m||{}))}catch(e){}
+    }
+    function gameStatsFor(user){
+      user=user||(currentUser&&currentUser.name)||'';
+      var m=loadGameStats();
+      return m[user]||{played:0,byGame:{},best:{},days:[]};
+    }
+    function noteGamePlayed(gameId, meta){
+      if(!currentUser||!currentUser.name||!gameId)return;
+      var m=loadGameStats();
+      var u=m[currentUser.name]||{played:0,byGame:{},best:{},days:[]};
+      u.played=(Number(u.played)||0)+1;
+      u.byGame[gameId]=(Number(u.byGame[gameId]||0)||0)+1;
+      var day=rsDayKey();
+      if((u.days||[]).indexOf(day)<0) u.days=(u.days||[]).concat([day]).slice(-40);
+      if(meta&&meta.bestKey!=null&&meta.bestVal!=null){
+        var prev=u.best[meta.bestKey];
+        if(prev==null||(meta.bestLower?meta.bestVal<prev:meta.bestVal>prev)) u.best[meta.bestKey]=meta.bestVal;
+      }
+      m[currentUser.name]=u;
+      saveGameStats(m);
+      if(u.played===1) try{unlockBadge('first_game')}catch(e){}
+      if((u.days||[]).length>=7) try{unlockBadge('gamer_7')}catch(e){}
+    }
+    function gameXpRemainingToday(){
+      try{
+        var led=loadXpLedger();
+        var u=currentUser&&currentUser.name;
+        var b=u&&led[u]&&led[u][rsDayKey()];
+        var ge=b?Number(b.gameEarned)||0:0;
+        return Math.max(0,RS_GAME_XP_CAP-ge);
+      }catch(e){return RS_GAME_XP_CAP}
+    }
+    function gameDoneToday(action){
+      var g=canGrantXp(action, 'probe:'+rsDayKey());
+      // probe without consuming — canGrantXp doesn't mutate unless grantXp
+      // For status UI: check ledger counts
+      try{
+        var led=loadXpLedger();
+        var u=currentUser&&currentUser.name;
+        var b=u&&led[u]&&led[u][rsDayKey()];
+        var rule=RS_XP_ACTIONS[action];
+        if(!b||!rule)return false;
+        return (Number(b.counts[action]||0)||0)>=(rule.dailyCap||1);
+      }catch(e){return false}
+    }
+    function startGameSession(gameId){
+      if(!isRegistered()){toast('Login to play');showAuth('login');return null}
+      var token=String(gameId)+':'+rsDayKey()+':'+Math.floor(Date.now()/60000)+':'+((currentUser&&currentUser.name)||'');
+      __rsGameSession={id:gameId,token:token,t0:Date.now(),moves:0,done:false};
+      return __rsGameSession;
+    }
+    function assertGameSession(gameId, maxMs){
+      var s=__rsGameSession;
+      if(!s||s.id!==gameId||s.done)return {ok:false,reason:'session'};
+      var elapsed=Date.now()-Number(s.t0||0);
+      if(elapsed<400) return {ok:false,reason:'too_fast'};
+      if(maxMs&&elapsed>maxMs) return {ok:false,reason:'expired'};
+      return {ok:true,session:s,elapsed:elapsed};
+    }
+    function finishGameSession(){
+      if(__rsGameSession) __rsGameSession.done=true;
+    }
+    function grantGameXp(action, sessionRef, opts){
+      opts=opts||{};
+      if(!isRegistered())return {ok:false,reason:'auth',xp:0};
+      if(gameXpRemainingToday()<=0){
+        toast('Daily game XP limit reached.');
+        return {ok:false,reason:'game_cap',xp:0};
+      }
+      var ref=String(sessionRef||'');
+      if(!ref)return {ok:false,reason:'ref',xp:0};
+      var first=canGrantXp('game_first_today', rsDayKey());
+      var got=grantXp(action, ref, true);
+      var bonus=0;
+      if(got>0&&first.ok) bonus+=grantXp('game_first_today', rsDayKey(), true);
+      if(got>0&&opts.bonusAction) bonus+=grantXp(opts.bonusAction, opts.bonusRef||rsDayKey(), true);
+      if(got<=0&&bonus<=0){
+        var gate=canGrantXp(action, ref);
+        if(gate.reason==='game_cap'||gate.reason==='daily_cap') toast('Daily game XP limit reached.');
+        else if(gate.reason==='action_cap'||gate.reason==='dup'||gate.reason==='dup_event') toast('Already claimed for today.');
+        return {ok:false,reason:gate.reason||'denied',xp:0};
+      }
+      return {ok:true,xp:got+bonus,base:got,bonus:bonus};
+    }
+    function claimLevelRewardsUpTo(numLevel){
+      numLevel=Number(numLevel)||0;
+      var parts=[];
+      Object.keys(RS_LEVEL_REWARDS).forEach(function(k){
+        var n=Number(k);
+        if(n>numLevel)return;
+        var conf=RS_LEVEL_REWARDS[k];
+        if(!conf)return;
+        var got=grantXp(conf.xpAction||'level_reward', String(conf.ref||('lvl'+n)), true);
+        if(got>0){
+          parts.push(conf.label||('+'+got+' XP'));
+          if(conf.badge) try{unlockBadge(conf.badge)}catch(e){}
+          try{pushNotif(currentUser.name,'system','badge',null,'🎁 Level '+n+' reward')}catch(e){}
+        }
+      });
+      return parts.join(' · ');
+    }
+    function claimDailyReward(){
+      if(!isRegistered()){toast('Login first');showAuth('login');return}
+      tickDailyRetention();
+      var st=getStreakState(currentUser.name);
+      var dayN=((Number(st.current)||1)-1)%7+1;
+      var plan=RS_DAILY_CLAIM_PLAN[dayN-1]||RS_DAILY_CLAIM_PLAN[0];
+      var base=grantXp('daily_reward', rsDayKey(), false);
+      var bonus=0;
+      if(plan.bonus) bonus=grantXp('daily_reward_bonus', rsDayKey(), false);
+      if(base<=0&&bonus<=0){toast('Already claimed today');renderGamesHub();return}
+      if(dayN===7) try{unlockBadge('daily_7')}catch(e){}
+      toast('Daily reward · +'+(base+bonus)+' XP'+(plan.bonus?' (bonus day!)':''));
+      try{pushNotif(currentUser.name,'system','streak',null,'🎁 Daily reward claimed · day '+dayN)}catch(e){}
+      renderGamesHub();
+      paintProfileRetention();
+    }
+    function dailyClaimStatus(){
+      var base=canGrantXp('daily_reward', rsDayKey());
+      return {available:!!base.ok, reason:base.reason};
+    }
+
+    function openGamesHub(){
+      showPanel('games');
+      renderGamesHub();
+    }
+    function renderGamesHub(){
+      var box=document.getElementById('games-hub');
+      var play=document.getElementById('games-play');
+      if(!box)return;
+      __rsGameView='hub';
+      if(play){play.style.display='none';play.innerHTML=''}
+      box.style.display='block';
+      if(!isRegistered()){
+        box.innerHTML='<div class="empty" style="padding:24px">Login to play games and earn XP.</div>';
+        return;
+      }
+      tickDailyRetention();
+      var xp=getUserXp();
+      var lv=levelForXp(xp);
+      var num=numericLevelForXp(xp);
+      var st=getStreakState(currentUser.name);
+      var gs=gameStatsFor();
+      var claim=dailyClaimStatus();
+      var dayN=((Number(st.current)||1)-1)%7+1;
+      var remain=gameXpRemainingToday();
+      var html='';
+      html+='<div class="rs-games-hero">';
+      html+='<div class="rs-games-kicker">🎮 GAMES</div>';
+      html+='<div class="rs-games-title">Play. Earn XP. Come back tomorrow.</div>';
+      html+='<div class="rs-games-meta">Level '+num+' · '+(lv.current.icon||'')+' '+esc(lv.current.name)
+        +' · '+xp.toLocaleString()+' XP · 🔥 '+(Number(st.current)||0)+'d streak</div>';
+      html+='<div class="rs-xp-bar" style="margin-top:10px"><i style="width:'+lv.pct+'%"></i></div>';
+      html+='<div class="rs-games-meta" style="margin-top:8px">Game XP today: '+(RS_GAME_XP_CAP-remain)+' / '+RS_GAME_XP_CAP
+        +(remain<=0?' · limit reached':' · '+remain+' left')+' · Games played: '+(Number(gs.played)||0)+'</div>';
+      html+='</div>';
+
+      html+='<div class="rs-game-card rs-daily-card">';
+      html+='<div class="rs-game-cat">DAILY</div>';
+      html+='<div class="rs-game-name">🔥 Daily Reward · Day '+dayN+'/7</div>';
+      html+='<div class="rs-game-desc">Claim once per day. Day 3/5/7 include a bonus. Streak keeps the calendar honest.</div>';
+      html+='<div class="rs-game-foot"><span class="rs-game-xp">+10'+(RS_DAILY_CLAIM_PLAN[dayN-1]&&RS_DAILY_CLAIM_PLAN[dayN-1].bonus?'–30':'')+' XP</span>';
+      if(claim.available) html+='<button type="button" class="btn rs-game-btn" id="btn-daily-claim">Claim</button>';
+      else html+='<span class="rs-game-done">CLAIMED TODAY</span>';
+      html+='</div></div>';
+
+      RS_GAMES.forEach(function(g){
+        var done=gameDoneToday(g.action);
+        html+='<div class="rs-game-card" data-game="'+esc(g.id)+'">';
+        html+='<div class="rs-game-cat">'+esc(g.cat)+'</div>';
+        html+='<div class="rs-game-ico">'+g.icon+'</div>';
+        html+='<div class="rs-game-name">'+esc(g.name)+'</div>';
+        html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
+        html+='<div class="rs-game-foot"><span class="rs-game-xp">'+esc(g.xpHint)+(done?' · done today':'')+'</span>';
+        html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">'+(done?'Play again':'OPEN GAME →')+'</button>';
+        html+='</div></div>';
+      });
+      box.innerHTML=html;
+      var claimBtn=document.getElementById('btn-daily-claim');
+      if(claimBtn) claimBtn.onclick=function(){claimDailyReward()};
+      Array.prototype.forEach.call(box.querySelectorAll('[data-open-game]'),function(btn){
+        btn.onclick=function(){openGame(btn.getAttribute('data-open-game'))};
+      });
+    }
+
+    function openGame(id){
+      if(!isRegistered()){toast('Login to play');showAuth('login');return}
+      var hub=document.getElementById('games-hub');
+      var play=document.getElementById('games-play');
+      if(hub)hub.style.display='none';
+      if(!play)return;
+      play.style.display='block';
+      __rsGameView=id;
+      if(id==='quiz') renderQuizGame(play);
+      else if(id==='memory') renderMemoryGame(play);
+      else if(id==='reaction') renderReactionGame(play);
+      else if(id==='word') renderWordGame(play);
+      else renderGamesHub();
+    }
+    function gamesBack(){
+      finishGameSession();
+      renderGamesHub();
+    }
+
+    /* Quiz */
+    var RS_QUIZ_BANK=[
+      {q:'What earns XP on Ruiningsubs?',a:['Likes & comments','Buying FC only','Changing username','Closing the tab'],c:0},
+      {q:'Daily game XP is capped to prevent farming.',a:['True','False','Only on weekends','Only for guests'],c:0},
+      {q:'A streak counts consecutive days of activity.',a:['True','False','Only posts','Only likes'],c:0},
+      {q:'Which feed shows people you follow?',a:['Following','Trending','Timed','IDs / PEA'],c:0},
+      {q:'Level ranks go Rookie → … → Legend.',a:['True','False','Only two ranks','Ranks are random'],c:0},
+      {q:'Refreshing the page should not re-grant the same XP.',a:['True','False','Sometimes','Only for admins'],c:0},
+      {q:'Trending prefers recent growth, not only all-time likes.',a:['True','False','Only views','Only comments'],c:0}
+    ];
+    function renderQuizGame(el){
+      var sess=startGameSession('quiz');
+      var idx=Math.abs((Date.now()/86400000|0)+((currentUser.name||'').length))%RS_QUIZ_BANK.length;
+      // rotate by day so same day same question family, not infinitely farmable via refresh for XP
+      idx=(Math.abs(hashStr(rsDayKey()+':'+(currentUser.name||'')))+RS_QUIZ_BANK.length)%RS_QUIZ_BANK.length;
+      var item=RS_QUIZ_BANK[idx];
+      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
+      html+='<div class="rs-game-play-title">🧠 Daily Quiz</div>';
+      html+='<div class="rs-game-play-sub">One scored answer per attempt · daily XP capped</div>';
+      html+='<div class="rs-quiz-q">'+esc(item.q)+'</div><div class="rs-quiz-opts">';
+      item.a.forEach(function(opt,i){
+        html+='<button type="button" class="btn rs-quiz-opt" data-i="'+i+'">'+esc(opt)+'</button>';
+      });
+      html+='</div><div id="quiz-result" class="rs-game-result"></div>';
+      el.innerHTML=html;
+      document.getElementById('games-back').onclick=gamesBack;
+      Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(btn){
+        btn.onclick=function(){
+          if(!assertGameSession('quiz',10*60*1000).ok){toast('Session expired');return}
+          var pick=Number(btn.getAttribute('data-i'));
+          Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(b){b.disabled=true});
+          var ok=pick===item.c;
+          var res=document.getElementById('quiz-result');
+          if(!ok){
+            finishGameSession();
+            noteGamePlayed('quiz',{});
+            res.innerHTML='<div class="rs-game-fail">Incorrect · 0 XP</div><button type="button" class="btn" id="quiz-done">Back</button>';
+            document.getElementById('quiz-done').onclick=gamesBack;
+            return;
+          }
+          var ref='quiz:'+rsDayKey()+':'+idx;
+          var award=grantGameXp('game_quiz', ref, {bonusAction:'game_quiz_bonus',bonusRef:rsDayKey()});
+          finishGameSession();
+          noteGamePlayed('quiz',{});
+          if(award.ok) try{unlockBadge('quiz_ace')}catch(e){}
+          res.innerHTML='<div class="rs-game-ok">Correct · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="quiz-done">Back</button>';
+          document.getElementById('quiz-done').onclick=gamesBack;
+        };
+      });
+    }
+    function hashStr(s){
+      var h=0; s=String(s||'');
+      for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}
+      return Math.abs(h);
+    }
+
+    /* Memory */
+    function renderMemoryGame(el){
+      var sess=startGameSession('memory');
+      var symbols=['🔥','👑','💎','⚡','🎯','🧩','🌙','🎲'];
+      var cards=symbols.concat(symbols).map(function(s,i){return {id:i,s:s,open:false,done:false}});
+      for(var i=cards.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=cards[i];cards[i]=cards[j];cards[j]=t}
+      var openIdx=[];
+      var moves=0;
+      var matched=0;
+      function paint(){
+        var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
+        html+='<div class="rs-game-play-title">🃏 Memory</div>';
+        html+='<div class="rs-game-play-sub">Moves: '+moves+' · Pairs: '+matched+'/8</div>';
+        html+='<div class="rs-mem-grid">';
+        cards.forEach(function(c,idx){
+          var show=c.open||c.done;
+          html+='<button type="button" class="rs-mem-card'+(c.done?' done':'')+(c.open?' open':'')+'" data-i="'+idx+'">'+(show?c.s:'?')+'</button>';
+        });
+        html+='</div><div id="mem-result" class="rs-game-result"></div>';
+        el.innerHTML=html;
+        document.getElementById('games-back').onclick=gamesBack;
+        Array.prototype.forEach.call(el.querySelectorAll('.rs-mem-card'),function(btn){
+          btn.onclick=function(){
+            var i=Number(btn.getAttribute('data-i'));
+            var c=cards[i];
+            if(!c||c.done||c.open||openIdx.length>=2)return;
+            if(!assertGameSession('memory',30*60*1000).ok){toast('Session expired');return}
+            c.open=true; openIdx.push(i); paint();
+            if(openIdx.length<2)return;
+            moves++;
+            if(__rsGameSession) __rsGameSession.moves=moves;
+            var a=cards[openIdx[0]], b=cards[openIdx[1]];
+            if(a.s===b.s){
+              a.done=b.done=true; matched++; openIdx=[];
+              paint();
+              if(matched>=8){
+                var gate=assertGameSession('memory',30*60*1000);
+                if(!gate.ok||moves<8){toast('Invalid run');finishGameSession();return}
+                var perfect=moves<=12;
+                var ref='memory:'+rsDayKey()+':'+Math.min(moves,99);
+                var award=grantGameXp('game_memory', ref, perfect?{bonusAction:'game_memory_perfect',bonusRef:rsDayKey()}:null);
+                finishGameSession();
+                noteGamePlayed('memory',{bestKey:'memoryMoves',bestVal:moves,bestLower:true});
+                if(perfect) try{unlockBadge('memory_master')}catch(e){}
+                var res=document.getElementById('mem-result');
+                if(res) res.innerHTML='<div class="rs-game-ok">Cleared in '+moves+' moves · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="mem-done">Back</button>';
+                var d=document.getElementById('mem-done'); if(d)d.onclick=gamesBack;
+              }
+            }else{
+              setTimeout(function(){a.open=b.open=false;openIdx=[];paint()},450);
+            }
+          };
+        });
+      }
+      paint();
+    }
+
+    /* Reaction */
+    function renderReactionGame(el){
+      var sess=startGameSession('reaction');
+      var phase='wait';
+      var armAt=0;
+      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
+      html+='<div class="rs-game-play-title">⚡ Reaction</div>';
+      html+='<div class="rs-game-play-sub">Wait for green, then tap. Early taps = fail.</div>';
+      html+='<button type="button" class="rs-react-pad" id="react-pad">TAP TO ARM</button>';
+      html+='<div id="react-result" class="rs-game-result"></div>';
+      el.innerHTML=html;
+      document.getElementById('games-back').onclick=gamesBack;
+      var pad=document.getElementById('react-pad');
+      var timer=null;
+      pad.onclick=function(){
+        var res=document.getElementById('react-result');
+        if(phase==='wait'){
+          phase='armed';
+          pad.textContent='Wait for green…';
+          pad.className='rs-react-pad armed';
+          var delay=1200+Math.floor(Math.random()*2200);
+          armAt=Date.now()+delay;
+          timer=setTimeout(function(){
+            phase='go';
+            pad.textContent='TAP!';
+            pad.className='rs-react-pad go';
+            armAt=Date.now();
+          },delay);
+          return;
+        }
+        if(phase==='armed'){
+          clearTimeout(timer);
+          phase='wait';
+          pad.textContent='Too early — try again';
+          pad.className='rs-react-pad fail';
+          setTimeout(function(){pad.textContent='TAP TO ARM';pad.className='rs-react-pad';phase='wait'},900);
+          return;
+        }
+        if(phase==='go'){
+          var ms=Date.now()-armAt;
+          phase='done';
+          pad.className='rs-react-pad';
+          pad.textContent=ms+' ms';
+          if(!assertGameSession('reaction',10*60*1000).ok){toast('Session expired');return}
+          if(ms<90){ // impossible / bot
+            finishGameSession();
+            if(res) res.innerHTML='<div class="rs-game-fail">Impossible time rejected</div>';
+            return;
+          }
+          if(ms>2500){
+            finishGameSession();
+            noteGamePlayed('reaction',{});
+            if(res) res.innerHTML='<div class="rs-game-fail">Too slow · 0 XP</div><button type="button" class="btn" id="react-done">Back</button>';
+            var d0=document.getElementById('react-done'); if(d0)d0.onclick=gamesBack;
+            return;
+          }
+          var bucket=Math.min(9, Math.floor(ms/50));
+          var ref='reaction:'+rsDayKey()+':'+bucket;
+          var gs=gameStatsFor();
+          var best=gs.best&&gs.best.reactionMs;
+          var isBest=best==null||ms<best;
+          var award=grantGameXp('game_reaction', ref, isBest?{bonusAction:'game_reaction_best',bonusRef:rsDayKey()}:null);
+          finishGameSession();
+          noteGamePlayed('reaction',{bestKey:'reactionMs',bestVal:ms,bestLower:true});
+          if(ms<=220) try{unlockBadge('speed_demon')}catch(e){}
+          if(res) res.innerHTML='<div class="rs-game-ok">YOUR TIME '+ms+' ms'
+            +(isBest?' · PERSONAL BEST':'')+' · +'+(award.xp||0)+' XP</div>'
+            +'<button type="button" class="btn" id="react-done">Back</button>';
+          var d=document.getElementById('react-done'); if(d)d.onclick=gamesBack;
+        }
+      };
+    }
+
+    /* Word */
+    var RS_WORD_BANK=['STREAK','EXPOSE','LEGEND','FOLLOW','TREND','BADGE','NEON','RUIN','LEVEL','QUICK','FLASH','MATCH'];
+    function renderWordGame(el){
+      var sess=startGameSession('word');
+      var word=RS_WORD_BANK[hashStr(rsDayKey()+'|'+(currentUser.name||''))%RS_WORD_BANK.length];
+      var chars=word.split('');
+      for(var i=chars.length-1;i>0;i--){var j=(hashStr(word+i)+i)%(i+1);var t=chars[i];chars[i]=chars[j];chars[j]=t}
+      // ensure not identical
+      if(chars.join('')===word){var tmp=chars[0];chars[0]=chars[chars.length-1];chars[chars.length-1]=tmp}
+      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
+      html+='<div class="rs-game-play-title">🔤 Word Puzzle</div>';
+      html+='<div class="rs-game-play-sub">Unscramble · '+chars.length+' letters</div>';
+      html+='<div class="rs-word-scramble">'+esc(chars.join(' '))+'</div>';
+      html+='<input class="rs-word-input" id="word-in" maxlength="16" autocomplete="off" autocapitalize="characters" placeholder="TYPE THE WORD"/>';
+      html+='<button type="button" class="btn rs-game-btn" id="word-go" style="width:100%;margin-top:10px">Submit</button>';
+      html+='<div id="word-result" class="rs-game-result"></div>';
+      el.innerHTML=html;
+      document.getElementById('games-back').onclick=gamesBack;
+      document.getElementById('word-go').onclick=function(){
+        if(!assertGameSession('word',15*60*1000).ok){toast('Session expired');return}
+        var val=String((document.getElementById('word-in')||{}).value||'').trim().toUpperCase().replace(/[^A-Z]/g,'');
+        var res=document.getElementById('word-result');
+        if(val!==word){
+          if(res) res.innerHTML='<div class="rs-game-fail">Not quite — try again</div>';
+          return;
+        }
+        var ref='word:'+rsDayKey()+':'+word;
+        var award=grantGameXp('game_word', ref, null);
+        finishGameSession();
+        noteGamePlayed('word',{});
+        if(award.ok) try{unlockBadge('word_smith')}catch(e){}
+        if(res) res.innerHTML='<div class="rs-game-ok">Solved · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="word-done">Back</button>';
+        var d=document.getElementById('word-done'); if(d)d.onclick=gamesBack;
+        var go=document.getElementById('word-go'); if(go)go.disabled=true;
+      };
+    }
+
+    window.openGamesHub=openGamesHub;
+    window.renderGamesHub=renderGamesHub;
+    window.numericLevelForXp=numericLevelForXp;
+    window.claimDailyReward=claimDailyReward;
+    window.claimLevelRewardsUpTo=claimLevelRewardsUpTo;
+    window.gameXpRemainingToday=gameXpRemainingToday;
 
     function getLocalFeatured(){
       try{return JSON.parse(localStorage.getItem('rs_featured')||'{}')||{}}catch(e){return {}}
