@@ -1872,7 +1872,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <span class="entry-ico" style="color:#c4b5fd;border-color:rgba(167,139,250,.5);box-shadow:0 0 16px rgba(124,58,237,.3)">🎮</span>
           <div class="entry-body">
             <strong>Games</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Quiz · Memory · Reaction · Word · Daily XP</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Obedience · Tribute · Exposure · Devotion · XP</div>
           </div>
           <span style="font-size:20px;color:#c4b5fd">›</span>
         </div>
@@ -13341,16 +13341,20 @@ function profileStatsHtml(userPosts, extra){
       streak_7:{xp:40,dailyCap:1,dedupe:'day'},
       streak_14:{xp:80,dailyCap:1,dedupe:'day'},
       streak_30:{xp:150,dailyCap:1,dedupe:'day'},
-      // Phase 2 — daily claim calendar + games (all capped / deduped)
+      // Phase 2 — daily claim + themed community games (1 scored reward / day each)
       daily_reward:{xp:10,dailyCap:1,dedupe:'day'},
       daily_reward_bonus:{xp:20,dailyCap:1,dedupe:'day'},
-      game_quiz:{xp:12,dailyCap:3,dedupe:'post',game:1},
-      game_quiz_bonus:{xp:5,dailyCap:1,dedupe:'day',game:1},
-      game_memory:{xp:15,dailyCap:2,dedupe:'post',game:1},
-      game_memory_perfect:{xp:8,dailyCap:1,dedupe:'day',game:1},
-      game_reaction:{xp:8,dailyCap:5,dedupe:'post',game:1},
-      game_reaction_best:{xp:5,dailyCap:1,dedupe:'day',game:1},
-      game_word:{xp:12,dailyCap:2,dedupe:'post',game:1},
+      game_daily_sub:{xp:12,dailyCap:1,dedupe:'day',game:1},
+      game_obedience:{xp:15,dailyCap:1,dedupe:'day',game:1},
+      game_tribute:{xp:8,dailyCap:1,dedupe:'day',game:1},
+      game_exposure:{xp:12,dailyCap:1,dedupe:'day',game:1},
+      game_devotion:{xp:10,dailyCap:1,dedupe:'day',game:1},
+      game_sequence:{xp:15,dailyCap:1,dedupe:'day',game:1},
+      // legacy aliases (keep ledger/history from earlier builds)
+      game_quiz:{xp:12,dailyCap:1,dedupe:'day',game:1},
+      game_memory:{xp:15,dailyCap:1,dedupe:'day',game:1},
+      game_reaction:{xp:8,dailyCap:1,dedupe:'day',game:1},
+      game_word:{xp:12,dailyCap:1,dedupe:'day',game:1},
       game_first_today:{xp:5,dailyCap:1,dedupe:'day',game:1},
       level_reward:{xp:30,dailyCap:20,dedupe:'forever'},
       // legacy soft awards — capped so old callers cannot farm
@@ -13366,13 +13370,13 @@ function profileStatsHtml(userPosts, extra){
       comments_50:{icon:'💬',label:'50 Comments'},
       elite:{icon:'👑',label:'Reached Elite'},
       trending_creator:{icon:'🚀',label:'Trending Creator'},
-      first_game:{icon:'🎮',label:'First Game'},
-      gamer_7:{icon:'🕹️',label:'7 Day Gamer'},
-      quiz_ace:{icon:'🧠',label:'Quiz Ace'},
-      memory_master:{icon:'🃏',label:'Memory Master'},
-      speed_demon:{icon:'⚡',label:'Speed Demon'},
-      word_smith:{icon:'🔤',label:'Word Smith'},
-      daily_7:{icon:'📅',label:'7 Day Claim'}
+      first_game:{icon:'🎮',label:'First Challenge'},
+      gamer_7:{icon:'🕹️',label:'7 Day Discipline'},
+      quiz_ace:{icon:'🧠',label:'Devoted Mind'},
+      memory_master:{icon:'👑',label:'Obedience Rank'},
+      speed_demon:{icon:'⚡',label:'Tribute Reflex'},
+      word_smith:{icon:'📸',label:'Exposure Ready'},
+      daily_7:{icon:'📅',label:'7 Day Devotion'}
     };
     function rsDayKey(ts){
       var d=new Date(ts||Date.now());
@@ -13924,20 +13928,22 @@ function profileStatsHtml(userPosts, extra){
     var RS_LEVEL_REWARDS={
       2:{xpAction:'level_reward',ref:'lvl2',badge:null,label:'+30 XP kickoff'},
       3:{xpAction:'level_reward',ref:'lvl3',badge:null,label:'+30 XP boost'},
-      5:{xpAction:'level_reward',ref:'lvl5',badge:'quiz_ace',label:'+30 XP · Quiz Ace path'},
-      10:{xpAction:'level_reward',ref:'lvl10',badge:'memory_master',label:'+30 XP · Memory path'},
-      15:{xpAction:'level_reward',ref:'lvl15',badge:'speed_demon',label:'+30 XP · Speed path'},
-      20:{xpAction:'level_reward',ref:'lvl20',badge:'word_smith',label:'+30 XP · Word path'}
+      5:{xpAction:'level_reward',ref:'lvl5',badge:'quiz_ace',label:'+30 XP · Devotion path'},
+      10:{xpAction:'level_reward',ref:'lvl10',badge:'memory_master',label:'+30 XP · Obedience path'},
+      15:{xpAction:'level_reward',ref:'lvl15',badge:'speed_demon',label:'+30 XP · Tribute path'},
+      20:{xpAction:'level_reward',ref:'lvl20',badge:'word_smith',label:'+30 XP · Exposure path'}
     };
     var RS_DAILY_CLAIM_PLAN=[
       {day:1,bonus:0},{day:2,bonus:0},{day:3,bonus:1},{day:4,bonus:0},
       {day:5,bonus:1},{day:6,bonus:0},{day:7,bonus:1}
     ];
     var RS_GAMES=[
-      {id:'quiz',name:'Daily Quiz',cat:'DAILY',icon:'🧠',desc:'Answer one question. Correct answers earn XP.',xpHint:'+12 XP',action:'game_quiz'},
-      {id:'memory',name:'Memory',cat:'ARCADE',icon:'🃏',desc:'Find all pairs. Faster clears earn a bonus.',xpHint:'+15 XP',action:'game_memory'},
-      {id:'reaction',name:'Reaction',cat:'ARCADE',icon:'⚡',desc:'Tap when the signal appears. Beat your best time.',xpHint:'+8 XP',action:'game_reaction'},
-      {id:'word',name:'Word Puzzle',cat:'SOLO',icon:'🔤',desc:'Unscramble the word. Short and sharp.',xpHint:'+12 XP',action:'game_word'}
+      {id:'daily_sub',name:'Daily Submission',cat:'DAILY',icon:'🧠',desc:'Complete today’s obedience challenge. Follow the instruction correctly to earn XP.',xpHint:'+12 XP',action:'game_daily_sub',xp:12},
+      {id:'obedience',name:'Obedience Test',cat:'ARCADE',icon:'👑',desc:'Follow the sequence of commands correctly. Faster and more accurate submissions earn a higher rank mark.',xpHint:'+15 XP',action:'game_obedience',xp:15},
+      {id:'tribute',name:'Tribute Reaction',cat:'ARCADE',icon:'⚡',desc:'React instantly when the correct signal appears. Beat your best response time.',xpHint:'+8 XP',action:'game_tribute',xp:8},
+      {id:'exposure',name:'Exposure Challenge',cat:'SOLO',icon:'📸',desc:'Complete today’s exposure-themed challenge and earn XP for participation.',xpHint:'+12 XP',action:'game_exposure',xp:12},
+      {id:'devotion',name:'Devotion Quiz',cat:'SOLO',icon:'💎',desc:'Test your knowledge of devotion, submission, and findom culture.',xpHint:'+10 XP',action:'game_devotion',xp:10},
+      {id:'sequence',name:'Submission Sequence',cat:'SOLO',icon:'🔒',desc:'Remember the correct sequence and repeat it perfectly. Higher streaks earn a stronger rank mark.',xpHint:'+15 XP',action:'game_sequence',xp:15}
     ];
     var __rsGameSession=null;
     var __rsGameView='hub';
@@ -14017,23 +14023,22 @@ function profileStatsHtml(userPosts, extra){
       opts=opts||{};
       if(!isRegistered())return {ok:false,reason:'auth',xp:0};
       if(gameXpRemainingToday()<=0){
-        toast('Daily game XP limit reached.');
+        toast('Daily game XP limit reached. You can still practice for rank.');
         return {ok:false,reason:'game_cap',xp:0};
       }
-      var ref=String(sessionRef||'');
-      if(!ref)return {ok:false,reason:'ref',xp:0};
-      var first=canGrantXp('game_first_today', rsDayKey());
+      // Card XP must match grantXp rule — use stable day ref so refresh cannot re-claim
+      var ref=String(sessionRef||rsDayKey());
+      var expected=Number((RS_XP_ACTIONS[action]&&RS_XP_ACTIONS[action].xp)||0);
       var got=grantXp(action, ref, true);
-      var bonus=0;
-      if(got>0&&first.ok) bonus+=grantXp('game_first_today', rsDayKey(), true);
-      if(got>0&&opts.bonusAction) bonus+=grantXp(opts.bonusAction, opts.bonusRef||rsDayKey(), true);
-      if(got<=0&&bonus<=0){
+      if(got<=0){
         var gate=canGrantXp(action, ref);
         if(gate.reason==='game_cap'||gate.reason==='daily_cap') toast('Daily game XP limit reached.');
-        else if(gate.reason==='action_cap'||gate.reason==='dup'||gate.reason==='dup_event') toast('Already claimed for today.');
-        return {ok:false,reason:gate.reason||'denied',xp:0};
+        else if(gate.reason==='action_cap'||gate.reason==='dup'||gate.reason==='dup_event') toast('Challenge XP already claimed today — practice still open.');
+        return {ok:false,reason:gate.reason||'denied',xp:0,expected:expected};
       }
-      return {ok:true,xp:got+bonus,base:got,bonus:bonus};
+      // Audit: awarded XP must equal the card amount for this action
+      if(got!==expected) console.warn('game xp mismatch', action, got, expected);
+      return {ok:true,xp:got,base:got,bonus:0,expected:expected};
     }
     function claimLevelRewardsUpTo(numLevel){
       numLevel=Number(numLevel)||0;
@@ -14099,19 +14104,19 @@ function profileStatsHtml(userPosts, extra){
       var remain=gameXpRemainingToday();
       var html='';
       html+='<div class="rs-games-hero">';
-      html+='<div class="rs-games-kicker">🎮 GAMES</div>';
-      html+='<div class="rs-games-title">Play. Earn XP. Come back tomorrow.</div>';
-      html+='<div class="rs-games-meta">Level '+num+' · '+(lv.current.icon||'')+' '+esc(lv.current.name)
+      html+='<div class="rs-games-kicker">🎮 CHALLENGES</div>';
+      html+='<div class="rs-games-title">Obedience. Devotion. Discipline. Rank up.</div>';
+      html+='<div class="rs-games-meta">Rank L'+num+' · '+(lv.current.icon||'')+' '+esc(lv.current.name)
         +' · '+xp.toLocaleString()+' XP · 🔥 '+(Number(st.current)||0)+'d streak</div>';
       html+='<div class="rs-xp-bar" style="margin-top:10px"><i style="width:'+lv.pct+'%"></i></div>';
-      html+='<div class="rs-games-meta" style="margin-top:8px">Game XP today: '+(RS_GAME_XP_CAP-remain)+' / '+RS_GAME_XP_CAP
-        +(remain<=0?' · limit reached':' · '+remain+' left')+' · Games played: '+(Number(gs.played)||0)+'</div>';
+      html+='<div class="rs-games-meta" style="margin-top:8px">Challenge XP today: '+(RS_GAME_XP_CAP-remain)+' / '+RS_GAME_XP_CAP
+        +(remain<=0?' · daily limit reached':' · '+remain+' left')+' · Challenges played: '+(Number(gs.played)||0)+'</div>';
       html+='</div>';
 
       html+='<div class="rs-game-card rs-daily-card">';
       html+='<div class="rs-game-cat">DAILY</div>';
-      html+='<div class="rs-game-name">🔥 Daily Reward · Day '+dayN+'/7</div>';
-      html+='<div class="rs-game-desc">Claim once per day. Day 3/5/7 include a bonus. Streak keeps the calendar honest.</div>';
+      html+='<div class="rs-game-name">🔥 Daily Devotion · Day '+dayN+'/7</div>';
+      html+='<div class="rs-game-desc">Claim once per day to keep your streak. Days 3, 5 and 7 include a discipline bonus.</div>';
       html+='<div class="rs-game-foot"><span class="rs-game-xp">+10'+(RS_DAILY_CLAIM_PLAN[dayN-1]&&RS_DAILY_CLAIM_PLAN[dayN-1].bonus?'–30':'')+' XP</span>';
       if(claim.available) html+='<button type="button" class="btn rs-game-btn" id="btn-daily-claim">Claim</button>';
       else html+='<span class="rs-game-done">CLAIMED TODAY</span>';
@@ -14119,13 +14124,14 @@ function profileStatsHtml(userPosts, extra){
 
       RS_GAMES.forEach(function(g){
         var done=gameDoneToday(g.action);
+        var ruleXp=Number((RS_XP_ACTIONS[g.action]&&RS_XP_ACTIONS[g.action].xp)||g.xp||0);
         html+='<div class="rs-game-card" data-game="'+esc(g.id)+'">';
         html+='<div class="rs-game-cat">'+esc(g.cat)+'</div>';
         html+='<div class="rs-game-ico">'+g.icon+'</div>';
         html+='<div class="rs-game-name">'+esc(g.name)+'</div>';
         html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
-        html+='<div class="rs-game-foot"><span class="rs-game-xp">'+esc(g.xpHint)+(done?' · done today':'')+'</span>';
-        html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">'+(done?'Play again':'OPEN GAME →')+'</button>';
+        html+='<div class="rs-game-foot"><span class="rs-game-xp">+'+ruleXp+' XP'+(done?' · claimed today':'')+'</span>';
+        html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">OPEN GAME →</button>';
         html+='</div></div>';
       });
       box.innerHTML=html;
@@ -14144,238 +14150,302 @@ function profileStatsHtml(userPosts, extra){
       if(!play)return;
       play.style.display='block';
       __rsGameView=id;
-      if(id==='quiz') renderQuizGame(play);
-      else if(id==='memory') renderMemoryGame(play);
-      else if(id==='reaction') renderReactionGame(play);
-      else if(id==='word') renderWordGame(play);
+      if(id==='daily_sub') renderDailySubmission(play);
+      else if(id==='obedience') renderObedienceTest(play);
+      else if(id==='tribute') renderTributeReaction(play);
+      else if(id==='exposure') renderExposureChallenge(play);
+      else if(id==='devotion') renderDevotionQuiz(play);
+      else if(id==='sequence') renderSubmissionSequence(play);
       else renderGamesHub();
     }
     function gamesBack(){
       finishGameSession();
       renderGamesHub();
     }
-
-    /* Quiz */
-    var RS_QUIZ_BANK=[
-      {q:'What earns XP on Ruiningsubs?',a:['Likes & comments','Buying FC only','Changing username','Closing the tab'],c:0},
-      {q:'Daily game XP is capped to prevent farming.',a:['True','False','Only on weekends','Only for guests'],c:0},
-      {q:'A streak counts consecutive days of activity.',a:['True','False','Only posts','Only likes'],c:0},
-      {q:'Which feed shows people you follow?',a:['Following','Trending','Timed','IDs / PEA'],c:0},
-      {q:'Level ranks go Rookie → … → Legend.',a:['True','False','Only two ranks','Ranks are random'],c:0},
-      {q:'Refreshing the page should not re-grant the same XP.',a:['True','False','Sometimes','Only for admins'],c:0},
-      {q:'Trending prefers recent growth, not only all-time likes.',a:['True','False','Only views','Only comments'],c:0}
-    ];
-    function renderQuizGame(el){
-      var sess=startGameSession('quiz');
-      var idx=Math.abs((Date.now()/86400000|0)+((currentUser.name||'').length))%RS_QUIZ_BANK.length;
-      // rotate by day so same day same question family, not infinitely farmable via refresh for XP
-      idx=(Math.abs(hashStr(rsDayKey()+':'+(currentUser.name||'')))+RS_QUIZ_BANK.length)%RS_QUIZ_BANK.length;
-      var item=RS_QUIZ_BANK[idx];
-      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
-      html+='<div class="rs-game-play-title">🧠 Daily Quiz</div>';
-      html+='<div class="rs-game-play-sub">One scored answer per attempt · daily XP capped</div>';
-      html+='<div class="rs-quiz-q">'+esc(item.q)+'</div><div class="rs-quiz-opts">';
-      item.a.forEach(function(opt,i){
-        html+='<button type="button" class="btn rs-quiz-opt" data-i="'+i+'">'+esc(opt)+'</button>';
-      });
-      html+='</div><div id="quiz-result" class="rs-game-result"></div>';
-      el.innerHTML=html;
-      document.getElementById('games-back').onclick=gamesBack;
-      Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(btn){
-        btn.onclick=function(){
-          if(!assertGameSession('quiz',10*60*1000).ok){toast('Session expired');return}
-          var pick=Number(btn.getAttribute('data-i'));
-          Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(b){b.disabled=true});
-          var ok=pick===item.c;
-          var res=document.getElementById('quiz-result');
-          if(!ok){
-            finishGameSession();
-            noteGamePlayed('quiz',{});
-            res.innerHTML='<div class="rs-game-fail">Incorrect · 0 XP</div><button type="button" class="btn" id="quiz-done">Back</button>';
-            document.getElementById('quiz-done').onclick=gamesBack;
-            return;
-          }
-          var ref='quiz:'+rsDayKey()+':'+idx;
-          var award=grantGameXp('game_quiz', ref, {bonusAction:'game_quiz_bonus',bonusRef:rsDayKey()});
-          finishGameSession();
-          noteGamePlayed('quiz',{});
-          if(award.ok) try{unlockBadge('quiz_ace')}catch(e){}
-          res.innerHTML='<div class="rs-game-ok">Correct · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="quiz-done">Back</button>';
-          document.getElementById('quiz-done').onclick=gamesBack;
-        };
-      });
-    }
     function hashStr(s){
       var h=0; s=String(s||'');
       for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}
       return Math.abs(h);
     }
-
-    /* Memory */
-    function renderMemoryGame(el){
-      var sess=startGameSession('memory');
-      var symbols=['🔥','👑','💎','⚡','🎯','🧩','🌙','🎲'];
-      var cards=symbols.concat(symbols).map(function(s,i){return {id:i,s:s,open:false,done:false}});
-      for(var i=cards.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=cards[i];cards[i]=cards[j];cards[j]=t}
-      var openIdx=[];
-      var moves=0;
-      var matched=0;
-      function paint(){
-        var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
-        html+='<div class="rs-game-play-title">🃏 Memory</div>';
-        html+='<div class="rs-game-play-sub">Moves: '+moves+' · Pairs: '+matched+'/8</div>';
-        html+='<div class="rs-mem-grid">';
-        cards.forEach(function(c,idx){
-          var show=c.open||c.done;
-          html+='<button type="button" class="rs-mem-card'+(c.done?' done':'')+(c.open?' open':'')+'" data-i="'+idx+'">'+(show?c.s:'?')+'</button>';
-        });
-        html+='</div><div id="mem-result" class="rs-game-result"></div>';
-        el.innerHTML=html;
-        document.getElementById('games-back').onclick=gamesBack;
-        Array.prototype.forEach.call(el.querySelectorAll('.rs-mem-card'),function(btn){
-          btn.onclick=function(){
-            var i=Number(btn.getAttribute('data-i'));
-            var c=cards[i];
-            if(!c||c.done||c.open||openIdx.length>=2)return;
-            if(!assertGameSession('memory',30*60*1000).ok){toast('Session expired');return}
-            c.open=true; openIdx.push(i); paint();
-            if(openIdx.length<2)return;
-            moves++;
-            if(__rsGameSession) __rsGameSession.moves=moves;
-            var a=cards[openIdx[0]], b=cards[openIdx[1]];
-            if(a.s===b.s){
-              a.done=b.done=true; matched++; openIdx=[];
-              paint();
-              if(matched>=8){
-                var gate=assertGameSession('memory',30*60*1000);
-                if(!gate.ok||moves<8){toast('Invalid run');finishGameSession();return}
-                var perfect=moves<=12;
-                var ref='memory:'+rsDayKey()+':'+Math.min(moves,99);
-                var award=grantGameXp('game_memory', ref, perfect?{bonusAction:'game_memory_perfect',bonusRef:rsDayKey()}:null);
-                finishGameSession();
-                noteGamePlayed('memory',{bestKey:'memoryMoves',bestVal:moves,bestLower:true});
-                if(perfect) try{unlockBadge('memory_master')}catch(e){}
-                var res=document.getElementById('mem-result');
-                if(res) res.innerHTML='<div class="rs-game-ok">Cleared in '+moves+' moves · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="mem-done">Back</button>';
-                var d=document.getElementById('mem-done'); if(d)d.onclick=gamesBack;
-              }
-            }else{
-              setTimeout(function(){a.open=b.open=false;openIdx=[];paint()},450);
-            }
-          };
-        });
+    function dayPick(arr, salt){
+      return arr[hashStr(rsDayKey()+'|'+(currentUser&&currentUser.name||'')+'|'+(salt||''))%arr.length];
+    }
+    function showGameOutcome(el, okHtml){
+      var res=el.querySelector('.rs-game-result')||el;
+      var wrap=document.getElementById('game-outcome');
+      if(wrap) wrap.innerHTML=okHtml;
+      else{
+        var d=document.createElement('div');
+        d.id='game-outcome';
+        d.className='rs-game-result';
+        d.innerHTML=okHtml;
+        el.appendChild(d);
       }
-      paint();
+      var back=document.getElementById('game-outcome-back');
+      if(back) back.onclick=gamesBack;
+    }
+    function awardOrPractice(action, gameId, badge){
+      var award=grantGameXp(action, rsDayKey(), null);
+      finishGameSession();
+      noteGamePlayed(gameId,{});
+      if(award.ok&&badge) try{unlockBadge(badge)}catch(e){}
+      return award;
     }
 
-    /* Reaction */
-    function renderReactionGame(el){
-      var sess=startGameSession('reaction');
-      var phase='wait';
-      var armAt=0;
-      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
-      html+='<div class="rs-game-play-title">⚡ Reaction</div>';
-      html+='<div class="rs-game-play-sub">Wait for green, then tap. Early taps = fail.</div>';
+    /* DAILY — Daily Submission */
+    var RS_DAILY_SUB=[
+      {instruction:'Today’s obedience: pause, breathe, and type the word READY before you continue scrolling.',check:'What must you type?',opts:['READY','LATER','SKIP','MAYBE'],c:0},
+      {instruction:'Discipline check: open Challenges once today and claim your Daily Devotion if available.',check:'What keeps the streak honest?',opts:['Daily Devotion claim','Ignoring Challenges','Buying FC','Closing the app'],c:0},
+      {instruction:'Devotion drill: engage with one post (like or comment) before you leave.',check:'Which action counts as engagement?',opts:['Like or comment','Only buying packs','Only refreshing','Only logging out'],c:0},
+      {instruction:'Power exchange focus: follow one creator you respect and check Following later.',check:'Where do followed creators appear?',opts:['Following feed','Timed only','PayPal','Admin'],c:0},
+      {instruction:'Exposure mindset: post or save something you are proud of owning publicly.',check:'Who owns what you publish?',opts:['You do','The host only','Random guests','Nobody'],c:0}
+    ];
+    function renderDailySubmission(el){
+      startGameSession('daily_sub');
+      var item=dayPick(RS_DAILY_SUB,'sub');
+      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Challenges</button>';
+      html+='<div class="rs-game-play-title">🧠 Daily Submission</div>';
+      html+='<div class="rs-game-play-sub">Obedience challenge · +12 XP once / day</div>';
+      html+='<div class="rs-quiz-q">'+esc(item.instruction)+'</div>';
+      html+='<div class="rs-game-play-sub">'+esc(item.check)+'</div><div class="rs-quiz-opts">';
+      item.opts.forEach(function(opt,i){html+='<button type="button" class="btn rs-quiz-opt" data-i="'+i+'">'+esc(opt)+'</button>'});
+      html+='</div><div id="game-outcome" class="rs-game-result"></div>';
+      el.innerHTML=html;
+      document.getElementById('games-back').onclick=gamesBack;
+      Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(btn){
+        btn.onclick=function(){
+          if(!assertGameSession('daily_sub',15*60*1000).ok){toast('Session expired');return}
+          Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(b){b.disabled=true});
+          if(Number(btn.getAttribute('data-i'))!==item.c){
+            finishGameSession(); noteGamePlayed('daily_sub',{});
+            showGameOutcome(el,'<div class="rs-game-fail">Incorrect · discipline failed · 0 XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+            return;
+          }
+          var award=awardOrPractice('game_daily_sub','daily_sub',null);
+          showGameOutcome(el,'<div class="rs-game-ok">Submission accepted · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+        };
+      });
+    }
+
+    /* ARCADE — Obedience Test (Simon-style commands) */
+    var RS_CMD=['KNEEL','WAIT','REPORT','FOCUS','HOLD','SERVE'];
+    function renderObedienceTest(el){
+      startGameSession('obedience');
+      var seqLen=3+(hashStr(rsDayKey()+(currentUser.name||''))%2); // 3–4
+      var seq=[];
+      for(var i=0;i<seqLen;i++) seq.push(RS_CMD[(hashStr(rsDayKey()+':ob:'+i+(currentUser.name||''))+i)%RS_CMD.length]);
+      var step=0, showing=true, input=[];
+      function paint(msg){
+        var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Challenges</button>';
+        html+='<div class="rs-game-play-title">👑 Obedience Test</div>';
+        html+='<div class="rs-game-play-sub">'+(msg||('Watch the command sequence · then repeat · +15 XP / day'))+'</div>';
+        html+='<div class="rs-word-scramble" id="ob-flash">'+(showing?'…':'YOUR TURN')+'</div>';
+        html+='<div class="rs-quiz-opts" id="ob-btns">';
+        RS_CMD.forEach(function(c){html+='<button type="button" class="btn rs-quiz-opt" data-c="'+c+'" '+(showing?'disabled':'')+'>'+c+'</button>'});
+        html+='</div><div id="game-outcome" class="rs-game-result"></div>';
+        el.innerHTML=html;
+        document.getElementById('games-back').onclick=gamesBack;
+        if(!showing){
+          Array.prototype.forEach.call(el.querySelectorAll('[data-c]'),function(btn){
+            btn.onclick=function(){
+              if(!assertGameSession('obedience',10*60*1000).ok){toast('Session expired');return}
+              var c=btn.getAttribute('data-c');
+              if(c!==seq[input.length]){
+                finishGameSession(); noteGamePlayed('obedience',{});
+                showGameOutcome(el,'<div class="rs-game-fail">Sequence broken · 0 XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+                return;
+              }
+              input.push(c);
+              if(input.length>=seq.length){
+                var award=awardOrPractice('game_obedience','obedience','memory_master');
+                showGameOutcome(el,'<div class="rs-game-ok">Obedience cleared · rank marked · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+              }
+            };
+          });
+        }
+      }
+      paint('Memorize the commands…');
+      var flash=0;
+      function showNext(){
+        if(flash>=seq.length){
+          showing=false; paint('Repeat the sequence in order');
+          return;
+        }
+        var node=document.getElementById('ob-flash');
+        if(node) node.textContent=seq[flash];
+        flash++;
+        setTimeout(function(){
+          var n2=document.getElementById('ob-flash');
+          if(n2) n2.textContent='·';
+          setTimeout(showNext,280);
+        },700);
+      }
+      setTimeout(showNext,600);
+    }
+
+    /* ARCADE — Tribute Reaction */
+    function renderTributeReaction(el){
+      startGameSession('tribute');
+      var phase='wait', armAt=0, timer=null;
+      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Challenges</button>';
+      html+='<div class="rs-game-play-title">⚡ Tribute Reaction</div>';
+      html+='<div class="rs-game-play-sub">Arm, wait for TRIBUTE, then tap · early taps fail · +8 XP / day</div>';
       html+='<button type="button" class="rs-react-pad" id="react-pad">TAP TO ARM</button>';
-      html+='<div id="react-result" class="rs-game-result"></div>';
+      html+='<div id="game-outcome" class="rs-game-result"></div>';
       el.innerHTML=html;
       document.getElementById('games-back').onclick=gamesBack;
       var pad=document.getElementById('react-pad');
-      var timer=null;
       pad.onclick=function(){
-        var res=document.getElementById('react-result');
         if(phase==='wait'){
-          phase='armed';
-          pad.textContent='Wait for green…';
-          pad.className='rs-react-pad armed';
-          var delay=1200+Math.floor(Math.random()*2200);
-          armAt=Date.now()+delay;
-          timer=setTimeout(function(){
-            phase='go';
-            pad.textContent='TAP!';
-            pad.className='rs-react-pad go';
-            armAt=Date.now();
-          },delay);
+          phase='armed'; pad.textContent='Hold… wait for TRIBUTE'; pad.className='rs-react-pad armed';
+          var delay=1100+Math.floor(Math.random()*2400);
+          timer=setTimeout(function(){phase='go';pad.textContent='TRIBUTE — TAP';pad.className='rs-react-pad go';armAt=Date.now()},delay);
           return;
         }
         if(phase==='armed'){
-          clearTimeout(timer);
-          phase='wait';
-          pad.textContent='Too early — try again';
-          pad.className='rs-react-pad fail';
+          clearTimeout(timer); phase='wait';
+          pad.textContent='Too early — discipline failed'; pad.className='rs-react-pad fail';
           setTimeout(function(){pad.textContent='TAP TO ARM';pad.className='rs-react-pad';phase='wait'},900);
           return;
         }
         if(phase==='go'){
-          var ms=Date.now()-armAt;
-          phase='done';
-          pad.className='rs-react-pad';
-          pad.textContent=ms+' ms';
-          if(!assertGameSession('reaction',10*60*1000).ok){toast('Session expired');return}
-          if(ms<90){ // impossible / bot
-            finishGameSession();
-            if(res) res.innerHTML='<div class="rs-game-fail">Impossible time rejected</div>';
-            return;
-          }
-          if(ms>2500){
-            finishGameSession();
-            noteGamePlayed('reaction',{});
-            if(res) res.innerHTML='<div class="rs-game-fail">Too slow · 0 XP</div><button type="button" class="btn" id="react-done">Back</button>';
-            var d0=document.getElementById('react-done'); if(d0)d0.onclick=gamesBack;
-            return;
-          }
-          var bucket=Math.min(9, Math.floor(ms/50));
-          var ref='reaction:'+rsDayKey()+':'+bucket;
-          var gs=gameStatsFor();
-          var best=gs.best&&gs.best.reactionMs;
-          var isBest=best==null||ms<best;
-          var award=grantGameXp('game_reaction', ref, isBest?{bonusAction:'game_reaction_best',bonusRef:rsDayKey()}:null);
+          var ms=Date.now()-armAt; phase='done';
+          pad.className='rs-react-pad'; pad.textContent=ms+' ms';
+          if(!assertGameSession('tribute',10*60*1000).ok){toast('Session expired');return}
+          if(ms<90){finishGameSession();showGameOutcome(el,'<div class="rs-game-fail">Impossible time rejected</div><button type="button" class="btn" id="game-outcome-back">Back</button>');return}
+          if(ms>2500){finishGameSession();noteGamePlayed('tribute',{});showGameOutcome(el,'<div class="rs-game-fail">Too slow · 0 XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');return}
+          var award=grantGameXp('game_tribute', rsDayKey(), null);
           finishGameSession();
-          noteGamePlayed('reaction',{bestKey:'reactionMs',bestVal:ms,bestLower:true});
-          if(ms<=220) try{unlockBadge('speed_demon')}catch(e){}
-          if(res) res.innerHTML='<div class="rs-game-ok">YOUR TIME '+ms+' ms'
-            +(isBest?' · PERSONAL BEST':'')+' · +'+(award.xp||0)+' XP</div>'
-            +'<button type="button" class="btn" id="react-done">Back</button>';
-          var d=document.getElementById('react-done'); if(d)d.onclick=gamesBack;
+          noteGamePlayed('tribute',{bestKey:'reactionMs',bestVal:ms,bestLower:true});
+          if(award.ok&&ms<=220) try{unlockBadge('speed_demon')}catch(e){}
+          var best=(gameStatsFor().best||{}).reactionMs;
+          showGameOutcome(el,'<div class="rs-game-ok">Response '+ms+' ms'
+            +(best===ms?' · personal best':'')+' · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
         }
       };
     }
 
-    /* Word */
-    var RS_WORD_BANK=['STREAK','EXPOSE','LEGEND','FOLLOW','TREND','BADGE','NEON','RUIN','LEVEL','QUICK','FLASH','MATCH'];
-    function renderWordGame(el){
-      var sess=startGameSession('word');
-      var word=RS_WORD_BANK[hashStr(rsDayKey()+'|'+(currentUser.name||''))%RS_WORD_BANK.length];
-      var chars=word.split('');
-      for(var i=chars.length-1;i>0;i--){var j=(hashStr(word+i)+i)%(i+1);var t=chars[i];chars[i]=chars[j];chars[j]=t}
-      // ensure not identical
-      if(chars.join('')===word){var tmp=chars[0];chars[0]=chars[chars.length-1];chars[chars.length-1]=tmp}
-      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Games</button>';
-      html+='<div class="rs-game-play-title">🔤 Word Puzzle</div>';
-      html+='<div class="rs-game-play-sub">Unscramble · '+chars.length+' letters</div>';
-      html+='<div class="rs-word-scramble">'+esc(chars.join(' '))+'</div>';
-      html+='<input class="rs-word-input" id="word-in" maxlength="16" autocomplete="off" autocapitalize="characters" placeholder="TYPE THE WORD"/>';
-      html+='<button type="button" class="btn rs-game-btn" id="word-go" style="width:100%;margin-top:10px">Submit</button>';
-      html+='<div id="word-result" class="rs-game-result"></div>';
+    /* SOLO — Exposure Challenge */
+    var RS_EXPOSURE=[
+      {prompt:'Today’s exposure challenge: choose the option that means owning your public presence.',opts:['I publish it, I own it','Hide everything forever','Blame the host','Delete accounts daily'],c:0},
+      {prompt:'Exposure discipline: what belongs on The Wall?',opts:['Content you consent to share','Other people’s private files','Stolen chats','Random doxx'],c:0},
+      {prompt:'Power exchange check: pins and prints are…',opts:['Requests, not guarantees','Instant ownership of others','Admin freebies always','Invisible forever'],c:0},
+      {prompt:'Devotion to the board means…',opts:['Returning, engaging, posting honestly','Only farming XP loops','Never claiming daily rewards','Ignoring streaks'],c:0}
+    ];
+    function renderExposureChallenge(el){
+      startGameSession('exposure');
+      var item=dayPick(RS_EXPOSURE,'exp');
+      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Challenges</button>';
+      html+='<div class="rs-game-play-title">📸 Exposure Challenge</div>';
+      html+='<div class="rs-game-play-sub">Participation challenge · +12 XP once / day</div>';
+      html+='<div class="rs-quiz-q">'+esc(item.prompt)+'</div><div class="rs-quiz-opts">';
+      item.opts.forEach(function(opt,i){html+='<button type="button" class="btn rs-quiz-opt" data-i="'+i+'">'+esc(opt)+'</button>'});
+      html+='</div><div id="game-outcome" class="rs-game-result"></div>';
       el.innerHTML=html;
       document.getElementById('games-back').onclick=gamesBack;
-      document.getElementById('word-go').onclick=function(){
-        if(!assertGameSession('word',15*60*1000).ok){toast('Session expired');return}
-        var val=String((document.getElementById('word-in')||{}).value||'').trim().toUpperCase().replace(/[^A-Z]/g,'');
-        var res=document.getElementById('word-result');
-        if(val!==word){
-          if(res) res.innerHTML='<div class="rs-game-fail">Not quite — try again</div>';
-          return;
+      Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(btn){
+        btn.onclick=function(){
+          if(!assertGameSession('exposure',15*60*1000).ok){toast('Session expired');return}
+          Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(b){b.disabled=true});
+          if(Number(btn.getAttribute('data-i'))!==item.c){
+            finishGameSession(); noteGamePlayed('exposure',{});
+            showGameOutcome(el,'<div class="rs-game-fail">Not the standard · 0 XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+            return;
+          }
+          var award=awardOrPractice('game_exposure','exposure','word_smith');
+          showGameOutcome(el,'<div class="rs-game-ok">Exposure challenge complete · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+        };
+      });
+    }
+
+    /* SOLO — Devotion Quiz */
+    var RS_DEVOTION=[
+      {q:'In this community, a streak rewards…',a:['Consistent daily return','Only spending money','Random luck','Ignoring Challenges'],c:0},
+      {q:'Findom / power exchange play on-site should stay…',a:['Consensual, playful, non-graphic in Challenges','Graphic by default','Forced on guests','Tied to payment bugs'],c:0},
+      {q:'Obedience in Challenges means…',a:['Following the instruction correctly','Skipping every task','Refreshing for free XP','Editing localStorage'],c:0},
+      {q:'Tribute Reaction trains…',a:['Fast, disciplined response','Slow scrolling only','Wallet spending','Admin passwords'],c:0},
+      {q:'Rank / XP exists to…',a:['Mark progress and devotion','Replace all payments','Ban followers','Delete posts'],c:0},
+      {q:'Submission Sequence tests…',a:['Memory under discipline','PayPal claim speed','Map pins only','GoonTok volume'],c:0}
+    ];
+    function renderDevotionQuiz(el){
+      startGameSession('devotion');
+      var item=dayPick(RS_DEVOTION,'dev');
+      var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Challenges</button>';
+      html+='<div class="rs-game-play-title">💎 Devotion Quiz</div>';
+      html+='<div class="rs-game-play-sub">Knowledge check · +10 XP once / day</div>';
+      html+='<div class="rs-quiz-q">'+esc(item.q)+'</div><div class="rs-quiz-opts">';
+      item.a.forEach(function(opt,i){html+='<button type="button" class="btn rs-quiz-opt" data-i="'+i+'">'+esc(opt)+'</button>'});
+      html+='</div><div id="game-outcome" class="rs-game-result"></div>';
+      el.innerHTML=html;
+      document.getElementById('games-back').onclick=gamesBack;
+      Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(btn){
+        btn.onclick=function(){
+          if(!assertGameSession('devotion',15*60*1000).ok){toast('Session expired');return}
+          Array.prototype.forEach.call(el.querySelectorAll('.rs-quiz-opt'),function(b){b.disabled=true});
+          if(Number(btn.getAttribute('data-i'))!==item.c){
+            finishGameSession(); noteGamePlayed('devotion',{});
+            showGameOutcome(el,'<div class="rs-game-fail">Incorrect · 0 XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+            return;
+          }
+          var award=awardOrPractice('game_devotion','devotion','quiz_ace');
+          showGameOutcome(el,'<div class="rs-game-ok">Devotion proven · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+        };
+      });
+    }
+
+    /* SOLO — Submission Sequence */
+    function renderSubmissionSequence(el){
+      startGameSession('sequence');
+      var icons=['🔒','👑','💎','🔥','⚡','📸'];
+      var len=4;
+      var seq=[];
+      for(var i=0;i<len;i++) seq.push(icons[(hashStr(rsDayKey()+':seq:'+i+(currentUser.name||''))+i)%icons.length]);
+      var showing=true, input=[];
+      function paint(msg){
+        var html='<button type="button" class="btn btn-ghost btn-sm" id="games-back">← Challenges</button>';
+        html+='<div class="rs-game-play-title">🔒 Submission Sequence</div>';
+        html+='<div class="rs-game-play-sub">'+(msg||'Watch, then repeat perfectly · +15 XP / day')+'</div>';
+        html+='<div class="rs-word-scramble" id="seq-flash">'+(showing?'…':'YOUR TURN')+'</div>';
+        html+='<div class="rs-mem-grid" style="grid-template-columns:repeat(3,1fr)">';
+        icons.forEach(function(ic){
+          html+='<button type="button" class="rs-mem-card" data-ic="'+ic+'" '+(showing?'disabled':'')+'>'+ic+'</button>';
+        });
+        html+='</div><div id="game-outcome" class="rs-game-result"></div>';
+        el.innerHTML=html;
+        document.getElementById('games-back').onclick=gamesBack;
+        if(!showing){
+          Array.prototype.forEach.call(el.querySelectorAll('[data-ic]'),function(btn){
+            btn.onclick=function(){
+              if(!assertGameSession('sequence',10*60*1000).ok){toast('Session expired');return}
+              var ic=btn.getAttribute('data-ic');
+              if(ic!==seq[input.length]){
+                finishGameSession(); noteGamePlayed('sequence',{});
+                showGameOutcome(el,'<div class="rs-game-fail">Sequence failed · streak broken · 0 XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+                return;
+              }
+              input.push(ic);
+              if(input.length>=seq.length){
+                var award=awardOrPractice('game_sequence','sequence',null);
+                showGameOutcome(el,'<div class="rs-game-ok">Perfect submission · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="game-outcome-back">Back</button>');
+              }
+            };
+          });
         }
-        var ref='word:'+rsDayKey()+':'+word;
-        var award=grantGameXp('game_word', ref, null);
-        finishGameSession();
-        noteGamePlayed('word',{});
-        if(award.ok) try{unlockBadge('word_smith')}catch(e){}
-        if(res) res.innerHTML='<div class="rs-game-ok">Solved · +'+(award.xp||0)+' XP</div><button type="button" class="btn" id="word-done">Back</button>';
-        var d=document.getElementById('word-done'); if(d)d.onclick=gamesBack;
-        var go=document.getElementById('word-go'); if(go)go.disabled=true;
-      };
+      }
+      paint('Memorize the submission sequence…');
+      var flash=0;
+      function showNext(){
+        if(flash>=seq.length){showing=false;paint('Repeat the sequence');return}
+        var node=document.getElementById('seq-flash');
+        if(node) node.textContent=seq[flash];
+        flash++;
+        setTimeout(function(){
+          var n2=document.getElementById('seq-flash');
+          if(n2) n2.textContent='·';
+          setTimeout(showNext,260);
+        },650);
+      }
+      setTimeout(showNext,500);
     }
 
     window.openGamesHub=openGamesHub;
