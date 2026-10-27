@@ -2711,6 +2711,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
 
           <div class="admin-sec" id="asec-posts" style="display:none">
+            <div style="margin:0 0 12px;padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
+              <strong style="color:var(--orange)">Pinned / featured</strong>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Clears orphan pins that stay after a post was deleted (local + pin board).</p>
+              <button class="btn btn-danger btn-sm" type="button" id="btn-admin-clear-pins" onclick="clearAllFeaturedPins()">Clear all pins</button>
+            </div>
             <div id="admin-list"></div>
           </div>
 
@@ -3243,15 +3248,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(j.email)out._email=j.email;
       return out;
     }
-    async function cfAdminLogin(){
-      try{var tok=sessionStorage.getItem('rs_cf_admin_token');if(tok)return tok}catch(e){}
-      var pass='';try{pass=((document.getElementById('admin-pass-input')||{}).value||'')}catch(e){}
+    async function cfAdminLogin(forcePass){
+      try{var tok=sessionStorage.getItem('rs_cf_admin_token');if(tok&&!forcePass)return tok}catch(e){}
+      var pass=forcePass!=null?String(forcePass):'';
+      if(!pass){try{pass=((document.getElementById('admin-pass-input')||{}).value||'')}catch(e){}}
       if(!pass){try{pass=sessionStorage.getItem('rs_admin_pass')||''}catch(e){}}
-      if(!pass)pass=String(ADMIN_PASS||'');
+      // Password is verified ONLY by Cloudflare Worker — never compared to a client-side secret.
+      if(!pass) throw new Error('Enter admin password');
       var r=await fetch(CF_API+'/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass}),cache:'no-store'});
       var j=await r.json().catch(function(){return {}});
       if(!r.ok||!j.token)throw new Error((j&&j.error)||('Cloudflare admin login HTTP '+r.status));
       try{sessionStorage.setItem('rs_cf_admin_token',j.token)}catch(e){}
+      try{sessionStorage.setItem('rs_admin_pass',pass)}catch(e){}
+      try{sessionStorage.setItem('rs_admin','1')}catch(e){}
       return j.token;
     }
     async function cfAdminRequests(status,kind){
@@ -3368,7 +3377,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){return false}
     }
 
-    var ADMIN_PASS='master@2026';
+    // Admin password lives only on the Cloudflare Worker (/admin/login). Never embed it in HTML/JS.
     var TASK_THRONE='https://throne.com/mastersan/item/67a4d25f-9907-41fe-87cf-432425a4d52b';
     var TASK_PRICE='$10';
     var posts=[],profileCache={},imageCache={},avatarUrlCache={},currentUser=null,selectedCreateMin=1440,selectedExtendAmount=360;
@@ -4589,10 +4598,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{openIdCard('id')}catch(e){showPanel('idcard')}
     }
     function isSiteAdmin(){
-      try{if(sessionStorage.getItem('rs_admin')==='1')return true}catch(e){}
-      var n=String((currentUser&&currentUser.name)||'').toLowerCase().replace(/^@/,'');
-      return ['mastersan','mastersan01','master_san'].indexOf(n)>=0;
+      // Only after a successful Worker /admin/login — username alone is NOT enough.
+      try{
+        if(sessionStorage.getItem('rs_admin')!=='1') return false;
+        if(!sessionStorage.getItem('rs_cf_admin_token')) return false;
+        return true;
+      }catch(e){return false}
     }
+    function isAdmin(){ return isSiteAdmin(); }
     function isMasterSanName(n){
       n=String(n||'').replace(/^@/,'').toLowerCase();
       return ['mastersan','mastersan01','master_san','mastersan1','ruiningsubs','ruiningsubscom'].indexOf(n)>=0;
@@ -8255,7 +8268,36 @@ function openRoulette(){
         if(sb)sb.auth.signOut().catch(function(){});
         refreshProfileUI();updateProfilePanel();toast('Logged out');
       };
-      document.getElementById('btn-admin-back').onclick=function(){showPanel('feed')};      var bau=document.getElementById('btn-admin-unlock');      if(bau)bau.onclick=async function(){        var v=((document.getElementById('admin-pass-input')||{}).value||'');        if(v!==ADMIN_PASS){toast('Wrong password');return}        try{sessionStorage.setItem('rs_admin_pass',v)}catch(e){} try{await cfAdminLogin();try{sessionStorage.setItem('rs_admin','1')}catch(e){}          var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');          if(lock)lock.style.display='none';if(body)body.style.display='block';          toast('Admin unlocked');          renderAdmin();        }catch(e){console.error('Cloudflare admin login',e);toast((e&&e.message)||'Cloudflare admin login failed')}};      var api=document.getElementById('admin-pass-input');      if(api)api.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(bau)bau.click()}});;      var aus=document.getElementById('admin-user-search');      if(aus)aus.addEventListener('input',renderAdminUsers);
+      document.getElementById('btn-admin-back').onclick=function(){showPanel('feed')};
+      var bau=document.getElementById('btn-admin-unlock');
+      if(bau)bau.onclick=async function(){
+        var v=((document.getElementById('admin-pass-input')||{}).value||'').trim();
+        if(!v){toast('Enter admin password');return}
+        bau.disabled=true;
+        try{
+          // Server-side check only (Cloudflare Worker). No client-side password constant.
+          try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
+          await cfAdminLogin(v);
+          var lock=document.getElementById('admin-lock');
+          var body=document.getElementById('admin-body');
+          if(lock)lock.style.display='none';
+          if(body)body.style.display='block';
+          toast('Admin unlocked');
+          try{purgeBlockedPins()}catch(e){}
+          renderAdmin();
+        }catch(e){
+          console.error('Cloudflare admin login',e);
+          try{sessionStorage.removeItem('rs_admin')}catch(e2){}
+          try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e2){}
+          try{sessionStorage.removeItem('rs_admin_pass')}catch(e2){}
+          toast((e&&e.message)||'Wrong password or admin login failed');
+        }
+        bau.disabled=false;
+      };
+      var api=document.getElementById('admin-pass-input');
+      if(api)api.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(bau)bau.click()}});
+      var aus=document.getElementById('admin-user-search');
+      if(aus)aus.addEventListener('input',renderAdminUsers);
       document.getElementById('tab-login').onclick=function(){showAuth('login')};
       document.getElementById('tab-register').onclick=function(){showAuth('register')};
       document.getElementById('btn-forgot').onclick=function(){
@@ -10083,7 +10125,7 @@ function openRoulette(){
       try{if(!(opts.fromDetail&&name==='detail'))setPanelRoute(name)}catch(e){}
       try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
       document.querySelectorAll('.nav-row .nav-item').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-p')===name)});
-      if(name==='admin'){try{var unlocked=sessionStorage.getItem('rs_admin')==='1'}catch(e){var unlocked=false}var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none'}}
+      if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
       if(name==='feed'){
         if(opts.fromDetail && posts && posts.length){
           try{startViewVisit('feed')}catch(e){}
@@ -12043,11 +12085,17 @@ function openRoulette(){
           var until=Number(data.until||0);
           if(!id||until<=Date.now())return;
           if(String(id)==='abc'||String(data.title||'').toLowerCase()==='test'||String(data.user||'')==='system')return;
-          out.push({
+          if(typeof isDeletedId==='function' && isDeletedId(id))return;
+          var row={
             id:id,user:data.user||n.from_username||'anon',title:data.title||'Pinned',
             desc:data.desc||'',image:data.image||'',images:data.images||(data.image?[data.image]:[]),
             featuredUntil:until,expires:0,views:0,likes:0,tags:[],created:Date.now()
-          });
+          };
+          if(typeof isBlockedPinContent==='function' && isBlockedPinContent(row)){
+            try{markDeleted(id)}catch(e){}
+            return;
+          }
+          out.push(row);
         });
         window.__pinBoard=out;
         try{renderPosts()}catch(e){}
@@ -12063,6 +12111,7 @@ function openRoulette(){
       localStorage.setItem('rs_featured', JSON.stringify(snaps));
     }catch(e){}
     try{loadPublicPins()}catch(e){}
+    try{setTimeout(function(){try{purgeBlockedPins();renderPosts()}catch(e){}},400)}catch(e){}
     function fillHomeRandomStrip(){
       var box=document.getElementById('home-random-strip');
       if(!box)return;
@@ -12683,13 +12732,15 @@ function openRoulette(){
       // This prevents cached/locally inserted posts from appearing out of order.
       try{ posts=(posts||[]).slice().sort(function(a,b){return (b.created||0)-(a.created||0)}); }catch(e){}
       try{
+        purgeBlockedPins();
         var snaps=getFeaturedSnaps();
         Object.keys(snaps||{}).forEach(function(id){
           var s=snaps[id];
           if(!s||(s.featuredUntil||0)<Date.now())return;
+          if(isDeletedId(id)||isBlockedPinContent(s)){ clearFeaturedForPost(id); return; }
+          // Do NOT resurrect deleted posts into the feed from local pin snapshots
           if(!(posts||[]).some(function(p){return String(p.id)===String(id)})){
-            posts=posts||[];
-            posts.unshift(s);
+            return;
           }
         });
         if(!viewingSaved)renderPosts();
@@ -14461,8 +14512,98 @@ function profileStatsHtml(userPosts, extra){
     function getFeaturedSnaps(){
       try{return JSON.parse(localStorage.getItem('rs_featured_posts')||'{}')||{}}catch(e){return {}}
     }
+    function isBlockedPinContent(p){
+      if(!p)return true;
+      var title=String(p.title||'');
+      var desc=String(p.desc||p.description||'');
+      var blob=(title+' '+desc).toLowerCase();
+      if(/hacked\s*you/.test(blob)) return true;
+      if(/officially\s+hacked/.test(blob)) return true;
+      if(/handed\s+over\s+to/.test(blob) && /authorit/.test(blob)) return true;
+      if(/withheld\s+for\s+privacy\s+llc/.test(blob) && /hack/.test(blob)) return true;
+      return false;
+    }
+    function clearFeaturedForPost(id){
+      id=String(id||'');
+      if(!id)return;
+      try{setLocalFeatured(id,0)}catch(e){}
+      try{
+        var m=getFeaturedSnaps();
+        if(m[id]){delete m[id];localStorage.setItem('rs_featured_posts',JSON.stringify(m))}
+      }catch(e){}
+      try{
+        if(window.__pinBoard) window.__pinBoard=(window.__pinBoard||[]).filter(function(p){return String(p.id)!==id});
+      }catch(e){}
+      try{
+        (posts||[]).forEach(function(p){if(String(p.id)===id)p.featuredUntil=0});
+        (normalFeedPosts||[]).forEach(function(p){if(String(p.id)===id)p.featuredUntil=0});
+      }catch(e){}
+    }
+    function purgeBlockedPins(){
+      var removed=0;
+      try{
+        var snaps=getFeaturedSnaps();
+        Object.keys(snaps||{}).forEach(function(id){
+          var s=snaps[id];
+          if(!s)return;
+          if(isDeletedId(id)||isBlockedPinContent(s)||(s.featuredUntil||0)<Date.now()){
+            delete snaps[id];
+            try{setLocalFeatured(id,0)}catch(e){}
+            removed++;
+          }
+        });
+        localStorage.setItem('rs_featured_posts',JSON.stringify(snaps));
+      }catch(e){}
+      try{
+        var loc=getLocalFeatured();
+        Object.keys(loc||{}).forEach(function(id){
+          if(isDeletedId(id)||Number(loc[id]||0)<Date.now()){delete loc[id];removed++}
+        });
+        localStorage.setItem('rs_featured',JSON.stringify(loc));
+      }catch(e){}
+      try{
+        window.__pinBoard=(window.__pinBoard||[]).filter(function(p){
+          if(!p)return false;
+          if(isDeletedId(p.id)||isBlockedPinContent(p)||(p.featuredUntil||0)<Date.now()){removed++;return false}
+          return true;
+        });
+      }catch(e){}
+      return removed;
+    }
+    async function clearAllFeaturedPins(){
+      if(!isSiteAdmin()){toast('Admin only');return}
+      if(!confirm('Clear ALL featured / pinned posts for everyone on this device + unpin via API?'))return;
+      var ids={};
+      try{Object.keys(getFeaturedSnaps()||{}).forEach(function(id){ids[id]=1})}catch(e){}
+      try{Object.keys(getLocalFeatured()||{}).forEach(function(id){ids[id]=1})}catch(e){}
+      try{(window.__pinBoard||[]).forEach(function(p){if(p&&p.id)ids[String(p.id)]=1})}catch(e){}
+      try{(posts||[]).forEach(function(p){if(p&&postFeaturedUntil(p)>Date.now())ids[String(p.id)]=1})}catch(e){}
+      var snapsBefore=getFeaturedSnaps()||{};
+      var boardBefore=(window.__pinBoard||[]).slice();
+      var abuseIds={};
+      Object.keys(ids).forEach(function(id){
+        var sample=snapsBefore[id]||boardBefore.find(function(p){return String(p.id)===String(id)})||null;
+        if(sample&&isBlockedPinContent(sample)){ abuseIds[id]=1; markDeleted(id); }
+        clearFeaturedForPost(id);
+      });
+      try{localStorage.setItem('rs_featured_posts','{}')}catch(e){}
+      try{localStorage.setItem('rs_featured','{}')}catch(e){}
+      window.__pinBoard=[];
+      var list=Object.keys(ids);
+      for(var i=0;i<list.length;i++){
+        try{await patchCfPost(list[i],{featured_until:0})}catch(e){}
+        try{if(sb) await sb.from('posts').update({featured_until:null}).eq('id',list[i])}catch(e){}
+        if(abuseIds[list[i]]){ try{await deleteCfPost(list[i])}catch(e){} }
+      }
+      try{purgeBlockedPins()}catch(e){}
+      try{renderPosts()}catch(e){}
+      toast('Pins cleared ('+list.length+')');
+    }
+    window.clearAllFeaturedPins=clearAllFeaturedPins;
+    window.purgeBlockedPins=purgeBlockedPins;
     function saveFeaturedSnap(post, until){
       if(!post)return;
+      if(isBlockedPinContent(post)||isDeletedId(post.id)) return;
       var m=getFeaturedSnaps();
       var imgs=post.images&&post.images.length?post.images:(post.image?[post.image]:[]);
       m[String(post.id)]={
@@ -14480,6 +14621,7 @@ function profileStatsHtml(userPosts, extra){
       localStorage.setItem('rs_featured',JSON.stringify(m));
     }
     function postFeaturedUntil(p){
+      if(!p||isDeletedId(p.id)||isBlockedPinContent(p)) return 0;
       var loc=getLocalFeatured()[String(p.id)]||0;
       return Math.max(p.featuredUntil||0, loc||0);
     }
@@ -14762,6 +14904,10 @@ function profileStatsHtml(userPosts, extra){
       // Generated IDs & PEAs have no timer and must never appear here.
       var list=posts.slice().filter(function(p){
         if(!p||isDeletedId(p.id))return false;
+        if(isBlockedPinContent(p)){
+          try{markDeleted(p.id);clearFeaturedForPost(p.id)}catch(e){}
+          return false;
+        }
         if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) return false;
         var tg=p.tags||[];if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
         if(!Array.isArray(tg))tg=[];
@@ -14806,9 +14952,14 @@ function profileStatsHtml(userPosts, extra){
       var featSeen={};
       function addFeat(p){
         if(!p)return;
+        if(isDeletedId(p.id)||isBlockedPinContent(p)){
+          try{clearFeaturedForPost(p.id)}catch(e){}
+          return;
+        }
         var fu=postFeaturedUntil(p);
         try{
           var snap=getFeaturedSnaps()[String(p.id)];
+          if(snap&&isBlockedPinContent(snap)){ clearFeaturedForPost(p.id); return; }
           if(snap&&snap.featuredUntil)fu=Math.max(fu,snap.featuredUntil||0);
         }catch(e){}
         if(fu<=Date.now())return;
@@ -19170,6 +19321,8 @@ async function onIdFace(e){
         }
       }
       markDeleted(id);
+      try{clearFeaturedForPost(id)}catch(e){}
+      try{await patchCfPost(id,{featured_until:0})}catch(e){}
       posts=(posts||[]).filter(function(p){return String(p.id)!==id});
       normalFeedPosts=(normalFeedPosts||[]).filter(function(p){return String(p.id)!==id});
       try{
