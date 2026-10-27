@@ -2753,7 +2753,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div class="admin-sec" id="asec-challenges" style="display:none">
             <div style="padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
               <strong style="color:var(--orange)">Challenges</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Pool runs automatically. Use this only to inspect / disable / approve pending items.</p>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Pool runs automatically every day. Optional: create, edit XP/category/evidence, disable, or approve pending verification.</p>
               <button class="btn btn-secondary btn-sm" type="button" onclick="renderAdminChallenges()">Refresh</button>
               <div id="admin-challenges-box" style="margin-top:10px">Loading…</div>
             </div>
@@ -13349,10 +13349,10 @@ function profileStatsHtml(userPosts, extra){
       publish:{xp:25,dailyCap:8,dedupe:'post'},
       profile_gallery:{xp:25,dailyCap:8,dedupe:'post'},
       viral:{xp:50,dailyCap:5,dedupe:'post'},
-      streak_3:{xp:15,dailyCap:1,dedupe:'day'},
-      streak_7:{xp:40,dailyCap:1,dedupe:'day'},
-      streak_14:{xp:80,dailyCap:1,dedupe:'day'},
-      streak_30:{xp:150,dailyCap:1,dedupe:'day'},
+      streak_3:{xp:10,dailyCap:1,dedupe:'forever'},
+      streak_7:{xp:25,dailyCap:1,dedupe:'forever'},
+      streak_14:{xp:50,dailyCap:1,dedupe:'forever'},
+      streak_30:{xp:100,dailyCap:1,dedupe:'forever'},
       // Challenges + daily devotion (XP buckets; ref = challengeId:day)
       daily_reward:{xp:10,dailyCap:1,dedupe:'day'},
       daily_reward_bonus:{xp:20,dailyCap:1,dedupe:'day'},
@@ -13725,9 +13725,10 @@ function profileStatsHtml(userPosts, extra){
       grantXp('daily_login','login:'+today,true);
       var reward=streakRewardAction(st.current);
       if(reward){
-        grantXp(reward,'streak:'+st.current,false);
+        // Forever-deduped milestone — cannot re-claim the same streak reward
+        grantXp(reward, 'milestone:'+reward, true);
         if(st.current>=7) unlockBadge('streak_7');
-        try{pushNotif(user,'system','streak',null,'🔥 '+st.current+' day streak')}catch(e){}
+        try{pushNotif(user,'system','streak',null,'🔥 '+st.current+' day streak · bonus XP')}catch(e){}
       }
       try{paintProfileRetention()}catch(e){}
       return st;
@@ -13833,7 +13834,7 @@ function profileStatsHtml(userPosts, extra){
         +'<div style="font-size:11px;color:#9a9aa3;margin:6px 0 0">Today '+earnedToday.toLocaleString()+' / '+RS_DAILY_XP_CAP.toLocaleString()+' XP'
         +(remain<=0?' · daily cap reached':' · '+remain.toLocaleString()+' left')+'</div>'
         +'<div style="font-size:12px;color:#cfcfd6;margin:8px 0 0">Level '+numericLevelForXp(xp)
-        +' · Games played: '+(function(){try{return Number(gameStatsFor().played)||0}catch(e){return 0}})()
+        +' · Challenges: '+(function(){try{return Number(challengeUserState().stats.completed)||0}catch(e){return 0}})()
         +'</div>'
         +'<div class="rs-streak-chip">🔥 '+(Number(st.current)||0)+' day streak · best '+(Number(st.best)||0)
         +' · next reward @ '+nextStreakReward(Number(st.current)||0)+'d</div>'
@@ -14014,7 +14015,12 @@ function profileStatsHtml(userPosts, extra){
       {id:'pro_cleanup',cat:'PROFILE',icon:'🎯',title:'PROFILE CLEANUP',desc:'Remove outdated bio lines or clutter, then confirm what changed.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'What did you clean up on your profile?'},
       {id:'com_thanks',cat:'COMMUNITY',icon:'🤝',title:'SAY THANKS',desc:'Thank someone publicly or privately (no private text pasted). Describe the thanks.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Who did you thank and how (no private dumps)?'},
       {id:'cre_haiku',cat:'CREATIVITY',icon:'✨',title:'THREE-LINE VERSE',desc:'Write a three-line verse about discipline or devotion.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Your three lines:'},
-      {id:'sub_rank',cat:'SUBMISSION',icon:'🙇',title:'RANK AMBITION',desc:'State the rank you want next and one action that earns it.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Next rank + action:'}
+      {id:'sub_rank',cat:'SUBMISSION',icon:'🙇',title:'RANK AMBITION',desc:'State the rank you want next and one action that earns it.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Next rank + action:'},
+      // ELITE (higher XP · level-gated)
+      {id:'eli_manifesto',cat:'DEVOTION',icon:'💎',title:'DEVOTION MANIFESTO',desc:'Write a longer manifesto (120+ chars) about why consistency and devotion matter to you here.',difficulty:'ELITE',evidence:'TEXT',validate:'text',hours:24,prompt:'Your devotion manifesto (be specific, stay non-graphic):'},
+      {id:'eli_profile_overhaul',cat:'PROFILE',icon:'🎯',title:'FULL PROFILE PASS',desc:'Overhaul bio and avatar so both clearly match your presence style, then submit evidence of both.',difficulty:'ELITE',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
+      {id:'eli_wall_series',cat:'EXPOSURE',icon:'📸',title:'PRESENCE SERIES',desc:'Publish a new Wall post and submit a screenshot plus a short note on what you chose to show.',difficulty:'ELITE',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'What did you choose to show, and why?'},
+      {id:'eli_discipline_day',cat:'DISCIPLINE',icon:'🔥',title:'FULL DAY DISCIPLINE',desc:'Complete every other challenge in today’s set, then log how you stayed consistent.',difficulty:'ELITE',evidence:'TEXT',validate:'text',hours:24,prompt:'How did you complete the full day without skipping?'}
     ];
 
     function numericLevelForXp(xp){
@@ -14037,8 +14043,10 @@ function profileStatsHtml(userPosts, extra){
     }
     function challengeXpFor(ch){
       if(!ch) return 10;
-      if(ch.xp!=null) return Number(ch.xp)||10;
-      return RS_DIFF_XP[ch.difficulty]||10;
+      // Canonical pool/admin def wins — ignore mutated client-side xp on the card object
+      var src=(ch.id&&getChallengeDef(ch.id))||ch;
+      if(src.xp!=null) return Number(src.xp)||10;
+      return RS_DIFF_XP[src.difficulty]||10;
     }
     function loadChallengeStore(){
       try{return JSON.parse(localStorage.getItem('rs_challenges')||'{}')||{}}catch(e){return{}}
@@ -14046,16 +14054,28 @@ function profileStatsHtml(userPosts, extra){
     function saveChallengeStore(m){
       try{localStorage.setItem('rs_challenges',JSON.stringify(m||{}))}catch(e){}
     }
+    function loadChallengeAdmin(){
+      try{return JSON.parse(localStorage.getItem('rs_challenge_admin')||'{}')||{}}catch(e){return{}}
+    }
+    function saveChallengeAdmin(m){
+      try{localStorage.setItem('rs_challenge_admin',JSON.stringify(m||{}))}catch(e){}
+    }
+    function challengeAdminState(){
+      var a=loadChallengeAdmin();
+      if(!a.disabled) a.disabled=[];
+      if(!a.custom) a.custom=[];
+      if(!a.overrides) a.overrides={};
+      return a;
+    }
     function challengeUserState(username){
       username=username||(currentUser&&currentUser.name)||'';
       var m=loadChallengeStore();
-      if(!m[username]) m[username]={completions:{},accepted:{},subs:{},snapshots:{},disabled:[],custom:[],stats:{completed:0,pending:0}};
+      if(!m[username]) m[username]={completions:{},accepted:{},subs:{},snapshots:{},dailySets:{},stats:{completed:0,pending:0}};
       if(!m[username].completions) m[username].completions={};
       if(!m[username].accepted) m[username].accepted={};
       if(!m[username].subs) m[username].subs={};
       if(!m[username].snapshots) m[username].snapshots={};
-      if(!m[username].disabled) m[username].disabled=[];
-      if(!m[username].custom) m[username].custom=[];
+      if(!m[username].dailySets) m[username].dailySets={};
       if(!m[username].stats) m[username].stats={completed:0,pending:0};
       return m[username];
     }
@@ -14065,15 +14085,21 @@ function profileStatsHtml(userPosts, extra){
       m[currentUser.name]=st;
       saveChallengeStore(m);
     }
-    function allChallengeDefs(){
-      var st=challengeUserState();
+    function allChallengeDefs(includeDisabled){
+      var admin=challengeAdminState();
       var disabled={};
-      (st.disabled||[]).forEach(function(id){disabled[id]=1});
-      var list=RS_CHALLENGE_POOL.concat(st.custom||[]).filter(function(c){return c&&c.id&&!disabled[c.id]});
+      (admin.disabled||[]).forEach(function(id){disabled[id]=1});
+      var list=RS_CHALLENGE_POOL.concat(admin.custom||[]).filter(function(c){
+        return c&&c.id&&(includeDisabled||!disabled[c.id]);
+      }).map(function(c){
+        var o=(admin.overrides&&admin.overrides[c.id])||null;
+        if(!o) return c;
+        return Object.assign({},c,o);
+      });
       return list;
     }
     function getChallengeDef(id){
-      var list=allChallengeDefs();
+      var list=allChallengeDefs(true);
       for(var i=0;i<list.length;i++) if(list[i].id===id) return list[i];
       return null;
     }
@@ -14089,44 +14115,76 @@ function profileStatsHtml(userPosts, extra){
     function challengeSubKey(chId, day){
       return String(day||rsDayKey())+'|'+String(chId);
     }
-    function pickDailyChallenges(n){
+    function computeDailyChallengeIds(n){
       n=n||4;
       if(!currentUser||!currentUser.name) return [];
       var day=rsDayKey();
-      var pool=allChallengeDefs().slice();
       var level=numericLevelForXp(getUserXp());
-      // Prefer challenges not completed recently
-      pool=pool.filter(function(c){
-        if(isChallengeCompleted(c.id, day)) return false;
-        var st=challengeUserState();
+      var st=challengeUserState();
+      function daysSinceDone(c){
         var last=st.completions[c.id];
-        if(last&&last.day===day) return false;
-        // soft level gate for elite
+        if(!last||!last.day) return 999;
+        try{
+          var aD=new Date(last.day+'T12:00:00').getTime();
+          var bD=new Date(day+'T12:00:00').getTime();
+          return Math.round((bD-aD)/86400000);
+        }catch(e){return 999}
+      }
+      // Level gates only — never filter by today's completion (sticky set)
+      var pool=allChallengeDefs().filter(function(c){
         if(c.difficulty==='ELITE'&&level<8) return false;
         if(c.difficulty==='HARD'&&level<3) return false;
         return true;
       });
-      // Deterministic shuffle by user+day
+      // Deterministic order; soft-penalize recently completed so they rarely repeat
       pool.sort(function(a,b){
-        return hashStr(day+'|'+currentUser.name+'|'+a.id)-hashStr(day+'|'+currentUser.name+'|'+b.id);
+        var pa=daysSinceDone(a)<=5?1e9:0;
+        var pb=daysSinceDone(b)<=5?1e9:0;
+        var sa=hashStr(day+'|'+currentUser.name+'|'+a.id)+pa;
+        var sb=hashStr(day+'|'+currentUser.name+'|'+b.id)+pb;
+        return sa-sb;
       });
-      // diversify categories
       var out=[], usedCat={};
       for(var i=0;i<pool.length&&out.length<n;i++){
         var c=pool[i];
         if(usedCat[c.cat]&&out.length<n-1) continue;
         usedCat[c.cat]=1;
-        out.push(c);
+        out.push(c.id);
       }
       for(var j=0;j<pool.length&&out.length<n;j++){
-        if(out.indexOf(pool[j])<0) out.push(pool[j]);
+        if(out.indexOf(pool[j].id)<0) out.push(pool[j].id);
       }
-      return out.slice(0,n).map(function(c){
+      return out.slice(0,n);
+    }
+    function pickDailyChallenges(n){
+      n=n||4;
+      if(!currentUser||!currentUser.name) return [];
+      var day=rsDayKey();
+      var st=challengeUserState();
+      // Sticky per user/day — completing or refreshing must NOT mint new challenges
+      var ids=st.dailySets[day];
+      if(!ids||!ids.length){
+        ids=computeDailyChallengeIds(n);
+        st.dailySets[day]=ids.slice();
+        persistChallengeUser(st);
+      }
+      var expiresAt=new Date(day+'T23:59:59').getTime();
+      return ids.map(function(id){
+        var c=getChallengeDef(id);
+        if(!c) return null;
         var copy=Object.assign({},c);
         copy.xp=challengeXpFor(c);
-        copy.expiresAt=new Date(day+'T23:59:59').getTime();
+        copy.expiresAt=expiresAt;
         return copy;
-      });
+      }).filter(Boolean).slice(0,n);
+    }
+    function isTodaysChallenge(chId){
+      var day=rsDayKey();
+      var st=challengeUserState();
+      var ids=st.dailySets[day]||[];
+      if(ids.indexOf(chId)>=0) return true;
+      // Also allow if already accepted today (race before sticky write)
+      return !!(st.accepted[day]&&st.accepted[day][chId]);
     }
     function challengeXpRemainingToday(){
       try{
@@ -14252,12 +14310,14 @@ function profileStatsHtml(userPosts, extra){
       daily.forEach(function(ch){
         var status=challengeStatusFor(ch);
         var xpAmt=challengeXpFor(ch);
+        var leftMs=Math.max(0,(ch.expiresAt||Date.now())-Date.now());
+        var leftLabel=leftMs>3600000?(Math.ceil(leftMs/3600000)+'h left'):(Math.ceil(leftMs/60000)+'m left');
         html+='<div class="rs-game-card" data-ch="'+esc(ch.id)+'">';
         html+='<div class="rs-game-cat">'+esc(ch.icon+' '+ch.cat)+'</div>';
         html+='<div class="rs-game-name">'+esc(ch.title)+'</div>';
         html+='<div class="rs-game-desc">'+esc(ch.desc)+'</div>';
         html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
-        html+='<span>'+esc(ch.difficulty)+'</span><span>+'+xpAmt+' XP</span><span>Evidence: '+esc(ch.evidence)+'</span>';
+        html+='<span>'+esc(ch.difficulty)+'</span><span>+'+xpAmt+' XP</span><span>'+leftLabel+'</span><span>Evidence: '+esc(ch.evidence)+'</span>';
         if(status==='completed') html+='<span class="rs-game-done">✓ COMPLETED</span>';
         else if(status==='pending') html+='<span style="color:#fbbf24">PENDING VERIFICATION</span>';
         else if(status==='accepted') html+='<span style="color:#c4b5fd">ACCEPTED</span>';
@@ -14294,11 +14354,17 @@ function profileStatsHtml(userPosts, extra){
 
     async function openChallenge(id){
       if(!isRegistered()){toast('Login first');showAuth('login');return}
+      // Ensure sticky daily set exists first
+      var daily=pickDailyChallenges(4);
       var ch=null;
-      var daily=pickDailyChallenges(8);
       for(var i=0;i<daily.length;i++) if(daily[i].id===id) ch=daily[i];
-      if(!ch) ch=getChallengeDef(id);
-      if(!ch){toast('Challenge not available today');return}
+      if(!ch){
+        // Only today's assigned set is playable — blocks client farming of arbitrary pool IDs
+        if(!isTodaysChallenge(id)){toast('Not in today’s challenges');return}
+        var def=getChallengeDef(id);
+        if(!def){toast('Challenge not available today');return}
+        ch=Object.assign({},def,{xp:challengeXpFor(def),expiresAt:new Date(rsDayKey()+'T23:59:59').getTime()});
+      }
       ch=Object.assign({},ch,{xp:challengeXpFor(ch)});
       var hub=document.getElementById('games-hub')||document.getElementById('challenges-hub');
       var play=document.getElementById('games-play')||document.getElementById('challenges-play');
@@ -14348,7 +14414,7 @@ function profileStatsHtml(userPosts, extra){
       }
       // evidence form
       if(ch.prompt) html+='<div class="rs-game-play-sub">'+esc(ch.prompt)+'</div>';
-      if(ch.evidence==='TEXT'||ch.evidence==='COMMUNITY_ACTION'||ch.validate==='text'||ch.validate==='engage'){
+      if(ch.prompt||ch.evidence==='TEXT'||ch.evidence==='COMMUNITY_ACTION'||ch.validate==='text'||ch.validate==='engage'){
         html+='<textarea id="ch-text" placeholder="Write your response…" style="width:100%;min-height:120px;border-radius:14px;border:1px solid #2a2a32;background:#0c0c10;color:#fff;padding:12px;font-size:15px"></textarea>';
       }
       if(ch.evidence==='PHOTO'||ch.evidence==='SCREENSHOT'||ch.validate==='photo'){
@@ -14377,6 +14443,11 @@ function profileStatsHtml(userPosts, extra){
       var msg=document.getElementById('ch-msg');
       var btn=document.getElementById('ch-submit');
       if(btn) btn.disabled=true;
+      if(!isTodaysChallenge(ch.id)){
+        toast('Not in today’s challenges');
+        if(btn) btn.disabled=false;
+        return;
+      }
       var day=rsDayKey();
       var st=challengeUserState();
       var key=challengeCompletedId(ch.id, day);
@@ -14445,12 +14516,17 @@ function profileStatsHtml(userPosts, extra){
     async function validateChallenge(ch, evidence, st){
       var v=ch.validate||'text';
       if(v==='text'||ch.evidence==='TEXT'){
-        if(!evidence.text||evidence.text.length<20) return {status:'rejected',reason:'Write at least 20 characters.'};
+        var minLen=ch.difficulty==='ELITE'?120:20;
+        if(!evidence.text||evidence.text.length<minLen) return {status:'rejected',reason:'Write at least '+minLen+' characters.'};
         if(evidence.text.length>4000) return {status:'rejected',reason:'Response too long.'};
         return {status:'completed'};
       }
       if(v==='photo'||ch.evidence==='PHOTO'||ch.evidence==='SCREENSHOT'){
         if(!evidence.url) return {status:'rejected',reason:'Upload a photo or screenshot first.'};
+        // Optional accompanying note when challenge defines a prompt
+        if(ch.prompt&&(!evidence.text||evidence.text.length<12)){
+          return {status:'rejected',reason:'Add a short note with your upload (12+ characters).'};
+        }
         // Technical acceptance only — content is self-certified, non-graphic policy applies
         return {status:'completed'};
       }
@@ -14491,57 +14567,96 @@ function profileStatsHtml(userPosts, extra){
     }
 
     function awardChallengeXp(ch){
-      var xp=challengeXpFor(ch);
+      var def=getChallengeDef(ch&&ch.id)||ch;
+      var xp=challengeXpFor(def);
       var action=challengeXpAction(xp);
-      // Force exact displayed XP via matching action bucket
-      var rule=RS_XP_ACTIONS[action];
-      if(!rule||rule.xp!==xp){
-        // fallback nearest
-        action=challengeXpAction(xp);
-      }
-      var ref=challengeCompletedId(ch.id, rsDayKey());
+      var ref=challengeCompletedId(def.id, rsDayKey());
       if(challengeXpRemainingToday()<xp){
         toast('Daily challenge XP limit reached.');
         return 0;
       }
       var got=grantXp(action, ref, true);
-      if(got<=0){
-        // already awarded / capped
-        return 0;
-      }
-      // If action xp differs (shouldn't), do not invent extra
+      if(got<=0) return 0;
       return got;
     }
 
-    // —— Lightweight admin challenges ——
+    // —— Lightweight admin challenges (optional — system runs without it) ——
     function renderAdminChallenges(){
       var box=document.getElementById('admin-challenges-box');
       if(!box)return;
-      var pool=allChallengeDefs();
+      var admin=challengeAdminState();
+      var pool=allChallengeDefs(true);
+      var active=allChallengeDefs(false);
       var store=loadChallengeStore();
-      var completedToday=0, pending=0, xpToday=0;
+      var completedToday=0, pending=0, xpToday=0, acceptedCount=0, completedAll=0;
+      var pop={}, times=[];
       Object.keys(store).forEach(function(user){
         var st=store[user]||{};
+        Object.keys(st.accepted||{}).forEach(function(day){
+          Object.keys(st.accepted[day]||{}).forEach(function(){acceptedCount++});
+        });
         Object.keys(st.completions||{}).forEach(function(k){
           var row=st.completions[k];
-          if(!row||row.day!==rsDayKey())return;
+          if(!row||!row.challengeId)return;
+          if(row.status==='completed'){
+            completedAll++;
+            pop[row.challengeId]=(pop[row.challengeId]||0)+1;
+            var acc=(st.accepted[row.day]&&st.accepted[row.day][row.challengeId])||null;
+            if(acc&&acc.at&&row.at&&row.at>=acc.at) times.push(row.at-acc.at);
+          }
+          if(row.day!==rsDayKey())return;
           if(row.status==='completed'){completedToday++;xpToday+=Number(row.xp)||0}
           if(row.status==='pending') pending++;
         });
       });
-      var html='<div style="font-size:13px;color:var(--muted);margin-bottom:10px">Active pool: '+pool.length
-        +' · Completed today: '+completedToday+' · Pending: '+pending+' · XP distributed today (tracked): '+xpToday+'</div>';
-      html+='<div style="max-height:360px;overflow:auto">';
-      pool.slice(0,80).forEach(function(c){
-        html+='<div style="padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;background:var(--elev)">'
-          +'<strong>'+esc(c.icon+' '+c.title)+'</strong>'
+      var popList=Object.keys(pop).map(function(id){return{id:id,n:pop[id]}}).sort(function(a,b){return b.n-a.n}).slice(0,5);
+      var avgMs=times.length?Math.round(times.reduce(function(s,x){return s+x},0)/times.length):0;
+      var avgLabel=avgMs?(avgMs>3600000?(Math.round(avgMs/3600000*10)/10)+'h':(Math.round(avgMs/60000)||1)+'m'):'—';
+      var rate=acceptedCount?Math.round((completedAll/acceptedCount)*100):0;
+
+      var html='<div style="font-size:13px;color:var(--muted);margin-bottom:10px">Active: '+active.length
+        +' / '+pool.length+' · Completed today: '+completedToday+' · Pending: '+pending
+        +' · XP today: '+xpToday+' · Completion rate: '+rate+'% · Avg time: '+avgLabel+'</div>';
+      if(popList.length){
+        html+='<div style="font-size:12px;margin-bottom:10px"><strong style="color:#ffb35c">Most popular</strong><div style="color:var(--muted);margin-top:4px">';
+        popList.forEach(function(p){html+=esc(p.id)+' ×'+p.n+' · '});
+        html+='</div></div>';
+      }
+
+      html+='<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:#0c0c10">';
+      html+='<strong style="color:var(--orange)">Create challenge</strong>';
+      html+='<div style="display:grid;gap:8px;margin-top:8px">';
+      html+='<input id="adm-ch-id" placeholder="id (e.g. custom_focus)" style="width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a32;background:#101014;color:#fff"/>';
+      html+='<input id="adm-ch-title" placeholder="Title" style="width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a32;background:#101014;color:#fff"/>';
+      html+='<textarea id="adm-ch-desc" placeholder="Instructions" style="width:100%;min-height:64px;padding:10px;border-radius:10px;border:1px solid #2a2a32;background:#101014;color:#fff"></textarea>';
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+      html+='<select id="adm-ch-cat" style="padding:10px;border-radius:10px;border:1px solid #2a2a32;background:#101014;color:#fff"><option>SUBMISSION</option><option>OBEDIENCE</option><option>DEVOTION</option><option>DISCIPLINE</option><option>EXPOSURE</option><option>CONFIDENCE</option><option>COMMUNITY</option><option>PROFILE</option><option>CREATIVITY</option></select>';
+      html+='<select id="adm-ch-diff" style="padding:10px;border-radius:10px;border:1px solid #2a2a32;background:#101014;color:#fff"><option>EASY</option><option>MEDIUM</option><option>HARD</option><option>ELITE</option></select>';
+      html+='<select id="adm-ch-ev" style="padding:10px;border-radius:10px;border:1px solid #2a2a32;background:#101014;color:#fff"><option>TEXT</option><option>PHOTO</option><option>SCREENSHOT</option><option>PROFILE_ACTION</option><option>COMMUNITY_ACTION</option></select>';
+      html+='<input id="adm-ch-xp" type="number" placeholder="XP override (optional)" style="padding:10px;border-radius:10px;border:1px solid #2a2a32;background:#101014;color:#fff"/>';
+      html+='</div>';
+      html+='<button type="button" class="btn btn-primary" id="adm-ch-create" style="min-height:44px;font-weight:900">Add to pool</button>';
+      html+='</div></div>';
+
+      html+='<div style="max-height:420px;overflow:auto">';
+      pool.forEach(function(c){
+        var disabled=(admin.disabled||[]).indexOf(c.id)>=0;
+        var ov=(admin.overrides&&admin.overrides[c.id])||{};
+        html+='<div style="padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;background:var(--elev);opacity:'+(disabled?'.55':'1')+'">'
+          +'<strong>'+esc((c.icon||'🎯')+' '+c.title)+'</strong>'
+          +(disabled?' <span style="color:#f87171;font-size:11px">DISABLED</span>':'')
           +'<div style="font-size:11px;color:var(--muted)">'+esc(c.cat)+' · '+esc(c.difficulty)+' · +'+challengeXpFor(c)+' XP · '+esc(c.evidence)
           +' · <code>'+esc(c.id)+'</code></div>'
-          +'<button type="button" class="btn btn-ghost btn-sm" data-disable-ch="'+esc(c.id)+'" style="margin-top:6px">Disable for me (admin local)</button>'
-          +'</div>';
+          +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'
+          +'<button type="button" class="btn btn-ghost btn-sm" data-toggle-ch="'+esc(c.id)+'">'+(disabled?'Enable':'Disable')+'</button>'
+          +'<button type="button" class="btn btn-ghost btn-sm" data-edit-xp="'+esc(c.id)+'">XP</button>'
+          +'<button type="button" class="btn btn-ghost btn-sm" data-edit-cat="'+esc(c.id)+'">Category</button>'
+          +'<button type="button" class="btn btn-ghost btn-sm" data-edit-ev="'+esc(c.id)+'">Evidence</button>'
+          +'<button type="button" class="btn btn-ghost btn-sm" data-edit-diff="'+esc(c.id)+'">Difficulty</button>'
+          +'</div></div>';
       });
       html+='</div>';
-      // pending queue (local)
+
       html+='<div style="margin-top:14px"><strong style="color:var(--orange)">Pending verification</strong></div>';
       var pendHtml='';
       Object.keys(store).forEach(function(user){
@@ -14555,14 +14670,79 @@ function profileStatsHtml(userPosts, extra){
       });
       html+=pendHtml||'<div style="color:var(--muted);font-size:12px;margin-top:6px">No pending items on this device.</div>';
       box.innerHTML=html;
-      Array.prototype.forEach.call(box.querySelectorAll('[data-disable-ch]'),function(btn){
+
+      var createBtn=document.getElementById('adm-ch-create');
+      if(createBtn) createBtn.onclick=function(){
+        var id=String((document.getElementById('adm-ch-id')||{}).value||'').trim().toLowerCase().replace(/[^a-z0-9_]/g,'_');
+        var title=String((document.getElementById('adm-ch-title')||{}).value||'').trim();
+        var desc=String((document.getElementById('adm-ch-desc')||{}).value||'').trim();
+        if(!id||!title||!desc){toast('Id, title, and instructions required');return}
+        if(getChallengeDef(id)){toast('Id already exists');return}
+        var cat=(document.getElementById('adm-ch-cat')||{}).value||'DEVOTION';
+        var diff=(document.getElementById('adm-ch-diff')||{}).value||'EASY';
+        var ev=(document.getElementById('adm-ch-ev')||{}).value||'TEXT';
+        var xpRaw=(document.getElementById('adm-ch-xp')||{}).value;
+        var validate=ev==='PHOTO'||ev==='SCREENSHOT'?'photo':(ev==='PROFILE_ACTION'?'bio':(ev==='COMMUNITY_ACTION'?'engage':'text'));
+        var row={id:id,cat:cat,icon:'🎯',title:title,desc:desc,difficulty:diff,evidence:ev,validate:validate,hours:24};
+        if(xpRaw!==''&&xpRaw!=null) row.xp=Math.max(5,Math.min(50,Number(xpRaw)||10));
+        if(ev==='TEXT') row.prompt='Your response:';
+        admin.custom.push(row);
+        saveChallengeAdmin(admin);
+        toast('Challenge added to pool');
+        renderAdminChallenges();
+      };
+
+      function patchOverride(id, fields){
+        admin.overrides[id]=Object.assign({},admin.overrides[id]||{},fields);
+        saveChallengeAdmin(admin);
+        renderAdminChallenges();
+      }
+      Array.prototype.forEach.call(box.querySelectorAll('[data-toggle-ch]'),function(btn){
         btn.onclick=function(){
-          var id=btn.getAttribute('data-disable-ch');
-          var st=challengeUserState();
-          if(st.disabled.indexOf(id)<0) st.disabled.push(id);
-          persistChallengeUser(st);
-          toast('Disabled locally');
+          var id=btn.getAttribute('data-toggle-ch');
+          var i=admin.disabled.indexOf(id);
+          if(i>=0) admin.disabled.splice(i,1); else admin.disabled.push(id);
+          saveChallengeAdmin(admin);
+          toast(i>=0?'Enabled':'Disabled');
           renderAdminChallenges();
+        };
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-edit-xp]'),function(btn){
+        btn.onclick=function(){
+          var id=btn.getAttribute('data-edit-xp');
+          var v=prompt('XP (10/20/35/50 or custom 5–50)', String(challengeXpFor(getChallengeDef(id)||{})));
+          if(v==null)return;
+          var n=Math.max(5,Math.min(50,Number(v)||10));
+          patchOverride(id,{xp:n});
+        };
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-edit-cat]'),function(btn){
+        btn.onclick=function(){
+          var id=btn.getAttribute('data-edit-cat');
+          var v=prompt('Category (SUBMISSION/OBEDIENCE/DEVOTION/DISCIPLINE/EXPOSURE/CONFIDENCE/COMMUNITY/PROFILE/CREATIVITY)', (getChallengeDef(id)||{}).cat||'');
+          if(!v)return;
+          patchOverride(id,{cat:String(v).toUpperCase().trim()});
+        };
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-edit-ev]'),function(btn){
+        btn.onclick=function(){
+          var id=btn.getAttribute('data-edit-ev');
+          var v=prompt('Evidence (TEXT/PHOTO/SCREENSHOT/PROFILE_ACTION/COMMUNITY_ACTION)', (getChallengeDef(id)||{}).evidence||'TEXT');
+          if(!v)return;
+          var ev=String(v).toUpperCase().trim();
+          var validate=ev==='PHOTO'||ev==='SCREENSHOT'?'photo':(ev==='PROFILE_ACTION'?'bio':(ev==='COMMUNITY_ACTION'?'engage':'text'));
+          patchOverride(id,{evidence:ev,validate:validate});
+        };
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-edit-diff]'),function(btn){
+        btn.onclick=function(){
+          var id=btn.getAttribute('data-edit-diff');
+          var v=prompt('Difficulty (EASY/MEDIUM/HARD/ELITE)', (getChallengeDef(id)||{}).difficulty||'EASY');
+          if(!v)return;
+          var d=String(v).toUpperCase().trim();
+          var fields={difficulty:d};
+          if(!(admin.overrides[id]&&admin.overrides[id].xp!=null)) fields.xp=RS_DIFF_XP[d]||10;
+          patchOverride(id,fields);
         };
       });
       Array.prototype.forEach.call(box.querySelectorAll('[data-approve-ch]'),function(btn){
@@ -14572,15 +14752,15 @@ function profileStatsHtml(userPosts, extra){
           var m=loadChallengeStore();
           var st=m[user]; if(!st||!st.completions[key])return;
           var chId=st.completions[key].challengeId||String(key).split(':')[0];
-          var ch=getChallengeDef(chId)||{id:chId,difficulty:'EASY',xp:10};
-          // Temporarily switch current user context is unsafe — award into stored user via grant only if same user
+          var ch=getChallengeDef(chId)||{id:chId,difficulty:'EASY'};
           if(currentUser&&currentUser.name===user){
             var xp=awardChallengeXp(ch);
             st.completions[key]={status:'completed',day:rsDayKey(),xp:xp,at:Date.now(),challengeId:chId};
+            st.stats.completed=(Number(st.stats.completed)||0)+1;
             m[user]=st; saveChallengeStore(m);
             toast('Approved · +'+xp+' XP');
           }else{
-            toast('Open admin while logged in as that user to award, or approve on their device');
+            toast('Log in as that user on this device to award XP');
           }
           renderAdminChallenges();
         };
@@ -14599,6 +14779,11 @@ function profileStatsHtml(userPosts, extra){
     window.renderAdminChallenges=renderAdminChallenges;
     window.RS_CHALLENGE_POOL=RS_CHALLENGE_POOL;
     window.pickDailyChallenges=pickDailyChallenges;
+    window.isTodaysChallenge=isTodaysChallenge;
+    window.awardChallengeXp=awardChallengeXp;
+    window.validateChallenge=validateChallenge;
+    window.challengeXpFor=challengeXpFor;
+    window.challengeUserState=challengeUserState;
 
 
     function getLocalFeatured(){
