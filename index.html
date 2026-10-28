@@ -2159,9 +2159,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <button class="btn btn-ghost" style="width:100%;margin-bottom:8px" id="btn-logout" type="button">Log out</button>
           <div id="my-gallery" style="margin-top:12px"></div>
         </div>
-        <div style="margin-top:28px;text-align:center">
-          <button id="btn-admin" type="button" style="background:none;border:0;color:rgba(255,255,255,.22);font-size:10px;letter-spacing:.8px;padding:6px 8px">admin</button>
-        </div>
+        <!-- Admin entry removed from profile. Open only via secret hash #rs-ops -->
+        <button id="btn-admin" type="button" style="display:none" aria-hidden="true" tabindex="-1"></button>
       </div>
 
       
@@ -2657,7 +2656,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <div id="panel-admin" class="panel">
         <div class="panel-h"><h2>Admin</h2><div style="display:flex;gap:6px;align-items:center"><button class="btn btn-secondary btn-sm" type="button" id="btn-admin-refresh" onclick="renderAdmin();toast('Panel updated')">↻ Refresh</button><button class="btn btn-ghost btn-sm" id="btn-admin-back" type="button">← Feed</button></div></div>
         <div id="admin-lock" style="max-width:360px;margin:20px auto;padding:16px">
-          <p style="color:var(--muted);font-size:14px;margin-bottom:12px;text-align:center">Enter admin password</p>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:12px;text-align:center">Private ops lock</p>
           <div class="form-group"><label>Password</label><input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="current-password"/></div>
           <button class="btn btn-primary" style="width:100%;margin-top:8px" type="button" id="btn-admin-unlock">Unlock</button>
         </div>
@@ -3259,21 +3258,72 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(j.email)out._email=j.email;
       return out;
     }
+    // Admin gate: plaintext password is NEVER stored in source.
+    // Only a SHA-256 fingerprint + sealed Worker bridge material.
+    var RS_ADMIN_HASH='93f5bf95a4adfcdf11c5728d13dd846499fe9f4f923a4cdbe5ddc6cc4e8f8d84';
+    var RS_ADMIN_SEAL={iv:'TUiWn5Dbo1P5eB/3',tag:'pJ7wsOy/1ZsEg75e90aHcA==',data:'iuikvs+Au/uWSaE='};
+    function adminGateOpen(){
+      try{return sessionStorage.getItem('rs_admin_gate')==='1'}catch(e){return false}
+    }
+    function openSecretAdminGate(){
+      try{sessionStorage.setItem('rs_admin_gate','1')}catch(e){}
+      showPanel('admin',{fromSecret:true,keepScroll:true});
+    }
+    async function sha256Hex(str){
+      var buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(str||'')));
+      return Array.prototype.map.call(new Uint8Array(buf),function(b){return b.toString(16).padStart(2,'0')}).join('');
+    }
+    function b64ToBytes(b64){
+      var bin=atob(String(b64||''));
+      var out=new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+      return out;
+    }
+    async function unlockAdminWorkerPass(typed){
+      typed=String(typed||'');
+      var hex=await sha256Hex(typed);
+      if(hex!==RS_ADMIN_HASH) throw new Error('Wrong password');
+      // Prefer the typed password against Worker (after you rotate the Worker secret).
+      // Fallback: unseal legacy Worker credential with the typed key (no plaintext in source).
+      try{
+        var probe=await fetch(CF_API+'/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:typed}),cache:'no-store'});
+        var pj=await probe.json().catch(function(){return {}});
+        if(probe.ok&&pj.token){
+          try{sessionStorage.setItem('rs_cf_admin_token',pj.token)}catch(e){}
+          try{sessionStorage.setItem('rs_admin','1')}catch(e){}
+          try{sessionStorage.removeItem('rs_admin_pass')}catch(e){}
+          return typed;
+        }
+      }catch(e){}
+      try{
+        var keyRaw=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(typed));
+        var key=await crypto.subtle.importKey('raw', keyRaw, {name:'AES-GCM'}, false, ['decrypt']);
+        var iv=b64ToBytes(RS_ADMIN_SEAL.iv);
+        var data=b64ToBytes(RS_ADMIN_SEAL.data);
+        var tag=b64ToBytes(RS_ADMIN_SEAL.tag);
+        var packed=new Uint8Array(data.length+tag.length);
+        packed.set(data,0); packed.set(tag,data.length);
+        var plainBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv:iv}, key, packed);
+        return new TextDecoder().decode(plainBuf);
+      }catch(e){
+        throw new Error('Wrong password');
+      }
+    }
     async function cfAdminLogin(forcePass){
-      try{var tok=sessionStorage.getItem('rs_cf_admin_token');if(tok&&!forcePass)return tok}catch(e){}
+      try{var tok=sessionStorage.getItem('rs_cf_admin_token');if(tok&&forcePass==null)return tok}catch(e){}
       var pass=forcePass!=null?String(forcePass):'';
       if(!pass){try{pass=((document.getElementById('admin-pass-input')||{}).value||'')}catch(e){}}
-      if(!pass){try{pass=sessionStorage.getItem('rs_admin_pass')||''}catch(e){}}
-      // Password is verified ONLY by Cloudflare Worker — never compared to a client-side secret.
+      // Never keep a recoverable admin password in sessionStorage.
       if(!pass) throw new Error('Enter admin password');
       var r=await fetch(CF_API+'/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass}),cache:'no-store'});
       var j=await r.json().catch(function(){return {}});
       if(!r.ok||!j.token)throw new Error((j&&j.error)||('Cloudflare admin login HTTP '+r.status));
       try{sessionStorage.setItem('rs_cf_admin_token',j.token)}catch(e){}
-      try{sessionStorage.setItem('rs_admin_pass',pass)}catch(e){}
+      try{sessionStorage.removeItem('rs_admin_pass')}catch(e){}
       try{sessionStorage.setItem('rs_admin','1')}catch(e){}
       return j.token;
     }
+    window.openSecretAdminGate=openSecretAdminGate;
     async function cfAdminRequests(status,kind){
       var token=await cfAdminLogin();
       var u=CF_API+'/admin/requests?limit=150'+(status?'&status='+encodeURIComponent(status):'')+(kind?'&kind='+encodeURIComponent(kind):'');
@@ -8271,25 +8321,35 @@ function openRoulette(){
       var dmod=document.getElementById('donate-modal');
       if(dmod)dmod.onclick=function(e){if(e.target===dmod)closeModals()};
       var brp=document.getElementById('btn-remove-paid');if(brp)brp.onclick=confirmRemovePaid;
-      document.getElementById('btn-admin').onclick=function(){showPanel('admin')};
+      var ba=document.getElementById('btn-admin');
+      if(ba) ba.onclick=function(){ /* hidden — use #rs-ops */ };
       var lo=document.getElementById('btn-logout');
       if(lo)lo.onclick=function(){
         currentUser={name:'Anon_'+Math.floor(1000+Math.random()*9000),role:'guest'};
         localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest');
         localStorage.removeItem('rs_email');
+        try{sessionStorage.removeItem('rs_admin')}catch(e){}
+        try{sessionStorage.removeItem('rs_admin_gate')}catch(e){}
+        try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
+        try{sessionStorage.removeItem('rs_admin_pass')}catch(e){}
         if(sb)sb.auth.signOut().catch(function(){});
         refreshProfileUI();updateProfilePanel();toast('Logged out');
       };
-      document.getElementById('btn-admin-back').onclick=function(){showPanel('feed')};
+      document.getElementById('btn-admin-back').onclick=function(){
+        try{sessionStorage.removeItem('rs_admin_gate')}catch(e){}
+        showPanel('feed');
+      };
       var bau=document.getElementById('btn-admin-unlock');
       if(bau)bau.onclick=async function(){
         var v=((document.getElementById('admin-pass-input')||{}).value||'').trim();
         if(!v){toast('Enter admin password');return}
+        if(!adminGateOpen()){toast('Closed');return}
         bau.disabled=true;
         try{
-          // Server-side check only (Cloudflare Worker). No client-side password constant.
           try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
-          await cfAdminLogin(v);
+          var workerPass=await unlockAdminWorkerPass(v);
+          await cfAdminLogin(workerPass);
+          try{document.getElementById('admin-pass-input').value=''}catch(e){}
           var lock=document.getElementById('admin-lock');
           var body=document.getElementById('admin-body');
           if(lock)lock.style.display='none';
@@ -9115,7 +9175,7 @@ function openRoulette(){
       'roulette':'roulette',
       'messages':'messages',
       'profile':'profile',
-      'admin':'admin',
+      'admin':'rs-ops',
       'tasks':'tasks',
       'task-detail':'tasks',
       'notifs':'alerts',
@@ -9138,7 +9198,8 @@ function openRoulette(){
       'roulette':'roulette','ruleta':'roulette',
       'messages':'messages','inbox':'messages',
       'profile':'profile','me':'profile',
-      'admin':'admin',
+      // Public #admin is disabled. Secret tab only:
+      'rs-ops':'admin',
       'tasks':'tasks','dares':'tasks',
       'alerts':'notifs','notifs':'notifs',
       'new':'post','post':'post',
@@ -9228,6 +9289,19 @@ function openRoulette(){
       if(slug==='dice'){
         window.__routing=true;
         try{if(typeof openDiceGame==='function')openDiceGame();else showPanel('dice')}catch(e){}
+        window.__routing=false;
+        return true;
+      }
+      // Secret admin tab — public #admin is intentionally dead
+      if(slug==='admin'){
+        window.__routing=true;
+        try{showPanel('feed')}catch(e){}
+        window.__routing=false;
+        return true;
+      }
+      if(slug==='rs-ops'){
+        window.__routing=true;
+        try{openSecretAdminGate()}catch(e){}
         window.__routing=false;
         return true;
       }
@@ -10125,6 +10199,11 @@ function openRoulette(){
     function showPanel(name, opts){
       opts=opts||{};
       if(name==='packages'){openCoinShop();return;}
+      if(name==='admin' && !opts.fromSecret && !adminGateOpen()){
+        // Hidden admin — no public profile button; only secret #rs-ops
+        showPanel('feed');
+        return;
+      }
       try{document.body.classList.toggle('gt-on',name==='goontok')}catch(e){}
       try{document.body.classList.toggle('rc-on',name==='randomcam')}catch(e){}
       if(name!=='goontok'&&name!=='randomcam'){try{stopAllMedia()}catch(e){}}
