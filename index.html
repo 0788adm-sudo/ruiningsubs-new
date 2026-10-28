@@ -14061,8 +14061,8 @@ function profileStatsHtml(userPosts, extra){
       if(row){
         var ids=dedupeBadgeIds(badges);
         var html=ids.map(function(id){
-          var def=RS_BADGE_DEFS[id];
-          return '<span class="rs-badge-pill" data-badge-id="'+esc(id)+">'+(def.icon||'🏆')+' '+esc(def.label)+'</span>';
+          var def=RS_BADGE_DEFS[id]||{icon:'*',label:id};
+          return '<span class="rs-badge-pill" data-badge-id="'+esc(id)+'">'+(def.icon||'*')+' '+esc(def.label)+'</span>';
         }).join('');
         row.innerHTML=html;
         row.style.display=html?'flex':'none';
