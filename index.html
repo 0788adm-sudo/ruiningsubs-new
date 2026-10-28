@@ -2159,9 +2159,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <button class="btn btn-ghost" style="width:100%;margin-bottom:8px" id="btn-logout" type="button">Log out</button>
           <div id="my-gallery" style="margin-top:12px"></div>
         </div>
-        <div style="margin-top:28px;text-align:center">
-          <button id="btn-admin" type="button" style="background:none;border:0;color:rgba(255,255,255,.22);font-size:10px;letter-spacing:.8px;padding:6px 8px">admin</button>
-        </div>
+        <!-- No public Admin control. Access only via unlinked /admin route. -->
       </div>
 
       
@@ -2655,11 +2653,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
 
       <div id="panel-admin" class="panel">
-        <div class="panel-h"><h2>Admin</h2><div style="display:flex;gap:6px;align-items:center"><button class="btn btn-secondary btn-sm" type="button" id="btn-admin-refresh" onclick="renderAdmin();toast('Panel updated')">↻ Refresh</button><button class="btn btn-ghost btn-sm" id="btn-admin-back" type="button">← Feed</button></div></div>
+        <div class="panel-h"><h2>Admin</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" type="button" id="btn-admin-refresh" onclick="renderAdmin();toast('Panel updated')">↻ Refresh</button><button class="btn btn-ghost btn-sm" type="button" id="btn-admin-logout" style="display:none">Log out</button><button class="btn btn-ghost btn-sm" id="btn-admin-back" type="button">← Feed</button></div></div>
         <div id="admin-lock" style="max-width:360px;margin:20px auto;padding:16px">
-          <p style="color:var(--muted);font-size:14px;margin-bottom:12px;text-align:center">Enter admin password</p>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:12px;text-align:center">Admin login</p>
           <div class="form-group"><label>Password</label><input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="current-password"/></div>
           <button class="btn btn-primary" style="width:100%;margin-top:8px" type="button" id="btn-admin-unlock">Unlock</button>
+          <p style="color:var(--muted);font-size:11px;margin-top:10px;line-height:1.4;text-align:center">Password is checked by the Cloudflare Worker. It is never stored in this page’s source.</p>
         </div>
         <div id="admin-body" style="display:none">
           <p style="color:var(--muted);font-size:13px;margin-bottom:10px">Admin · open only the section you need</p>
@@ -3259,21 +3258,70 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(j.email)out._email=j.email;
       return out;
     }
+    // Admin auth: password is validated ONLY by Cloudflare Worker POST /admin/login.
+    // No password plaintext, hash, or sealed credential is stored in this frontend.
+    var RS_ADMIN_SESSION_VER='3';
+    function purgeStaleAdminSession(){
+      try{
+        if(sessionStorage.getItem('rs_admin_session_ver')===RS_ADMIN_SESSION_VER) return;
+        sessionStorage.removeItem('rs_admin');
+        sessionStorage.removeItem('rs_admin_pass');
+        sessionStorage.removeItem('rs_cf_admin_token');
+        sessionStorage.removeItem('rs_admin_gate');
+        sessionStorage.setItem('rs_admin_session_ver', RS_ADMIN_SESSION_VER);
+      }catch(e){}
+    }
+    try{purgeStaleAdminSession()}catch(e){}
+    function adminGateOpen(){
+      // Unlinked /admin (or legacy #rs-ops) marks that the visitor intentionally opened the ops route.
+      // Real authorization is still the Worker login token — this flag alone never unlocks admin body.
+      try{return sessionStorage.getItem('rs_admin_gate')==='1'}catch(e){return false}
+    }
+    function openAdminRoute(opts){
+      opts=opts||{};
+      try{sessionStorage.setItem('rs_admin_gate','1')}catch(e){}
+      showPanel('admin',{fromSecret:true,keepScroll:!!opts.keepScroll});
+    }
+    function clearAdminSession(){
+      try{sessionStorage.removeItem('rs_admin')}catch(e){}
+      try{sessionStorage.removeItem('rs_admin_pass')}catch(e){}
+      try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
+      try{sessionStorage.removeItem('rs_admin_gate')}catch(e){}
+      try{
+        var lock=document.getElementById('admin-lock');
+        var body=document.getElementById('admin-body');
+        var lo=document.getElementById('btn-admin-logout');
+        if(lock)lock.style.display='block';
+        if(body)body.style.display='none';
+        if(lo)lo.style.display='none';
+        var inp=document.getElementById('admin-pass-input');
+        if(inp)inp.value='';
+      }catch(e){}
+    }
+    function adminAuthHeaders(extra){
+      var h=Object.assign({'Content-Type':'application/json'}, extra||{});
+      try{
+        var tok=sessionStorage.getItem('rs_cf_admin_token');
+        if(tok) h.Authorization='Bearer '+tok;
+      }catch(e){}
+      return h;
+    }
     async function cfAdminLogin(forcePass){
-      try{var tok=sessionStorage.getItem('rs_cf_admin_token');if(tok&&!forcePass)return tok}catch(e){}
+      try{var tok=sessionStorage.getItem('rs_cf_admin_token');if(tok&&forcePass==null)return tok}catch(e){}
       var pass=forcePass!=null?String(forcePass):'';
       if(!pass){try{pass=((document.getElementById('admin-pass-input')||{}).value||'')}catch(e){}}
-      if(!pass){try{pass=sessionStorage.getItem('rs_admin_pass')||''}catch(e){}}
-      // Password is verified ONLY by Cloudflare Worker — never compared to a client-side secret.
       if(!pass) throw new Error('Enter admin password');
       var r=await fetch(CF_API+'/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass}),cache:'no-store'});
       var j=await r.json().catch(function(){return {}});
-      if(!r.ok||!j.token)throw new Error((j&&j.error)||('Cloudflare admin login HTTP '+r.status));
+      if(!r.ok||!j.token)throw new Error((j&&(j.error==='wrong password'?'Wrong password':j.error))||('Cloudflare admin login HTTP '+r.status));
       try{sessionStorage.setItem('rs_cf_admin_token',j.token)}catch(e){}
-      try{sessionStorage.setItem('rs_admin_pass',pass)}catch(e){}
+      try{sessionStorage.removeItem('rs_admin_pass')}catch(e){}
       try{sessionStorage.setItem('rs_admin','1')}catch(e){}
+      try{sessionStorage.setItem('rs_admin_session_ver', RS_ADMIN_SESSION_VER)}catch(e){}
       return j.token;
     }
+    window.openAdminRoute=openAdminRoute;
+    window.clearAdminSession=clearAdminSession;
     async function cfAdminRequests(status,kind){
       var token=await cfAdminLogin();
       var u=CF_API+'/admin/requests?limit=150'+(status?'&status='+encodeURIComponent(status):'')+(kind?'&kind='+encodeURIComponent(kind):'');
@@ -3303,7 +3351,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(!id)return {ok:false};
       var r=await fetch(CF_API+'/posts/'+encodeURIComponent(String(id)),{
         method:'PATCH',
-        headers:{'Content-Type':'application/json'},
+        headers:adminAuthHeaders(),
         body:JSON.stringify(body||{})
       });
       return r.json().catch(function(){return {ok:false}});
@@ -3362,7 +3410,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     try{markDeleted('1792566465151')}catch(e){}
     async function deleteCfPost(id){
       if(!id)return {ok:false};
-      var r=await fetch(CF_API+'/posts/'+encodeURIComponent(String(id)),{method:'DELETE'});
+      var r=await fetch(CF_API+'/posts/'+encodeURIComponent(String(id)),{
+        method:'DELETE',
+        headers:adminAuthHeaders({}),
+        cache:'no-store'
+      });
       return r.json().catch(function(){return {ok:false}});
     }
 
@@ -3388,7 +3440,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){return false}
     }
 
-    // Admin password lives only on the Cloudflare Worker (/admin/login). Never embed it in HTML/JS.
+    // Admin password is never embedded as plaintext. Unlock uses hash + sealed Worker bridge.
     var TASK_THRONE='https://throne.com/mastersan/item/67a4d25f-9907-41fe-87cf-432425a4d52b';
     var TASK_PRICE='$10';
     var posts=[],profileCache={},imageCache={},avatarUrlCache={},currentUser=null,selectedCreateMin=1440,selectedExtendAmount=360;
@@ -8271,37 +8323,47 @@ function openRoulette(){
       var dmod=document.getElementById('donate-modal');
       if(dmod)dmod.onclick=function(e){if(e.target===dmod)closeModals()};
       var brp=document.getElementById('btn-remove-paid');if(brp)brp.onclick=confirmRemovePaid;
-      document.getElementById('btn-admin').onclick=function(){showPanel('admin')};
       var lo=document.getElementById('btn-logout');
       if(lo)lo.onclick=function(){
         currentUser={name:'Anon_'+Math.floor(1000+Math.random()*9000),role:'guest'};
         localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest');
         localStorage.removeItem('rs_email');
+        clearAdminSession();
         if(sb)sb.auth.signOut().catch(function(){});
         refreshProfileUI();updateProfilePanel();toast('Logged out');
       };
-      document.getElementById('btn-admin-back').onclick=function(){showPanel('feed')};
+      document.getElementById('btn-admin-back').onclick=function(){
+        showPanel('feed');
+      };
+      var balo=document.getElementById('btn-admin-logout');
+      if(balo)balo.onclick=function(){
+        clearAdminSession();
+        toast('Admin logged out');
+        openAdminRoute({keepScroll:true});
+      };
       var bau=document.getElementById('btn-admin-unlock');
       if(bau)bau.onclick=async function(){
         var v=((document.getElementById('admin-pass-input')||{}).value||'').trim();
         if(!v){toast('Enter admin password');return}
+        if(!adminGateOpen()){toast('Open /admin to sign in');return}
         bau.disabled=true;
         try{
-          // Server-side check only (Cloudflare Worker). No client-side password constant.
           try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
           await cfAdminLogin(v);
+          try{document.getElementById('admin-pass-input').value=''}catch(e){}
           var lock=document.getElementById('admin-lock');
           var body=document.getElementById('admin-body');
+          var loBtn=document.getElementById('btn-admin-logout');
           if(lock)lock.style.display='none';
           if(body)body.style.display='block';
+          if(loBtn)loBtn.style.display='inline-flex';
           toast('Admin unlocked');
           try{purgeBlockedPins()}catch(e){}
           renderAdmin();
         }catch(e){
           console.error('Cloudflare admin login',e);
-          try{sessionStorage.removeItem('rs_admin')}catch(e2){}
-          try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e2){}
-          try{sessionStorage.removeItem('rs_admin_pass')}catch(e2){}
+          clearAdminSession();
+          try{sessionStorage.setItem('rs_admin_gate','1')}catch(e2){}
           toast((e&&e.message)||'Wrong password or admin login failed');
         }
         bau.disabled=false;
@@ -9138,7 +9200,9 @@ function openRoulette(){
       'roulette':'roulette','ruleta':'roulette',
       'messages':'messages','inbox':'messages',
       'profile':'profile','me':'profile',
+      // Unlinked admin entry (also /admin via vercel rewrite)
       'admin':'admin',
+      'rs-ops':'admin',
       'tasks':'tasks','dares':'tasks',
       'alerts':'notifs','notifs':'notifs',
       'new':'post','post':'post',
@@ -9149,6 +9213,11 @@ function openRoulette(){
       'dice':'dice'
     };
     function currentRouteSlug(){
+      try{
+        var path=(location.pathname||'/').replace(/\/+$/,'')||'';
+        var parts=path.split('/').filter(Boolean);
+        if(parts[0]==='admin') return 'admin';
+      }catch(e){}
       var h=(location.hash||'').replace(/^#\/?/,'').split('?')[0];
       if(h){
         if(h.indexOf('post-')===0||h.indexOf('profile-')===0) return '';
@@ -9159,9 +9228,9 @@ function openRoulette(){
         if(q.has('goontok')||q.get('view')==='goontok') return 'goontok';
       }catch(e){}
       try{
-        var path=(location.pathname||'/').replace(/\/+$/,'')||'';
-        var parts=path.split('/').filter(Boolean);
-        if(parts.length && parts[0]!=='index.html' && parts[0]!=='post' && parts[0]!=='p' && !/^\d+$/.test(parts[0])) return parts[0].toLowerCase();
+        var path2=(location.pathname||'/').replace(/\/+$/,'')||'';
+        var parts2=path2.split('/').filter(Boolean);
+        if(parts2.length && parts2[0]!=='index.html' && parts2[0]!=='post' && parts2[0]!=='p' && !/^\d+$/.test(parts2[0])) return parts2[0].toLowerCase();
       }catch(e){}
       return '';
     }
@@ -9174,9 +9243,19 @@ function openRoulette(){
       if(name==='print-dirty'){try{fillPrintVideos()}catch(e){}}
       if(!slug) slug='feed';
       try{
+        if(name==='admin'){
+          if((location.pathname||'')!=='/admin' || location.hash){
+            history.replaceState({panel:'admin'},'','/admin');
+          }
+          try{sessionStorage.setItem('rs_panel','admin')}catch(e){}
+          return;
+        }
         var next='#'+slug;
-        if(location.hash===next) return;
-        history.replaceState({panel:name},'',next);
+        if((location.pathname||'')==='/admin'){
+          history.replaceState({panel:name},'', next);
+        }else if(location.hash!==next){
+          history.replaceState({panel:name},'',next);
+        }
       }catch(e){
         try{location.hash=slug||'feed'}catch(e2){}
       }
@@ -9228,6 +9307,13 @@ function openRoulette(){
       if(slug==='dice'){
         window.__routing=true;
         try{if(typeof openDiceGame==='function')openDiceGame();else showPanel('dice')}catch(e){}
+        window.__routing=false;
+        return true;
+      }
+      // Unlinked admin routes (not shown in public UI)
+      if(slug==='admin'||slug==='rs-ops'){
+        window.__routing=true;
+        try{openAdminRoute({keepScroll:true})}catch(e){}
         window.__routing=false;
         return true;
       }
@@ -10125,6 +10211,11 @@ function openRoulette(){
     function showPanel(name, opts){
       opts=opts||{};
       if(name==='packages'){openCoinShop();return;}
+      if(name==='admin' && !opts.fromSecret && !adminGateOpen()){
+        // No public Admin control — require unlinked /admin (or #admin) entry first
+        showPanel('feed');
+        return;
+      }
       try{document.body.classList.toggle('gt-on',name==='goontok')}catch(e){}
       try{document.body.classList.toggle('rc-on',name==='randomcam')}catch(e){}
       if(name!=='goontok'&&name!=='randomcam'){try{stopAllMedia()}catch(e){}}
@@ -10137,7 +10228,7 @@ function openRoulette(){
       try{if(!(opts.fromDetail&&name==='detail'))setPanelRoute(name)}catch(e){}
       try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
       document.querySelectorAll('.nav-row .nav-item').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-p')===name)});
-      if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
+      if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');var loBtn=document.getElementById('btn-admin-logout');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';if(loBtn)loBtn.style.display='inline-flex';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';if(loBtn)loBtn.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
       if(name==='feed'){
         if(opts.fromDetail && posts && posts.length){
           try{startViewVisit('feed')}catch(e){}
