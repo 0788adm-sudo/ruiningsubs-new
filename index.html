@@ -402,6 +402,9 @@
     .rs-level-meta{font-size:12px;color:#cfcfd6;margin-bottom:8px}
     .rs-xp-bar{height:8px;border-radius:999px;background:#1b1b22;overflow:hidden;border:1px solid #2a2a32}
     .rs-xp-bar>i{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#ff6a00);border-radius:999px}
+    .rs-promo-strip{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word}
+    #panel-challenges .rs-game-card,#panel-challenges .rs-games-hero{max-width:100%;box-sizing:border-box}
+    #panel-challenges .rs-game-btn{min-height:44px}
     .rs-streak-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.4);color:#ffb35c;font-size:11px;font-weight:900;margin-top:8px}
     .rs-badge-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#14141a;border:1px solid #2a2a32;font-size:11px;font-weight:800;color:#e8e8ec}
     .notif-item .ni-ico{font-size:18px;width:28px;flex:0 0 auto}
@@ -1870,11 +1873,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div style="font-size:12px;color:#9a9aa3;margin-top:2px">Drop a pin. Others can see the city, not your exact door.</div>
         </button>
         <div style="font-size:11px;letter-spacing:1.4px;color:#9a9aa3;font-weight:800;margin:6px 0 0;grid-column:1 / -1">PLAY</div>
+        <div id="explore-xp-promo" style="margin:0 0 12px;grid-column:1 / -1"></div>
         <div class="tasks-entry" id="btn-explore-games" role="button" style="margin:0 0 14px;grid-column:1 / -1;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(255,106,0,.1));border:1px solid rgba(124,58,237,.4)" onclick="openChallengesHub()">
           <span class="entry-ico" style="color:#c4b5fd;border-color:rgba(167,139,250,.5);box-shadow:0 0 16px rgba(124,58,237,.3)">🎯</span>
           <div class="entry-body">
-            <strong>Challenges + Games</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Daily missions · Word Challenge · Tic-Tac-Toe · XP</div>
+            <strong>Desafíos + Juegos</strong>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tres en Raya · Juego de Letras · meta 10.000 XP</div>
           </div>
           <span style="font-size:20px;color:#c4b5fd">›</span>
         </div>
@@ -10245,7 +10249,7 @@ function openRoulette(){
         }
       }
       if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
-      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
+      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 LLEGA A 10.000 XP',sub:'DESBLOQUEA UNA RECOMPENSA ESPECIAL',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Ver desafíos</button>'})}}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){try{if(typeof fetchVideoPosts==='function')fetchVideoPosts().then(function(){renderGoonTok()}).catch(function(){renderGoonTok()});else renderGoonTok()}catch(e){try{renderGoonTok()}catch(e2){}}startViewVisit('goontok')}
       if(name==='videos'){try{fetchVideoPosts().then(function(){try{renderVideos()}catch(e){}})}catch(e){}try{renderVideos()}catch(e){}startViewVisit('videos')}
@@ -13527,11 +13531,13 @@ function profileStatsHtml(userPosts, extra){
       game_devotion:{xp:10,dailyCap:1,dedupe:'day',game:1},
       game_sequence:{xp:15,dailyCap:1,dedupe:'day',game:1},
       level_reward:{xp:30,dailyCap:20,dedupe:'forever'},
+      xp_goal_10k:{xp:100,dailyCap:1,dedupe:'forever'},
       // legacy soft awards — capped so old callers cannot farm
       save:{xp:2,dailyCap:15,dedupe:'post'},
       download:{xp:2,dailyCap:10,dedupe:'post'},
       extend:{xp:3,dailyCap:15,dedupe:'post'}
     };
+    var RS_XP_GOAL_TARGET=10000;
     var __xpGrantBusy=false;
     var RS_BADGE_DEFS={
       first_post:{icon:'🏆',label:'First Post'},
@@ -13546,7 +13552,8 @@ function profileStatsHtml(userPosts, extra){
       memory_master:{icon:'👑',label:'Obedience Rank'},
       speed_demon:{icon:'⚡',label:'Tribute Reflex'},
       word_smith:{icon:'📸',label:'Exposure Ready'},
-      daily_7:{icon:'📅',label:'7 Day Devotion'}
+      daily_7:{icon:'📅',label:'7 Day Devotion'},
+      goal_10k:{icon:'🏆',label:'10K XP Goal'}
     };
     function rsDayKey(ts){
       var d=new Date(ts||Date.now());
@@ -13801,6 +13808,7 @@ function profileStatsHtml(userPosts, extra){
           try{showLevelUp(afterLv,{fromNum:beforeNum,toNum:afterNum,xp:next,reward:rewardTxt})}catch(e){}
           if(!silent) try{toast(afterLv.icon+' Level up · '+afterLv.name)}catch(e){}
         }
+        try{maybeUnlockXpGoalReward(next, silent)}catch(e){}
         try{
           if(document.getElementById('panel-profile')&&document.getElementById('panel-profile').classList.contains('active')){
             paintProfileRetention();
@@ -14115,44 +14123,44 @@ function profileStatsHtml(userPosts, extra){
     var RS_DIFF_XP={EASY:10,MEDIUM:20,HARD:35,ELITE:50};
     // Actionable daily missions — short, verifiable, community-themed (not school prompts).
     var RS_CHALLENGE_POOL=[
-      // OBEDIENCE
-      {id:'ob_evening',cat:'OBEDIENCE',icon:'👑',title:'DAILY REPORT',desc:'In one sentence, write what you did today to keep your discipline.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Today I kept discipline by…'},
-      {id:'ob_yes',cat:'OBEDIENCE',icon:'👑',title:'YES FIRST',desc:'Complete one small assigned act you choose (tidy desk, hydrate, posture). Confirm it.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Act completed:'},
-      {id:'ob_timer',cat:'OBEDIENCE',icon:'👑',title:'15-MINUTE ORDER',desc:'Set a 15-minute timer, finish one useful task, then report what you finished.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Task finished in 15 minutes:'},
-      {id:'ob_focus',cat:'OBEDIENCE',icon:'👑',title:'FOCUS WINDOW',desc:'Spend 10 minutes on profile or Wall work without switching apps. Report the outcome.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'What did you finish in the focus window?'},
+      // Hidden from active UI (kept for historical completions — do not delete id)
+      {id:'ob_evening',cat:'OBEDIENCE',icon:'👑',title:'DAILY REPORT',desc:'Legacy daily report.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Today I kept discipline by…',hidden:true},
+      // OBEDIENCE — short actionable
+      {id:'ob_yes',cat:'OBEDIENCE',icon:'👑',title:'RETO RÁPIDO',desc:'Haz una acción pequeña ahora (ordenar, hidratarte o postura) y confírmala.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Acción completada:'},
+      {id:'ob_timer',cat:'OBEDIENCE',icon:'👑',title:'15 MINUTOS',desc:'Pon un timer de 15 min, termina una tarea útil y reporta qué hiciste.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Tarea terminada:'},
+      {id:'ob_focus',cat:'OBEDIENCE',icon:'👑',title:'FOCO',desc:'10 minutos en perfil o Wall sin cambiar de app. Di el resultado.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Resultado:'},
       // EXPOSURE
-      {id:'exp_presence',cat:'EXPOSURE',icon:'📸',title:'PRESENCE',desc:'Publish a new Wall post and explain in one sentence what you chose to show.',difficulty:'MEDIUM',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'What did you choose to show?'},
-      {id:'exp_wall',cat:'EXPOSURE',icon:'📸',title:'WALL CHECK-IN',desc:'Post something new on The Wall today, then submit a screenshot of that post.',difficulty:'HARD',evidence:'SCREENSHOT',validate:'photo',hours:24},
-      {id:'exp_caption',cat:'EXPOSURE',icon:'📸',title:'OWN THE CAPTION',desc:'Write a short public caption that owns what you share (non-graphic).',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Your caption:'},
-      {id:'exp_photo',cat:'EXPOSURE',icon:'📸',title:'SHOW PRESENCE',desc:'Upload a tasteful presence photo you are willing to stand behind (non-graphic).',difficulty:'MEDIUM',evidence:'IMAGE',validate:'photo',hours:24},
+      {id:'exp_presence',cat:'EXPOSURE',icon:'📸',title:'PRESENCIA',desc:'Publica en Wall y di en una frase qué decidiste mostrar.',difficulty:'MEDIUM',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'¿Qué mostraste?'},
+      {id:'exp_wall',cat:'EXPOSURE',icon:'📸',title:'CHECK-IN WALL',desc:'Publica algo nuevo en Wall y sube captura del post.',difficulty:'HARD',evidence:'SCREENSHOT',validate:'photo',hours:24},
+      {id:'exp_caption',cat:'EXPOSURE',icon:'📸',title:'CAPTION',desc:'Escribe un caption corto que asuma lo que compartes.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Tu caption:'},
+      {id:'exp_photo',cat:'EXPOSURE',icon:'📸',title:'FOTO PRESENCIA',desc:'Sube una foto de presencia que estés dispuesto a sostener.',difficulty:'MEDIUM',evidence:'IMAGE',validate:'photo',hours:24},
       // PROFILE
-      {id:'pro_check',cat:'PROFILE',icon:'🎯',title:'PROFILE CHECK',desc:'Update your bio and avatar so both clearly match your style.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
-      {id:'pro_bio',cat:'PROFILE',icon:'🎯',title:'BIO REFRESH',desc:'Rewrite your bio so it clearly states how you want to be read here.',difficulty:'EASY',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
-      {id:'pro_avatar',cat:'PROFILE',icon:'🎯',title:'AVATAR UPDATE',desc:'Change your avatar to something you will stand behind publicly.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'avatar',hours:24},
-      {id:'pro_shot',cat:'PROFILE',icon:'🎯',title:'PROFILE PROOF',desc:'Submit a screenshot of your updated profile card.',difficulty:'EASY',evidence:'SCREENSHOT',validate:'photo',hours:24},
+      {id:'pro_check',cat:'PROFILE',icon:'🎯',title:'PRUEBA DE PERFIL',desc:'Actualiza bio y avatar para que reflejen tu estilo. Luego presenta evidencia.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
+      {id:'pro_bio',cat:'PROFILE',icon:'🎯',title:'BIO RÁPIDA',desc:'Reescribe tu bio en una línea clara.',difficulty:'EASY',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
+      {id:'pro_avatar',cat:'PROFILE',icon:'🎯',title:'AVATAR',desc:'Cambia tu avatar a uno que defenderías en público.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'avatar',hours:24},
+      {id:'pro_shot',cat:'PROFILE',icon:'🎯',title:'CAPTURA PERFIL',desc:'Sube una captura de tu perfil actualizado.',difficulty:'EASY',evidence:'SCREENSHOT',validate:'photo',hours:24},
       // COMMUNITY
-      {id:'com_engage',cat:'COMMUNITY',icon:'🤝',title:'ENGAGE ONCE',desc:'Like or comment on one post thoughtfully, then name what you engaged with.',difficulty:'EASY',evidence:'COMMUNITY_ACTION',validate:'engage',hours:24,prompt:'What did you engage with and why?'},
-      {id:'com_encourage',cat:'COMMUNITY',icon:'🤝',title:'LEAVE ENCOURAGEMENT',desc:'Leave one encouraging public comment (non-graphic). Paste what you wrote.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Comment you left:'},
-      {id:'com_follow',cat:'COMMUNITY',icon:'🤝',title:'FOLLOW A CREATOR',desc:'Follow someone whose presence you respect. Name who and why.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Who and why:'},
-      {id:'com_map',cat:'COMMUNITY',icon:'🤝',title:'MAP PIN',desc:'Drop or refresh your city pin on the Exposure Map, then confirm the city.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'City / country you pinned:'},
+      {id:'com_engage',cat:'COMMUNITY',icon:'🤝',title:'ENGAGE',desc:'Like o comenta un post. Di cuál y por qué.',difficulty:'EASY',evidence:'COMMUNITY_ACTION',validate:'engage',hours:24,prompt:'¿Con qué interactuaste?'},
+      {id:'com_encourage',cat:'COMMUNITY',icon:'🤝',title:'ÁNIMO',desc:'Deja un comentario alentador (sin contenido gráfico). Pégalo aquí.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Comentario:'},
+      {id:'com_follow',cat:'COMMUNITY',icon:'🤝',title:'FOLLOW',desc:'Sigue a alguien cuya presencia respetes. Di quién y por qué.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Quién y por qué:'},
+      {id:'com_map',cat:'COMMUNITY',icon:'🤝',title:'PIN MAPA',desc:'Pon o actualiza tu ciudad en Exposure Map.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Ciudad / país:'},
       // CREATIVITY
-      {id:'cre_tagline',cat:'CREATIVITY',icon:'✨',title:'PERSONAL TAGLINE',desc:'Invent a short tagline for your profile energy and paste it.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Tagline:'},
-      {id:'cre_wall_line',cat:'CREATIVITY',icon:'✨',title:'WALL LINE',desc:'Write one strong Wall caption (under 120 chars) that fits community energy.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Caption:'},
-      {id:'cre_photo',cat:'CREATIVITY',icon:'✨',title:'CREATIVE FRAME',desc:'Upload a creative photo/composition that fits the board mood (non-graphic).',difficulty:'HARD',evidence:'IMAGE',validate:'photo',hours:24},
+      {id:'cre_tagline',cat:'CREATIVITY',icon:'✨',title:'TAGLINE',desc:'Inventa un tagline corto para tu perfil.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Tagline:'},
+      {id:'cre_wall_line',cat:'CREATIVITY',icon:'✨',title:'LÍNEA WALL',desc:'Escribe un caption fuerte (máx. 120 caracteres).',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Caption:'},
+      {id:'cre_photo',cat:'CREATIVITY',icon:'✨',title:'FRAME',desc:'Sube una foto creativa del mood del board.',difficulty:'HARD',evidence:'IMAGE',validate:'photo',hours:24},
       // DISCIPLINE
-      {id:'dis_streak',cat:'DISCIPLINE',icon:'🔥',title:'STREAK GUARD',desc:'Claim Daily Devotion if available, then report your current streak day.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'My streak day number:'},
-      {id:'dis_morning',cat:'DISCIPLINE',icon:'🔥',title:'MORNING STRUCTURE',desc:'Complete wake → hydrate → plan. Log the three steps.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Morning checklist:'},
-      {id:'dis_noskip',cat:'DISCIPLINE',icon:'🔥',title:'NO SKIP',desc:'Finish today’s challenges without skipping. Confirm what you completed.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Completed today:'},
-      {id:'dis_proof',cat:'DISCIPLINE',icon:'🔥',title:'PROOF OF EFFORT',desc:'Submit a screenshot proving you improved profile or Wall content today.',difficulty:'MEDIUM',evidence:'SCREENSHOT',validate:'photo',hours:24},
-      // GAMES (played in hub; also selectable as daily when rotated)
-      {id:'game_word',cat:'GAMES',icon:'🎮',title:'WORD CHALLENGE',desc:'Play Word Challenge and finish a round. Result is auto-verified.',difficulty:'EASY',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'word_challenge'},
-      {id:'game_ttt',cat:'GAMES',icon:'🎮',title:'TIC-TAC-TOE',desc:'Play Tic-Tac-Toe (AI / Friend / Random). Result is auto-verified.',difficulty:'MEDIUM',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'tic_tac_toe'},
-      // Defeat response (spawned after a loss — not in daily picker by default)
-      {id:'defeat_response',cat:'GAMES',icon:'⚔️',title:'DEFEAT RESPONSE',desc:'You lost a match. Publish a Wall post showing your response, then submit a screenshot.',difficulty:'MEDIUM',evidence:'WALL_POST',validate:'photo',hours:48,prompt:'What was your defeat response?',spawn:'defeat',xp:20},
+      {id:'dis_streak',cat:'DISCIPLINE',icon:'🔥',title:'STREAK',desc:'Reclama Daily Devotion si puedes y reporta tu día de racha.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Día de racha:'},
+      {id:'dis_morning',cat:'DISCIPLINE',icon:'🔥',title:'MAÑANA',desc:'Despertar → hidratar → plan. Loguea los 3 pasos.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Checklist:'},
+      {id:'dis_noskip',cat:'DISCIPLINE',icon:'🔥',title:'SIN SKIP',desc:'Termina los retos de hoy sin saltarte. Confirma qué completaste.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Completado:'},
+      {id:'dis_proof',cat:'DISCIPLINE',icon:'🔥',title:'PRUEBA',desc:'Captura que demuestre mejora de perfil o Wall hoy.',difficulty:'MEDIUM',evidence:'SCREENSHOT',validate:'photo',hours:24},
+      // GAMES defs (hub shows live games above daily list)
+      {id:'game_word',cat:'GAMES',icon:'🔤',title:'JUEGO DE LETRAS',desc:'Ordena letras y encuentra la palabra. Resultado auto-verificado.',difficulty:'EASY',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'word_challenge'},
+      {id:'game_ttt',cat:'GAMES',icon:'🎯',title:'TRES EN RAYA',desc:'Juega Tres en Raya. Resultado auto-verificado.',difficulty:'MEDIUM',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'tic_tac_toe'},
+      {id:'defeat_response',cat:'GAMES',icon:'⚔️',title:'RESPUESTA A DERROTA',desc:'Perdiste. Publica en Wall tu respuesta y sube captura.',difficulty:'MEDIUM',evidence:'WALL_POST',validate:'photo',hours:48,prompt:'¿Cuál fue tu respuesta?',spawn:'defeat',xp:20},
       // ELITE
-      {id:'eli_profile_overhaul',cat:'PROFILE',icon:'🎯',title:'FULL PROFILE PASS',desc:'Overhaul bio and avatar so both clearly match your presence, then submit.',difficulty:'ELITE',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
-      {id:'eli_wall_series',cat:'EXPOSURE',icon:'📸',title:'PRESENCE SERIES',desc:'Publish a new Wall post and submit a screenshot plus a short note on what you showed.',difficulty:'ELITE',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'What did you choose to show, and why?'},
-      {id:'eli_discipline_day',cat:'DISCIPLINE',icon:'🔥',title:'FULL DAY DISCIPLINE',desc:'Complete every other challenge in today’s set, then log how you stayed consistent.',difficulty:'ELITE',evidence:'TEXT',validate:'text',hours:24,prompt:'How did you finish the day without skipping?'}
+      {id:'eli_profile_overhaul',cat:'PROFILE',icon:'🎯',title:'PERFIL COMPLETO',desc:'Rehaz bio y avatar para que ambos encajen. Luego presenta evidencia.',difficulty:'ELITE',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
+      {id:'eli_wall_series',cat:'EXPOSURE',icon:'📸',title:'SERIE PRESENCIA',desc:'Publica en Wall, sube captura y una nota corta de qué mostraste.',difficulty:'ELITE',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'¿Qué mostraste y por qué?'},
+      {id:'eli_discipline_day',cat:'DISCIPLINE',icon:'🔥',title:'DÍA COMPLETO',desc:'Completa el resto de retos de hoy y resume cómo te mantuviste.',difficulty:'ELITE',evidence:'TEXT',validate:'text',hours:24,prompt:'Cómo lo lograste:'}
     ];
 
     function numericLevelForXp(xp){
@@ -14223,7 +14231,9 @@ function profileStatsHtml(userPosts, extra){
       var disabled={};
       (admin.disabled||[]).forEach(function(id){disabled[id]=1});
       var list=RS_CHALLENGE_POOL.concat(admin.custom||[]).filter(function(c){
-        return c&&c.id&&(includeDisabled||!disabled[c.id]);
+        if(!c||!c.id) return false;
+        if(!includeDisabled && (disabled[c.id]||c.hidden)) return false;
+        return true;
       }).map(function(c){
         var o=(admin.overrides&&admin.overrides[c.id])||null;
         if(!o) return c;
@@ -14264,8 +14274,9 @@ function profileStatsHtml(userPosts, extra){
         }catch(e){return 999}
       }
       // Level gates only — never filter by today's completion (sticky set).
-      // GAMES + defeat-spawned challenges live in the Games section, not daily cards.
+      // GAMES + defeat-spawned + hidden (e.g. INFORME DIARIO) stay out of daily cards.
       var pool=allChallengeDefs().filter(function(c){
+        if(c.hidden||c.id==='ob_evening') return false;
         if(c.spawn==='defeat') return false;
         if(c.cat==='GAMES'||c.evidence==='GAME_RESULT') return false;
         if(c.difficulty==='ELITE'&&level<8) return false;
@@ -14292,7 +14303,7 @@ function profileStatsHtml(userPosts, extra){
       }
       return out.slice(0,n);
     }
-    var RS_CHALLENGE_SET_VER='2026-10-28a';
+    var RS_CHALLENGE_SET_VER='2026-10-28b';
     function pickDailyChallenges(n){
       n=n||4;
       if(!currentUser||!currentUser.name) return [];
@@ -14386,6 +14397,76 @@ function profileStatsHtml(userPosts, extra){
     var __rsActiveChallenge=null;
     var __rsEvidenceFile=null;
 
+    var __xpGoalUnlocking=false;
+    function hasUnlockedXpGoal(){
+      try{
+        if(!currentUser||!currentUser.name) return false;
+        var b=userBadges(currentUser.name)||{};
+        if(b.goal_10k) return true;
+        var led=loadXpLedger();
+        var forever=(led[currentUser.name]&&led[currentUser.name].__forever)||{};
+        if(forever['xp_goal_10k|xp_goal_10k']||forever['xp_goal_10k|']) return true;
+        return Object.keys(forever).some(function(k){return String(k).indexOf('xp_goal_10k')===0});
+      }catch(e){return false}
+    }
+    function maybeUnlockXpGoalReward(xpNow, silent){
+      if(__xpGoalUnlocking) return false;
+      xpNow=Number(xpNow!=null?xpNow:getUserXp())||0;
+      if(xpNow<RS_XP_GOAL_TARGET) return false;
+      if(hasUnlockedXpGoal()) return false;
+      // One-time: forever-deduped XP bonus + badge (never re-grants on reload)
+      __xpGoalUnlocking=true;
+      var got=0;
+      try{
+        var busyWas=__xpGrantBusy;
+        __xpGrantBusy=false;
+        try{got=grantXp('xp_goal_10k','xp_goal_10k', true)}catch(e){got=0}
+        __xpGrantBusy=busyWas;
+        try{unlockBadge('goal_10k')}catch(e){}
+        try{pushNotif(currentUser.name,'system','badge',null,'🏆 META COMPLETADA · 10.000 XP · recompensa especial')}catch(e){}
+        if(!silent) try{toast('🏆 Meta 10.000 XP completada')}catch(e){}
+      }finally{
+        __xpGoalUnlocking=false;
+      }
+      return got>0||hasUnlockedXpGoal();
+    }
+    function rsXpGoalProgressHtml(xp){
+      xp=Math.max(0,Number(xp)||0);
+      var target=RS_XP_GOAL_TARGET;
+      var done=hasUnlockedXpGoal()||xp>=target;
+      var pct=Math.max(0,Math.min(100, Math.round((Math.min(xp,target)/target)*100)));
+      var left=Math.max(0,target-xp);
+      var html='<div class="rs-game-card" style="border-color:rgba(245,197,24,.35);background:linear-gradient(135deg,rgba(245,197,24,.12),rgba(124,58,237,.1))">';
+      html+='<div class="rs-game-cat">🏆 PROGRESO</div>';
+      if(done){
+        html+='<div class="rs-game-name">META COMPLETADA</div>';
+        html+='<div class="rs-game-desc">10.000 XP alcanzados. Has desbloqueado una recompensa especial.</div>';
+        html+='<div class="rs-xp-bar" style="margin-top:10px"><i style="width:100%;background:linear-gradient(90deg,#f5c518,#ff6a00)"></i></div>';
+        html+='<div class="rs-games-meta" style="margin-top:8px">'+xp.toLocaleString()+' / '+target.toLocaleString()+' XP · 100%</div>';
+      }else{
+        html+='<div class="rs-game-name">META: '+target.toLocaleString()+' XP</div>';
+        html+='<div class="rs-games-meta" style="margin-top:4px">'+xp.toLocaleString()+' / '+target.toLocaleString()+' XP</div>';
+        html+='<div class="rs-xp-bar" style="margin-top:10px"><i style="width:'+pct+'%;background:linear-gradient(90deg,#ff6a00,#7c3aed)"></i></div>';
+        html+='<div class="rs-games-meta" style="margin-top:8px">'+pct+'% · Faltan '+left.toLocaleString()+' XP</div>';
+      }
+      html+='</div>';
+      return html;
+    }
+    // Reusable light promo strip (not a popup; never blocks UI)
+    function rsPromoStripHtml(opts){
+      opts=opts||{};
+      var title=opts.title||'🏆 LLEGA A 10.000 XP';
+      var sub=opts.sub||'DESBLOQUEA UNA RECOMPENSA ESPECIAL';
+      var action=opts.action||'';
+      return '<div class="rs-promo-strip" role="note" style="margin:10px 0 14px;padding:12px 14px;border-radius:14px;border:1px dashed rgba(245,197,24,.45);background:rgba(245,197,24,.08);text-align:center">'
+        +'<div style="font-size:13px;font-weight:900;letter-spacing:.04em;color:#f5c518">'+esc(title)+'</div>'
+        +'<div style="font-size:11px;font-weight:800;color:#cfcfd6;margin-top:4px;letter-spacing:.06em">'+esc(sub)+'</div>'
+        +(action?('<div style="margin-top:8px">'+action+'</div>'):'')
+        +'</div>';
+    }
+    window.rsPromoStripHtml=rsPromoStripHtml;
+    window.rsXpGoalProgressHtml=rsXpGoalProgressHtml;
+
     function openChallengesHub(){
       showPanel('challenges');
       renderChallengesHub();
@@ -14415,11 +14496,12 @@ function profileStatsHtml(userPosts, extra){
       if(play){play.style.display='none';play.innerHTML=''}
       box.style.display='block';
       if(!isRegistered()){
-        box.innerHTML='<div class="empty" style="padding:24px">Login to receive today’s challenges.</div>';
+        box.innerHTML='<div class="empty" style="padding:24px">Inicia sesión para ver tus desafíos.</div>';
         return;
       }
       tickDailyRetention();
       var xp=getUserXp();
+      try{maybeUnlockXpGoalReward(xp, true)}catch(e){}
       var lv=levelForXp(xp);
       var num=numericLevelForXp(xp);
       var streak=getStreakState(currentUser.name);
@@ -14427,7 +14509,9 @@ function profileStatsHtml(userPosts, extra){
       var claim=dailyClaimStatus();
       var dayN=((Number(streak.current)||1)-1)%7+1;
       var remain=challengeXpRemainingToday();
-      var daily=pickDailyChallenges(4);
+      var daily=pickDailyChallenges(4).filter(function(ch){
+        return ch&&ch.id!=='ob_evening'&&!ch.hidden&&String(ch.title||'').toUpperCase().indexOf('INFORME DIARIO')<0&&String(ch.title||'').toUpperCase().indexOf('DAILY REPORT')<0;
+      });
       var completedToday=0;
       Object.keys(st.completions||{}).forEach(function(k){
         var row=st.completions[k];
@@ -14435,46 +14519,76 @@ function profileStatsHtml(userPosts, extra){
       });
       var html='';
       html+='<div class="rs-games-hero">';
-      html+='<div class="rs-games-kicker">🎯 CHALLENGES</div>';
-      html+='<div class="rs-games-title">What is today’s challenge?</div>';
+      html+='<div class="rs-games-kicker">🎯 DESAFÍOS</div>';
+      html+='<div class="rs-games-title">Retos rápidos · XP · recompensas</div>';
       html+='<div class="rs-games-meta">Rank L'+num+' · '+(lv.current.icon||'')+' '+esc(lv.current.name)
-        +' · '+xp.toLocaleString()+' XP · 🔥 '+(Number(streak.current)||0)+'d streak</div>';
-      html+='<div class="rs-xp-bar" style="margin-top:10px"><i style="width:'+lv.pct+'%"></i></div>';
-      html+='<div class="rs-games-meta" style="margin-top:8px">🔥 '+(Number(streak.current)||0)+' DAY STREAK · best '+(Number(streak.best)||0)
-        +' · '+Number(st.stats.completed||0)+' challenges · today '+completedToday
-        +' · XP today '+(RS_CHALLENGE_XP_CAP-remain)+'/'+RS_CHALLENGE_XP_CAP+'</div>';
+        +' · '+xp.toLocaleString()+' XP · 🔥 '+(Number(streak.current)||0)+'d</div>';
+      html+='<div class="rs-games-meta" style="margin-top:8px">🔥 Racha '+(Number(streak.current)||0)
+        +' · '+Number(st.stats.completed||0)+' retos · hoy '+completedToday
+        +' · XP hoy '+(RS_CHALLENGE_XP_CAP-remain)+'/'+RS_CHALLENGE_XP_CAP+'</div>';
       html+='</div>';
+
+      // 10k XP goal bar (live XP — not hardcoded)
+      html+=rsXpGoalProgressHtml(xp);
+      html+=rsPromoStripHtml({
+        title:'🏆 LLEGA A 10.000 XP',
+        sub:'DESBLOQUEA UNA RECOMPENSA ESPECIAL'
+      });
+
+      // Featured games FIRST — Tres en Raya above everything else
+      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:4px 0 10px">JUEGOS</div>';
+      var featuredGames=RS_GAME_REGISTRY.filter(function(g){return g.status==='live'}).slice().sort(function(a,b){
+        // Tres en Raya first
+        if(a.id==='tic_tac_toe') return -1;
+        if(b.id==='tic_tac_toe') return 1;
+        return 0;
+      });
+      featuredGames.forEach(function(g){
+        html+='<div class="rs-game-card"'+(g.id==='tic_tac_toe'?' style="border-color:rgba(124,58,237,.55)"':'')+'>';
+        html+='<div class="rs-game-cat">'+esc((g.id==='tic_tac_toe'?'🎯':'🔤')+' '+g.category)+'</div>';
+        html+='<div class="rs-game-name">'+esc(g.name)+'</div>';
+        html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
+        html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
+        html+='<span>'+esc(g.difficulty)+'</span><span>+'+g.xp+' XP</span><span>'+esc(g.duration)+'</span></div>';
+        html+='<div class="rs-game-foot"><span class="rs-game-xp">+'+g.xp+' XP</span>';
+        html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">JUGAR</button></div></div>';
+      });
+
+      html+=rsPromoStripHtml({
+        title:'🎮 JUEGA · SUBE XP',
+        sub:'TRES EN RAYA Y JUEGO DE LETRAS SUMAN A TU META'
+      });
 
       html+='<div class="rs-game-card rs-daily-card">';
       html+='<div class="rs-game-cat">DAILY</div>';
-      html+='<div class="rs-game-name">🔥 Daily Devotion · Day '+dayN+'/7</div>';
-      html+='<div class="rs-game-desc">Claim once per day to protect your streak. Bonus on days 3, 5 and 7.</div>';
+      html+='<div class="rs-game-name">🔥 Daily Devotion · Día '+dayN+'/7</div>';
+      html+='<div class="rs-game-desc">Reclama 1 vez al día para proteger tu racha. Bonus en días 3, 5 y 7.</div>';
       html+='<div class="rs-game-foot"><span class="rs-game-xp">+10'+(dayN===3||dayN===5||dayN===7?'–30':'')+' XP</span>';
-      if(claim.available) html+='<button type="button" class="btn rs-game-btn" id="btn-daily-claim">CLAIM</button>';
-      else html+='<span class="rs-game-done">CLAIMED TODAY</span>';
+      if(claim.available) html+='<button type="button" class="btn rs-game-btn" id="btn-daily-claim">RECLAMAR</button>';
+      else html+='<span class="rs-game-done">RECLAMADO HOY</span>';
       html+='</div></div>';
 
-      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#ffb35c;margin:8px 0 10px">TODAY’S CHALLENGES</div>';
+      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#ffb35c;margin:8px 0 10px">RETOS DE HOY</div>';
       daily.forEach(function(ch){
         var status=challengeStatusFor(ch);
         var xpAmt=challengeXpFor(ch);
         var leftMs=Math.max(0,(ch.expiresAt||Date.now())-Date.now());
-        var leftLabel=leftMs>3600000?(Math.ceil(leftMs/3600000)+'h left'):(Math.ceil(leftMs/60000)+'m left');
+        var leftLabel=leftMs>3600000?(Math.ceil(leftMs/3600000)+'h'):(Math.ceil(leftMs/60000)+'m');
         html+='<div class="rs-game-card" data-ch="'+esc(ch.id)+'">';
         html+='<div class="rs-game-cat">'+esc(ch.icon+' '+ch.cat)+'</div>';
         html+='<div class="rs-game-name">'+esc(ch.title)+'</div>';
         html+='<div class="rs-game-desc">'+esc(ch.desc)+'</div>';
         html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
-        html+='<span>'+esc(ch.difficulty)+'</span><span>+'+xpAmt+' XP</span><span>'+leftLabel+'</span><span>Evidence: '+esc(ch.evidence)+'</span>';
-        if(status==='completed') html+='<span class="rs-game-done">✓ COMPLETED</span>';
-        else if(status==='pending') html+='<span style="color:#fbbf24">PENDING VERIFICATION</span>';
-        else if(status==='accepted') html+='<span style="color:#c4b5fd">ACCEPTED</span>';
+        html+='<span>'+esc(ch.difficulty)+'</span><span>+'+xpAmt+' XP</span><span>'+leftLabel+'</span><span>'+esc(ch.evidence)+'</span>';
+        if(status==='completed') html+='<span class="rs-game-done">✓ HECHO</span>';
+        else if(status==='pending') html+='<span style="color:#fbbf24">PENDIENTE</span>';
+        else if(status==='accepted') html+='<span style="color:#c4b5fd">ACEPTADO</span>';
         html+='</div>';
         html+='<div class="rs-game-foot">';
-        if(status==='completed') html+='<span class="rs-game-done">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VIEW</button>';
-        else if(status==='pending') html+='<span class="rs-game-xp">Awaiting check</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VIEW</button>';
-        else if(status==='accepted') html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">SUBMIT EVIDENCE</button>';
-        else html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">ACCEPT CHALLENGE</button>';
+        if(status==='completed') html+='<span class="rs-game-done">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VER</button>';
+        else if(status==='pending') html+='<span class="rs-game-xp">En revisión</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VER</button>';
+        else if(status==='accepted') html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">PRESENTAR PRUEBAS</button>';
+        else html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">ACEPTAR</button>';
         html+='</div></div>';
       });
 
@@ -14489,32 +14603,13 @@ function profileStatsHtml(userPosts, extra){
           var status2=challengeStatusFor(Object.assign({},def,{id:sid}));
           if(status2==='completed')return;
           html+='<div class="rs-game-card" style="border-color:rgba(248,113,113,.45)">';
-          html+='<div class="rs-game-cat">⚔️ DEFEAT RESPONSE</div>';
+          html+='<div class="rs-game-cat">⚔️ DERROTA</div>';
           html+='<div class="rs-game-name">'+esc(def.title)+'</div>';
           html+='<div class="rs-game-desc">'+esc(def.desc)+'</div>';
           html+='<div class="rs-game-foot"><span class="rs-game-xp">+'+challengeXpFor(def)+' XP</span>';
-          html+='<button type="button" class="btn rs-game-btn" data-open-ch="'+esc(sid)+'">SUBMIT EVIDENCE</button></div></div>';
+          html+='<button type="button" class="btn rs-game-btn" data-open-ch="'+esc(sid)+'">PRESENTAR PRUEBAS</button></div></div>';
         });
       }catch(e){}
-
-      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:16px 0 10px">GAMES</div>';
-      RS_GAME_REGISTRY.forEach(function(g){
-        if(g.status==='coming_soon'){
-          html+='<div class="rs-game-card" style="opacity:.55"><div class="rs-game-cat">🎮 '+esc(g.category)+'</div>';
-          html+='<div class="rs-game-name">'+esc(g.name)+'</div>';
-          html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
-          html+='<div class="rs-game-foot"><span class="rs-game-xp">Coming soon</span></div></div>';
-          return;
-        }
-        html+='<div class="rs-game-card">';
-        html+='<div class="rs-game-cat">🎮 '+esc(g.category)+'</div>';
-        html+='<div class="rs-game-name">'+esc(g.name)+'</div>';
-        html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
-        html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
-        html+='<span>'+esc(g.difficulty)+'</span><span>+'+g.xp+' XP</span><span>'+esc(g.duration)+'</span><span>'+esc(g.mode)+'</span></div>';
-        html+='<div class="rs-game-foot"><span class="rs-game-xp">+'+g.xp+' XP</span>';
-        html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">PLAY</button></div></div>';
-      });
 
       box.innerHTML=html;
       var claimBtn=document.getElementById('btn-daily-claim');
@@ -14835,12 +14930,12 @@ function profileStatsHtml(userPosts, extra){
       return RS_WORD_BANK_DEFAULT.slice();
     }
     var RS_GAME_REGISTRY=[
-      {id:'word_challenge',name:'WORD CHALLENGE',desc:'Unscramble community words under a timer. Combos boost XP.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'live',open:function(){startWordChallenge()}},
-      {id:'tic_tac_toe',name:'TIC-TAC-TOE',desc:'VS Machine · VS Friend · VS Random (AI fallback).',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'PVP/AI',status:'live',open:function(){startTicTacToeMenu()}},
-      {id:'memory',name:'MEMORY',desc:'Match pairs under pressure.',category:'GAMES',difficulty:'MEDIUM',xp:20,duration:'~90s',mode:'SOLO',status:'coming_soon'},
-      {id:'reaction',name:'REACTION',desc:'Tap on the flash — speed scores.',category:'GAMES',difficulty:'EASY',xp:15,duration:'~30s',mode:'SOLO',status:'coming_soon'},
-      {id:'typing',name:'TYPING',desc:'Type obedience phrases accurately.',category:'GAMES',difficulty:'MEDIUM',xp:20,duration:'~45s',mode:'SOLO',status:'coming_soon'},
-      {id:'sequence',name:'SEQUENCE',desc:'Repeat the pattern before it grows.',category:'GAMES',difficulty:'HARD',xp:25,duration:'~60s',mode:'SOLO',status:'coming_soon'}
+      {id:'tic_tac_toe',name:'TRES EN RAYA',desc:'Duelo rápido. Elige partida, amigo o rival aleatorio.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'PVP',status:'live',open:function(){startTicTacToeMenu()}},
+      {id:'word_challenge',name:'JUEGO DE LETRAS',desc:'Ordena letras de palabras de obediencia. Combos = más XP.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'live',open:function(){startWordChallenge()}},
+      {id:'memory',name:'MEMORY',desc:'Empareja pares bajo presión.',category:'GAMES',difficulty:'MEDIUM',xp:20,duration:'~90s',mode:'SOLO',status:'coming_soon'},
+      {id:'reaction',name:'REACTION',desc:'Toca al flash — gana la velocidad.',category:'GAMES',difficulty:'EASY',xp:15,duration:'~30s',mode:'SOLO',status:'coming_soon'},
+      {id:'typing',name:'TYPING',desc:'Escribe frases de obediencia con precisión.',category:'GAMES',difficulty:'MEDIUM',xp:20,duration:'~45s',mode:'SOLO',status:'coming_soon'},
+      {id:'sequence',name:'SEQUENCE',desc:'Repite el patrón antes de que crezca.',category:'GAMES',difficulty:'HARD',xp:25,duration:'~60s',mode:'SOLO',status:'coming_soon'}
     ];
     function getGameDef(id){
       for(var i=0;i<RS_GAME_REGISTRY.length;i++) if(RS_GAME_REGISTRY[i].id===id) return RS_GAME_REGISTRY[i];
@@ -15079,14 +15174,14 @@ function profileStatsHtml(userPosts, extra){
     var __ttt=null;
     function startTicTacToeMenu(){
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎮 TIC-TAC-TOE</div>'
-        +'<div class="rs-games-title">Choose mode</div>'
-        +'<div class="rs-games-meta">+25 XP win · +10 XP draw · Defeat Response on loss</div></div>'
+        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TRES EN RAYA</div>'
+        +'<div class="rs-games-title">Elige duelo</div>'
+        +'<div class="rs-games-meta">+25 XP victoria · +10 XP empate · respuesta si pierdes</div></div>'
         +'<div class="rs-game-card">'
-        +'<button type="button" class="btn btn-primary" data-ttt="ai" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">VS MACHINE</button>'
-        +'<button type="button" class="btn btn-secondary" data-ttt="friend" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">VS FRIEND</button>'
-        +'<button type="button" class="btn btn-secondary" data-ttt="random" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">VS RANDOM PLAYER</button>'
-        +'<button type="button" class="btn btn-ghost" id="ttt-back" style="width:100%">← Back</button>'
+        +'<button type="button" class="btn btn-primary" data-ttt="ai" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">VS PARTIDA</button>'
+        +'<button type="button" class="btn btn-secondary" data-ttt="friend" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">VS AMIGO</button>'
+        +'<button type="button" class="btn btn-secondary" data-ttt="random" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">VS ALEATORIO</button>'
+        +'<button type="button" class="btn btn-ghost" id="ttt-back" style="width:100%">← Atrás</button>'
         +'</div>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-ttt]'),function(btn){
@@ -15096,7 +15191,7 @@ function profileStatsHtml(userPosts, extra){
     }
     function beginTicTacToe(mode){
       mode=String(mode||'ai');
-      var opponent='AI';
+      var opponent='Partida';
       var note='';
       if(mode==='random'){
         // Simple secure matchmaking: look for open lobby; else AI fallback
@@ -15114,19 +15209,21 @@ function profileStatsHtml(userPosts, extra){
             // publish our lobby then fall back to AI (no opponent available)
             lobbies.push({user:currentUser.name,at:Date.now()});
             localStorage.setItem('rs_ttt_lobby',JSON.stringify(lobbies.slice(-20)));
-            note='No opponent available — play against AI';
+            note='Sin rival disponible — duelo de partida';
             mode='ai';
-            opponent='AI';
+            opponent='Partida';
             toast(note);
           }
         }catch(e){
-          note='No opponent available — play against AI';
+          note='Sin rival disponible — duelo de partida';
           mode='ai';
-          opponent='AI';
+          opponent='Partida';
           toast(note);
         }
       }else if(mode==='friend'){
-        opponent='Friend';
+        opponent='Amigo';
+      }else{
+        opponent='Partida';
       }
       __ttt={
         sessionId:newGameSessionId(),
@@ -15198,14 +15295,14 @@ function profileStatsHtml(userPosts, extra){
         return '<button type="button" data-cell="'+i+'" class="ttt-cell" style="width:100%;aspect-ratio:1;border-radius:14px;border:1px solid #2a2a32;background:#101014;color:#fff;font-size:28px;font-weight:900">'+(v||'')+'</button>';
       }).join('');
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎮 TIC-TAC-TOE</div>'
-        +'<div class="rs-games-title">'+esc(__ttt.mode.toUpperCase())+'</div>'
-        +'<div class="rs-games-meta">You are '+__ttt.you+' · vs '+esc(__ttt.opponent)
+        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TRES EN RAYA</div>'
+        +'<div class="rs-games-title">Duelo</div>'
+        +'<div class="rs-games-meta">Tú '+__ttt.you+' · vs '+esc(__ttt.opponent)
         +(__ttt.note?(' · '+esc(__ttt.note)):'')
-        +(__ttt.over?'':(' · turn '+__ttt.turn))+'</div></div>'
+        +(__ttt.over?'':(' · turno '+__ttt.turn))+'</div></div>'
         +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:320px;margin:0 auto 12px">'+cells+'</div>'
         +'<div id="ttt-msg" style="text-align:center;min-height:28px;font-weight:800"></div>'
-        +'<button type="button" class="btn btn-ghost" id="ttt-menu" style="width:100%">← Modes</button>'
+        +'<button type="button" class="btn btn-ghost" id="ttt-menu" style="width:100%">← Modos</button>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-cell]'),function(btn){
         btn.onclick=function(){
@@ -15246,19 +15343,19 @@ function profileStatsHtml(userPosts, extra){
       session.xpGranted=xp>0;
       persistGameResult(session);
       try{unlockBadge('first_game')}catch(e){}
-      var title=result==='win'?'YOU WIN':(result==='draw'?'DRAW':'YOU LOSE');
+      var title=result==='win'?'GANASTE':(result==='draw'?'EMPATE':'PERDISTE');
       var msg=document.getElementById('ttt-msg');
       if(msg) msg.innerHTML='<span style="color:'+(result==='win'?'#86efac':(result==='draw'?'#fbbf24':'#fca5a5'))+'">'+title+' · +'+xp+' XP</span>';
       if(result==='loss') spawnDefeatChallenge(session);
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎮 TIC-TAC-TOE</div>'
+        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TRES EN RAYA</div>'
         +'<div class="rs-games-title">'+title+'</div>'
         +'<div class="rs-games-meta">vs '+esc(session.opponent)+' · +'+xp+' XP'
-        +(result==='loss'?' · Defeat Response unlocked':'')+'</div></div>'
+        +(result==='loss'?' · respuesta a derrota desbloqueada':'')+'</div></div>'
         +'<div class="rs-game-card">'
-        +(result==='loss'?'<button type="button" class="btn btn-primary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">OPEN DEFEAT RESPONSE</button>':'')
-        +'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">PLAY AGAIN</button>'
-        +'<button type="button" class="btn btn-ghost" id="ttt-hub" style="width:100%;margin-top:8px">← Challenges</button></div>'
+        +(result==='loss'?'<button type="button" class="btn btn-primary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">RESPUESTA A DERROTA</button>':'')
+        +'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">OTRA PARTIDA</button>'
+        +'<button type="button" class="btn btn-ghost" id="ttt-hub" style="width:100%;margin-top:8px">← Desafíos</button></div>'
       );
       var d=document.getElementById('ttt-defeat'); if(d)d.onclick=function(){openChallenge('defeat_response')};
       var a=document.getElementById('ttt-again'); if(a)a.onclick=function(){startTicTacToeMenu()};
