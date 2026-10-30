@@ -4,8 +4,9 @@
 
 const SITE = 'https://www.ruiningsubs.com';
 const SITE_NAME = 'Ruining Subs';
-const DEFAULT_IMAGE = SITE + '/icon-192.png';
+const DEFAULT_IMAGE = SITE + '/apple-touch-icon.png';
 const CF_API = 'https://ruiningsubs-api.0788adm.workers.dev';
+const CF_MEDIA = 'https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://snlpdolzhzcbbdyxqlnb.supabase.co';
 // Same public anon key shipped in index.html (RLS-scoped). Override via env in Vercel if rotated.
 const SUPABASE_ANON =
@@ -22,6 +23,15 @@ function esc(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Worker /media/ paths 404 for crawlers; public R2 host serves the same object keys.
+function publicMediaUrl(u) {
+  u = String(u || '').trim();
+  if (!u) return '';
+  var m = u.match(/^https?:\/\/ruiningsubs-api\.0788adm\.workers\.dev\/media\/([^?#]+)/i);
+  if (m && m[1]) return CF_MEDIA + '/' + m[1];
+  return u;
+}
+
 function firstHttpUrl(v) {
   if (!v) return '';
   if (Array.isArray(v)) {
@@ -32,7 +42,7 @@ function firstHttpUrl(v) {
     return '';
   }
   var s = String(v).trim();
-  if (/^https?:\/\//i.test(s)) return s.split(/\s|,/)[0];
+  if (/^https?:\/\//i.test(s)) return publicMediaUrl(s.split(/\s|,/)[0]);
   if (s.charAt(0) === '[') {
     try {
       return firstHttpUrl(JSON.parse(s));
