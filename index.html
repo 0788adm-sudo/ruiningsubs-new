@@ -3920,7 +3920,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(/^(wall|explore|coins|buy|feed|home|videos|messages|profile|admin|pea|ids)$/i.test(h2))return;
       var raw=parseSharedPostId();
       if(!raw)return;
-      if(location.hash.indexOf('#p=')<0 && location.hash.indexOf('post-')<0 && location.hash.indexOf('post/')<0)return;
+      // Accept ?p= / ?post= / /post/:id / /p/:id / #p= / #post- forms (Telegram shares use ?p=)
+      var hasQuery=false;
+      try{
+        var qs=new URLSearchParams(location.search||'');
+        hasQuery=!!(qs.get('p')||qs.get('post'));
+      }catch(e){}
+      var path=(location.pathname||'/').replace(/\/+$/,'')||'/';
+      var hasPath=/^\/(?:post|p)\/[^\/?#]+$/i.test(path)||/^\/\d+$/.test(path);
+      var hasHash=location.hash.indexOf('#p=')>=0||location.hash.indexOf('post-')>=0||location.hash.indexOf('post/')>=0||/^\d+$/.test((location.hash||'').replace(/^#/,''));
+      if(!hasQuery&&!hasPath&&!hasHash)return;
       if(window.__openedHashPost===String(raw))return;
       window.__openedHashPost=String(raw);
       if(String(currentDetailId)===String(raw) && document.getElementById('panel-detail') && document.getElementById('panel-detail').classList.contains('active')) return;
