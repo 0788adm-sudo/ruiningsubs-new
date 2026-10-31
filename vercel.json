@@ -1,6 +1,18 @@
 {
   "rewrites": [
     { "source": "/admin", "destination": "/index.html" },
-    { "source": "/admin/", "destination": "/index.html" }
+    { "source": "/admin/", "destination": "/index.html" },
+    {
+      "source": "/",
+      "has": [{ "type": "query", "key": "p" }],
+      "destination": "/api/og"
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "query", "key": "post" }],
+      "destination": "/api/og"
+    },
+    { "source": "/post/:id", "destination": "/api/og?p=:id" },
+    { "source": "/p/:id", "destination": "/api/og?p=:id" }
   ]
 }
