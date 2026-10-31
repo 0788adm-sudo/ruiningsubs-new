@@ -2054,12 +2054,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             </div>
             <div style="text-align:center;font-size:12px;color:#9a9aa3;margin:0 8px 10px;line-height:1.4">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
-              <button type="button" class="wall-filter-chip on" data-wall-filter="trending" role="tab" aria-selected="true">🔥 Trending</button>
+              <button type="button" class="wall-filter-chip on" data-wall-filter="moment" role="tab" aria-selected="true">⚡ Moment</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Normal</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="trending" role="tab" aria-selected="false">🔥 Trending</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="following" role="tab" aria-selected="false">👤 Following</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="new" role="tab" aria-selected="false">🆕 New</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="foryou" role="tab" aria-selected="false">❤️ For You</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="moment" role="tab" aria-selected="false">⚡ Moment</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Normal</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">⏱ Timed</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
@@ -11376,10 +11376,20 @@ function openRoulette(){
         }).join('')
         +'</div>';
     }
-    var wallFilter=(function(){try{return localStorage.getItem('rs_wall_filter')||'trending'}catch(e){return'trending'}})();
+    var wallFilter=(function(){
+      try{
+        // One-time: open Moment so normal posts lead, then the rest as before
+        if(!localStorage.getItem('rs_wall_normal_first_v1')){
+          localStorage.setItem('rs_wall_normal_first_v1','1');
+          localStorage.setItem('rs_wall_filter','moment');
+          return 'moment';
+        }
+        return localStorage.getItem('rs_wall_filter')||'moment';
+      }catch(e){return'moment'}
+    })();
     function setWallFilter(f){
-      f=String(f||'trending');
-      if(['trending','following','new','foryou','moment','normal','timed','generated','text'].indexOf(f)<0) f='trending';
+      f=String(f||'moment');
+      if(['trending','following','new','foryou','moment','normal','timed','generated','text'].indexOf(f)<0) f='moment';
       wallFilter=f;
       try{localStorage.setItem('rs_wall_filter',f)}catch(e){}
       syncWallFilterChips();
@@ -11497,7 +11507,7 @@ function openRoulette(){
       return isWallMomentPost(p)||isWallTrendingPost(p);
     }
     function matchesWallFilter(p, filter){
-      filter=filter||wallFilter||'trending';
+      filter=filter||wallFilter||'moment';
       if(filter==='timed') return isWallTimedPost(p);
       if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
       if(filter==='text') return isWallTextPost(p);
@@ -11506,8 +11516,15 @@ function openRoulette(){
       if(filter==='new') return isWallNewPost(p);
       if(filter==='foryou') return isWallForYouPost(p);
       if(filter==='trending') return isWallTrendingPost(p);
-      // moment = live mix
-      return isWallMomentPost(p);
+      // moment = full live wall (normals first, then the rest)
+      return true;
+    }
+    function wallSortNormalFirst(a,b,withinNormal,withinRest){
+      var na=isWallNormalPost(a)?1:0;
+      var nb=isWallNormalPost(b)?1:0;
+      if(na!==nb) return nb-na;
+      if(na) return withinNormal(a,b);
+      return withinRest(a,b);
     }
     function renderNormalFeed(){
       try{setupWallFilters()}catch(e){}
@@ -11530,21 +11547,28 @@ function openRoulette(){
         }catch(e){}
         return matchesWallFilter(p, wallFilter);
       });
+      var sortNormalByHot=function(a,b){
+        var hb=typeof postHotCount==='function'?postHotCount(b):0;
+        var ha=typeof postHotCount==='function'?postHotCount(a):0;
+        if(hb!==ha) return hb-ha;
+        return wallRankScore(b)-wallRankScore(a);
+      };
+      var sortByRank=function(a,b){return wallRankScore(b)-wallRankScore(a)};
+      var sortByTrending=function(a,b){return wallTrendingScore(b)-wallTrendingScore(a) || wallRankScore(b)-wallRankScore(a)};
+      var sortByCreated=function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)};
       if(wallFilter==='normal'){
-        list.sort(function(a,b){
-          var hb=typeof postHotCount==='function'?postHotCount(b):0;
-          var ha=typeof postHotCount==='function'?postHotCount(a):0;
-          if(hb!==ha) return hb-ha;
-          return wallRankScore(b)-wallRankScore(a);
-        });
+        list.sort(sortNormalByHot);
       }else if(wallFilter==='timed'){
         list.sort(function(a,b){return (Number(a.expires)||0)-(Number(b.expires)||0)});
-      }else if(wallFilter==='trending'||wallFilter==='foryou'||wallFilter==='moment'){
-        list.sort(function(a,b){return wallTrendingScore(b)-wallTrendingScore(a) || wallRankScore(b)-wallRankScore(a)});
+      }else if(wallFilter==='moment'){
+        // Normals first (Hot + rank), then timed / IDs / rest as before
+        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortNormalByHot,sortByRank)});
+      }else if(wallFilter==='trending'||wallFilter==='foryou'){
+        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortByTrending,sortByTrending)});
       }else if(wallFilter==='new'||wallFilter==='following'){
-        list.sort(function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)});
+        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortByCreated,sortByCreated)});
       }else{
-        list.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
+        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortByRank,sortByRank)});
       }
       if(q){
         list=list.filter(function(p){
@@ -11566,7 +11590,7 @@ function openRoulette(){
         following:'Follow creators to fill this feed.',
         new:'No new posts in the last 72h.',
         foryou:'Keep liking and following — For You learns from you.',
-        moment:'Nothing hot right now. Pull more or post.',
+        moment:'Nothing on the wall yet. Post something.',
         normal:'No normal posts yet. Post without a timer — Hot🔥 boosts them.',
         timed:'No timed posts live right now.',
         generated:'No generated IDs / PEAs yet.',
