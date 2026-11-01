@@ -1609,6 +1609,154 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 
 </style>
+<style id="rs-v2-polish">
+/* Home strip + feed clickability */
+#home-random-strip{gap:8px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+#home-random-strip .home-strip-card{
+  flex:0 0 calc(20% - 6px);min-width:68px;max-width:96px;padding:0;border:0;background:transparent;
+  border-radius:12px;overflow:hidden;cursor:pointer;color:inherit;display:block;
+  -webkit-tap-highlight-color:rgba(255,106,0,.28);transition:transform .16s ease,box-shadow .16s ease,opacity .16s ease;
+}
+#home-random-strip .home-strip-card img{
+  width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:block;border:1px solid #2a2a32;background:#111;
+  pointer-events:none;
+}
+@media (hover:hover){
+  #home-random-strip .home-strip-card:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(124,58,237,.28)}
+  #posts-container .post:hover,#extended-panel-posts .post:hover{
+    border-color:rgba(124,58,237,.55);box-shadow:0 0 0 1px rgba(255,106,0,.18),0 10px 24px rgba(0,0,0,.35);
+    transform:translateY(-1px);
+  }
+  #id-archive-list .id-archive-card:hover,#explore-normal-posts .normal-feed-post-media:hover img{
+    filter:brightness(1.06);
+  }
+}
+#posts-container .post,#extended-panel-posts .post{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;cursor:pointer}
+#posts-container .post-media,#extended-panel-posts .post-media{min-height:0}
+#posts-container .post-desc,#extended-panel-posts .post-desc{
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-height:2.8em;
+}
+#posts-container .post-title,#extended-panel-posts .post-title{
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+#extended-panel-posts{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 2px 24px}
+#extended-panel-posts .post{margin:0}
+#extended-panel-posts .empty{grid-column:1/-1}
+@media(min-width:900px){
+  #extended-panel-posts{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+}
+@media(min-width:1280px){
+  #extended-panel-posts{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+.btn-extend[disabled],.btn-extend.is-cooling{
+  opacity:.7!important;cursor:not-allowed;
+}
+.btn-extend .ext-cd{display:block;font-size:10px;font-weight:800;opacity:.9;margin-top:2px;letter-spacing:.2px}
+
+/* GoonTok vertical 9:16 presentation */
+#panel-goontok{background:#050507}
+.gt-scroller{scrollbar-width:none}
+.gt-scroller::-webkit-scrollbar{display:none}
+.gt-slide{display:flex;align-items:center;justify-content:center;background:#000}
+.gt-album{max-width:min(100%,calc(var(--gt-h,100dvh) * 9 / 16));width:100%;height:100%;margin:0 auto;position:relative;background:#000}
+.gt-media{background:#000}
+.gt-media video,.gt-media img.gt-poster{
+  width:100%!important;height:100%!important;
+  object-fit:contain!important;object-position:center center;background:#000;
+}
+.gt-media .gt-poster{object-fit:contain!important}
+@media(min-width:900px){
+  #panel-goontok{inset:0 0 82px 0}
+  .gt-album{
+    width:min(420px, calc(var(--gt-h,100dvh) * 9 / 16));
+    max-width:min(420px, 42vw);
+    border-radius:18px;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(255,255,255,.06),0 20px 60px rgba(0,0,0,.55);
+  }
+  .gt-rail{right:max(18px, calc(50% - 210px - 72px));bottom:140px}
+  .gt-meta{left:max(18px, calc(50% - 210px + 12px));right:auto;width:min(280px, 34vw);bottom:64px}
+}
+@media(max-width:899px){
+  #panel-goontok{inset:0 0 calc(70px + env(safe-area-inset-bottom,0px)) 0}
+  .gt-album{max-width:100%;width:100%;border-radius:0}
+  .gt-rail{right:8px;bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+  .gt-meta{left:12px;right:68px;bottom:calc(44px + env(safe-area-inset-bottom,0px))}
+}
+
+/* Wall consistency */
+#explore-normal-posts .normal-feed-post-media{
+  aspect-ratio:4/5;max-height:none;overflow:hidden;background:#000;
+}
+#explore-normal-posts .normal-feed-post-media img,
+#explore-normal-posts .normal-feed-post-media video{
+  width:100%;height:100%;object-fit:cover;display:block;max-height:none!important;
+}
+#explore-normal-posts .normal-feed-post-text{
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;
+}
+#explore-normal-posts .normal-feed-post-actions{align-items:stretch}
+@media(min-width:900px){
+  #explore-normal-posts .normal-feed-post{
+    border:1px solid var(--border)!important;border-radius:14px!important;background:var(--card)!important;
+    margin:0!important;overflow:hidden;
+  }
+  #explore-normal-posts .normal-feed-post-media{aspect-ratio:3/4}
+}
+
+/* ID cards / generated pics gallery */
+#id-archive-list{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+}
+#id-archive-list .id-archive-card{
+  margin:0!important;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;
+  display:flex;flex-direction:column;min-width:0;
+}
+#id-archive-list .id-archive-card .id-arch-media{
+  aspect-ratio:3/4;background:#0a0a0a;overflow:hidden;
+}
+#id-archive-list .id-archive-card .id-arch-media img{
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+#id-archive-list .id-archive-card .id-arch-meta{
+  padding:8px 9px 6px;min-width:0;
+}
+#id-archive-list .id-archive-card .id-arch-user{
+  font-weight:800;font-size:12px;color:var(--orange);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#id-archive-list .id-archive-card .id-arch-sub{
+  font-size:10px;color:var(--muted);margin-top:2px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+#id-archive-list .id-archive-actions{grid-template-columns:1fr 1fr;gap:6px;padding:6px 8px 10px}
+#id-archive-list .id-archive-actions .btn{padding:9px 4px;font-size:11px;min-height:40px}
+@media(min-width:768px){
+  #id-archive-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+}
+@media(min-width:1024px){
+  #id-archive-list{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+}
+#id-archive-list > div[style*="color:var(--muted)"]{grid-column:1/-1}
+
+/* Exposure map UX */
+#panel-map .map-flow{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+#panel-map .map-flow label{display:block;font-size:11px;font-weight:800;letter-spacing:.4px;color:#9a9aa3;margin:0 0 6px;text-transform:uppercase}
+#panel-map .map-selected{
+  display:none;padding:12px;border-radius:14px;border:1px solid rgba(255,106,0,.4);
+  background:rgba(255,106,0,.1);color:#fff;font-size:14px;font-weight:800;
+}
+#panel-map .map-selected.on{display:block}
+#panel-map .map-hint{font-size:12px;color:#9a9aa3;line-height:1.4;margin:0}
+#rs-map{height:min(52vh,420px)!important;min-height:280px;touch-action:manipulation}
+#panel-map .btn{min-height:46px}
+@media(max-width:480px){
+  #rs-map{height:min(48vh,360px)!important}
+  #home-random-strip .home-strip-card{flex:0 0 calc(20% - 5px);min-width:58px}
+}
+@media(max-width:360px){
+  #posts-container,#extended-panel-posts{gap:8px}
+  .post-actions .btn{font-size:11px;padding:10px 4px}
+}
+</style>
 <style id="explore-card-fix">#panel-explore .tasks-entry{min-width:0;overflow:hidden;padding:10px}#panel-explore .entry-body{min-width:0}#panel-explore .entry-body strong{display:block;white-space:normal;line-height:1.15;font-size:14px}#panel-explore .tasks-entry>span:last-child{display:none}</style>
 <style id="randomcam-ui">
 #panel-randomcam{position:fixed;inset:0 0 82px 0;z-index:85;background:#050507;display:none;overflow:hidden}
@@ -1830,13 +1978,24 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       
         <div id="panel-map" class="panel">
         <div class="page-head"><button class="back" type="button" onclick="showPanel('explore')">←</button><h2>Exposure map</h2></div>
-        <p style="font-size:13px;color:#9a9aa3;margin:0 0 10px">See where the community is participating. One pin per user · city/country only · tap a marker to open their profile.</p>
-        <div id="rs-map" style="height:340px;border-radius:16px;overflow:hidden;background:#0c1b33"></div>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
-          <input id="map-city" placeholder="City" style="width:100%;background:#101014;border:1px solid #2a2a32;border-radius:12px;color:#fff;padding:12px"/>
-          <input id="map-country" placeholder="Country (optional)" maxlength="40" style="width:100%;background:#101014;border:1px solid #2a2a32;border-radius:12px;color:#fff;padding:12px"/>
-          <input id="map-note" placeholder="Short public note (optional)" maxlength="80" style="width:100%;background:#101014;border:1px solid #2a2a32;border-radius:12px;color:#fff;padding:12px"/>
-          <button class="btn btn-primary" type="button" onclick="saveMapPin()">Pin me</button>
+        <p class="map-hint">City/country only — never your exact address. One pin per account.</p>
+        <div class="map-flow">
+          <div>
+            <label for="map-city">Search city</label>
+            <input id="map-city" placeholder="Enter city" autocomplete="address-level2" style="width:100%;background:#101014;border:1px solid #2a2a32;border-radius:12px;color:#fff;padding:14px;font-size:16px"/>
+          </div>
+          <div>
+            <label for="map-country">Country (optional)</label>
+            <input id="map-country" placeholder="Select or type country" maxlength="40" autocomplete="country-name" style="width:100%;background:#101014;border:1px solid #2a2a32;border-radius:12px;color:#fff;padding:14px;font-size:16px"/>
+          </div>
+          <div>
+            <label for="map-note">Public note (optional)</label>
+            <input id="map-note" placeholder="Short public note" maxlength="80" style="width:100%;background:#101014;border:1px solid #2a2a32;border-radius:12px;color:#fff;padding:14px;font-size:16px"/>
+          </div>
+          <button class="btn btn-secondary" type="button" id="btn-map-locate" onclick="focusMapSelection()">Select location on map</button>
+          <div id="rs-map" style="border-radius:16px;overflow:hidden;background:#0c1b33;border:1px solid #2a2a32"></div>
+          <div id="map-selected" class="map-selected" aria-live="polite"></div>
+          <button class="btn btn-primary" type="button" id="btn-map-confirm" onclick="saveMapPin()">Confirm location</button>
         </div>
         <div id="map-pin-list" style="margin-top:12px"></div>
       </div>
@@ -2075,8 +2234,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </div>
       </div>
       <div id="panel-extended" class="panel">
-        <div class="panel-h"><h2>Extended</h2></div>
-        <div id="extended-panel-posts"></div>
+        <div class="panel-h"><h2>Extended</h2><span style="font-size:11px;color:#ffb35c;font-weight:800">LIVE</span></div>
+        <p style="font-size:12px;color:#9a9aa3;margin:0 0 10px;line-height:1.4">Active timers only · recently extended first · keep scrolling.</p>
+        <div id="extended-panel-posts"><div class="empty">Loading extended posts…</div></div>
       </div>
       <div id="panel-profile" class="panel">
         <div class="panel-h"><h2>My Profile</h2></div>
@@ -2843,7 +3003,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   <div class="modal-bg" id="extend-modal">
     <div class="modal">
       <button class="modal-x" type="button" id="btn-extend-x" aria-label="Close">✕</button>
-      <h3>⏱ Extend</h3><p id="extend-desc">Add time.</p>
+      <h3>⏱ Extend</h3>
+      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add 1 hour of visibility to this post.</p>
+      <p id="extend-cooldown" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,106,0,.12);border:1px solid rgba(255,106,0,.35);color:#ffb35c;font-size:13px;font-weight:800"></p>
       <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">Cancel</button>
     </div>
@@ -3111,9 +3273,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     async function fetchCfFeed(type, limitOverride){
       var lim=Number(limitOverride)||0;
       if(!lim){
-        if(type==='wall') lim=24;
-        else if(type==='video') lim=30;
-        else lim=40;
+        if(type==='wall') lim=48;
+        else if(type==='video') lim=40;
+        else lim=100;
       }
       var u=CF_API+'/feed?limit='+lim+(type&&type!=='wall'?('&type='+encodeURIComponent(type)):'');
       var r=await fetch(u,{cache:'default'});
@@ -10588,12 +10750,14 @@ function openRoulette(){
       try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
       document.querySelectorAll('.nav-row .nav-item').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-p')===name)});
       if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');var loBtn=document.getElementById('btn-admin-logout');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';if(loBtn)loBtn.style.display='inline-flex';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';if(loBtn)loBtn.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
-      if(name==='feed'){
+      if(name==='feed' || name==='extended'){
         if(opts.fromDetail && posts && posts.length){
           try{startViewVisit('feed')}catch(e){}
+          try{if(name==='extended')syncExtendedPanel(window.__feedRest||posts)}catch(e){}
         }else{
           if(!viewingSaved)loadPosts();else renderSavedPostsOnly();
           try{fetchVideoPosts().then(function(){renderHomeVideos()})}catch(e){try{renderHomeVideos()}catch(e2){}}
+          try{if(name==='extended')syncExtendedPanel(window.__feedRest||posts)}catch(e){}
           startViewVisit('feed');
         }
       }
@@ -10856,7 +11020,7 @@ function openRoulette(){
       var hotN=typeof postHotCount==='function'?postHotCount(p):Number(p.hotCount||0);
       var album='<div class="gt-media" data-i="0">'
         +(pst?'<img class="gt-poster" src="'+esc(pst)+'" alt="" decoding="async" fetchpriority="high"/>':'<div class="gt-poster gt-poster-empty" aria-hidden="true"></div>')
-        +'<video playsinline webkit-playsinline loop muted preload="metadata" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:cover;background:#000"></video>'
+        +'<video playsinline webkit-playsinline loop muted preload="metadata" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#000"></video>'
         +'<div class="gt-load" hidden>Loading…</div>'
         +'<div class="gt-err" hidden>Video unavailable · tap to retry</div>'
         +'</div>';
@@ -12714,13 +12878,15 @@ function openRoulette(){
         }
         if(!img)return;
         seen[String(p.id)]=1;
-        list.push({id:p.id,img:img,title:p.title||''});
+        list.push({id:p.id,img:img,title:p.title||'',user:p.user||''});
       });
       for(var i=list.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=list[i];list[i]=list[j];list[j]=t}
       list=list.slice(0,5);
       if(!list.length){box.innerHTML='';return}
+      box.setAttribute('role','list');
       box.innerHTML=list.map(function(p){
-        return '<button type="button" onclick="openDetail('+JSON.stringify(String(p.id))+')" style="flex:0 0 20%;min-width:64px;padding:0;border:0;background:transparent;border-radius:10px;overflow:hidden"><img src="'+esc(p.img)+'" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;display:block;border:1px solid #2a2a32"></button>';
+        var pid=String(p.id).replace(/"/g,'');
+        return '<button type="button" class="home-strip-card" role="listitem" data-pid="'+pid+'" data-home-strip="1" aria-label="Open post" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')"><img src="'+esc(p.img)+'" alt="'+(p.title?esc(String(p.title).slice(0,40)):'Post')+'" loading="lazy" decoding="async" draggable="false"/></button>';
       }).join('');
     }
     window.fillHomeRandomStrip=fillHomeRandomStrip;
@@ -12803,6 +12969,11 @@ function openRoulette(){
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
         if(el.closest('.modal-bg,.bottom-nav,.gt-rail,.gt-top,.gt-keep,.dx-actions,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico'))return false;
+        var homeStrip=el.closest('#home-random-strip [data-pid],#home-post-strip [data-pid],.home-strip-card');
+        if(homeStrip){
+          var hid=homeStrip.getAttribute('data-pid')||(homeStrip.closest('[data-pid]')&&homeStrip.closest('[data-pid]').getAttribute('data-pid'));
+          if(hid){try{e.preventDefault();e.stopPropagation()}catch(err){} openDetail(hid); return true;}
+        }
         var like=el.closest('.btn-like,[data-nf-act="picker"],[data-nf-act="react"]');
         if(like){
           var artL=like.closest('[data-pid],[data-normal-post-id],[data-gid]');
@@ -12816,13 +12987,14 @@ function openRoulette(){
           }
         }
         var ext=el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext');
-        if(ext && !ext.disabled){
+        if(ext && !ext.disabled && !ext.classList.contains('is-cooling')){
           var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
           var id=art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid'));
           if(id){e.preventDefault();openExtend(id);return true;}
         }
-        if(el.closest('button,.btn,.react-bar,.post-actions,.normal-feed-reacts,.cmt-in'))return false;
-        var card=el.closest('article.post,article.normal-feed-post,.feat-slide,[data-pid],[data-normal-post-id]');
+        if(el.closest('.post-actions button,.normal-feed-post-actions button,.normal-feed-reacts,.react-bar,.cmt-in,.id-archive-actions'))return false;
+        if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost'))return false;
+        var card=el.closest('article.post,article.normal-feed-post,.feat-slide,.home-strip-card,[data-pid],[data-normal-post-id]');
         if(!card)return false;
         var id2=card.getAttribute('data-pid')||card.getAttribute('data-normal-post-id')||card.getAttribute('data-gid');
         if(!id2)return false;
@@ -13257,10 +13429,22 @@ function openRoulette(){
         }catch(e){}
         try{
           if(typeof sb!=='undefined' && sb){
-            var sbFeed=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(40);
-            (sbFeed&&sbFeed.data||[]).forEach(function(r){
-              if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) (cfRows=cfRows||[]).push(r);
-            });
+            var mergeSb=function(rows){
+              (rows||[]).forEach(function(r){
+                if(!r||r.id==null)return;
+                if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) (cfRows=cfRows||[]).push(r);
+              });
+            };
+            // Prefer currently extended / timed exposures so Extended never looks empty.
+            var nowIso=new Date().toISOString();
+            var sbTimed=await sb.from('posts').select('*').gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(160);
+            mergeSb(sbTimed&&sbTimed.data);
+            var sbRecent=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(80);
+            mergeSb(sbRecent&&sbRecent.data);
+            try{
+              var sbExt=await sb.from('posts').select('*').gt('extensions_count',0).order('created_at',{ascending:false}).limit(80);
+              mergeSb(sbExt&&sbExt.data);
+            }catch(e2){}
           }
         }catch(e){}
         if(cfRows&&cfRows.length){
@@ -16355,7 +16539,8 @@ function profileStatsHtml(userPosts, extra){
     }
     function postCardHtml(p, compact){
       var permanent=isProfileOnly(p)||!p.expires||!isFinite(p.expires);var rem=permanent?0:p.expires-Date.now(),tc=rem>21600000?'long':'';
-      var already=localStorage.getItem('rs_ext_'+p.id)==='1';
+      var alreadyCd=0;try{alreadyCd=typeof getLocalExtendCooldown==='function'?getLocalExtendCooldown(p.id):0}catch(e){alreadyCd=0}
+      var already=alreadyCd>0;
       var liked=(p.likedBy||[]).indexOf((currentUser&&currentUser.name)||'')>=0;
       var imgs=(p.images&&p.images.length>1)?p.images:mergePostImages(p.image, p.tags, (p.images||[]).concat(extractAlbumMarker(p.desc)));var media;
       if(typeof isVideoPost==='function' && isVideoPost(p)){
@@ -16378,7 +16563,7 @@ function profileStatsHtml(userPosts, extra){
       var myR=getMyReaction(p);
       var dying=(!permanent && rem>0 && rem<4*3600000);
       var dyingBar=dying?'<div style="margin:0 8px 8px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'';
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+(permanent?'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>':'<button class="btn btn-extend" type="button" '+(already?'disabled style="opacity:.55"':'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?'Extended':'⚡ Extend · keep it up · '+((p.extensions||0)+1))+'</button>')+'</div></article>';
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+(permanent?'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>':'<button class="btn btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(p.id).replace(/"/g,'')+'" '+(already?'disabled aria-disabled="true"':'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?('Extended<span class="ext-cd">'+fmtExtendCooldown(alreadyCd)+'</span>'):('⚡ Extend · keep it up · '+((p.extensions||0)+1)))+'</button>')+'</div></article>';
     }
     
     function setupFeatCarousel(){
@@ -16458,8 +16643,8 @@ function profileStatsHtml(userPosts, extra){
           var y=window.pageYOffset||document.documentElement.scrollTop||0;
           var h=window.innerHeight||800;
           var doc=document.documentElement.scrollHeight||0;
-          if(y+h<doc-900)return;
-          window.__feedShown=Math.min(rest.length,shown+24);
+          if(y+h<doc-600)return;
+          window.__feedShown=Math.min(rest.length,shown+36);
           var box=document.getElementById('posts-container');
           if(!box)return;
           var extra=rest.slice(shown,window.__feedShown).map(function(p){return postCardHtml(p,true)}).join('');
@@ -16474,22 +16659,45 @@ function profileStatsHtml(userPosts, extra){
       var age=Math.max(0,now-(p.created||now));
       var hours=age/3600000;
 
-      // Home = fresh first. Activity can lift a post, but cannot overwhelm
-      // recency and turn the Feed into an old leaderboard.
+      // Extended live feed: recently extended + recent activity first.
       var recency=Math.max(0,100-(hours*5.5));
       var interestBoost=(typeof postMatchesInterest==='function' && postMatchesInterest(p))?28:0;
 
-      // Remaining exposure time / timer activity.
       var timeSignal=Math.max(0,Number(p.expires||0)-now);
       var timeBoost=timeSignal>0
         ? Math.min(22,Math.log10(1+timeSignal/3600000)*7)
         : 0;
 
-      // Community momentum.
-      var extBoost=Math.min(18,Math.log10(1+Number(p.extensions||0))*7);
+      var extN=Number(p.extensions||0)||0;
+      var extBoost=Math.min(26,Math.log10(1+extN)*10);
       var likeBoost=Math.min(16,Math.log10(1+Number(p.likes||0))*7);
+      var viewBoost=Math.min(10,Math.log10(1+Number(p.views||0))*3);
 
-      return recency+timeBoost+extBoost+likeBoost+interestBoost;
+      // Approximate "recently extended": expiry far beyond base window.
+      var created=Number(p.created||0)||now;
+      var baseAmt=(Number(p.extendAmount)||360)*60000;
+      var over=Math.max(0,(Number(p.expires||0)||0)-(created+baseAmt));
+      var recentExtendBoost=0;
+      if(extN>0){
+        // More overage + more extensions => hotter in Extended.
+        recentExtendBoost=Math.min(40, 12 + Math.log10(1+over/3600000)*8 + extN*3);
+      }
+
+      return recency+timeBoost+extBoost+likeBoost+interestBoost+viewBoost+recentExtendBoost;
+    }
+    function extendedFeedRank(p){
+      // 1) Recently extended  2) recent activity  3) interactions  4) older extended
+      var now=Date.now();
+      var created=Number(p.created||0)||now;
+      var extN=Number(p.extensions||0)||0;
+      var baseAmt=(Number(p.extendAmount)||360)*60000;
+      var over=Math.max(0,(Number(p.expires||0)||0)-(created+baseAmt));
+      var recentExt=extN>0 ? Math.min(80, 20 + Math.log10(1+over/60000)*14 + extN*4) : 0;
+      var ageH=Math.max(0,(now-created)/3600000);
+      var activity=Math.max(0,40-ageH*1.6) + Math.min(24,Math.log10(1+Number(p.likes||0)+Number(p.views||0)/10)*8);
+      var interactions=Math.min(30, Math.log10(1+Number(p.likes||0)+extN*3+Number(p.commentCount||0))*10);
+      var older=Math.max(0,12-ageH*0.15);
+      return recentExt*1.4 + activity + interactions + older;
     }
     function isNearDupPost(a,b){
       if(!a||!b)return false;
@@ -16588,10 +16796,10 @@ function profileStatsHtml(userPosts, extra){
         return true;
       });
       if(currentFilter==='time')list.sort(function(a,b){return (b.expires||0)-(a.expires||0)});
-      else if(currentFilter==='ext')list.sort(function(a,b){return (b.extensions||0)-(a.extensions||0)});
+      else if(currentFilter==='ext')list.sort(function(a,b){return extendedFeedRank(b)-extendedFeedRank(a) || ((b.extensions||0)-(a.extensions||0))});
       else if(currentFilter==='ending'||currentFilter==='soon')list.sort(function(a,b){return (a.expires||0)-(b.expires||0)});
       else if(currentFilter==='new')list.sort(function(a,b){return homeFeedRank(b)-homeFeedRank(a) || ((b.created||0)-(a.created||0))});
-      else list.sort(function(a,b){return (a.expires||0)-(b.expires||0)});
+      else list.sort(function(a,b){return extendedFeedRank(b)-extendedFeedRank(a) || homeFeedRank(b)-homeFeedRank(a) || ((b.created||0)-(a.created||0))});
       // Feed search filter
       var q=(typeof feedSearchQuery!=='undefined'?feedSearchQuery:'').trim().toLowerCase();
       if(q){
@@ -16680,12 +16888,34 @@ function profileStatsHtml(userPosts, extra){
       if(!rest.length && !featured){box.innerHTML='<div class="empty">No active exposures</div>';updateTimers();return}
       if(!rest.length){box.innerHTML='';updateTimers();return}
       window.__feedRest=rest;
-      window.__feedShown=rest.length;
-      box.innerHTML=rest.map(function(p){return postCardHtml(p,true)}).join('');
+      // Show a dense first page, then infinite-scroll the rest (no artificial tiny cap).
+      var initial=Math.min(rest.length, Math.max(24, (window.innerWidth>=1280?40:window.innerWidth>=900?32:24)));
+      window.__feedShown=initial;
+      box.innerHTML=rest.slice(0,initial).map(function(p){return postCardHtml(p,true)}).join('');
+      try{bindFeedInfinite()}catch(e){}
+      try{syncExtendedPanel(rest)}catch(e){}
       updateTimers();
+      try{refreshExtendCooldownButtons()}catch(e){}
       try{bindImpressions('feed')}catch(e){}
       try{prefetchAvatars(rest.concat(featuredList.map(function(x){return x.p}))).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
+      try{fillHomeRandomStrip()}catch(e){}
+      try{fillHomePostStrip()}catch(e){}
     }
+    function syncExtendedPanel(list){
+      var box=document.getElementById('extended-panel-posts');
+      if(!box)return;
+      list=list||window.__feedRest||[];
+      if(!list.length){
+        box.innerHTML='<div class="empty">No active extended posts right now — publish or extend one.</div>';
+        return;
+      }
+      var ranked=list.slice().sort(function(a,b){return extendedFeedRank(b)-extendedFeedRank(a)});
+      // Avoid repeating the exact same order as home when enough posts exist
+      var shown=Math.min(ranked.length, Math.max(36, ranked.length));
+      box.innerHTML=ranked.slice(0,shown).map(function(p){return postCardHtml(p,true)}).join('');
+      try{refreshExtendCooldownButtons()}catch(e){}
+    }
+    window.syncExtendedPanel=syncExtendedPanel;
     async function openDetail(id, focusComment){
       id=String(id==null?'':id);
       if(!id)return;
@@ -16754,7 +16984,7 @@ function profileStatsHtml(userPosts, extra){
         try{timedLive=typeof isFeedTimerPost==='function'?isFeedTimerPost(post):false}catch(e){}
       }
       var permanent=isProfileOnly(post)||timeless||!post.expires||!isFinite(post.expires);
-      var rem=permanent?0:post.expires-Date.now(),already=localStorage.getItem('rs_ext_'+id)==='1';
+      var rem=permanent?0:post.expires-Date.now(),alreadyCd=(typeof getLocalExtendCooldown==='function'?getLocalExtendCooldown(id):0),already=alreadyCd>0;
       var rank=getRank(post.id);var featDetail=isFeatured(post);
       var liked=(post.likedBy||[]).indexOf((currentUser&&currentUser.name)||'')>=0,isOwner=currentUser&&post.user===currentUser.name;
       var imgs=(post.images&&post.images.length>1)?post.images:mergePostImages(post.image, post.tags, (post.images||[]).concat(extractAlbumMarker(post.desc)));var media='<div style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, post.poster||'')+'</div>';
@@ -16768,7 +16998,7 @@ function profileStatsHtml(userPosts, extra){
       if(isOwner&&post.extenders&&post.extenders.length){extHtml='<div style="background:var(--elev);border:1px solid var(--border);border-radius:12px;padding:12px;margin:12px 14px"><strong style="color:var(--orange)">Who extended</strong>'+post.extenders.map(function(e){return '<div style="font-size:13px;color:var(--muted);padding:3px 0">@'+esc(e)+'</div>'}).join('')+'</div>'}
       var who='@'+String(post.user||'him').replace(/^@/,'');
       var mineR=getMyReaction(post);
-      var extLed=(permanent||timeless||!timedLive)?'':('<button class="dx-ext" type="button" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+extL)+'</b><i>'+(already?'already added':'keep him on the board')+'</i></button>');
+      var extLed=(permanent||timeless||!timedLive)?'':('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+extL)+'</b><i>'+(already?fmtExtendCooldown(alreadyCd):'keep him on the board')+'</i></button>');
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';
@@ -17805,16 +18035,16 @@ async function onIdFace(e){
           var uname=r.username||r.user||'Anon';
           var likesN=Number(r.likes_count||r.likes||0);
           var viewsN=Number(r.views||0);
-          html+='<div class="post" data-pid="'+String(r.id).replace(/"/g,'')+'" style="margin-bottom:12px;cursor:pointer" onclick="openDetail('+jsId(r.id)+')">';
-          html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 10px 0"><div class="av" style="width:28px;height:28px;font-size:11px">'+avatarHtml(uname)+'</div>';
-          html+='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:var(--orange)">@'+esc(uname)+'</div>';
-          html+='<div style="font-size:11px;color:var(--muted)">'+esc(r.description||r.desc||r.title||(idRenderMode==='pea'?'Published PEA':'Published ID'))+' · '+when+' · 👀 '+viewsN+' · ❤️ '+likesN+'</div></div></div>';
-          if(src)html+='<div style="padding:8px" onclick="event.stopPropagation();openDetail('+jsId(r.id)+')"><img src="'+src+'" alt="" style="width:100%;border-radius:12px;display:block" loading="lazy"/></div>';
+          html+='<article class="id-archive-card post" data-pid="'+String(r.id).replace(/"/g,'')+'" role="button" tabindex="0" onclick="openDetail('+jsId(r.id)+')">';
+          if(src) html+='<div class="id-arch-media"><img src="'+esc(src)+'" alt="'+esc((idRenderMode==='pea'?'PEA':'ID')+' by @'+uname)+'" loading="lazy" decoding="async"/></div>';
+          else html+='<div class="id-arch-media" style="display:flex;align-items:center;justify-content:center;color:#666;font-size:12px">No image</div>';
+          html+='<div class="id-arch-meta"><div class="id-arch-user">@'+esc(uname)+'</div>';
+          html+='<div class="id-arch-sub">'+esc(r.description||r.desc||r.title||(idRenderMode==='pea'?'Published PEA':'Published ID'))+' · '+when+' · 👀 '+viewsN+' · ❤️ '+likesN+'</div></div>';
           html+='<div class="id-archive-actions" onclick="event.stopPropagation()">';
-          html+='<button class="btn btn-like" type="button" onclick="openReact('+jsId(r.id)+',event)">❤️ '+likesN+' Like</button>';
-          html+='<button class="btn btn-secondary" type="button" onclick="openDetail('+jsId(r.id)+',true)">Comment</button>';
+          html+='<button class="btn btn-like" type="button" onclick="openReact('+jsId(r.id)+',event)">❤️ '+likesN+'</button>';
+          html+='<button class="btn btn-secondary" type="button" onclick="openDetail('+jsId(r.id)+',true)">💬</button>';
           html+='</div>';
-          html+='</div>';
+          html+='</article>';
           if(typeof posts!=='undefined' && Array.isArray(posts) && !posts.some(function(p){return String(p.id)===String(r.id)})){
             posts.push({id:r.id,user:uname,title:r.title||(idRenderMode==='pea'?'Published PEA':'Published ID'),desc:r.description||r.desc||'',tags:r.tags||(idRenderMode==='pea'?['generated_pea','pea']:['generated_id','idcard','id']),created:new Date(r.created_at||r.created||Date.now()).getTime(),expires:0,views:r.views||0,likes:r.likes_count||r.likes||0,extensions:0,extendAmount:0,extenders:[],likedBy:[],image:src||r.image_url,images:imgs,featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:false});
           } else if(typeof posts!=='undefined' && Array.isArray(posts)){
@@ -18315,85 +18545,288 @@ async function onIdFace(e){
         || document.querySelector('#detail-content .timer[data-exp]');
       return el?Number(el.getAttribute('data-exp'))||0:0;
     }
-    function paintPostExtend(id, expires, extensions){
+    function paintPostExtend(id, expires, extensions, remainingMs){
       id=String(id||'');
+      remainingMs = remainingMs!=null ? Number(remainingMs)||0 : getLocalExtendCooldown(id);
       document.querySelectorAll('[data-pid="'+id+'"],[data-normal-post-id="'+id+'"],#detail-content .post').forEach(function(card){
         try{
-          card.querySelectorAll('.timer[data-exp]').forEach(function(t){
-            t.setAttribute('data-exp',String(expires));
-            var v=t.querySelector('.t-val');
-            var txt=fmt(expires-Date.now());
-            if(v)v.textContent=txt;else t.textContent=txt;
-          });
+          if(expires){
+            card.querySelectorAll('.timer[data-exp]').forEach(function(t){
+              t.setAttribute('data-exp',String(expires));
+              var v=t.querySelector('.t-val');
+              var txt=fmt(expires-Date.now());
+              if(v)v.textContent=txt;else t.textContent=txt;
+            });
+          }
           card.querySelectorAll('.st-extends').forEach(function(s){
             var ico=s.querySelector('i');
             s.innerHTML=(ico?ico.outerHTML:'')+(Number(extensions)||0);
           });
-          card.querySelectorAll('.btn-extend').forEach(function(b){
-            b.disabled=true;
-            b.style.opacity='.55';
-            b.textContent='Extended';
+          card.querySelectorAll('.btn-extend,.dx-ext').forEach(function(b){
+            paintExtendButtonState(b, remainingMs);
+            if(!(remainingMs>0)){
+              b.disabled=false;
+              b.classList.remove('is-cooling');
+              b.style.opacity='';
+              if(b.classList.contains('dx-ext')){
+                b.innerHTML='<b>Extend</b><i>keep him on the board</i>';
+              }else{
+                b.innerHTML='⚡ Extend · keep it up · '+((Number(extensions)||0)+1);
+              }
+            }else if(b.classList.contains('dx-ext')){
+              b.innerHTML='<b>Extended</b><i>'+fmtExtendCooldown(remainingMs)+'</i>';
+            }
           });
         }catch(e){}
       });
     }
-    function openExtend(id){
+    var EXTEND_COOLDOWN_MS=60*60*1000;
+    function extendUserId(){
+      try{
+        if(currentUser&&currentUser.name) return String(currentUser.name).replace(/^@/,'').trim();
+      }catch(e){}
+      try{initUser()}catch(e){}
+      try{
+        if(currentUser&&currentUser.name) return String(currentUser.name).replace(/^@/,'').trim();
+      }catch(e){}
+      return '';
+    }
+    function extendCooldownKey(user, postId){
+      return String(user||'').toLowerCase()+'|'+String(postId||'');
+    }
+    function readExtendCooldownMap(){
+      try{return JSON.parse(localStorage.getItem('rs_ext_cd')||'{}')||{}}catch(e){return{}}
+    }
+    function writeExtendCooldownMap(map){
+      try{localStorage.setItem('rs_ext_cd',JSON.stringify(map||{}))}catch(e){}
+    }
+    function getLocalExtendCooldown(postId){
+      var user=extendUserId();
+      if(!user||!postId)return 0;
+      var map=readExtendCooldownMap();
+      var row=map[extendCooldownKey(user,postId)];
+      var at=Number(row&&row.at)||0;
+      if(!at)return 0;
+      return Math.max(0, EXTEND_COOLDOWN_MS-(Date.now()-at));
+    }
+    function setLocalExtendCooldown(postId, at, remainingMs){
+      var user=extendUserId();
+      if(!user||!postId)return;
+      var map=readExtendCooldownMap();
+      map[extendCooldownKey(user,postId)]={at:Number(at)||Date.now(), remaining:Number(remainingMs)||EXTEND_COOLDOWN_MS};
+      // prune old
+      try{
+        Object.keys(map).forEach(function(k){
+          var a=Number(map[k]&&map[k].at)||0;
+          if(!a || Date.now()-a>EXTEND_COOLDOWN_MS*3) delete map[k];
+        });
+      }catch(e){}
+      writeExtendCooldownMap(map);
+    }
+    function fmtExtendCooldown(ms){
+      ms=Math.max(0,Number(ms)||0);
+      var m=Math.ceil(ms/60000);
+      if(m<=1) return 'Available again in 1m';
+      if(m<60) return 'Available again in '+m+'m';
+      var h=Math.floor(m/60), rm=m%60;
+      return 'Available again in '+h+'h'+(rm?(' '+rm+'m'):'');
+    }
+    async function fetchExtendCooldownStatus(postId){
+      var user=extendUserId();
+      postId=String(postId||'');
+      if(!user||!postId) return {available:true,remaining_ms:0};
+      var local=getLocalExtendCooldown(postId);
+      try{
+        var r=await fetch('/api/extend?user='+encodeURIComponent(user)+'&post_id='+encodeURIComponent(postId),{cache:'no-store'});
+        var j=await r.json().catch(function(){return{}});
+        if(j && j.remaining_ms!=null){
+          if(Number(j.remaining_ms)>0) setLocalExtendCooldown(postId, Date.now()-(EXTEND_COOLDOWN_MS-Number(j.remaining_ms)), j.remaining_ms);
+          return {available:!!j.available, remaining_ms:Number(j.remaining_ms)||0, raw:j};
+        }
+      }catch(e){}
+      return {available:local<=0, remaining_ms:local};
+    }
+    function paintExtendButtonState(btn, remainingMs){
+      if(!btn)return;
+      remainingMs=Math.max(0,Number(remainingMs)||0);
+      if(remainingMs>0){
+        btn.disabled=true;
+        btn.classList.add('is-cooling');
+        btn.setAttribute('aria-disabled','true');
+        btn.innerHTML='Extended<span class="ext-cd">'+fmtExtendCooldown(remainingMs)+'</span>';
+      }else{
+        btn.disabled=false;
+        btn.classList.remove('is-cooling');
+        btn.removeAttribute('aria-disabled');
+      }
+    }
+    function refreshExtendCooldownButtons(root){
+      root=root||document;
+      var user=extendUserId();
+      if(!user)return;
+      var map=readExtendCooldownMap();
+      root.querySelectorAll('.btn-extend[data-pid], .btn-extend').forEach(function(btn){
+        try{
+          var art=btn.closest('[data-pid],[data-normal-post-id],[data-gid]');
+          var id=btn.getAttribute('data-pid')||(art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid')));
+          if(!id)return;
+          var rem=getLocalExtendCooldown(id);
+          if(rem>0) paintExtendButtonState(btn, rem);
+        }catch(e){}
+      });
+      if(window.__extCdTimer) return;
+      window.__extCdTimer=setInterval(function(){
+        var any=false;
+        document.querySelectorAll('.btn-extend.is-cooling').forEach(function(btn){
+          var art=btn.closest('[data-pid],[data-normal-post-id],[data-gid]');
+          var id=btn.getAttribute('data-pid')||(art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid')));
+          if(!id)return;
+          var rem=getLocalExtendCooldown(id);
+          if(rem>0){ paintExtendButtonState(btn, rem); any=true; }
+          else{
+            btn.disabled=false;
+            btn.classList.remove('is-cooling');
+            var post=null;
+            try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+            var n=((post&&post.extensions)||0)+1;
+            btn.innerHTML='⚡ Extend · keep it up · '+n;
+          }
+        });
+        var cdEl=document.getElementById('extend-cooldown');
+        if(cdEl && cdEl.style.display!=='none' && currentExtendPostId){
+          var rem2=getLocalExtendCooldown(currentExtendPostId);
+          if(rem2>0){ cdEl.textContent=fmtExtendCooldown(rem2); any=true; }
+          else{
+            cdEl.style.display='none';
+            var conf=document.getElementById('btn-confirm-ext');
+            if(conf){conf.disabled=false;conf.textContent='Confirm'}
+          }
+        }
+        if(!any && !document.querySelector('.btn-extend.is-cooling')){
+          clearInterval(window.__extCdTimer); window.__extCdTimer=null;
+        }
+      }, 15000);
+    }
+    window.refreshExtendCooldownButtons=refreshExtendCooldownButtons;
+    async function openExtend(id){
       id=String(id||'');
       if(!id)return;
-      if(localStorage.getItem('rs_ext_'+id)==='1'){toast('Already extended');return}
+      var user=extendUserId();
+      if(!user){toast('Login to extend');try{showPanel('profile')}catch(e){}return}
       currentExtendPostId=id;
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       var mins=(post&&post.extendAmount)||360;
       var el=document.getElementById('extend-desc');
-      if(el)el.innerHTML='Adds <strong style="color:var(--orange)">'+fmtMin(mins)+'</strong>. Once only.';
+      if(el)el.innerHTML='<strong style="color:#fff">Extend</strong><br>Add <strong style="color:var(--orange)">1 hour</strong> of visibility to this post. <span style="color:#9a9aa3">('+fmtMin(mins)+' on this board)</span>';
+      var cdEl=document.getElementById('extend-cooldown');
+      var conf=document.getElementById('btn-confirm-ext');
+      if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
+      if(conf){conf.disabled=false;conf.textContent='Confirm'}
+      var status=await fetchExtendCooldownStatus(id);
+      if(status && status.remaining_ms>0){
+        if(cdEl){
+          cdEl.style.display='block';
+          cdEl.textContent='Extended · '+fmtExtendCooldown(status.remaining_ms);
+        }
+        if(conf){conf.disabled=true;conf.textContent='Cooling down'}
+        paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, status.remaining_ms);
+        refreshExtendCooldownButtons();
+      }else{
+        // Skip modal if user already confirmed an extend this session
+        try{
+          if(sessionStorage.getItem('rs_ext_skip_confirm')==='1'){
+            confirmExtend();
+            return;
+          }
+        }catch(e){}
+      }
       var modal=document.getElementById('extend-modal');
       if(modal){
         modal.style.display='';
         modal.classList.add('show');
       }
     }
-    function confirmExtend(){
+    async function confirmExtend(){
       var id=String(currentExtendPostId||'');
       window.__blockFeedTap=Date.now()+250;
-      closeModals();
-      if(!id)return;
+      if(!id){closeModals();return}
+      var user=extendUserId();
+      if(!user){closeModals();toast('Login to extend');return}
       if(window.__extLock===id)return;
-      if(localStorage.getItem('rs_ext_'+id)==='1'){toast('Already extended');return}
+      var localRem=getLocalExtendCooldown(id);
+      if(localRem>0){
+        toast(fmtExtendCooldown(localRem));
+        var cdEl0=document.getElementById('extend-cooldown');
+        if(cdEl0){cdEl0.style.display='block';cdEl0.textContent='Extended · '+fmtExtendCooldown(localRem)}
+        return;
+      }
       window.__extLock=id;
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       var mins=Number((post&&post.extendAmount)||360)||360;
-      var base=Number((post&&post.expires)||0)||readCardExpires(id);
-      if(!base || base<Date.now()) base=Date.now();
-      var expires=base+mins*60000;
-      var extensions=((post&&Number(post.extensions))||0)+1;
-      if(post){
-        post.expires=expires;
-        post.extensions=extensions;
-        post.extenders=(post.extenders||[]).concat([(currentUser&&currentUser.name)||'anon']);
-        try{rememberFeedPost(post)}catch(e){}
-      }
-      try{localStorage.setItem('rs_ext_'+id,'1')}catch(e){}
+      var conf=document.getElementById('btn-confirm-ext');
+      if(conf){conf.disabled=true;conf.textContent='Extending…'}
       try{
-        var map=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};
-        map[id]={expires:expires,extensions:extensions};
-        localStorage.setItem('rs_ext_map',JSON.stringify(map));
-      }catch(e){}
-      paintPostExtend(id, expires, extensions);
-      toast('+'+fmtMin(mins)+' added');
-      try{awardXp(5,'extend')}catch(e){}
-      fetch(CF_API+'/posts/'+encodeURIComponent(id)+'/extend',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({minutes:mins,user:(currentUser&&currentUser.name)||'anon'})
-      }).then(function(r){return r.json().catch(function(){return{}})}).then(function(extJ){
-        if(!extJ)return;
+        var r=await fetch('/api/extend',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({post_id:id,user:user,minutes:mins}),
+          cache:'no-store'
+        });
+        var extJ=await r.json().catch(function(){return{}});
+        if(r.status===429 || (extJ&&extJ.error==='cooldown')){
+          var rem=Number(extJ.remaining_ms)||getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS;
+          setLocalExtendCooldown(id, Date.now()-(EXTEND_COOLDOWN_MS-rem), rem);
+          paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, rem);
+          toast(extJ.message||fmtExtendCooldown(rem));
+          var cdEl=document.getElementById('extend-cooldown');
+          if(cdEl){cdEl.style.display='block';cdEl.textContent='Extended · '+fmtExtendCooldown(rem)}
+          if(conf){conf.disabled=true;conf.textContent='Cooling down'}
+          refreshExtendCooldownButtons();
+          return;
+        }
+        if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
+          toast((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
+          if(conf){conf.disabled=false;conf.textContent='Confirm'}
+          return;
+        }
+        var base=Number((post&&post.expires)||0)||readCardExpires(id);
+        if(!base || base<Date.now()) base=Date.now();
+        var expires=base+mins*60000;
+        var extensions=((post&&Number(post.extensions))||0)+1;
         if(extJ.expires_at) expires=Number(extJ.expires_at)||expires;
         if(extJ.extensions!=null) extensions=Number(extJ.extensions)||extensions;
-        if(post){post.expires=expires;post.extensions=extensions;if(Array.isArray(extJ.extenders))post.extenders=extJ.extenders;}
-        paintPostExtend(id, expires, extensions);
-      }).catch(function(e){console.warn(e)});
+        if(post){
+          post.expires=expires;
+          post.extensions=extensions;
+          if(Array.isArray(extJ.extenders)) post.extenders=extJ.extenders;
+          else post.extenders=(post.extenders||[]).concat([user]);
+          try{rememberFeedPost(post)}catch(e){}
+        }
+        setLocalExtendCooldown(id, Number(extJ.last_at)||Date.now(), Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS);
+        try{
+          var map=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};
+          map[id]={expires:expires,extensions:extensions};
+          localStorage.setItem('rs_ext_map',JSON.stringify(map));
+        }catch(e){}
+        // Migrate away from permanent once-only flag
+        try{localStorage.removeItem('rs_ext_'+id)}catch(e){}
+        try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
+        paintPostExtend(id, expires, extensions, Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS);
+        closeModals();
+        toast('Extended · +1 hour');
+        try{awardXp(5,'extend')}catch(e){}
+        try{grantXp && grantXp('extend', String(id), false)}catch(e){}
+        refreshExtendCooldownButtons();
+        try{syncExtendedPanel(window.__feedRest)}catch(e){}
+      }catch(e){
+        console.warn(e);
+        toast('Extend failed — check connection');
+        if(conf){conf.disabled=false;conf.textContent='Confirm'}
+      }finally{
+        if(window.__extLock===id) window.__extLock=null;
+      }
     }
     var REACTIONS=['❤️','😍','😂','🔥','🤏','👏','😭'];
     function reactBarHtml(post){
@@ -21861,10 +22294,104 @@ async function onIdFace(e){
     }
     loadPins(); mergePins([]);
     redrawMarkers();
-    map.on('click',function(e){pending=e.latlng; var c=document.getElementById('map-city'); if(c)c.focus(); if(typeof toast==='function')toast('Location set · add city/country and Pin me')});
+    map.on('click',function(e){
+      pending=e.latlng;
+      placePendingMarker(pending);
+      updateSelectedLabel();
+      if(typeof toast==='function')toast('Location selected · confirm below');
+    });
     setTimeout(function(){try{map.invalidateSize()}catch(e){}},250);
     pullPins().then(function(){redrawMarkers();list()});
+    wireMapSearch();
   }
+  var pendingMarker=null;
+  function placePendingMarker(ll){
+    if(!map||!window.L||!ll)return;
+    if(pendingMarker){try{map.removeLayer(pendingMarker)}catch(e){}}
+    pendingMarker=L.marker([ll.lat,ll.lng],{draggable:true,autoPan:true});
+    try{
+      pendingMarker.setIcon(L.divIcon({
+        className:'rs-pending-pin',
+        html:'<div style="width:18px;height:18px;border-radius:50%;background:#ff6a00;border:3px solid #fff;box-shadow:0 0 0 6px rgba(255,106,0,.35)"></div>',
+        iconSize:[18,18],iconAnchor:[9,9]
+      }));
+    }catch(e){}
+    pendingMarker.addTo(map);
+    pendingMarker.on('dragend',function(){
+      var p=pendingMarker.getLatLng();
+      pending=p;
+      updateSelectedLabel();
+    });
+  }
+  function updateSelectedLabel(){
+    var box=document.getElementById('map-selected');
+    if(!box)return;
+    var city=(document.getElementById('map-city')&&document.getElementById('map-city').value||'').trim();
+    var country=(document.getElementById('map-country')&&document.getElementById('map-country').value||'').trim();
+    if(!pending && !city){box.classList.remove('on');box.textContent='';return}
+    var label=(city||'Selected point')+(country?(', '+country):'');
+    box.classList.add('on');
+    box.innerHTML='Selected location:<br><span style="color:#ffb35c">'+label+'</span>';
+  }
+  var geoTimer=null;
+  function wireMapSearch(){
+    var cityEl=document.getElementById('map-city');
+    var countryEl=document.getElementById('map-country');
+    if(cityEl && !cityEl.dataset.geoBound){
+      cityEl.dataset.geoBound='1';
+      cityEl.addEventListener('input',function(){
+        updateSelectedLabel();
+        clearTimeout(geoTimer);
+        geoTimer=setTimeout(function(){geocodeCityToMap(true)},420);
+      });
+      cityEl.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){e.preventDefault();clearTimeout(geoTimer);geocodeCityToMap(true)}
+      });
+    }
+    if(countryEl && !countryEl.dataset.geoBound){
+      countryEl.dataset.geoBound='1';
+      countryEl.addEventListener('input',function(){updateSelectedLabel()});
+    }
+  }
+  async function geocodeCityToMap(center){
+    var city=(document.getElementById('map-city')&&document.getElementById('map-city').value||'').trim();
+    var country=(document.getElementById('map-country')&&document.getElementById('map-country').value||'').trim();
+    if(!city || city.length<2)return;
+    try{
+      var q=city+(country?(', '+country):'');
+      var r=await fetch('https://photon.komoot.io/api/?limit=1&q='+encodeURIComponent(q));
+      var j=await r.json();
+      var f=j&&j.features&&j.features[0];
+      if(f&&f.geometry&&f.geometry.coordinates){
+        pending={lat:Number(f.geometry.coordinates[1]),lng:Number(f.geometry.coordinates[0])};
+        try{
+          var props=f.properties||{};
+          if(!country && (props.country||props.countrycode)){
+            var cEl=document.getElementById('map-country');
+            if(cEl && !cEl.value) cEl.value=String(props.country||props.countrycode||'');
+          }
+          if(props.name && city.toLowerCase()!==String(props.name).toLowerCase()){
+            /* keep user text; just center */
+          }
+        }catch(e){}
+        if(map){
+          placePendingMarker(pending);
+          if(center) try{map.setView([pending.lat,pending.lng],10)}catch(e){}
+        }
+        updateSelectedLabel();
+      }
+    }catch(e){}
+  }
+  window.focusMapSelection=function(){
+    if(typeof toast==='function')toast('Tap the map to place your marker');
+    var el=document.getElementById('rs-map');
+    if(el) try{el.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}
+    if(map){try{map.invalidateSize()}catch(e){}}
+    if(!pending){
+      // If city typed, geocode first
+      geocodeCityToMap(true);
+    }
+  };
   function redrawMarkers(){
     if(!map||!window.L)return;
     if(!markerLayer) markerLayer=L.layerGroup().addTo(map);
@@ -21911,6 +22438,9 @@ async function onIdFace(e){
     var country=(document.getElementById('map-country')&&document.getElementById('map-country').value||'').trim().slice(0,40);
     var note=(document.getElementById('map-note')&&document.getElementById('map-note').value||'').trim().slice(0,80);
     var geoCountry='';
+    if(pendingMarker){
+      try{pending=pendingMarker.getLatLng()}catch(e){}
+    }
     if(!pending && city){
       try{
         var q=city+(country?(', '+country):'');
@@ -21920,19 +22450,23 @@ async function onIdFace(e){
         if(f&&f.geometry&&f.geometry.coordinates){
           pending={lat:Number(f.geometry.coordinates[1]),lng:Number(f.geometry.coordinates[0])};
           try{geoCountry=String((f.properties&& (f.properties.country||f.properties.countrycode))||'')}catch(e){}
+          placePendingMarker(pending);
         }
       }catch(e){}
     }
-    if(!pending){if(typeof toast==='function')toast('Tap the map or type a city');return}
+    if(!pending){if(typeof toast==='function')toast('Search a city or tap the map first');return}
+    if(!city){if(typeof toast==='function')toast('Add a city name so others understand the pin');var c=document.getElementById('map-city'); if(c)c.focus(); return}
     loadPins();
     var user=(window.currentUser&&currentUser.name)||'guest';
     var pin={user:user,city:city||'Pinned',country:country||geoCountry||'',note:note,lat:Number(pending.lat),lng:Number(pending.lng),t:Date.now()};
     mergePins([pin]);
     var ok=await pushPin(pin);
     redrawMarkers(); list();
-    if(map){try{map.setView([pin.lat,pin.lng],5)}catch(e){}}
-    if(typeof toast==='function')toast(ok?'Pinned · 1 marker for your account':'Pinned on this device');
+    updateSelectedLabel();
+    if(map){try{map.setView([pin.lat,pin.lng],6)}catch(e){}}
+    if(typeof toast==='function')toast(ok?('Confirmed · '+pin.city+(pin.country?(', '+pin.country):'')):'Saved on this device');
     pending=null;
+    if(pendingMarker){try{map.removeLayer(pendingMarker)}catch(e){} pendingMarker=null;}
   };
 })();
 </script>
