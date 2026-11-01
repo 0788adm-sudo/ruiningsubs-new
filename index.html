@@ -2384,9 +2384,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <div style="font-size:20px;font-weight:900;letter-spacing:-.4px;margin-bottom:12px">How the exposure works</div>
               <div style="font-size:13px;color:#f5c518;margin:-4px 0 10px">Recordings: Monday to Friday, 1:00 PM – 6:00 PM (Colombia). Saturday and Sunday: no recordings. You get a photo of the print in chat as soon as it is done.</div>
               <div style="display:flex;flex-direction:column;gap:8px">
-                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#f5c518;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span><div><b>Send 5 photos</b><div style="font-size:12px;color:#9a9aa3">You send 5 photos. I pick the most humiliating ones for the flyer.</div></div></div>
+                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#f5c518;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span><div><b>Send 5 flyer photos</b><div style="font-size:12px;color:#9a9aa3">5 photos for the flyer. Plus a 6th image: your payment screenshot.</div></div></div>
                 <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#ff6a00;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</span><div><b>Your details</b><div style="font-size:12px;color:#9a9aa3">Name, city, @, or whatever you want written on the flyer.</div></div></div>
-                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#22c55e;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span><div><b>Pay</b><div style="font-size:12px;color:#9a9aa3">350 FC or $40 on Throne. Nothing is printed until it is paid.</div></div></div>
+                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#22c55e;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span><div><b>Pay + proof</b><div style="font-size:12px;color:#9a9aa3">350 FC (auto-verified) or $40 on Throne with your order code + payment screenshot. No proof = request blocked.</div></div></div>
                 <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#5b21b6;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</span><div><b>I print it</b><div style="font-size:12px;color:#9a9aa3">I make the poster and print it on the street. Weekdays only, 1–6 PM.</div></div></div>
                 <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#111;color:#f5c518;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #f5c518">5</span><div><b>Next episode</b><div style="font-size:12px;color:#9a9aa3">Your print shows up in the next episode.</div></div></div>
               </div>
@@ -2413,14 +2413,29 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <b style="color:#f5c518">Print timing</b>
             <div style="color:#cfcfd6;margin-top:4px">Weekdays: about 24 hours. Saturday and Sunday are not recorded. Maximum window is 48 hours. You get a photo of the print in chat as soon as it is done, or as soon as possible.</div>
           </div>
+          <div id="pe-order-box" style="background:#141418;border:1px solid #f5c518;border-radius:14px;padding:12px;margin:0 0 12px">
+            <div style="font-size:11px;letter-spacing:1.2px;color:#f5c518;font-weight:800">YOUR PRINT ORDER CODE</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px">
+              <code id="pe-order-code" style="font-size:22px;font-weight:900;letter-spacing:1px;color:#fff">—</code>
+              <button class="btn btn-secondary btn-sm" type="button" id="btn-pe-copy-code" style="flex-shrink:0">Copy</button>
+            </div>
+            <div style="font-size:12px;color:#cfcfd6;margin-top:8px;line-height:1.45">Put this code in your Throne note / payment memo. Then upload the payment screenshot below so we can match who paid.</div>
+            <div id="pe-pay-status" style="font-size:12px;margin-top:8px;color:#9a9aa3">Payment: not verified yet</div>
+          </div>
           <button class="btn" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:900;padding:16px;border-radius:14px;font-size:16px;box-shadow:0 0 18px rgba(245,197,24,.28)" onclick="payPrintWithCoins()">Pay 350 FC</button>
           <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px" onclick="openCoinShop()">Need coins?</button>
-          <a class="btn btn-primary" href="https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:16px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay $40 on Throne</span></a>
+          <a class="btn btn-primary" id="pe-pay-throne-top" href="https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:16px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay $40 on Throne</span></a>
 
           <div class="form-group">
-            <label>Photos</label>
-            <input type="file" id="pe-photos" accept="image/*,video/*,.heic,.heif,.jpg,.jpeg,.png,.mp4,.mov,.webm" multiple style="width:100%;padding:12px;background:var(--elev);border:1px solid var(--border);border-radius:12px;color:#fff"/>
+            <label>5 flyer photos <span style="color:var(--muted);font-weight:500">(required)</span></label>
+            <input type="file" id="pe-photos" accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp" multiple style="width:100%;padding:12px;background:var(--elev);border:1px solid var(--border);border-radius:12px;color:#fff"/>
+            <div id="pe-photos-count" style="font-size:11px;color:var(--muted);margin-top:6px">0 / 5 selected</div>
             <div id="pe-photos-preview" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px"></div>
+          </div>
+          <div class="form-group">
+            <label>Payment screenshot <span style="color:#f5c518;font-weight:700">(6th image · required unless you paid with FC)</span></label>
+            <input type="file" id="pe-proof" accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp" style="width:100%;padding:12px;background:var(--elev);border:1px solid var(--border);border-radius:12px;color:#fff"/>
+            <div id="pe-proof-preview" style="margin-top:8px"></div>
           </div>
           <div class="form-group"><label>Name / @ / Telegram</label><input type="text" id="pe-name" placeholder="Name or @username"/></div>
           <div class="form-group"><label>Extra <span style="color:var(--muted);font-weight:500">(optional)</span></label><input type="text" id="pe-socials" placeholder="Age, city, IG… or skip"/></div>
@@ -2429,7 +2444,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <input type="hidden" id="pe-city" value=""/>
 
           <label class="consent-box"><input type="checkbox" class="consent-check" id="consent-pe"/><span>I know these photos can be printed and posted. I’m sending them anyway.</span></label>
-          <button class="btn btn-primary" type="button" id="btn-pe-submit" style="width:100%;padding:14px;font-weight:800">Send photos</button>
+          <button class="btn btn-primary" type="button" id="btn-pe-submit" style="width:100%;padding:14px;font-weight:800">Send photos + payment proof</button>
           <a class="btn btn-primary" id="pe-pay-link" href="https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:10px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay $40 on Throne</span></a>
           <div id="print-videos" style="margin:18px 0 24px"></div>
           <a class="btn btn-ghost" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:8px">Send on Telegram</a>
@@ -4692,13 +4707,64 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       n=String(n||'').replace(/^@/,'').toLowerCase();
       return ['mastersan','mastersan01','master_san','mastersan1','ruiningsubs','ruiningsubscom'].indexOf(n)>=0;
     }
+    function ensurePrintOrderCode(forceNew){
+      try{
+        if(!forceNew && window.__printOrderCode) return window.__printOrderCode;
+        var code='PR-'+Math.random().toString(36).slice(2,6).toUpperCase()+Date.now().toString(36).slice(-3).toUpperCase();
+        window.__printOrderCode=code;
+        return code;
+      }catch(e){
+        window.__printOrderCode='PR-'+String(Date.now()).slice(-6);
+        return window.__printOrderCode;
+      }
+    }
+    function refreshPrintPayStatus(){
+      var el=document.getElementById('pe-pay-status');
+      if(!el)return;
+      if(window.__printPaidFC){
+        el.style.color='#22c55e';
+        el.textContent='Payment: verified with 350 FC ✓';
+        return;
+      }
+      if(window.__peProofData){
+        el.style.color='#f5c518';
+        el.textContent='Payment: screenshot attached · code '+ensurePrintOrderCode();
+        return;
+      }
+      el.style.color='#9a9aa3';
+      el.textContent='Payment: not verified yet — pay FC or upload Throne screenshot';
+    }
+    function syncPrintOrderCodeUI(){
+      var code=ensurePrintOrderCode();
+      var codeEl=document.getElementById('pe-order-code');
+      if(codeEl) codeEl.textContent=code;
+      refreshPrintPayStatus();
+    }
+    function copyPrintOrderCode(){
+      var code=ensurePrintOrderCode();
+      function ok(){toast('Code '+code+' copied — paste it in your Throne note')}
+      try{
+        if(navigator.clipboard&&navigator.clipboard.writeText){
+          navigator.clipboard.writeText(code).then(ok).catch(function(){
+            try{prompt('Copy this order code',code)}catch(e){}
+            ok();
+          });
+          return;
+        }
+      }catch(e){}
+      try{prompt('Copy this order code',code)}catch(e2){}
+      ok();
+    }
     function openPrintDirty(){
       showPanel('print-dirty');
       var box=document.getElementById('pe-admin-compose');
       if(box)box.style.display=isSiteAdmin()?'block':'none';
+      try{syncPrintOrderCodeUI()}catch(e){}
       try{loadPrintJobs()}catch(e){}
     }
     window.openPrintDirty=openPrintDirty;
+    window.copyPrintOrderCode=copyPrintOrderCode;
+    window.ensurePrintOrderCode=ensurePrintOrderCode;
     function printJobCard(src, poster, p){
       if(!src)return '';
       var clip=src+(src.indexOf('#')>=0?'':'#t=0.4');
@@ -4790,27 +4856,67 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     window.loadPrintJobs=loadPrintJobs;
 
-    var pePhotosData=[]; // data URLs max 5
+    var pePhotosData=[]; // flyer photos (max 5)
+    var peProofData=''; // payment screenshot data URL
+    function updatePePhotosCount(){
+      var el=document.getElementById('pe-photos-count');
+      if(el) el.textContent=(pePhotosData.length||0)+' / 5 selected';
+    }
     function setupPublicExposureForm(){
+      try{syncPrintOrderCodeUI()}catch(e){}
       var input=document.getElementById('pe-photos');
       if(input)input.onchange=function(e){
         var files=Array.prototype.slice.call(e.target.files||[]);
-        if(files.length>5){toast('Max 5 photos');files=files.slice(0,5)}
+        if(files.length>5){toast('Max 5 flyer photos');files=files.slice(0,5)}
         pePhotosData=[];
         var preview=document.getElementById('pe-photos-preview');
         if(preview)preview.innerHTML='';
         files.forEach(function(f){
-          var ok=/image|heic|heif|jpeg|jpg|png|webp|video/i.test((f.type||'')+' '+(f.name||''));
+          var ok=/image|heic|heif|jpeg|jpg|png|webp/i.test((f.type||'')+' '+(f.name||''));
           if(!ok){toast('Use a photo from your camera roll');return}
           if(f.size>30*1024*1024){toast('That file is too heavy — pick a smaller photo');return}
           var r=new FileReader();
           r.onload=function(){
             pePhotosData.push(r.result);
+            updatePePhotosCount();
             if(preview)preview.innerHTML+='<img src="'+r.result+'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/>';
           };
           r.readAsDataURL(f);
         });
+        updatePePhotosCount();
       };
+      var proof=document.getElementById('pe-proof');
+      if(proof)proof.onchange=function(e){
+        var f=(e.target.files&&e.target.files[0])||null;
+        peProofData='';
+        var preview=document.getElementById('pe-proof-preview');
+        if(preview)preview.innerHTML='';
+        if(!f){refreshPrintPayStatus();return}
+        var ok=/image|heic|heif|jpeg|jpg|png|webp/i.test((f.type||'')+' '+(f.name||''));
+        if(!ok){toast('Payment proof must be a screenshot/photo');e.target.value='';refreshPrintPayStatus();return}
+        if(f.size>30*1024*1024){toast('Screenshot too heavy');e.target.value='';refreshPrintPayStatus();return}
+        var r=new FileReader();
+        r.onload=function(){
+          peProofData=r.result;
+          window.__peProofData=peProofData;
+          if(preview)preview.innerHTML='<div style="font-size:11px;color:#22c55e;margin-bottom:6px">Payment screenshot ready</div><img src="'+r.result+'" style="width:100%;max-height:220px;object-fit:contain;border-radius:10px;border:1px solid #f5c518;background:#000"/>';
+          refreshPrintPayStatus();
+        };
+        r.readAsDataURL(f);
+      };
+      var copyBtn=document.getElementById('btn-pe-copy-code');
+      if(copyBtn)copyBtn.onclick=copyPrintOrderCode;
+      function remindCodeBeforeThrone(ev){
+        try{
+          var code=ensurePrintOrderCode();
+          if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(code).catch(function(){});
+          toast('Order code '+code+' copied — paste it in Throne note, then upload the screenshot');
+        }catch(e){}
+      }
+      ['pe-pay-link','pe-pay-throne-top'].forEach(function(id){
+        var a=document.getElementById(id);
+        if(a) a.addEventListener('click', remindCodeBeforeThrone);
+      });
       var sub=document.getElementById('btn-pe-submit');
       if(sub)sub.onclick=submitPublicExposureRequest;
       var adb=document.getElementById('btn-pe-admin-post');
@@ -4826,7 +4932,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var story=(document.getElementById('pe-desc')&&document.getElementById('pe-desc').value||'').trim();
       if(story) socials=socials? (socials+' · '+story):story;
       if(!name) name=(currentUser&&currentUser.name)||'Anon';
-      if(!pePhotosData.length){toast('Add at least one photo');return}
+      if(pePhotosData.length<5){toast('Add exactly 5 flyer photos (you have '+(pePhotosData.length||0)+')');return}
+      var paidFc=!!window.__printPaidFC;
+      if(!paidFc && !peProofData){
+        toast('Upload a payment screenshot (or pay 350 FC) so we know who paid');
+        return;
+      }
+      var orderCode=ensurePrintOrderCode();
       var author=(currentUser&&currentUser.name)||('Anon_'+Math.floor(Math.random()*9000+1000));
       toast('Uploading photos…');
       var photos=[];
@@ -4841,7 +4953,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(url && String(url).indexOf('http')===0) photos.push(url);
       }
       photos=(photos||[]).filter(function(u){return String(u).indexOf('http')===0});
-      if(!photos.length){toast('Could not upload photos. Try a smaller image.');return false}
+      if(photos.length<5){toast('Could not upload all 5 flyer photos. Try smaller images.');return false}
+      var paymentProof='';
+      if(!paidFc && peProofData){
+        try{
+          var proofSrc=peProofData;
+          if(typeof compressDataUrl==='function' && String(proofSrc).indexOf('data:')===0){
+            proofSrc=await compressDataUrl(proofSrc,1100,180000,0.7);
+          }
+          paymentProof=await uploadPePublicUrl(proofSrc, 'proof');
+        }catch(e){console.warn('proof upload',e)}
+        if(!paymentProof || String(paymentProof).indexOf('http')!==0){
+          toast('Could not upload payment screenshot. Try again.');
+          return false;
+        }
+      }
+      var paidVia=paidFc?'fc':'throne_proof';
+      var amountLabel=paidFc?'350 FC':'$40';
       var req={
         id:Date.now(),
         name:name,
@@ -4849,6 +4977,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         city:city,
         socials:socials,
         photos:photos,
+        payment_proof:paymentProof||'',
+        order_code:orderCode,
+        paid_via:paidVia,
         author:author,
         at:Date.now(),
         paid:true
@@ -4857,7 +4988,26 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       // If it fails, do NOT claim success and do NOT leave a misleading local-only request.
       var cfPrint=null;
       try{
-        cfPrint=await cfCreateRequest({kind:'print_request',user:author,amount:'$40',coins:0,provider:(window.__printPaidFC?'fc':'manual'),label:'PRINT submission',payload:{name:name,age:age,city:city,socials:socials,photos:photos,author:author,consent:true}});
+        cfPrint=await cfCreateRequest({
+          kind:'print_request',
+          user:author,
+          amount:amountLabel,
+          coins:paidFc?350:0,
+          provider:paidVia,
+          label:'PRINT '+orderCode,
+          payload:{
+            name:name,
+            age:age,
+            city:city,
+            socials:socials,
+            photos:photos,
+            payment_proof:paymentProof||'',
+            order_code:orderCode,
+            paid_via:paidVia,
+            author:author,
+            consent:true
+          }
+        });
         req.cf_request_id=cfPrint&&cfPrint.id||'';
         if(!req.cf_request_id) throw new Error('No request ID returned');
       }catch(e){
@@ -4875,7 +5025,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(sb){
         try{
           var payload=JSON.stringify({
-            name:name,age:age,city:city,socials:socials,photos:photos,author:author
+            name:name,age:age,city:city,socials:socials,photos:photos,author:author,
+            order_code:orderCode,paid_via:paidVia,payment_proof:paymentProof||''
           });
           var targets=['admin','MasterSan','mastersan','mastersan01'];
           var me=(currentUser&&currentUser.name)||'';
@@ -4899,7 +5050,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             name:name,age:age,city:city,socials:socials,photos:photos,author:author,status:'pending',created_at:new Date().toISOString()
           });
         }catch(e){/* table may not exist */}
-        try{pingAdminMail('PRINT REQUEST @'+author, name+' · '+age+' · '+city+' · '+socials+' · photos: '+photos.join(' '))}catch(e){}
+        try{pingAdminMail('PRINT REQUEST '+orderCode+' @'+author, name+' · '+paidVia+' · '+socials+' · proof: '+(paymentProof||'FC')+' · photos: '+photos.join(' '))}catch(e){}
       }
       // clear form
       try{
@@ -4907,13 +5058,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         document.getElementById('pe-age').value='';
         document.getElementById('pe-city').value='';
         document.getElementById('pe-socials').value='';
+        if(document.getElementById('pe-desc')) document.getElementById('pe-desc').value='';
         document.getElementById('pe-photos').value='';
         document.getElementById('pe-photos-preview').innerHTML='';
+        if(document.getElementById('pe-proof')) document.getElementById('pe-proof').value='';
+        if(document.getElementById('pe-proof-preview')) document.getElementById('pe-proof-preview').innerHTML='';
+        var consent=document.getElementById('consent-pe'); if(consent) consent.checked=false;
       }catch(e){}
       pePhotosData=[];
+      peProofData='';
+      window.__peProofData='';
+      updatePePhotosCount();
+      var wasFc=paidFc;
       window.__printPaidFC=false;
-      try{await notifyAdminPayment({kind:'print_request',user:author,amount:window.__printPaidFC?'350 FC':'$40',label:'PRINT',message:'PRINT request · @'+author+' · '+(photos.length||0)+' photos'})}catch(e){}
-      toast('Photos sent to Admin. Nothing is published until you approve it.');
+      ensurePrintOrderCode(true);
+      syncPrintOrderCodeUI();
+      try{await notifyAdminPayment({kind:'print_request',user:author,amount:amountLabel,label:'PRINT '+orderCode,message:'PRINT '+orderCode+' · @'+author+' · '+paidVia+' · '+(photos.length||0)+' photos'+(paymentProof?' · proof attached':'')})}catch(e){}
+      toast(wasFc?'Paid with FC and sent to Admin.':'Photos + payment proof sent. Admin will match your code '+orderCode+'.');
       showPanel('print-dirty');
       return true;
     }
@@ -6605,9 +6766,10 @@ async function claimPayPalPack(p){
       var ok=await spendFagCoins('print','print');
       if(!ok){payProgress(false);try{openNeedCoins({cost:350,why:'print'})}catch(e){try{openCoinShop()}catch(err){}}return}
       window.__printPaidFC=true;
+      try{refreshPrintPayStatus()}catch(e){}
       payProgress(true,'Print paid','Sending photos to admin…',70);
       try{
-        if(typeof pePhotosData!=='undefined' && pePhotosData && pePhotosData.length){
+        if(typeof pePhotosData!=='undefined' && pePhotosData && pePhotosData.length>=5){
           var sent=await submitPublicExposureRequest();
           if(sent){
             payProgress(true,'Sent','Admin has your print request',100);
@@ -6619,7 +6781,7 @@ async function claimPayPalPack(p){
         }
       }catch(e){}
       payProgress(false);
-      toast('Paid. Add photos and tap Send photos.');
+      toast('Paid with FC ✓ Add 5 flyer photos, then tap Send.');
     }
     async function unlockRouletteWithCoins(){
       var ok=await spendFagCoins('roulette','spins15');
@@ -20053,6 +20215,10 @@ async function onIdFace(e){
             city:q.city||'',
             socials:q.socials||'',
             photos:Array.isArray(q.photos)?q.photos:[],
+            payment_proof:q.payment_proof||'',
+            order_code:q.order_code||'',
+            paid_via:q.paid_via||row.provider||'',
+            amount:row.amount||'',
             author:q.author||row.user_id||'',
             at:Number(row.created_at||Date.now()),
             cfRequest:true
@@ -20068,12 +20234,19 @@ async function onIdFace(e){
           var photosHtml=(r.photos||[]).slice(0,12).map(function(src){
             return '<a href="'+esc(src)+'" target="_blank" rel="noopener"><img src="'+esc(src)+'" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--border)"/></a>';
           }).join('');
-          var rid=String(r.id).replace(/[^a-zA-Z0-9_-]/g,'_');
+          var via=String(r.paid_via||'');
+          var viaLabel=via==='fc'?'Paid with 350 FC ✓':(via==='throne_proof'?'Throne + screenshot':(via||'unverified'));
+          var viaColor=via==='fc'?'#22c55e':(r.payment_proof?'#f5c518':'#f87171');
+          var proofHtml=r.payment_proof
+            ?('<div style="margin:8px 0;padding:8px;border:1px solid #f5c518;border-radius:10px;background:rgba(245,197,24,.08)"><div style="font-size:11px;font-weight:800;color:#f5c518;margin-bottom:6px">Payment screenshot</div><a href="'+esc(r.payment_proof)+'" target="_blank" rel="noopener"><img src="'+esc(r.payment_proof)+'" loading="lazy" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;background:#000"/></a></div>')
+            :(via==='fc'?'':'<div style="font-size:12px;color:#f87171;margin:8px 0">No payment screenshot attached.</div>');
           return '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(168,85,247,.25)">'+
-            '<div style="font-weight:800">'+esc(r.name||'Request')+'</div>'+
+            '<div style="font-weight:800">'+esc(r.name||'Request')+(r.order_code?' · <code style="color:#f5c518">'+esc(r.order_code)+'</code>':'')+'</div>'+
             '<div style="font-size:12px;color:var(--muted)">@'+esc(r.author||'')+(r.age?' · '+esc(r.age):'')+(r.city?' · '+esc(r.city):'')+(r.at?' · '+ago(r.at):'')+'</div>'+
+            '<div style="font-size:12px;margin-top:4px;font-weight:800;color:'+viaColor+'">'+esc(viaLabel)+(r.amount?' · '+esc(String(r.amount)):'')+'</div>'+
             (r.socials?'<div style="font-size:12px;margin-top:4px;white-space:pre-wrap">'+esc(r.socials)+'</div>':'')+
-            (photosHtml?'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0">'+photosHtml+'</div>':'<div style="font-size:12px;color:var(--muted);margin:8px 0">No photos attached.</div>')+
+            proofHtml+
+            (photosHtml?'<div style="font-size:11px;color:var(--muted);margin:6px 0 4px">Flyer photos ('+((r.photos&&r.photos.length)||0)+')</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 8px">'+photosHtml+'</div>':'<div style="font-size:12px;color:var(--muted);margin:8px 0">No photos attached.</div>')+
             '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
               '<button class="btn btn-primary btn-sm" type="button" onclick="approveCloudflarePrintRequest('+JSON.stringify(r.id)+')">✓ Publish</button>'+ 
               '<button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflarePrintRequest('+JSON.stringify(r.id)+')">Reject</button>'+ 
