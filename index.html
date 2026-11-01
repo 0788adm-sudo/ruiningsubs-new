@@ -2384,9 +2384,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <div style="font-size:20px;font-weight:900;letter-spacing:-.4px;margin-bottom:12px">How the exposure works</div>
               <div style="font-size:13px;color:#f5c518;margin:-4px 0 10px">Recordings: Monday to Friday, 1:00 PM – 6:00 PM (Colombia). Saturday and Sunday: no recordings. You get a photo of the print in chat as soon as it is done.</div>
               <div style="display:flex;flex-direction:column;gap:8px">
-                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#f5c518;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span><div><b>Send 5 flyer photos</b><div style="font-size:12px;color:#9a9aa3">5 photos for the flyer. Plus a 6th image: your payment screenshot.</div></div></div>
+                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#f5c518;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span><div><b>Send 1–5 flyer photos</b><div style="font-size:12px;color:#9a9aa3">Minimum 1 photo, maximum 5. Payment is required — unpaid sends are blocked.</div></div></div>
                 <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#ff6a00;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</span><div><b>Your details</b><div style="font-size:12px;color:#9a9aa3">Name, city, @, or whatever you want written on the flyer.</div></div></div>
-                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#22c55e;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span><div><b>Pay + proof</b><div style="font-size:12px;color:#9a9aa3">350 FC (auto-verified) or $40 on Throne with your order code + payment screenshot. No proof = request blocked.</div></div></div>
+                <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#22c55e;color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span><div><b>Pay first</b><div style="font-size:12px;color:#9a9aa3">350 FC (verified on server) or $40 on Throne + payment screenshot with your order code. No payment = cannot send.</div></div></div>
                 <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#5b21b6;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</span><div><b>I print it</b><div style="font-size:12px;color:#9a9aa3">I make the poster and print it on the street. Weekdays only, 1–6 PM.</div></div></div>
                 <div style="display:flex;gap:10px;align-items:center;background:#141418;border:1px solid #2a2a32;border-radius:12px;padding:10px 12px"><span style="width:26px;height:26px;border-radius:8px;background:#111;color:#f5c518;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #f5c518">5</span><div><b>Next episode</b><div style="font-size:12px;color:#9a9aa3">Your print shows up in the next episode.</div></div></div>
               </div>
@@ -2427,13 +2427,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <a class="btn btn-primary" id="pe-pay-throne-top" href="https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:16px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay $40 on Throne</span></a>
 
           <div class="form-group">
-            <label>5 flyer photos <span style="color:var(--muted);font-weight:500">(required)</span></label>
+            <label>Flyer photos <span style="color:var(--muted);font-weight:500">(1–5 required)</span></label>
             <input type="file" id="pe-photos" accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp" multiple style="width:100%;padding:12px;background:var(--elev);border:1px solid var(--border);border-radius:12px;color:#fff"/>
-            <div id="pe-photos-count" style="font-size:11px;color:var(--muted);margin-top:6px">0 / 5 selected</div>
+            <div id="pe-photos-count" style="font-size:11px;color:var(--muted);margin-top:6px">0 / 5 selected · need at least 1</div>
             <div id="pe-photos-preview" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px"></div>
           </div>
           <div class="form-group">
-            <label>Payment screenshot <span style="color:#f5c518;font-weight:700">(6th image · required unless you paid with FC)</span></label>
+            <label>Payment screenshot <span style="color:#f5c518;font-weight:700">(required for Throne · not needed if you pay 350 FC)</span></label>
             <input type="file" id="pe-proof" accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp" style="width:100%;padding:12px;background:var(--elev);border:1px solid var(--border);border-radius:12px;color:#fff"/>
             <div id="pe-proof-preview" style="margin-top:8px"></div>
           </div>
@@ -2444,7 +2444,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <input type="hidden" id="pe-city" value=""/>
 
           <label class="consent-box"><input type="checkbox" class="consent-check" id="consent-pe"/><span>I know these photos can be printed and posted. I’m sending them anyway.</span></label>
-          <button class="btn btn-primary" type="button" id="btn-pe-submit" style="width:100%;padding:14px;font-weight:800">Send photos + payment proof</button>
+          <div id="pe-submit-hint" style="font-size:12px;color:#f87171;margin:0 0 8px;display:none"></div>
+          <button class="btn btn-primary" type="button" id="btn-pe-submit" style="width:100%;padding:14px;font-weight:800" disabled>Send paid print request</button>
           <a class="btn btn-primary" id="pe-pay-link" href="https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:10px;padding:14px;font-weight:800;background:#4c1d95"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Pay $40 on Throne</span></a>
           <div id="print-videos" style="margin:18px 0 24px"></div>
           <a class="btn btn-ghost" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:8px">Send on Telegram</a>
@@ -3261,11 +3262,59 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         body:JSON.stringify(row)
       });
       var j=await r.json().catch(function(){return{}});
-      if(!r.ok||(j&&j.ok===false)) throw new Error((j&&j.error)||('Cloudflare post HTTP '+r.status));
-      return j;
+      if(r.ok && !(j&&j.ok===false) && (j.post||j.id||(j.ok&&j.post!==null))) return j;
+
+      // CF D1 insert is currently broken ("16 values for 18 columns"). Fall back to Supabase
+      // so GoonTok / video publish keeps working while the Worker schema is patched.
+      var errMsg=(j&&j.error)||('Cloudflare post HTTP '+r.status);
+      if(!sb) throw new Error(errMsg);
+      try{
+        var tags=row.tags||[];
+        if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+        if(!Array.isArray(tags)) tags=[];
+        if(String(row.media_type||'')==='video' && tags.indexOf('video')<0) tags=tags.concat(['video']);
+        if(tags.indexOf('goontok')<0 && String(row.media_type||'')==='video') tags=tags.concat(['goontok']);
+        var imageField=row.media_url||row.image_url||'';
+        if(row.thumb_url && imageField && String(row.media_type||'')==='video'){
+          try{imageField=JSON.stringify([imageField,row.thumb_url])}catch(e){}
+        }
+        var ins={
+          username:row.username||'anon',
+          title:row.title||'',
+          description:row.description||'',
+          tags:tags,
+          image_url:imageField,
+          expires_at:row.expires_at||null,
+          extend_amount:Number(row.extend_amount||row.extend_mins||360)||360
+        };
+        var up=await sb.from('posts').insert(ins).select('*').limit(1);
+        if(up&&up.error) throw new Error(up.error.message||errMsg);
+        var saved=(up&&up.data&&up.data[0])||null;
+        if(!saved||saved.id==null) throw new Error(errMsg);
+        return {ok:true, post:{
+          id:saved.id,
+          username:saved.username,
+          title:saved.title,
+          description:saved.description,
+          tags:saved.tags,
+          media_url:row.media_url||'',
+          thumb_url:row.thumb_url||'',
+          media_type:row.media_type||'video',
+          created_at:saved.created_at,
+          expires_at:saved.expires_at,
+          _sb:true
+        }, fallback:'supabase'};
+      }catch(e){
+        throw new Error((e&&e.message)||errMsg);
+      }
     }
     async function cfCreateRequest(o){
       o=o||{};
+      // Street Print must go through /api/print-submit (server validates FC spend or payment screenshot).
+      // Blocking direct CF print_request calls closes the browser DevTools bypass of the old UI checks.
+      if(/print/i.test(String(o.kind||''))){
+        throw new Error('Use /api/print-submit for print orders');
+      }
       var body={
         kind:String(o.kind||'payment'),
         user_id:String(o.user_id||o.user||((currentUser&&currentUser.name)||'guest')).replace(/^@/,''),
@@ -4718,21 +4767,46 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         return window.__printOrderCode;
       }
     }
+    function printPaymentReady(){
+      return !!(window.__peProofData) || window.__printPayMethod==='fc';
+    }
     function refreshPrintPayStatus(){
       var el=document.getElementById('pe-pay-status');
-      if(!el)return;
-      if(window.__printPaidFC){
-        el.style.color='#22c55e';
-        el.textContent='Payment: verified with 350 FC ✓';
-        return;
+      var hint=document.getElementById('pe-submit-hint');
+      var btn=document.getElementById('btn-pe-submit');
+      var photosN=(typeof pePhotosData!=='undefined' && pePhotosData)?pePhotosData.length:0;
+      var hasProof=!!window.__peProofData;
+      var payOk=printPaymentReady();
+      if(el){
+        if(window.__printPayMethod==='fc'){
+          el.style.color='#22c55e';
+          el.textContent='Payment: will charge 350 FC on send (server-verified) · '+ensurePrintOrderCode();
+        }else if(hasProof){
+          el.style.color='#f5c518';
+          el.textContent='Payment: Throne screenshot attached · code '+ensurePrintOrderCode();
+        }else{
+          el.style.color='#9a9aa3';
+          el.textContent='Payment: not verified — pay 350 FC or upload Throne screenshot';
+        }
       }
-      if(window.__peProofData){
-        el.style.color='#f5c518';
-        el.textContent='Payment: screenshot attached · code '+ensurePrintOrderCode();
-        return;
+      var missing=[];
+      if(photosN<1) missing.push('add 1–5 flyer photos');
+      if(photosN>5) missing.push('max 5 flyer photos');
+      if(!payOk) missing.push('pay 350 FC or upload payment screenshot');
+      if(hint){
+        if(missing.length){
+          hint.style.display='block';
+          hint.style.color='#f87171';
+          hint.textContent='Cannot send yet: '+missing.join(' · ');
+        }else{
+          hint.style.display='block';
+          hint.style.color='#22c55e';
+          hint.textContent='Ready to send. Server will reject unpaid requests.';
+        }
       }
-      el.style.color='#9a9aa3';
-      el.textContent='Payment: not verified yet — pay FC or upload Throne screenshot';
+      if(btn && !window.__printSubmitting){
+        btn.disabled=missing.length>0;
+      }
     }
     function syncPrintOrderCodeUI(){
       var code=ensurePrintOrderCode();
@@ -4856,11 +4930,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     window.loadPrintJobs=loadPrintJobs;
 
-    var pePhotosData=[]; // flyer photos (max 5)
+    var pePhotosData=[]; // flyer photos (1–5)
     var peProofData=''; // payment screenshot data URL
     function updatePePhotosCount(){
       var el=document.getElementById('pe-photos-count');
-      if(el) el.textContent=(pePhotosData.length||0)+' / 5 selected';
+      var n=pePhotosData.length||0;
+      if(el) el.textContent=n+' / 5 selected · '+(n<1?'need at least 1':(n>5?'too many':'ok'));
+      try{refreshPrintPayStatus()}catch(e){}
     }
     function setupPublicExposureForm(){
       try{syncPrintOrderCodeUI()}catch(e){}
@@ -4889,6 +4965,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(proof)proof.onchange=function(e){
         var f=(e.target.files&&e.target.files[0])||null;
         peProofData='';
+        window.__peProofData='';
+        if(window.__printPayMethod==='throne') window.__printPayMethod='';
         var preview=document.getElementById('pe-proof-preview');
         if(preview)preview.innerHTML='';
         if(!f){refreshPrintPayStatus();return}
@@ -4899,6 +4977,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         r.onload=function(){
           peProofData=r.result;
           window.__peProofData=peProofData;
+          window.__printPayMethod='throne';
           if(preview)preview.innerHTML='<div style="font-size:11px;color:#22c55e;margin-bottom:6px">Payment screenshot ready</div><img src="'+r.result+'" style="width:100%;max-height:220px;object-fit:contain;border-radius:10px;border:1px solid #f5c518;background:#000"/>';
           refreshPrintPayStatus();
         };
@@ -4917,14 +4996,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var a=document.getElementById(id);
         if(a) a.addEventListener('click', remindCodeBeforeThrone);
       });
+      var consent=document.getElementById('consent-pe');
+      if(consent) consent.addEventListener('change', function(){try{refreshPrintPayStatus()}catch(e){}});
       var sub=document.getElementById('btn-pe-submit');
       if(sub)sub.onclick=submitPublicExposureRequest;
       var adb=document.getElementById('btn-pe-admin-post');
       if(adb)adb.onclick=submitAdminPrintFollowup;
+      try{refreshPrintPayStatus()}catch(e){}
     }
 
-    async function submitPublicExposureRequest(){
-      if(!requireConsent('consent-pe')) return;
+    async function submitPublicExposureRequest(opts){
+      opts=opts||{};
+      if(window.__printSubmitting){toast('Already sending…');return false}
+      if(!requireConsent('consent-pe')) return false;
       var name=(document.getElementById('pe-name')&&document.getElementById('pe-name').value||'').trim();
       var age=(document.getElementById('pe-age')&&document.getElementById('pe-age').value||'').trim();
       var city=(document.getElementById('pe-city')&&document.getElementById('pe-city').value||'').trim();
@@ -4932,151 +5016,147 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var story=(document.getElementById('pe-desc')&&document.getElementById('pe-desc').value||'').trim();
       if(story) socials=socials? (socials+' · '+story):story;
       if(!name) name=(currentUser&&currentUser.name)||'Anon';
-      if(pePhotosData.length<5){toast('Add exactly 5 flyer photos (you have '+(pePhotosData.length||0)+')');return}
-      var paidFc=!!window.__printPaidFC;
-      if(!paidFc && !peProofData){
-        toast('Upload a payment screenshot (or pay 350 FC) so we know who paid');
-        return;
+      if(!pePhotosData.length){toast('Add at least 1 flyer photo');refreshPrintPayStatus();return false}
+      if(pePhotosData.length>5){toast('Max 5 flyer photos');refreshPrintPayStatus();return false}
+
+      var wantFc=!!(opts.forceFc || window.__printPayMethod==='fc' || window.__printPaidFC);
+      if(!wantFc && !peProofData){
+        toast('Pay 350 FC or upload a Throne payment screenshot first');
+        refreshPrintPayStatus();
+        return false;
       }
+
       var orderCode=ensurePrintOrderCode();
       var author=(currentUser&&currentUser.name)||('Anon_'+Math.floor(Math.random()*9000+1000));
-      toast('Uploading photos…');
-      var photos=[];
-      for(var i=0;i<pePhotosData.length;i++){
-        var dataUrl=pePhotosData[i];
-        try{
-          if(typeof compressDataUrl==='function' && String(dataUrl).indexOf('data:')===0){
-            dataUrl=await compressDataUrl(dataUrl,900,140000,0.62);
-          }
-        }catch(e){}
-        var url=await uploadPePublicUrl(dataUrl, i);
-        if(url && String(url).indexOf('http')===0) photos.push(url);
-      }
-      photos=(photos||[]).filter(function(u){return String(u).indexOf('http')===0});
-      if(photos.length<5){toast('Could not upload all 5 flyer photos. Try smaller images.');return false}
-      var paymentProof='';
-      if(!paidFc && peProofData){
-        try{
-          var proofSrc=peProofData;
-          if(typeof compressDataUrl==='function' && String(proofSrc).indexOf('data:')===0){
-            proofSrc=await compressDataUrl(proofSrc,1100,180000,0.7);
-          }
-          paymentProof=await uploadPePublicUrl(proofSrc, 'proof');
-        }catch(e){console.warn('proof upload',e)}
-        if(!paymentProof || String(paymentProof).indexOf('http')!==0){
-          toast('Could not upload payment screenshot. Try again.');
+      var btn=document.getElementById('btn-pe-submit');
+      window.__printSubmitting=true;
+      if(btn){btn.disabled=true;btn.setAttribute('data-label',btn.textContent);btn.textContent='Sending…'}
+
+      try{
+        toast('Uploading photos…');
+        var photos=[];
+        for(var i=0;i<pePhotosData.length;i++){
+          var dataUrl=pePhotosData[i];
+          try{
+            if(typeof compressDataUrl==='function' && String(dataUrl).indexOf('data:')===0){
+              dataUrl=await compressDataUrl(dataUrl,900,140000,0.62);
+            }
+          }catch(e){}
+          var url=await uploadPePublicUrl(dataUrl, i);
+          if(url && String(url).indexOf('http')===0) photos.push(url);
+        }
+        photos=(photos||[]).filter(function(u){return String(u).indexOf('http')===0});
+        if(!photos.length || photos.length>5){
+          toast('Could not upload flyer photos. Try smaller images.');
           return false;
         }
-      }
-      var paidVia=paidFc?'fc':'throne_proof';
-      var amountLabel=paidFc?'350 FC':'$40';
-      var req={
-        id:Date.now(),
-        name:name,
-        age:age,
-        city:city,
-        socials:socials,
-        photos:photos,
-        payment_proof:paymentProof||'',
-        order_code:orderCode,
-        paid_via:paidVia,
-        author:author,
-        at:Date.now(),
-        paid:true
-      };
-      // Primary queue: Cloudflare D1. This is the only authoritative Print queue.
-      // If it fails, do NOT claim success and do NOT leave a misleading local-only request.
-      var cfPrint=null;
-      try{
-        cfPrint=await cfCreateRequest({
-          kind:'print_request',
-          user:author,
-          amount:amountLabel,
-          coins:paidFc?350:0,
-          provider:paidVia,
-          label:'PRINT '+orderCode,
-          payload:{
+
+        var paymentProof='';
+        var paymentMethod=wantFc?'fc':'throne';
+        if(!wantFc){
+          try{
+            var proofSrc=peProofData;
+            if(typeof compressDataUrl==='function' && String(proofSrc).indexOf('data:')===0){
+              proofSrc=await compressDataUrl(proofSrc,1100,180000,0.7);
+            }
+            paymentProof=await uploadPePublicUrl(proofSrc, 'proof');
+          }catch(e){console.warn('proof upload',e)}
+          if(!paymentProof || String(paymentProof).indexOf('http')!==0){
+            toast('Could not upload payment screenshot. Try again.');
+            return false;
+          }
+        }
+
+        // Secure server intake — validates payment. Do NOT call CF /requests directly from the browser for prints.
+        var apiRes=await fetch('/api/print-submit',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Idempotency-Key':orderCode
+          },
+          cache:'no-store',
+          body:JSON.stringify({
+            order_code:orderCode,
+            user:author,
             name:name,
             age:age,
             city:city,
             socials:socials,
             photos:photos,
-            payment_proof:paymentProof||'',
-            order_code:orderCode,
-            paid_via:paidVia,
-            author:author,
-            consent:true
-          }
+            payment_method:paymentMethod,
+            payment_proof:paymentProof||''
+          })
         });
-        req.cf_request_id=cfPrint&&cfPrint.id||'';
-        if(!req.cf_request_id) throw new Error('No request ID returned');
+        var apiJson=await apiRes.json().catch(function(){return{}});
+        if(!apiRes.ok || !apiJson || apiJson.ok!==true){
+          var msg=(apiJson&&(apiJson.message||apiJson.error))||('Print rejected ('+apiRes.status+')');
+          toast(msg);
+          return false;
+        }
+
+        var paidVia=apiJson.paid_via||paymentMethod;
+        var amountLabel=apiJson.amount||(wantFc?'350 FC':'$40');
+        var req={
+          id:Date.now(),
+          name:name,
+          age:age,
+          city:city,
+          socials:socials,
+          photos:photos,
+          payment_proof:paymentProof||'',
+          order_code:orderCode,
+          paid_via:paidVia,
+          author:author,
+          at:Date.now(),
+          paid:true,
+          cf_request_id:apiJson.request_id||'',
+          status:apiJson.status||'submitted'
+        };
+        try{
+          var arr=JSON.parse(localStorage.getItem('rs_public_exposure_req')||'[]')||[];
+          arr.unshift(req);
+          localStorage.setItem('rs_public_exposure_req',JSON.stringify(arr.slice(0,40)));
+        }catch(e){}
+
+        try{
+          document.getElementById('pe-name').value='';
+          document.getElementById('pe-age').value='';
+          document.getElementById('pe-city').value='';
+          document.getElementById('pe-socials').value='';
+          if(document.getElementById('pe-desc')) document.getElementById('pe-desc').value='';
+          document.getElementById('pe-photos').value='';
+          document.getElementById('pe-photos-preview').innerHTML='';
+          if(document.getElementById('pe-proof')) document.getElementById('pe-proof').value='';
+          if(document.getElementById('pe-proof-preview')) document.getElementById('pe-proof-preview').innerHTML='';
+          var consentEl=document.getElementById('consent-pe'); if(consentEl) consentEl.checked=false;
+        }catch(e){}
+        pePhotosData=[];
+        peProofData='';
+        window.__peProofData='';
+        window.__printPaidFC=false;
+        window.__printPayMethod='';
+        updatePePhotosCount();
+        ensurePrintOrderCode(true);
+        syncPrintOrderCodeUI();
+        try{await loadFagBalance()}catch(e){}
+        toast(apiJson.deduped
+          ?('Already submitted · '+orderCode)
+          :(paidVia==='fc'
+            ?('Paid '+amountLabel+' · sent · '+orderCode)
+            :('Paid request sent · '+orderCode+' · Admin notified')));
+        showPanel('print-dirty');
+        return true;
       }catch(e){
-        console.warn('D1 print request',e);
-        toast('Could not send to Admin. Try Send photos again.');
+        console.warn('print submit',e);
+        toast((e&&e.message)||'Could not send print request');
         return false;
+      }finally{
+        window.__printSubmitting=false;
+        if(btn){
+          btn.textContent=btn.getAttribute('data-label')||'Send paid print request';
+          try{refreshPrintPayStatus()}catch(e){btn.disabled=false}
+        }
       }
-      // Local backup is kept only for recovery/debugging; Admin never publishes from it.
-      try{
-        var arr=JSON.parse(localStorage.getItem('rs_public_exposure_req')||'[]')||[];
-        arr.unshift(req);
-        localStorage.setItem('rs_public_exposure_req',JSON.stringify(arr.slice(0,40)));
-      }catch(e){}
-      // Backup notification only. Publication happens only after admin approval.
-      if(sb){
-        try{
-          var payload=JSON.stringify({
-            name:name,age:age,city:city,socials:socials,photos:photos,author:author,
-            order_code:orderCode,paid_via:paidVia,payment_proof:paymentProof||''
-          });
-          var targets=['admin','MasterSan','mastersan','mastersan01'];
-          var me=(currentUser&&currentUser.name)||'';
-          if(me && targets.indexOf(me)<0) targets.push(me);
-          for(var ti=0;ti<targets.length;ti++){
-            try{
-              await sb.from('notifications').insert({
-                to_username:targets[ti],
-                from_username:author,
-                type:'public_exposure_request',
-                post_id:null,
-                message:payload,
-                created_at:new Date().toISOString(),
-                read:false
-              });
-            }catch(e){}
-          }
-        }catch(e){console.warn(e)}
-        try{
-          await sb.from('public_exposure_requests').insert({
-            name:name,age:age,city:city,socials:socials,photos:photos,author:author,status:'pending',created_at:new Date().toISOString()
-          });
-        }catch(e){/* table may not exist */}
-        try{pingAdminMail('PRINT REQUEST '+orderCode+' @'+author, name+' · '+paidVia+' · '+socials+' · proof: '+(paymentProof||'FC')+' · photos: '+photos.join(' '))}catch(e){}
-      }
-      // clear form
-      try{
-        document.getElementById('pe-name').value='';
-        document.getElementById('pe-age').value='';
-        document.getElementById('pe-city').value='';
-        document.getElementById('pe-socials').value='';
-        if(document.getElementById('pe-desc')) document.getElementById('pe-desc').value='';
-        document.getElementById('pe-photos').value='';
-        document.getElementById('pe-photos-preview').innerHTML='';
-        if(document.getElementById('pe-proof')) document.getElementById('pe-proof').value='';
-        if(document.getElementById('pe-proof-preview')) document.getElementById('pe-proof-preview').innerHTML='';
-        var consent=document.getElementById('consent-pe'); if(consent) consent.checked=false;
-      }catch(e){}
-      pePhotosData=[];
-      peProofData='';
-      window.__peProofData='';
-      updatePePhotosCount();
-      var wasFc=paidFc;
-      window.__printPaidFC=false;
-      ensurePrintOrderCode(true);
-      syncPrintOrderCodeUI();
-      try{await notifyAdminPayment({kind:'print_request',user:author,amount:amountLabel,label:'PRINT '+orderCode,message:'PRINT '+orderCode+' · @'+author+' · '+paidVia+' · '+(photos.length||0)+' photos'+(paymentProof?' · proof attached':'')})}catch(e){}
-      toast(wasFc?'Paid with FC and sent to Admin.':'Photos + payment proof sent. Admin will match your code '+orderCode+'.');
-      showPanel('print-dirty');
-      return true;
     }
 
     async function uploadPePublicUrl(dataUrl, i){
@@ -6762,26 +6842,33 @@ async function claimPayPalPack(p){
         +'<div style="font-size:12px;color:#9a9aa8;margin-top:10px">'+pct+'%</div></div>';
     }
     async function payPrintWithCoins(){
-      payProgress(true,'Print · 350 FC','Checking balance…',20);
-      var ok=await spendFagCoins('print','print');
-      if(!ok){payProgress(false);try{openNeedCoins({cost:350,why:'print'})}catch(e){try{openCoinShop()}catch(err){}}return}
-      window.__printPaidFC=true;
+      // Do NOT spend FC in the browser. /api/print-submit charges 350 FC server-side
+      // after validating the order, so unpaid / forged requests cannot land in Admin.
+      if(!(pePhotosData&&pePhotosData.length)){
+        toast('Add 1–5 flyer photos first, then pay 350 FC');
+        return;
+      }
+      if(pePhotosData.length>5){toast('Max 5 flyer photos');return}
+      var bal=0;
+      try{bal=await cfWalletGet(coinUserId())}catch(e){}
+      if(!(bal>=350)){
+        try{openNeedCoins({cost:350,why:'print'})}catch(e){try{openCoinShop()}catch(err){}}
+        toast('Need 350 FC for Street Print');
+        return;
+      }
+      window.__printPayMethod='fc';
+      window.__printPaidFC=true; // UI hint only — server still verifies/charges
       try{refreshPrintPayStatus()}catch(e){}
-      payProgress(true,'Print paid','Sending photos to admin…',70);
+      payProgress(true,'Print · 350 FC','Verifying payment on server…',40);
       try{
-        if(typeof pePhotosData!=='undefined' && pePhotosData && pePhotosData.length>=5){
-          var sent=await submitPublicExposureRequest();
-          if(sent){
-            payProgress(true,'Sent','Admin has your print request',100);
-            setTimeout(function(){payProgress(false)},900);
-            return;
-          }
-          payProgress(false);
+        var sent=await submitPublicExposureRequest({forceFc:true});
+        if(sent){
+          payProgress(true,'Sent','Admin has your paid print request',100);
+          setTimeout(function(){payProgress(false)},900);
           return;
         }
       }catch(e){}
       payProgress(false);
-      toast('Paid with FC ✓ Add 5 flyer photos, then tap Send.');
     }
     async function unlockRouletteWithCoins(){
       var ok=await spendFagCoins('roulette','spins15');
@@ -9797,32 +9884,103 @@ function openRoulette(){
       posts=upsert(posts);
       window.normalFeedPosts=upsert(window.normalFeedPosts||[]);
     }
+    function sbRowToVideoRow(row){
+      if(!row||row.id==null)return null;
+      var imgs=[];
+      try{imgs=parseImages(row.image_url||row.media_url||'')}catch(e){imgs=row.image_url?[row.image_url]:[]}
+      var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
+      if(!vsrc && row.media_url && isVideoUrl(row.media_url)) vsrc=row.media_url;
+      if(!vsrc) return null;
+      var tags=row.tags||[];
+      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+      if(!Array.isArray(tags))tags=[];
+      if(tags.indexOf('video')<0) tags=tags.concat(['video']);
+      var poster=(imgs||[]).filter(function(u){return u&&!isVideoUrl(u)})[0]||row.thumb_url||'';
+      return {
+        id:row.id,
+        username:row.username||row.user||'anon',
+        title:row.title||'',
+        description:row.description||row.desc||'',
+        tags:tags,
+        image_url:row.image_url||vsrc,
+        media_url:vsrc,
+        thumb_url:poster,
+        optimized_url:row.optimized_url||'',
+        media_type:'video',
+        created_at:row.created_at||Date.now(),
+        expires_at:row.expires_at||null,
+        views:row.views||0,
+        likes_count:row.likes_count||row.likes||0
+      };
+    }
     async function fetchVideoPosts(){
       if(window.__vidFetchP && Date.now()-(window.__vidFetchAt||0)<25000) return window.__vidFetchP;
       window.__vidFetchAt=Date.now();
       window.__vidFetchP=(async function(){
       try{
-        var cf=await fetchCfFeed('video', 30);
+        // CF /feed?type=video currently returns [] (and POST /posts is broken on D1).
+        // Pull general CF feed + Supabase video rows so GoonTok is not stuck empty.
+        var buckets=[];
+        try{buckets.push(await fetchCfFeed('video', 50))}catch(e){}
+        try{buckets.push(await fetchCfFeed('', 50))}catch(e){}
         var serverIds={};
-
-        (cf||[]).forEach(function(row){
-          if(!row||row.id==null)return;
-          serverIds[String(row.id)]=true;
-          mergeVideoRow(row);
+        buckets.forEach(function(cf){
+          (cf||[]).forEach(function(row){
+            if(!row||row.id==null)return;
+            var mapped=row;
+            // fetchCfFeed already maps via mapCfPost; accept either shape
+            if(row.media_type==='video' || (typeof isVideoPost==='function' && isVideoPost(row)) ||
+               (typeof isVideoUrl==='function' && (isVideoUrl(row.media_url)||isVideoUrl(row.video)||isVideoUrl(row.image)))){
+              serverIds[String(row.id)]=true;
+              try{mergeVideoRow(row.username!=null?row:{
+                id:row.id,username:row.user,title:row.title,description:row.desc,tags:row.tags,
+                media_url:row.media_url||row.video||row.image,thumb_url:row.thumb_url||row.poster,
+                media_type:'video',created_at:row.created,expires_at:row.expires?new Date(row.expires).toISOString():null,
+                views:row.views,likes_count:row.likes
+              })}catch(e){try{mergeVideoRow(row)}catch(e2){}}
+            }
+          });
         });
 
-        try{
-          if(Object.keys(serverIds).length){
-            var current=JSON.parse(localStorage.getItem('rs_videos')||'[]')||[];
-            current=current.filter(function(p){
-              if(!p||!p.id)return false;
-              if(isDeletedId(p.id))return false;
-              // Prefer rows that still have a real video URL
-              if(p.media_url && typeof isVideoUrl==='function' && !isVideoUrl(p.media_url) && !isVideoUrl(p.image||'')) return false;
-              return true;
+        if(sb){
+          try{
+            var sbVid=await sb.from('posts').select('*').contains('tags',['video']).order('created_at',{ascending:false}).limit(40);
+            (sbVid&&sbVid.data||[]).forEach(function(row){
+              var v=sbRowToVideoRow(row);
+              if(!v)return;
+              serverIds[String(v.id)]=true;
+              mergeVideoRow(v);
             });
-            localStorage.setItem('rs_videos',JSON.stringify(current.slice(0,60)));
-          }
+          }catch(e){}
+          try{
+            // Also catch rows that store mp4 URLs without a clean video tag
+            var sbMp4=await sb.from('posts').select('*').or('image_url.ilike.%.mp4%,image_url.ilike.%.webm%,image_url.ilike.%.mov%').order('created_at',{ascending:false}).limit(40);
+            (sbMp4&&sbMp4.data||[]).forEach(function(row){
+              var v=sbRowToVideoRow(row);
+              if(!v)return;
+              serverIds[String(v.id)]=true;
+              mergeVideoRow(v);
+            });
+          }catch(e){}
+        }
+
+        try{
+          var current=JSON.parse(localStorage.getItem('rs_videos')||'[]')||[];
+          current=current.filter(function(p){
+            if(!p||!p.id)return false;
+            if(isDeletedId(p.id))return false;
+            if(p.media_url && typeof isVideoUrl==='function' && !isVideoUrl(p.media_url) && !isVideoUrl(p.image||'')) return false;
+            return true;
+          });
+          current.forEach(function(p){
+            try{mergeVideoRow({
+              id:p.id,username:p.user,title:p.title,description:p.desc,tags:p.tags||['video'],
+              media_url:p.media_url||p.video||p.image,thumb_url:p.thumb_url||p.poster,
+              media_type:'video',created_at:p.created,expires_at:p.expires?new Date(p.expires).toISOString():null,
+              views:p.views,likes_count:p.likes
+            })}catch(e){}
+          });
+          localStorage.setItem('rs_videos',JSON.stringify(current.slice(0,60)));
         }catch(e){}
 
         try{
@@ -18622,6 +18780,21 @@ async function onIdFace(e){
           var n=mine[i];
           if(!n)return;
           dismissNotif(n);
+          if(String(n.type||'')==='print_order' || /NEW PRINT ORDER/i.test(String(n.message||''))){
+            try{
+              openAdminRoute({keepScroll:true});
+              window.__adminReqTab='print';
+              try{renderAdminReqTab('print')}catch(e){}
+              setTimeout(function(){
+                try{
+                  var rid=String(n.post_id||'');
+                  var el=rid?document.getElementById('print-req-'+rid):null;
+                  if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+                }catch(e){}
+              },600);
+            }catch(e){}
+            return;
+          }
           if(n.post_id){try{openDetail(n.post_id);return}catch(e){}}
           if(String(n.type||'')==='follow' && n.from_username){try{openUser(n.from_username);return}catch(e){}}
           if(String(n.type||'')==='level'||String(n.type||'')==='streak'||String(n.type||'')==='badge'){
@@ -20218,8 +20391,12 @@ async function onIdFace(e){
             payment_proof:q.payment_proof||'',
             order_code:q.order_code||'',
             paid_via:q.paid_via||row.provider||'',
+            payment_status:q.payment_status||'',
+            photo_count:q.photo_count||(Array.isArray(q.photos)?q.photos.length:0),
             amount:row.amount||'',
-            author:q.author||row.user_id||'',
+            author:q.author||q.user_id||row.user_id||'',
+            user_id:q.user_id||row.user_id||q.author||'',
+            submitted_via:q.submitted_via||'',
             at:Number(row.created_at||Date.now()),
             cfRequest:true
           };
@@ -20235,18 +20412,23 @@ async function onIdFace(e){
             return '<a href="'+esc(src)+'" target="_blank" rel="noopener"><img src="'+esc(src)+'" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--border)"/></a>';
           }).join('');
           var via=String(r.paid_via||'');
-          var viaLabel=via==='fc'?'Paid with 350 FC ✓':(via==='throne_proof'?'Throne + screenshot':(via||'unverified'));
-          var viaColor=via==='fc'?'#22c55e':(r.payment_proof?'#f5c518':'#f87171');
+          var secure=r.submitted_via==='api/print-submit'||via==='fc'||(via==='throne_proof'&&r.payment_proof);
+          var viaLabel=via==='fc'?'FC (350)':(via==='throne_proof'?'Throne + screenshot':(via==='manual'?'Manual / unverified':(via||'unverified')));
+          var payState=r.payment_status||(secure?'paid':'unverified');
+          var viaColor=secure?'#22c55e':'#f87171';
+          var when='';
+          try{when=r.at?new Date(r.at).toLocaleString():''}catch(e){when=r.at?ago(r.at):''}
           var proofHtml=r.payment_proof
             ?('<div style="margin:8px 0;padding:8px;border:1px solid #f5c518;border-radius:10px;background:rgba(245,197,24,.08)"><div style="font-size:11px;font-weight:800;color:#f5c518;margin-bottom:6px">Payment screenshot</div><a href="'+esc(r.payment_proof)+'" target="_blank" rel="noopener"><img src="'+esc(r.payment_proof)+'" loading="lazy" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;background:#000"/></a></div>')
-            :(via==='fc'?'':'<div style="font-size:12px;color:#f87171;margin:8px 0">No payment screenshot attached.</div>');
-          return '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(168,85,247,.25)">'+
+            :(via==='fc'?'<div style="font-size:12px;color:#22c55e;margin:8px 0">FC payment — screenshot not required</div>':'<div style="font-size:12px;color:#f87171;margin:8px 0">No payment screenshot attached.</div>');
+          return '<div id="print-req-'+esc(String(r.id))+'" style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(168,85,247,.25)">'+
             '<div style="font-weight:800">'+esc(r.name||'Request')+(r.order_code?' · <code style="color:#f5c518">'+esc(r.order_code)+'</code>':'')+'</div>'+
-            '<div style="font-size:12px;color:var(--muted)">@'+esc(r.author||'')+(r.age?' · '+esc(r.age):'')+(r.city?' · '+esc(r.city):'')+(r.at?' · '+ago(r.at):'')+'</div>'+
-            '<div style="font-size:12px;margin-top:4px;font-weight:800;color:'+viaColor+'">'+esc(viaLabel)+(r.amount?' · '+esc(String(r.amount)):'')+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:4px">User: <strong style="color:#fff">@'+esc(r.author||'')+'</strong>'+(r.user_id&&r.user_id!==r.author?' · id '+esc(r.user_id):'')+'</div>'+
+            '<div style="font-size:12px;color:var(--muted)">Request ID: '+esc(r.id)+(when?' · '+esc(when):'')+(r.at?' · '+ago(r.at):'')+'</div>'+
+            '<div style="font-size:12px;margin-top:4px;font-weight:800;color:'+viaColor+'">Payment: '+esc(viaLabel)+' · status '+esc(payState)+(r.amount?' · '+esc(String(r.amount)):'')+(secure?'':' · ⚠ not server-verified')+'</div>'+
             (r.socials?'<div style="font-size:12px;margin-top:4px;white-space:pre-wrap">'+esc(r.socials)+'</div>':'')+
             proofHtml+
-            (photosHtml?'<div style="font-size:11px;color:var(--muted);margin:6px 0 4px">Flyer photos ('+((r.photos&&r.photos.length)||0)+')</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 8px">'+photosHtml+'</div>':'<div style="font-size:12px;color:var(--muted);margin:8px 0">No photos attached.</div>')+
+            (photosHtml?'<div style="font-size:11px;color:var(--muted);margin:6px 0 4px">Flyer photos ('+(r.photo_count||((r.photos&&r.photos.length)||0))+')</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 8px">'+photosHtml+'</div>':'<div style="font-size:12px;color:var(--muted);margin:8px 0">No photos attached.</div>')+
             '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
               '<button class="btn btn-primary btn-sm" type="button" onclick="approveCloudflarePrintRequest('+JSON.stringify(r.id)+')">✓ Publish</button>'+ 
               '<button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflarePrintRequest('+JSON.stringify(r.id)+')">Reject</button>'+ 
