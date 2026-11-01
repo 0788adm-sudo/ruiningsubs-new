@@ -3023,7 +3023,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <div class="modal">
       <button class="modal-x" type="button" id="btn-extend-x" aria-label="Close">✕</button>
       <h3>⏱ Extend</h3>
-      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add 1 hour of visibility to this post.</p>
+      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add <strong style="color:var(--orange)">1 day</strong> of visibility to this post. You can extend again in 1 hour.</p>
       <p id="extend-cooldown" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,106,0,.12);border:1px solid rgba(255,106,0,.35);color:#ffb35c;font-size:13px;font-weight:800"></p>
       <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">Cancel</button>
@@ -13904,6 +13904,25 @@ function openRoulette(){
     }
     async function loadPosts(){
       var box=document.getElementById('posts-container');
+      if(window.__loadPostsBusy && Date.now()-(window.__loadPostsAt||0)<2500){
+        return window.__loadPostsBusy;
+      }
+      window.__loadPostsAt=Date.now();
+      var run=(async function(){
+
+      // Instant paint from cache so the feed never waits on the network.
+      try{
+        var cached=readPostCache('rs_home_cache');
+        if(cached.length && (!(posts&&posts.length) || posts.length<8)){
+          var seenC={};
+          (posts||[]).forEach(function(p){if(p&&p.id!=null)seenC[String(p.id)]=1});
+          cached.forEach(function(p){
+            if(!p||p.id==null||seenC[String(p.id)]||isDeletedId(p.id))return;
+            posts.push(p); seenC[String(p.id)]=1;
+          });
+          if(!viewingSaved)renderPosts();
+        }
+      }catch(e){}
 
       // Paint the post that was just published immediately. Cloudflare/D1 can
       // take a moment to return a newly-created row from /feed; the UI must
@@ -13920,7 +13939,7 @@ function openRoulette(){
             var quick={
               id:lp.id,user:lp.user||currentUser.name,title:lp.title||'New post',desc:lp.desc||'',
               tags:lp.tags||[],created:Number(lp.t)||Date.now(),expires:exp,views:0,likes:0,extensions:0,
-              extendAmount:Number(lp.extendAmount)||360,extenders:[],likedBy:[],image:lp.image||'',images:imgs,
+              extendAmount:Number(lp.extendAmount)||EXTEND_ADD_MINUTES||1440,extenders:[],likedBy:[],image:lp.image||'',images:imgs,
               featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:!imgs.length,_imgFail:false
             };
             posts.unshift(quick);
@@ -13931,35 +13950,30 @@ function openRoulette(){
       }catch(e){console.warn('last published paint',e)}
 
       try{
-        var cfRows=await fetchCfFeed();
-        try{
-          var featRows=await fetchCfFeed('featured');
-          if(featRows&&featRows.length){
-            featRows.forEach(function(r){
-              if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) (cfRows=cfRows||[]).unshift(r);
-            });
-          }
-        }catch(e){}
-        try{
-          if(typeof sb!=='undefined' && sb){
-            var mergeSb=function(rows){
-              (rows||[]).forEach(function(r){
-                if(!r||r.id==null)return;
-                if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) (cfRows=cfRows||[]).push(r);
-              });
-            };
-            // Prefer currently extended / timed exposures so Extended never looks empty.
-            var nowIso=new Date().toISOString();
-            var sbTimed=await sb.from('posts').select('*').gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(160);
-            mergeSb(sbTimed&&sbTimed.data);
-            var sbRecent=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(80);
-            mergeSb(sbRecent&&sbRecent.data);
-            try{
-              var sbExt=await sb.from('posts').select('*').gt('extensions_count',0).order('created_at',{ascending:false}).limit(80);
-              mergeSb(sbExt&&sbExt.data);
-            }catch(e2){}
-          }
-        }catch(e){}
+        // Parallel network: CF feed + featured + Supabase timed/recent
+        var nowIso=new Date().toISOString();
+        var jobs=[
+          Promise.resolve(fetchCfFeed('', 60)).catch(function(){return[]}),
+          Promise.resolve(fetchCfFeed('featured', 20)).catch(function(){return[]})
+        ];
+        if(typeof sb!=='undefined' && sb){
+          jobs.push(sb.from('posts').select('*').gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(80).then(function(r){return (r&&r.data)||[]}).catch(function(){return[]}));
+          jobs.push(sb.from('posts').select('*').order('created_at',{ascending:false}).limit(40).then(function(r){return (r&&r.data)||[]}).catch(function(){return[]}));
+        }
+        var parts=await Promise.all(jobs);
+        var cfRows=(parts[0]||[]).slice();
+        (parts[1]||[]).forEach(function(r){
+          if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) cfRows.unshift(r);
+        });
+        var mergeSb=function(rows){
+          (rows||[]).forEach(function(r){
+            if(!r||r.id==null)return;
+            if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) cfRows.push(r);
+          });
+        };
+        if(parts[2]) mergeSb(parts[2]);
+        if(parts[3]) mergeSb(parts[3]);
+
         if(cfRows&&cfRows.length){
           var mapped=cfRows.map(function(r){try{return cfRowToFeed(r)}catch(e){return null}}).filter(function(p){
             return p && !isDeletedId(p.id);
@@ -13986,6 +14000,7 @@ function openRoulette(){
             if(dup)return;
             posts.push(p);
           });
+          try{writePostCache('rs_home_cache', posts)}catch(e){}
           if(!viewingSaved)renderPosts();
         }
       }catch(e){console.warn('cf feed',e)}
@@ -13995,6 +14010,12 @@ function openRoulette(){
         if(!viewingSaved)renderPosts();
       }catch(e){}
       if(!(posts&&posts.length) && box) box.innerHTML='<div class="empty">No active exposures</div>';
+      })();
+      window.__loadPostsBusy=run.finally(function(){
+        if(window.__loadPostsBusy===run) window.__loadPostsBusy=null;
+      });
+      return window.__loadPostsBusy;
+      // Dead legacy path kept below for reference (never runs)
       return;
       if(!sb){
         if(posts&&posts.length){try{if(!viewingSaved)renderPosts()}catch(e){} return;}
@@ -17685,7 +17706,9 @@ function profileStatsHtml(userPosts, extra){
       if(isOwner&&post.extenders&&post.extenders.length){extHtml='<div style="background:var(--elev);border:1px solid var(--border);border-radius:12px;padding:12px;margin:12px 14px"><strong style="color:var(--orange)">Who extended</strong>'+post.extenders.map(function(e){return '<div style="font-size:13px;color:var(--muted);padding:3px 0">@'+esc(e)+'</div>'}).join('')+'</div>'}
       var who='@'+String(post.user||'him').replace(/^@/,'');
       var mineR=getMyReaction(post);
-      var extLed=(permanent||timeless||!timedLive)?'':('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+extL)+'</b><i>'+(already?fmtExtendCooldown(alreadyCd):'keep him on the board')+'</i></button>');
+      var extLed=(permanent||timeless||!timedLive)
+        ? ((timeless && !permanent) ? ('<button class="dx-ext btn-extend" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT</b><i>no timer · boost</i></button>') : '')
+        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +1 day')+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';
@@ -19251,23 +19274,24 @@ async function onIdFace(e){
           });
           card.querySelectorAll('.btn-extend,.dx-ext').forEach(function(b){
             paintExtendButtonState(b, remainingMs);
-            if(!(remainingMs>0)){
+              if(!(remainingMs>0)){
               b.disabled=false;
               b.classList.remove('is-cooling');
               b.style.opacity='';
               if(b.classList.contains('dx-ext')){
-                b.innerHTML='<b>Extend</b><i>keep him on the board</i>';
+                b.innerHTML='<b>Extend +1 day</b><i>keep him on the board</i>';
               }else{
-                b.innerHTML='⚡ Extend · keep it up · '+((Number(extensions)||0)+1);
+                b.innerHTML='⚡ Extend +1 day · '+((Number(extensions)||0)+1);
               }
             }else if(b.classList.contains('dx-ext')){
-              b.innerHTML='<b>Extended</b><i>'+fmtExtendCooldown(remainingMs)+'</i>';
+              b.innerHTML='<b>Extended</b><i>'+fmtExtendCountdown(remainingMs)+'</i>';
             }
           });
         }catch(e){}
       });
     }
     var EXTEND_COOLDOWN_MS=60*60*1000;
+    var EXTEND_ADD_MINUTES=1440; // +1 day each extend
     function extendUserId(){
       try{
         if(currentUser&&currentUser.name) return String(currentUser.name).replace(/^@/,'').trim();
@@ -19310,13 +19334,17 @@ async function onIdFace(e){
       }catch(e){}
       writeExtendCooldownMap(map);
     }
+    function fmtExtendCountdown(ms){
+      ms=Math.max(0,Number(ms)||0);
+      var totalSec=Math.ceil(ms/1000);
+      var m=Math.floor(totalSec/60);
+      var s=totalSec%60;
+      return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    }
     function fmtExtendCooldown(ms){
       ms=Math.max(0,Number(ms)||0);
-      var m=Math.ceil(ms/60000);
-      if(m<=1) return 'Available again in 1m';
-      if(m<60) return 'Available again in '+m+'m';
-      var h=Math.floor(m/60), rm=m%60;
-      return 'Available again in '+h+'h'+(rm?(' '+rm+'m'):'');
+      if(ms<=0) return 'Ready to extend';
+      return 'Puedes volver a extender en '+fmtExtendCountdown(ms);
     }
     async function fetchExtendCooldownStatus(postId){
       var user=extendUserId();
@@ -19340,7 +19368,7 @@ async function onIdFace(e){
         btn.disabled=true;
         btn.classList.add('is-cooling');
         btn.setAttribute('aria-disabled','true');
-        btn.innerHTML='Extended<span class="ext-cd">'+fmtExtendCooldown(remainingMs)+'</span>';
+        btn.innerHTML='Extended <span class="ext-cd">'+fmtExtendCountdown(remainingMs)+'</span>';
       }else{
         btn.disabled=false;
         btn.classList.remove('is-cooling');
@@ -19351,7 +19379,6 @@ async function onIdFace(e){
       root=root||document;
       var user=extendUserId();
       if(!user)return;
-      var map=readExtendCooldownMap();
       root.querySelectorAll('.btn-extend[data-pid], .btn-extend').forEach(function(btn){
         try{
           var art=btn.closest('[data-pid],[data-normal-post-id],[data-gid]');
@@ -19376,23 +19403,23 @@ async function onIdFace(e){
             var post=null;
             try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
             var n=((post&&post.extensions)||0)+1;
-            btn.innerHTML='⚡ Extend · keep it up · '+n;
+            btn.innerHTML='⚡ Extend +1 day · '+n;
           }
         });
         var cdEl=document.getElementById('extend-cooldown');
         if(cdEl && cdEl.style.display!=='none' && currentExtendPostId){
           var rem2=getLocalExtendCooldown(currentExtendPostId);
-          if(rem2>0){ cdEl.textContent=fmtExtendCooldown(rem2); any=true; }
+          if(rem2>0){ cdEl.textContent=fmtExtendCooldown(rem2)+' · '+fmtExtendCountdown(rem2); any=true; }
           else{
             cdEl.style.display='none';
             var conf=document.getElementById('btn-confirm-ext');
-            if(conf){conf.disabled=false;conf.textContent='Confirm'}
+            if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
           }
         }
         if(!any && !document.querySelector('.btn-extend.is-cooling')){
           clearInterval(window.__extCdTimer); window.__extCdTimer=null;
         }
-      }, 15000);
+      }, 1000);
     }
     window.refreshExtendCooldownButtons=refreshExtendCooldownButtons;
     async function openExtend(id){
@@ -19400,27 +19427,33 @@ async function onIdFace(e){
       if(!id)return;
       var user=extendUserId();
       if(!user){toast('Login to extend');try{showPanel('profile')}catch(e){}return}
-      currentExtendPostId=id;
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
-      var mins=(post&&post.extendAmount)||360;
+      // Posts without a live timer → HOT instead of Extend
+      try{
+        if(post && typeof isTimelessWallPost==='function' && isTimelessWallPost(post)){
+          toast('Sin temporizador — usa HOT');
+          try{await hotBumpWall(id)}catch(e){try{hotBumpWall(id)}catch(e2){}}
+          return;
+        }
+      }catch(e){}
+      currentExtendPostId=id;
       var el=document.getElementById('extend-desc');
-      if(el)el.innerHTML='<strong style="color:#fff">Extend</strong><br>Add <strong style="color:var(--orange)">1 hour</strong> of visibility to this post. <span style="color:#9a9aa3">('+fmtMin(mins)+' on this board)</span>';
+      if(el)el.innerHTML='<strong style="color:#fff">Extend</strong><br>Add <strong style="color:var(--orange)">1 day</strong> of visibility to this post.<br><span style="color:#9a9aa3">Puedes volver a extender en 1 hora · contador 59:59</span>';
       var cdEl=document.getElementById('extend-cooldown');
       var conf=document.getElementById('btn-confirm-ext');
       if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
-      if(conf){conf.disabled=false;conf.textContent='Confirm'}
+      if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
       var status=await fetchExtendCooldownStatus(id);
       if(status && status.remaining_ms>0){
         if(cdEl){
           cdEl.style.display='block';
-          cdEl.textContent='Extended · '+fmtExtendCooldown(status.remaining_ms);
+          cdEl.textContent=fmtExtendCooldown(status.remaining_ms)+' · '+fmtExtendCountdown(status.remaining_ms);
         }
-        if(conf){conf.disabled=true;conf.textContent='Cooling down'}
+        if(conf){conf.disabled=true;conf.textContent=fmtExtendCountdown(status.remaining_ms)}
         paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, status.remaining_ms);
         refreshExtendCooldownButtons();
       }else{
-        // Skip modal if user already confirmed an extend this session
         try{
           if(sessionStorage.getItem('rs_ext_skip_confirm')==='1'){
             confirmExtend();
@@ -19443,15 +19476,24 @@ async function onIdFace(e){
       if(window.__extLock===id)return;
       var localRem=getLocalExtendCooldown(id);
       if(localRem>0){
-        toast(fmtExtendCooldown(localRem));
+        toast(fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem));
         var cdEl0=document.getElementById('extend-cooldown');
-        if(cdEl0){cdEl0.style.display='block';cdEl0.textContent='Extended · '+fmtExtendCooldown(localRem)}
+        if(cdEl0){cdEl0.style.display='block';cdEl0.textContent=fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem)}
         return;
       }
       window.__extLock=id;
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
-      var mins=Number((post&&post.extendAmount)||360)||360;
+      try{
+        if(post && typeof isTimelessWallPost==='function' && isTimelessWallPost(post)){
+          window.__extLock=null;
+          closeModals();
+          toast('Sin temporizador — usa HOT');
+          try{await hotBumpWall(id)}catch(e){}
+          return;
+        }
+      }catch(e){}
+      var mins=EXTEND_ADD_MINUTES;
       var conf=document.getElementById('btn-confirm-ext');
       if(conf){conf.disabled=true;conf.textContent='Extending…'}
       try{
@@ -19466,16 +19508,16 @@ async function onIdFace(e){
           var rem=Number(extJ.remaining_ms)||getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS;
           setLocalExtendCooldown(id, Date.now()-(EXTEND_COOLDOWN_MS-rem), rem);
           paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, rem);
-          toast(extJ.message||fmtExtendCooldown(rem));
+          toast(fmtExtendCooldown(rem)+' · '+fmtExtendCountdown(rem));
           var cdEl=document.getElementById('extend-cooldown');
-          if(cdEl){cdEl.style.display='block';cdEl.textContent='Extended · '+fmtExtendCooldown(rem)}
-          if(conf){conf.disabled=true;conf.textContent='Cooling down'}
+          if(cdEl){cdEl.style.display='block';cdEl.textContent=fmtExtendCooldown(rem)+' · '+fmtExtendCountdown(rem)}
+          if(conf){conf.disabled=true;conf.textContent=fmtExtendCountdown(rem)}
           refreshExtendCooldownButtons();
           return;
         }
         if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
           toast((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
-          if(conf){conf.disabled=false;conf.textContent='Confirm'}
+          if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
           return;
         }
         var base=Number((post&&post.expires)||0)||readCardExpires(id);
@@ -19497,12 +19539,11 @@ async function onIdFace(e){
           map[id]={expires:expires,extensions:extensions};
           localStorage.setItem('rs_ext_map',JSON.stringify(map));
         }catch(e){}
-        // Migrate away from permanent once-only flag
         try{localStorage.removeItem('rs_ext_'+id)}catch(e){}
         try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
         paintPostExtend(id, expires, extensions, Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS);
         closeModals();
-        toast('Extended · +1 hour');
+        toast('Extended · +1 day · vuelve en 1h');
         try{awardXp(5,'extend')}catch(e){}
         try{grantXp && grantXp('extend', String(id), false)}catch(e){}
         refreshExtendCooldownButtons();
@@ -19510,7 +19551,7 @@ async function onIdFace(e){
       }catch(e){
         console.warn(e);
         toast('Extend failed — check connection');
-        if(conf){conf.disabled=false;conf.textContent='Confirm'}
+        if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
       }finally{
         if(window.__extLock===id) window.__extLock=null;
       }
