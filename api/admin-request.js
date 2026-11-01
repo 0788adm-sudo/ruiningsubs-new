@@ -50,18 +50,6 @@ function normKind(k) {
   return String(k || '').trim().toLowerCase();
 }
 
-function withTimeout(promise, ms, label) {
-  var t = null;
-  var timeout = new Promise(function (_, reject) {
-    t = setTimeout(function () {
-      reject(new Error((label || 'upstream') + '_timeout'));
-    }, ms);
-  });
-  return Promise.race([promise, timeout]).finally(function () {
-    if (t) clearTimeout(t);
-  });
-}
-
 async function cfFetch(path, opts, ms) {
   var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   var timer = null;
