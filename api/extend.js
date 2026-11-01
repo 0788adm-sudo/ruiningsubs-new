@@ -4,9 +4,37 @@
 // survives refreshes and devices. Client timestamps are never trusted.
 
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
-const COOLDOWN_MS = Number(process.env.EXTEND_COOLDOWN_MS || 60 * 60 * 1000);
+// 6h anti-spam cooldown per user+post (override with EXTEND_COOLDOWN_MS).
+const COOLDOWN_MS = Number(process.env.EXTEND_COOLDOWN_MS || 6 * 60 * 60 * 1000);
 const BOARD = '__EXTEND_COOLDOWN__';
 const ACTION = 'extend';
+const ALLOWED_EXTEND_MINS = [15, 30, 60, 120, 360, 720, 1440];
+
+function sanitizeExtendMinutes(raw) {
+  var n = Number(raw);
+  if (!isFinite(n) || n <= 0) return 360;
+  n = Math.round(n);
+  if (ALLOWED_EXTEND_MINS.indexOf(n) >= 0) return n;
+  // Closest allowed duration (author choice may arrive as odd values from tags).
+  var best = 360;
+  var bestDiff = Infinity;
+  for (var i = 0; i < ALLOWED_EXTEND_MINS.length; i++) {
+    var d = Math.abs(ALLOWED_EXTEND_MINS[i] - n);
+    if (d < bestDiff) { bestDiff = d; best = ALLOWED_EXTEND_MINS[i]; }
+  }
+  return best;
+}
+
+function fmtCooldownClock(ms) {
+  var sec = Math.max(0, Math.ceil(Number(ms) / 1000));
+  var h = Math.floor(sec / 3600);
+  var m = Math.floor((sec % 3600) / 60);
+  var s = sec % 60;
+  if (h > 0) {
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
 
 // Best-effort in-process lock (helps same-instance double-clicks on serverless).
 var locks = new Map();
@@ -137,7 +165,7 @@ async function callCfExtend(postId, minutes, user) {
   var r = await fetch(CF_API + '/posts/' + encodeURIComponent(postId) + '/extend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ minutes: Number(minutes) || 1440, user: user }),
+    body: JSON.stringify({ minutes: sanitizeExtendMinutes(minutes), user: user }),
     cache: 'no-store'
   });
   var j = await r.json().catch(function () { return {}; });
@@ -190,8 +218,8 @@ module.exports = async function handler(req, res) {
     var body = await readBody(req);
     var user = normUser(body.user || body.username || body.from_username);
     var postId = normPost(body.post_id || body.post || body.id);
-    // Default +1 day per extend; client may send minutes explicitly.
-    var minutes = Number(body.minutes || body.extend_amount || 1440) || 1440;
+    // Use the post author's chosen extend amount (client sends minutes / extend_amount).
+    var minutes = sanitizeExtendMinutes(body.minutes || body.extend_amount || 360);
     if (!user || user === 'guest' || user === 'anon') {
       // Allow named anon handles used by the SPA (Anon_####), reject empty.
       if (!user) return json(res, 401, { error: 'login_required' });
@@ -215,11 +243,7 @@ module.exports = async function handler(req, res) {
       if (existing && existing.remaining_ms > 0) {
         return json(res, 429, Object.assign({
           error: 'cooldown',
-          message: 'Puedes volver a extender en ' + (function(){
-            var sec=Math.ceil(existing.remaining_ms/1000);
-            var m=Math.floor(sec/60), s=sec%60;
-            return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-          })()
+          message: 'Puedes volver a extender en ' + fmtCooldownClock(existing.remaining_ms)
         }, statusPayload(user, postId, existing)));
       }
 
