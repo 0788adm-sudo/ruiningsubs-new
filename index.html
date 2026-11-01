@@ -3507,6 +3507,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         throw new Error((e&&e.message)||errMsg);
       }
     }
+    function fetchWithTimeout(url, opts, ms){
+      opts=opts||{};
+      ms=Number(ms)||15000;
+      var ctrl=typeof AbortController!=='undefined'?new AbortController():null;
+      var timer=null;
+      if(ctrl){
+        timer=setTimeout(function(){try{ctrl.abort()}catch(e){}}, ms);
+        opts=Object.assign({}, opts, {signal:ctrl.signal});
+      }
+      return fetch(url, opts).finally(function(){if(timer)clearTimeout(timer)});
+    }
     async function cfCreateRequest(o){
       o=o||{};
       // Street Print must go through /api/print-submit (server validates FC spend or payment screenshot).
@@ -3517,18 +3528,44 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var body={
         kind:String(o.kind||'payment'),
         user_id:String(o.user_id||o.user||((currentUser&&currentUser.name)||'guest')).replace(/^@/,''),
+        user:String(o.user_id||o.user||((currentUser&&currentUser.name)||'guest')).replace(/^@/,''),
         amount:o.amount==null?'':String(o.amount),
         coins:Number(o.coins||0),
-        post_id:o.postId==null?'':String(o.postId),
+        post_id:o.postId==null?(o.post_id==null?'':String(o.post_id)):String(o.postId),
         provider:o.provider==null?'':String(o.provider),
         label:o.label==null?'':String(o.label),
-        payload:o.payload||{}
+        payload:o.payload||{},
+        message:(o.payload&&o.payload.message)||o.message||''
       };
-      var r=await fetch(CF_API+'/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
+      // Prefer same-origin Vercel proxy — Safari/mobile often "Load failed" on workers.dev.
+      try{
+        var pr=await fetchWithTimeout('/api/admin-request',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(body),
+          cache:'no-store'
+        }, 20000);
+        var pj=await pr.json().catch(function(){return {}});
+        if(pr.ok && pj && pj.ok!==false && (pj.request || (pj.channels&&pj.channels.notifs))){
+          var pout=pj.request||{id:'NOTIF-'+(Date.now().toString(36)),kind:body.kind,status:'pending'};
+          pout._email=pj.email||null;
+          pout._channels=pj.channels||null;
+          pout._notifs=pj.notifs||null;
+          pout._duplicate=!!pj.duplicate;
+          return pout;
+        }
+        if(pr.ok===false && pj && pj.error && pj.error!=='all_channels_failed'){
+          // Fall through to direct CF for unexpected proxy errors.
+          console.warn('admin-request proxy', pj.error||pr.status);
+        }
+      }catch(e){console.warn('admin-request proxy',e)}
+      // Fallback: direct Cloudflare Worker
+      var r=await fetchWithTimeout(CF_API+'/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'}, 14000);
       var j=await r.json().catch(function(){return {}});
       if(!r.ok||j.ok===false)throw new Error((j&&j.error)||('Cloudflare request HTTP '+r.status));
       var out=j.request||j;
       if(j.email)out._email=j.email;
+      if(j.duplicate)out._duplicate=true;
       return out;
     }
     // Admin auth: password is validated ONLY by Cloudflare Worker POST /admin/login.
@@ -3630,14 +3667,40 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return r.json().catch(function(){return {ok:false}});
     }
     async function createCfNotif(row){
-      var r=await fetch(CF_API+'/notifs',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(row||{})
-      });
-      var j=await r.json().catch(function(){return {ok:false,error:'invalid response'}});
-      if(!r.ok || j.ok===false) throw new Error((j&&j.error)||('notification HTTP '+r.status));
-      return j;
+      row=row||{};
+      try{
+        var r=await fetchWithTimeout(CF_API+'/notifs',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(row)
+        }, 10000);
+        var j=await r.json().catch(function(){return {ok:false,error:'invalid response'}});
+        if(r.ok && j.ok!==false) return j;
+        throw new Error((j&&j.error)||('notification HTTP '+r.status));
+      }catch(directErr){
+        // Same-origin fallback when workers.dev is blocked/timing out on mobile.
+        try{
+          var kind=String(row.type||row.kind||'payment');
+          if(/print/i.test(kind)) kind='payment';
+          var pr=await fetchWithTimeout('/api/admin-request',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              kind:kind,
+              notify_only:true,
+              user:row.from_username||row.from||((currentUser&&currentUser.name)||'guest'),
+              post_id:row.post_id||'',
+              message:row.message||'',
+              label:kind,
+              amount:''
+            }),
+            cache:'no-store'
+          }, 15000);
+          var pj=await pr.json().catch(function(){return {}});
+          if(pr.ok && pj && (pj.ok || (pj.channels&&pj.channels.notifs))) return {ok:true,proxy:true,notifs:pj.notifs};
+        }catch(e2){}
+        throw directErr;
+      }
     }
     async function fetchCfNotifs(to, type){
       var u=CF_API+'/notifs?to='+encodeURIComponent(to||'admin')+(type?('&type='+encodeURIComponent(type)):'');
@@ -20612,17 +20675,27 @@ async function onIdFace(e){
       toast('Eliminado');
     }
     window.removeWithCoins=removeWithCoins;
+    var __removeRequestLocks={};
     async function confirmRemovePaid(){
       var id=window.__removePostId||currentDetailId;
       if(!id){toast('Open the post first');return}
+      var lockKey=String(id);
+      if(__removeRequestLocks[lockKey]){toast('Your delete request is already being sent. Please wait.');return}
+      __removeRequestLocks[lockKey]=true;
       var post=posts.find(function(p){return p.id===id||String(p.id)===String(id)});
       try{if(!post && typeof findPostAnywhere==='function') post=findPostAnywhere(id)}catch(e){}
       if(post && !isPaidRemovePost(post)){
+        __removeRequestLocks[lockKey]=false;
         toast('Normal posts cannot be removed with payment — only the publisher deletes them free');
         closeModals();
         return;
       }
-      var userName=(post&&post.user)||(currentUser&&currentUser.name)||'user';
+      var userName=(currentUser&&currentUser.name)||(post&&post.user)||'user';
+      userName=String(userName||'user').replace(/^@/,'');
+      if(!userName || userName==='guest' || userName==='user'){
+        // Prefer a real handle so admin can identify the payer.
+        try{if(currentUser&&currentUser.name) userName=String(currentUser.name).replace(/^@/,'')}catch(e){}
+      }
       var title=(post&&post.title)||'';
       try{
         var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
@@ -20632,17 +20705,44 @@ async function onIdFace(e){
       }catch(e){}
       var removeMsg='🚨 DELETE PAYMENT REQUEST · @'+userName+' · post #'+id+' · $5 · user pressed I PAID'+(title?' · '+String(title).slice(0,40):'');
       var removeSent=false;
+      var lastErr='';
       try{
-        pinRequestProgress(25,'Creating remove request…','🗑 Delete request');
-        var rr=await cfCreateRequest({kind:'remove_request',postId:id,user:userName,amount:'$5',coins:0,provider:'throne/paypal',label:'DELETE',payload:{message:removeMsg,post_id:String(id),product:'Delete post'}});
-        removeSent=!!rr;
-        var em=rr&&rr._email;
-        pinRequestProgress(100,'Request sent','Done');
-      }catch(e){console.warn('remove request',e);pinRequestProgress(100,'Could not send request',(e&&e.message)||'Cloudflare error');}
-      if(!removeSent){toast('Could not send the remove request. Please try again.');return}
-      setTimeout(closePinRequestProgress,900);
-      closeModals();
-      toast('Remove request sent ✓ Admin has received it.');
+        pinRequestProgress(20,'Notifying admin…','🗑 Delete request');
+        try{
+          await notifyAdminPayment({
+            kind:'remove_request',
+            postId:id,
+            user:userName,
+            amount:'$5',
+            label:'DELETE',
+            message:removeMsg
+          });
+          removeSent=true;
+        }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('remove notif',e)}
+        pinRequestProgress(55,'Creating remove request…','🗑 Delete request');
+        try{
+          var rr=await cfCreateRequest({kind:'remove_request',postId:id,user:userName,amount:'$5',coins:0,provider:'throne/paypal',label:'DELETE',payload:{message:removeMsg,post_id:String(id),product:'Delete post'},message:removeMsg});
+          if(rr) removeSent=true;
+        }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('remove request',e)}
+        if(!removeSent){
+          pinRequestProgress(75,'Retrying admin inbox…','🗑 Delete request');
+          try{
+            var alt=await sendAdminSiteRequest('remove_request', id, userName, removeMsg);
+            if(alt&&alt.ok) removeSent=true;
+          }catch(e){lastErr=(e&&e.message)||lastErr}
+        }
+        if(removeSent){
+          pinRequestProgress(100,'Request sent','Done');
+          setTimeout(closePinRequestProgress,900);
+          closeModals();
+          toast('Remove request sent ✓ Admin has received it.');
+        }else{
+          pinRequestProgress(100,'Could not send request', lastErr||'Network error');
+          toast('Could not send the remove request. Please try again.');
+        }
+      }finally{
+        __removeRequestLocks[lockKey]=false;
+      }
     }
 
     async function remindRemovePayment(id, username){
@@ -20833,18 +20933,33 @@ async function onIdFace(e){
       }
       var msg='🚨 PREMIUM PIN REQUEST · @'+user+' · post #'+key+' · 50 FC / $10 · 48h';
       try{
-        inlineStatus(10,'Checking Cloudflare post…','Do not close this window');
-        var check=await fetch(CF_API+'/posts/'+encodeURIComponent(key),{cache:'no-store'});
-        if(!check.ok)throw new Error('Cloudflare post not found');
-        inlineStatus(35,'Creating Cloudflare request…','Saving request in D1');
-        var req=await cfCreateRequest({kind:'pin_payment_request',postId:key,user:user,amount:'$10',coins:50,provider:'throne',label:'PREMIUM PIN',payload:{message:msg,post_id:key,product:'Premium Pin',duration:'48 hours'}});
-        var rid=String(req.id||'');
-        if(!rid)throw new Error('Cloudflare did not return a request ID');
-        var mailOk=!!(req&&req._email&&req._email.ok);
+        inlineStatus(15,'Notifying admin…','Do not close this window');
+        var notifOk=false, reqOk=false, req=null, lastErr='';
+        try{
+          await notifyAdminPayment({kind:'pin_payment_request',postId:key,user:user,amount:'$10',label:'PREMIUM PIN',message:msg});
+          notifOk=true;
+        }catch(e){lastErr=(e&&e.message)||lastErr}
+        inlineStatus(45,'Creating pin request…','Saving for admin review');
+        try{
+          // Soft-check CF post — do not hard-fail mobile "Load failed" on workers.dev
+          try{
+            var check=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(key),{cache:'no-store'}, 8000);
+            if(!check.ok) console.warn('CF post check', check.status);
+          }catch(e){console.warn('CF post check',e)}
+          req=await cfCreateRequest({kind:'pin_payment_request',postId:key,user:user,amount:'$10',coins:50,provider:'throne',label:'PREMIUM PIN',payload:{message:msg,post_id:key,product:'Premium Pin',duration:'48 hours'},message:msg});
+          if(req&&(req.id||(req._channels&&(req._channels.request||req._channels.notifs)))) reqOk=true;
+        }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('pin request',e)}
+        if(!reqOk && !notifOk){
+          try{
+            var alt=await sendAdminSiteRequest('pin_payment_request', key, user, msg);
+            if(alt&&alt.ok) notifOk=true;
+          }catch(e){lastErr=(e&&e.message)||lastErr}
+        }
+        if(!(reqOk||notifOk)) throw new Error(lastErr||'Could not send request');
         inlineStatus(100,'Request sent','Done'); setTimeout(function(){var el=document.getElementById('pin-request-status');if(el)el.innerHTML=''},800);
         try{var m=document.getElementById('feature-modal');if(m){var b=m.querySelector('button[onclick*="confirmPinPaid"]');if(b){b.disabled=true;b.textContent='✓ Request sent'}}}catch(e){}
         toast('Pin request sent ✓ Admin has received it.');
-        return req;
+        return req||{ok:true,notified:notifOk};
       }catch(e){inlineStatus(100,'Could not send request',(e&&e.message)||'Cloudflare error');toast((e&&e.message)||'Could not send request')}finally{__pinRequestLocks[key]=false;try{if(btn){btn.disabled=true;btn.style.opacity='.7'}}catch(e){}}
     }
     window.confirmPinPaid=confirmPinPaid;
