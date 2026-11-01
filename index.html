@@ -2341,12 +2341,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </div>
         <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin:0 0 10px" onclick="navigator.clipboard.writeText('https://www.ruiningsubs.com/#coins');toast('Link copied')">Copy page link</button>
         <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay Throne / PayPal / BTC on a pack below → tap <b style="color:#f5c518">I paid</b> → watch <b style="color:#f5c518">Pending credit</b> until Master adds your FC.</p>
-        <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 FC for 48 hours. Delete post = 50 FC ($5). Min recharge $5 → 60 FC.</p>
+        <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 FC for 48 hours. Delete · $5 / 50 FC. Min recharge $5 → 60 FC.</p>
         <div id="coin-balance" style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:12px;padding:12px;margin-bottom:12px;font-weight:800;color:#f5c518">Balance: — FC</div>
         <div id="coin-pending" style="display:none;margin:0 0 14px"></div>
         <div id="coin-packs"></div>
         <div style="margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5">
-          Pin 50 FC · Delete 50 FC ($5) · Roulette/Dice 10 FC · Print 350 FC / $40
+          Pin 50 FC · Delete · $5 / 50 FC · Roulette/Dice 10 FC · Print 350 FC / $40
         </div>
       </div>
       
@@ -2436,7 +2436,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
         </div>
         <label class="consent-box"><input type="checkbox" id="vp-consent"/><span>I made this or I have the right to post it. I want it public.</span></label>
-        <p style="font-size:12px;color:var(--muted);text-align:center;margin:8px 0 10px">Anyone can watch. Delete later = 50 FC ($5).</p>
+        <p style="font-size:12px;color:var(--muted);text-align:center;margin:8px 0 10px">Anyone can watch. Delete later · $5 / 50 FC.</p>
         <div id="vp-inline-progress" style="display:none;margin:0 0 12px">
           <div style="font-size:12px;font-weight:800;color:#fff" id="vp-inline-title">Uploading…</div>
           <div style="font-size:11px;color:var(--muted);margin:3px 0 8px" id="vp-inline-status">Please wait</div>
@@ -3023,9 +3023,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <div class="modal">
       <button class="modal-x" type="button" id="btn-extend-x" aria-label="Close">✕</button>
       <h3>⏱ Extend</h3>
-      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add the author’s chosen extend time to this post. You can extend the same post again in 6 hours.</p>
+      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add <strong style="color:var(--orange)">6h</strong> of visibility to this post.</p>
       <p id="extend-cooldown" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,106,0,.12);border:1px solid rgba(255,106,0,.35);color:#ffb35c;font-size:13px;font-weight:800"></p>
-      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm</button>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm · +6h</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">Cancel</button>
     </div>
   </div>
@@ -3033,10 +3033,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <div class="modal">
       <h3 style="margin-bottom:6px">Delete post</h3>
       <p style="font-size:14px;line-height:1.45;margin-bottom:10px">
-        Delete post — <strong style="color:#f5c518">50 FC ($5)</strong>. Or pay outside and tap <strong>I paid</strong>.
+        Delete · <strong style="color:#f5c518">$5 / 50 FC</strong>. Or pay outside and tap <strong>I paid</strong>.
       </p>
       <p id="remove-post-id-label" style="display:none"></p>
-      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete post — 50 FC ($5)</button>
+      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete · $5 / 50 FC</button>
       <a class="btn btn-primary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95">Pay $5 on Throne</a>
       <a class="btn btn-secondary" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:12px;font-weight:800">Pay $5 on PayPal</a>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid — send to admin</button>
@@ -3066,7 +3066,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
       <div style="font-size:12px;line-height:1.55;color:#cfcfcf;margin:0 0 14px;background:#0c0c0e;border-radius:12px;padding:10px 12px">
         ⭐ Spotlight pin — 50 FC / 48h<br>
-        🗑 Remove — 100 FC<br>
+        🗑 Delete · $5 / 50 FC<br>
         🖨 Street print — 350 FC (vs $40 cash)<br>
         🌐 Personal page — 1000 FC or $99 Throne
       </div>
@@ -6480,7 +6480,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         +'<div style="font-size:22px;font-weight:900;margin-bottom:6px">Need '+cost+' FC for '+esc(why)+'</div>'
         +'<p style="color:#bdbdbd;font-size:13px;line-height:1.4;margin:0 0 12px">'+(isPrint?'Print needs 350 FC — pay $40 cash or buy a pack with enough FC.':('Recharge from $5 → 60 FC. Minimum top-up $5.'))+'</p>'
         +'<div style="background:#0c0c0e;border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.55;margin-bottom:12px;color:#ddd">'
-        +'⭐ Pin 50 FC · 🗑 Delete post 50 FC ($5) · 🎰 Roulette/Dice 10 FC · 🖨 Print 350 FC</div>'
+        +'⭐ Pin 50 FC · 🗑 Delete · $5 / 50 FC · 🎰 Roulette/Dice 10 FC · 🖨 Print 350 FC</div>'
         +primary
         +'<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeNeedCoins();openCoinShop()">See all packs</button>'
         +'<button type="button" class="btn btn-ghost" style="width:100%" onclick="closeNeedCoins()">Not now</button>'
@@ -6730,7 +6730,7 @@ async function claimPayPalPack(p){
         });
         var page=document.createElement('div');
         page.style.cssText='border:1px solid rgba(52,211,153,.4);border-radius:14px;padding:12px;margin:8px 0 14px;background:rgba(6,20,15,.7)';
-        page.innerHTML='<div style="font-size:11px;letter-spacing:1px;color:#34d399;font-weight:800">CUSTOM</div><div style="font-weight:800;margin:6px 0">Custom exposure videos</div><div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.45">Personalized exposure and humiliation videos. Men or women. Write me and I make the fantasy real.</div><a class="btn btn-primary" href="https://x.com/MasterSan01" target="_blank" rel="noopener" style="width:100%;text-align:center;text-decoration:none">@MasterSan01</a>';
+        page.innerHTML='<div style="font-size:11px;letter-spacing:1px;color:#34d399;font-weight:800">CUSTOM</div><div style="font-weight:800;margin:6px 0">Custom exposure videos</div><div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.45">Personalized exposure and humiliation videos. Men or women. Message on Telegram and I make the fantasy real.</div><a class="btn btn-primary" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="width:100%;text-align:center;text-decoration:none">Telegram · @mastersan01</a>';
         box.appendChild(page);
       }
       loadFagBalance();
@@ -10224,7 +10224,7 @@ function openRoulette(){
           cur=cur.filter(function(x){return String(x.id)!==String(p.id)});
           cur.unshift({id:p.id,user:p.user,title:p.title,desc:p.desc,tags:p.tags,image:p.image,images:p.images,poster:p.poster||'',media_url:p.media_url||p.video||p.image||'',thumb_url:p.thumb_url||p.poster||'',media_type:'video',video:p.video||p.media_url||'',created:p.created,expires:p.expires||0,views:p.views||0,likes:p.likes||0});
         });
-        localStorage.setItem('rs_videos',JSON.stringify(cur.slice(0,60)));
+        localStorage.setItem('rs_videos',JSON.stringify(cur.slice(0,200)));
       }catch(e){}
     }
     function mergeRememberedVideos(){
@@ -10512,8 +10512,9 @@ function openRoulette(){
         // CF /feed?type=video currently returns [] (and POST /posts is broken on D1).
         // Pull general CF feed + Supabase video rows so GoonTok is not stuck empty.
         var buckets=[];
-        try{buckets.push(await fetchCfFeed('video', 50))}catch(e){}
-        try{buckets.push(await fetchCfFeed('', 50))}catch(e){}
+        try{buckets.push(await fetchCfFeed('video', 100))}catch(e){}
+        try{buckets.push(await fetchCfFeed('goontok', 100))}catch(e){}
+        try{buckets.push(await fetchCfFeed('', 100))}catch(e){}
         var serverIds={};
         buckets.forEach(function(cf){
           (cf||[]).forEach(function(row){
@@ -10535,7 +10536,7 @@ function openRoulette(){
 
         if(sb){
           try{
-            var sbVid=await sb.from('posts').select('*').contains('tags',['video']).order('created_at',{ascending:false}).limit(40);
+            var sbVid=await sb.from('posts').select('*').contains('tags',['video']).order('created_at',{ascending:false}).limit(120);
             (sbVid&&sbVid.data||[]).forEach(function(row){
               var v=sbRowToVideoRow(row);
               if(!v)return;
@@ -10544,8 +10545,17 @@ function openRoulette(){
             });
           }catch(e){}
           try{
+            var sbGt=await sb.from('posts').select('*').contains('tags',['goontok']).order('created_at',{ascending:false}).limit(120);
+            (sbGt&&sbGt.data||[]).forEach(function(row){
+              var v=sbRowToVideoRow(row);
+              if(!v)return;
+              serverIds[String(v.id)]=true;
+              mergeVideoRow(v);
+            });
+          }catch(e){}
+          try{
             // Also catch rows that store mp4 URLs without a clean video tag
-            var sbMp4=await sb.from('posts').select('*').or('image_url.ilike.%.mp4%,image_url.ilike.%.webm%,image_url.ilike.%.mov%').order('created_at',{ascending:false}).limit(40);
+            var sbMp4=await sb.from('posts').select('*').or('image_url.ilike.%.mp4%,image_url.ilike.%.webm%,image_url.ilike.%.mov%,media_url.ilike.%.mp4%,media_url.ilike.%.webm%').order('created_at',{ascending:false}).limit(120);
             (sbMp4&&sbMp4.data||[]).forEach(function(row){
               var v=sbRowToVideoRow(row);
               if(!v)return;
@@ -10571,7 +10581,7 @@ function openRoulette(){
               views:p.views,likes_count:p.likes
             })}catch(e){}
           });
-          localStorage.setItem('rs_videos',JSON.stringify(current.slice(0,60)));
+          localStorage.setItem('rs_videos',JSON.stringify(current.slice(0,200)));
         }catch(e){}
 
         try{
@@ -11187,7 +11197,8 @@ function openRoulette(){
       }
     }
     var gtTab='feed';
-    var GT_TARGET=16;
+    var GT_TARGET=80;
+    var GT_PAGE=24;
     var GT_PROBE_MS=8000;
     var GT_BROKEN_TTL=7*24*60*60*1000;
     function loadVideoHealth(){
@@ -11312,7 +11323,7 @@ function openRoulette(){
       return {type:'video',src:src,poster:poster,optimized:!!(opt&&src===opt)};
     }
     function goontokMedia(p){
-      // Max 2 videos visible/loaded per GoonTok block
+      // Primary clip for the slide; keep extras available without a hard feed cap of 2.
       var m=goontokPrimaryVideo(p);
       if(!m)return [];
       var out=[m];
@@ -11320,14 +11331,14 @@ function openRoulette(){
         var extras=[];
         if(p.videos&&p.videos.length) extras=extras.concat(p.videos);
         if(p.images&&p.images.length) extras=extras.concat(p.images);
-        for(var i=0;i<extras.length && out.length<2;i++){
+        for(var i=0;i<extras.length && out.length<6;i++){
           var u=publicMediaUrl(String(extras[i]||''));
           if(!u||isImageUrl(u)||!isVideoUrl(u)) continue;
           if(out.some(function(x){return x.src===u})) continue;
           out.push({type:'video',src:u,poster:m.poster||'',optimized:false});
         }
       }catch(e){}
-      return out.slice(0,2);
+      return out;
     }
     function goontokCandidatePool(){
       var seen={},out=[];
@@ -11386,7 +11397,22 @@ function openRoulette(){
       return out;
     }
     function goontokList(){
-      return goontokCandidatePool().slice(0, Math.max(GT_TARGET, 12));
+      // Deduped pool of all available published videos. Grow window.__gtLoaded as user scrolls.
+      var pool=goontokCandidatePool();
+      var want=Math.max(GT_PAGE, Number(window.__gtLoaded)||GT_PAGE);
+      want=Math.min(pool.length, Math.max(want, GT_PAGE));
+      window.__gtLoaded=want;
+      return pool.slice(0, want);
+    }
+    function loadMoreGoonTok(){
+      var pool=goontokCandidatePool();
+      var have=Number(window.__gtLoaded)||GT_PAGE;
+      if(have>=pool.length){
+        try{refillGoonTokPlayable(true)}catch(e){}
+        return;
+      }
+      window.__gtLoaded=Math.min(pool.length, have+GT_PAGE);
+      try{renderGoonTok()}catch(e){}
     }
     function setGoonTokTab(tab){
       gtTab=tab||'foryou';
@@ -11619,6 +11645,15 @@ function openRoulette(){
       if(!sc||typeof sc.addEventListener!=='function')return;
       if(window.__gtObs){try{window.__gtObs.disconnect()}catch(e){}}
       if(window.__gtIO){try{window.__gtIO.disconnect()}catch(e){}}
+      if(!sc.__gtMoreBound){
+        sc.__gtMoreBound=1;
+        sc.addEventListener('scroll', function(){
+          try{
+            var nearEnd=(sc.scrollTop+sc.clientHeight)>=(sc.scrollHeight-sc.clientHeight*1.6);
+            if(nearEnd) loadMoreGoonTok();
+          }catch(e){}
+        }, {passive:true});
+      }
       var slides=[].slice.call(sc.querySelectorAll('.gt-slide'));
       if(!slides.length)return;
       try{
@@ -12143,7 +12178,15 @@ function openRoulette(){
       if(!p) try{p=(window.__videoCache||[]).find(function(x){return String(x.id)===id})}catch(e){}
       if(!p) try{p=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       if(!p){toast('Post not found');return}
-      if(!opts.allowAnon && typeof isTimelessWallPost==='function' && !isTimelessWallPost(p)){toast('Hot is for posts without a timer');return}
+      // IDs / PEAs / timeless wall posts can be Hot. Timed exposures use Extend instead.
+      var allowHot=!!opts.allowAnon;
+      try{
+        if(typeof isTimelessWallPost==='function' && isTimelessWallPost(p)) allowHot=true;
+        if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) allowHot=true;
+        var tg=p.tags||[]; if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+        if(Array.isArray(tg) && tg.some(function(x){return /^(generated_id|generated_pea|idcard|pea|id)$/i.test(String(x||''))})) allowHot=true;
+      }catch(e){}
+      if(!allowHot){toast('Hot is for posts without a timer');return}
       var next=postHotCount(p)+1;
       p.hotCount=next;
       p.tags=withHotTag(p.tags||[], next);
@@ -12161,6 +12204,12 @@ function openRoulette(){
       try{
         var btn=document.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"] .gt-hot');
         if(btn) btn.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span> '+next;
+      }catch(e){}
+      try{
+        document.querySelectorAll('.id-archive-card[data-pid="'+id.replace(/"/g,'')+'"] .btn-hot').forEach(function(b){
+          b.classList.add('on'); b.disabled=true;
+          b.innerHTML='<span class="nf-action-icon">🔥</span> HOT · '+next;
+        });
       }catch(e){}
       toast('Hot🔥 · boosted');
       try{await patchCfPost(id,{tags:p.tags})}catch(e){}
@@ -12247,7 +12296,7 @@ function openRoulette(){
       var alreadyHot=iAlreadyHotted(p.id);
       var hotBtn=timeless
         ?('<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>')
-        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(p.extendAmount||360)+'</button>');
+        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +6h'</button>');
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
@@ -17299,7 +17348,7 @@ function profileStatsHtml(userPosts, extra){
       var myR=getMyReaction(p);
       var dying=(!permanent && rem>0 && rem<4*3600000);
       var dyingBar=dying?'<div style="margin:0 8px 8px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'';
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+(permanent?'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>':'<button class="btn btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(p.id).replace(/"/g,'')+'" '+(already?'disabled aria-disabled="true"':'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?('Extended <span class="ext-cd">'+fmtExtendCountdown(alreadyCd)+'</span>'):('⚡ Extend +'+extL+' · '+((p.extensions||0)+1)))+'</button>')+'</div></article>';
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+(permanent?'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>':'<button class="btn btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(p.id).replace(/"/g,'')+'" '+(already?'disabled aria-disabled="true"':'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?('Extended <span class="ext-cd">'+fmtExtendCountdown(alreadyCd)+'</span>'):('⚡ Extend +6h+' · '+((p.extensions||0)+1)))+'</button>')+'</div></article>';
     }
     
     function setupFeatCarousel(){
@@ -17771,7 +17820,7 @@ function profileStatsHtml(userPosts, extra){
       var mineR=getMyReaction(post);
       var extLed=(permanent||timeless||!timedLive)
         ? ((timeless && !permanent) ? ('<button class="dx-ext btn-extend" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT</b><i>no timer · boost</i></button>') : '')
-        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+extL)+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
+        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +6h)+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';
@@ -18813,17 +18862,25 @@ async function onIdFace(e){
           else html+='<div class="id-arch-media" style="display:flex;align-items:center;justify-content:center;color:#666;font-size:12px">No image</div>';
           html+='<div class="id-arch-meta"><div class="id-arch-user">@'+esc(uname)+'</div>';
           html+='<div class="id-arch-sub">'+esc(r.description||r.desc||r.title||(idRenderMode==='pea'?'Published PEA':'Published ID'))+' · '+when+' · 👀 '+viewsN+' · ❤️ '+likesN+'</div></div>';
+          var hotN=0;
+          try{
+            var hotPost=(typeof findPostAnywhere==='function'?findPostAnywhere(r.id):null)||null;
+            hotN=typeof postHotCount==='function'?postHotCount(hotPost||r):Number((hotPost&&hotPost.hotCount)||r.hotCount||0);
+          }catch(e){hotN=Number(r.hotCount||0)}
+          var alreadyHot=false;
+          try{alreadyHot=typeof iAlreadyHotted==='function'&&iAlreadyHotted(r.id)}catch(e){}
           html+='<div class="id-archive-actions" onclick="event.stopPropagation()">';
           html+='<button class="btn btn-like" type="button" onclick="openReact('+jsId(r.id)+',event)">❤️ '+likesN+'</button>';
+          html+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' onclick="hotBumpWall('+jsId(r.id)+')"><span class="nf-action-icon">🔥</span> HOT'+(hotN?' · '+hotN:'')+'</button>';
           html+='<button class="btn btn-secondary" type="button" onclick="openDetail('+jsId(r.id)+',true)">💬</button>';
           html+='</div>';
           html+='</article>';
           if(typeof posts!=='undefined' && Array.isArray(posts) && !posts.some(function(p){return String(p.id)===String(r.id)})){
-            posts.push({id:r.id,user:uname,title:r.title||(idRenderMode==='pea'?'Published PEA':'Published ID'),desc:r.description||r.desc||'',tags:r.tags||(idRenderMode==='pea'?['generated_pea','pea']:['generated_id','idcard','id']),created:new Date(r.created_at||r.created||Date.now()).getTime(),expires:0,views:r.views||0,likes:r.likes_count||r.likes||0,extensions:0,extendAmount:0,extenders:[],likedBy:[],image:src||r.image_url,images:imgs,featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:false});
+            posts.push({id:r.id,user:uname,title:r.title||(idRenderMode==='pea'?'Published PEA':'Published ID'),desc:r.description||r.desc||'',tags:r.tags||(idRenderMode==='pea'?['generated_pea','pea']:['generated_id','idcard','id']),created:new Date(r.created_at||r.created||Date.now()).getTime(),expires:0,views:r.views||0,likes:r.likes_count||r.likes||0,extensions:0,extendAmount:0,extenders:[],likedBy:[],image:src||r.image_url,images:imgs,featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},hotCount:hotN,_needImg:false});
           } else if(typeof posts!=='undefined' && Array.isArray(posts)){
             // ensure existing entry has latest likes
             var existing=posts.find(function(p){return String(p.id)===String(r.id)});
-            if(existing){existing.likes=r.likes_count||r.likes||existing.likes||0;}
+            if(existing){existing.likes=r.likes_count||r.likes||existing.likes||0; if(hotN) existing.hotCount=Math.max(Number(existing.hotCount||0),hotN);}
           }
         });
         box.innerHTML=html||('<div style="color:var(--muted);font-size:13px">'+(idRenderMode==='pea'?'No published PEAs yet.':'No published IDs yet.')+'</div>');
@@ -19341,9 +19398,7 @@ async function onIdFace(e){
               b.disabled=false;
               b.classList.remove('is-cooling');
               b.style.opacity='';
-              var amtPost=null;
-              try{amtPost=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
-              var amtLabel=fmtMin(postExtendMinutes(amtPost));
+              var amtLabel='6h';
               if(b.classList.contains('dx-ext')){
                 b.innerHTML='<b>Extend +'+amtLabel+'</b><i>keep him on the board</i>';
               }else{
@@ -19357,24 +19412,8 @@ async function onIdFace(e){
       });
     }
     var EXTEND_COOLDOWN_MS=6*60*60*1000; // 6h anti-spam per user+post
-    var EXTEND_ADD_MINUTES=360; // fallback when post has no chosen amount
-    var ALLOWED_EXTEND_MINS=[15,30,60,120,360,720,1440];
+    var EXTEND_ADD_MINUTES=360; // fixed +6h each extend
     function postExtendMinutes(post){
-      var m=0;
-      try{m=Number(post&&(post.extendAmount||post.extend_amount||post.extend_mins))||0}catch(e){m=0}
-      if(!m){
-        try{m=parseExtendMins((post&&post.tags)||[],0)||0}catch(e){m=0}
-      }
-      m=Math.round(Number(m)||0);
-      if(ALLOWED_EXTEND_MINS.indexOf(m)>=0) return m;
-      if(m>0){
-        var best=EXTEND_ADD_MINUTES, bestDiff=Infinity;
-        for(var i=0;i<ALLOWED_EXTEND_MINS.length;i++){
-          var d=Math.abs(ALLOWED_EXTEND_MINS[i]-m);
-          if(d<bestDiff){bestDiff=d;best=ALLOWED_EXTEND_MINS[i]}
-        }
-        return best;
-      }
       return EXTEND_ADD_MINUTES;
     }
     function extendUserId(){
@@ -19432,7 +19471,7 @@ async function onIdFace(e){
     function fmtExtendCooldown(ms){
       ms=Math.max(0,Number(ms)||0);
       if(ms<=0) return 'Ready to extend';
-      return 'Puedes volver a extender en '+fmtExtendCountdown(ms);
+      return 'You can extend again in '+fmtExtendCountdown(ms);
     }
     async function fetchExtendCooldownStatus(postId){
       var user=extendUserId();
@@ -19491,7 +19530,7 @@ async function onIdFace(e){
             var post=null;
             try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
             var n=((post&&post.extensions)||0)+1;
-            btn.innerHTML='⚡ Extend +'+fmtMin(postExtendMinutes(post))+' · '+n;
+            btn.innerHTML='⚡ Extend +6h · '+n;
           }
         });
         var cdEl=document.getElementById('extend-cooldown');
@@ -19501,9 +19540,7 @@ async function onIdFace(e){
           else{
             cdEl.style.display='none';
             var conf=document.getElementById('btn-confirm-ext');
-            var readyPost=null;
-            try{readyPost=typeof findPostAnywhere==='function'?findPostAnywhere(currentExtendPostId):null}catch(e){}
-            if(conf){conf.disabled=false;conf.textContent='Confirm · +'+fmtMin(postExtendMinutes(readyPost))}
+            if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
           }
         }
         if(!any && !document.querySelector('.btn-extend.is-cooling')){
@@ -19522,20 +19559,20 @@ async function onIdFace(e){
       // Posts without a live timer → HOT instead of Extend
       try{
         if(post && typeof isTimelessWallPost==='function' && isTimelessWallPost(post)){
-          toast('Sin temporizador — usa HOT');
+          toast('No timer on this post — use HOT');
           try{await hotBumpWall(id)}catch(e){try{hotBumpWall(id)}catch(e2){}}
           return;
         }
       }catch(e){}
       currentExtendPostId=id;
-      var mins=postExtendMinutes(post);
+      var mins=EXTEND_ADD_MINUTES;
       var amtLabel=fmtMin(mins);
       var el=document.getElementById('extend-desc');
-      if(el)el.innerHTML='<strong style="color:#fff">Extend</strong><br>Add <strong style="color:var(--orange)">'+amtLabel+'</strong> of visibility to this post <span style="color:#9a9aa3">(tiempo que eligió el autor)</span>.<br><span style="color:#9a9aa3">Puedes volver a extender en 6 horas · contador 05:59:59</span>';
+      if(el)el.innerHTML='Add <strong style="color:var(--orange)">6h</strong> of visibility to this post.';
       var cdEl=document.getElementById('extend-cooldown');
       var conf=document.getElementById('btn-confirm-ext');
       if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
-      if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLabel}
+      if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
       var status=await fetchExtendCooldownStatus(id);
       if(status && status.remaining_ms>0){
         if(cdEl){
@@ -19580,23 +19617,39 @@ async function onIdFace(e){
         if(post && typeof isTimelessWallPost==='function' && isTimelessWallPost(post)){
           window.__extLock=null;
           closeModals();
-          toast('Sin temporizador — usa HOT');
+          toast('No timer on this post — use HOT');
           try{await hotBumpWall(id)}catch(e){}
           return;
         }
       }catch(e){}
-      var mins=postExtendMinutes(post);
-      var amtLabel=fmtMin(mins);
+      var mins=EXTEND_ADD_MINUTES;
+      var amtLabel='6h';
       var conf=document.getElementById('btn-confirm-ext');
       if(conf){conf.disabled=true;conf.textContent='Extending…'}
       try{
-        var r=await fetch('/api/extend',{
+        var r=await fetchWithTimeout('/api/extend',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
           cache:'no-store'
-        });
+        }, 18000);
         var extJ=await r.json().catch(function(){return{}});
+        // If Vercel proxy / cooldown board flakes, fall back to direct CF extend so time still persists.
+        if((!r.ok && r.status>=500) || (extJ&&/cooldown_board|timeout|extend_failed/i.test(String(extJ.message||extJ.error||'')))){
+          try{
+            var cfr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(id)+'/extend',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({minutes:mins,user:user}),
+              cache:'no-store'
+            }, 14000);
+            var cfj=await cfr.json().catch(function(){return{}});
+            if(cfr.ok && cfj && (cfj.ok!==false) && (cfj.expires_at!=null || cfj.extensions!=null || cfj.ok)){
+              r={ok:true,status:200};
+              extJ=Object.assign({ok:true,remaining_ms:EXTEND_COOLDOWN_MS,last_at:Date.now()}, cfj);
+            }
+          }catch(e2){console.warn('direct cf extend',e2)}
+        }
         if(r.status===429 || (extJ&&extJ.error==='cooldown')){
           var rem=Number(extJ.remaining_ms)||getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS;
           setLocalExtendCooldown(id, Date.now()-(EXTEND_COOLDOWN_MS-rem), rem);
@@ -19610,7 +19663,7 @@ async function onIdFace(e){
         }
         if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
           toast((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
-          if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLabel}
+          if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
           return;
         }
         var base=Number((post&&post.expires)||0)||readCardExpires(id);
@@ -19622,6 +19675,7 @@ async function onIdFace(e){
         if(post){
           post.expires=expires;
           post.extensions=extensions;
+          post.extendAmount=mins;
           if(Array.isArray(extJ.extenders)) post.extenders=extJ.extenders;
           else post.extenders=(post.extenders||[]).concat([user]);
           try{rememberFeedPost(post)}catch(e){}
@@ -19635,16 +19689,17 @@ async function onIdFace(e){
         try{localStorage.removeItem('rs_ext_'+id)}catch(e){}
         try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
         paintPostExtend(id, expires, extensions, Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS);
+        try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
+        try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
         closeModals();
-        toast('Extended · +'+amtLabel+' · vuelve en 6h');
+        toast('Extended · +6h');
         try{awardXp(5,'extend')}catch(e){}
         try{grantXp && grantXp('extend', String(id), false)}catch(e){}
         refreshExtendCooldownButtons();
-        try{syncExtendedPanel(window.__feedRest)}catch(e){}
       }catch(e){
         console.warn(e);
         toast('Extend failed — check connection');
-        if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLabel}
+        if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
       }finally{
         if(window.__extLock===id) window.__extLock=null;
       }
@@ -20317,9 +20372,9 @@ async function onIdFace(e){
       }catch(e){console.error(e);toast((e&&e.message)||'Error saving')}
     }
     function paidProof(id){
-      var msg='Ya pagué $10 para eliminar post ID: '+id;
+      var msg='I paid $5 to delete post ID: '+id;
       try{navigator.clipboard.writeText(msg)}catch(e){}
-      alert(msg+'\n\nEnvía eso a Master por Telegram o en la nota de PayPal/Throne.\nPayPal: paypal.me/MartinJimenez205');
+      alert(msg+'\n\nSend that to Master on Telegram or in the PayPal/Throne note.\nPayPal: paypal.me/MartinJimenez205');
     }
 
     async function pingAdminMail(subject, body){
@@ -20587,8 +20642,8 @@ async function onIdFace(e){
         if(paid) paid.style.display='none';
       }else{
         if(title) title.textContent='Remove this post';
-        if(pEl) pEl.innerHTML='Delete post — <strong style="color:#f5c518">50 FC ($5)</strong>. Or pay outside and tap <strong>I paid</strong>.';
-        if(fc){fc.style.display='block';fc.textContent='Delete post — 50 FC ($5)';fc.setAttribute('onclick','removeWithCoins()');}
+        if(pEl) pEl.innerHTML='Delete · <strong style="color:#f5c518">$5 / 50 FC</strong>. Or pay outside and tap <strong>I paid</strong>.';
+        if(fc){fc.style.display='block';fc.textContent='Delete · $5 / 50 FC';fc.setAttribute('onclick','removeWithCoins()');}
         if(paid) paid.style.display='block';
       }
       document.getElementById('remove-modal').classList.add('show');
@@ -20642,10 +20697,10 @@ async function onIdFace(e){
         closeModals();
         return;
       }
-      payProgress(true,'Delete post — 50 FC','Charging coins…',25);
+      payProgress(true,'Delete · $5 / 50 FC','Charging coins…',25);
       var ok=await spendFagCoins('delete', String(id));
       if(!ok){payProgress(false);try{closeModals();openNeedCoins({cost:50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}return}
-      payProgress(true,'Delete post — 50 FC','Deleting post…',70);
+      payProgress(true,'Delete · $5 / 50 FC','Deleting post…',70);
       var removeDone=false;
       setTimeout(function(){if(!removeDone){payProgress(true,'Removed','Closing…',100);setTimeout(function(){payProgress(false)},600)}},8000);
       try{
@@ -20656,10 +20711,10 @@ async function onIdFace(e){
           user:(post&&post.user)||((currentUser&&currentUser.name)||'user'),
           amount:'50 FC',
           label:'DELETE',
-          message:'🗑 DELETE 50 FC ($5) — post #'+id
+          message:'🗑 DELETE · $5 / 50 FC — post #'+id
         });
       }catch(e){}
-      try{await cfCreateRequest({kind:'remove_request',postId:id,user:(currentUser&&currentUser.name)||'user',amount:'50 FC',coins:50,provider:'fc',label:'DELETE'})}catch(e){}
+      try{await cfCreateRequest({kind:'remove_request',postId:id,user:(currentUser&&currentUser.name)||'user',amount:'$5 / 50 FC',coins:50,provider:'fc',label:'DELETE'})}catch(e){}
       try{await deletePost(id)}catch(e){}
       try{await deleteCfPost(id)}catch(e){}
       try{markDeleted(id)}catch(e){}
@@ -20672,7 +20727,7 @@ async function onIdFace(e){
         payProgress(false);
         try{showPanel('feed');renderPosts()}catch(e){}
       },700);
-      toast('Eliminado');
+      toast('Deleted');
     }
     window.removeWithCoins=removeWithCoins;
     var __removeRequestLocks={};
@@ -20747,7 +20802,7 @@ async function onIdFace(e){
 
     async function remindRemovePayment(id, username){
       if(!username){toast('No user');return}
-      var msg='⚠️ Your post #'+id+' is still public. Send $10 on Throne/PayPal to be deleted or your photos stay online and the days will keep increasing.';
+      var msg='⚠️ Your post #'+id+' is still public. Send $5 / 50 FC on Throne/PayPal to be deleted or your photos stay online and the days will keep increasing.';
       try{
         await pushNotif(username,'admin','remove_reminder',id,msg);
         toast('Reminder sent to @'+username);

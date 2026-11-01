@@ -1,42 +1,13 @@
-// Hourly Extend cooldown — server-side enforcement.
-// Cooldown key: user_id + post_id + action_type ("extend")
-// Persistence: Cloudflare Worker notifs board (__EXTEND_COOLDOWN__) so it
-// survives refreshes and devices. Client timestamps are never trusted.
+// Extend +6h with per-user+post cooldown.
+// Cooldown is best-effort via CF notifs board (__EXTEND_COOLDOWN__).
+// A flaky board must NEVER block the actual CF /posts/:id/extend write.
 
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
-// 6h anti-spam cooldown per user+post (override with EXTEND_COOLDOWN_MS).
 const COOLDOWN_MS = Number(process.env.EXTEND_COOLDOWN_MS || 6 * 60 * 60 * 1000);
 const BOARD = '__EXTEND_COOLDOWN__';
 const ACTION = 'extend';
-const ALLOWED_EXTEND_MINS = [15, 30, 60, 120, 360, 720, 1440];
+const EXTEND_MINUTES = 360; // fixed +6h each extend
 
-function sanitizeExtendMinutes(raw) {
-  var n = Number(raw);
-  if (!isFinite(n) || n <= 0) return 360;
-  n = Math.round(n);
-  if (ALLOWED_EXTEND_MINS.indexOf(n) >= 0) return n;
-  // Closest allowed duration (author choice may arrive as odd values from tags).
-  var best = 360;
-  var bestDiff = Infinity;
-  for (var i = 0; i < ALLOWED_EXTEND_MINS.length; i++) {
-    var d = Math.abs(ALLOWED_EXTEND_MINS[i] - n);
-    if (d < bestDiff) { bestDiff = d; best = ALLOWED_EXTEND_MINS[i]; }
-  }
-  return best;
-}
-
-function fmtCooldownClock(ms) {
-  var sec = Math.max(0, Math.ceil(Number(ms) / 1000));
-  var h = Math.floor(sec / 3600);
-  var m = Math.floor((sec % 3600) / 60);
-  var s = sec % 60;
-  if (h > 0) {
-    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-  }
-  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-}
-
-// Best-effort in-process lock (helps same-instance double-clicks on serverless).
 var locks = new Map();
 var recent = new Map();
 
@@ -89,17 +60,55 @@ function parseMsg(raw) {
   }
 }
 
+function fmtCooldownClock(ms) {
+  var sec = Math.max(0, Math.ceil(Number(ms) / 1000));
+  var h = Math.floor(sec / 3600);
+  var m = Math.floor((sec % 3600) / 60);
+  var s = sec % 60;
+  if (h > 0) {
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+async function cfFetch(path, opts, ms) {
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timer = null;
+  if (ctrl) {
+    timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, ms || 10000);
+  }
+  try {
+    var r = await fetch(CF_API + path, Object.assign({
+      cache: 'no-store',
+      signal: ctrl ? ctrl.signal : undefined
+    }, opts || {}));
+    var text = await r.text().catch(function () { return ''; });
+    var j = {};
+    try { j = text ? JSON.parse(text) : {}; } catch (e) { j = { raw: String(text).slice(0, 160) }; }
+    return { ok: r.ok, status: r.status, json: j, text: text };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function fetchCooldownNotifs() {
-  var r = await fetch(CF_API + '/notifs?to=' + encodeURIComponent(BOARD), { cache: 'no-store' });
-  if (!r.ok) throw new Error('cooldown_board_http_' + r.status);
-  var j = await r.json().catch(function () { return {}; });
-  return (j && j.notifs) || [];
+  try {
+    var res = await cfFetch('/notifs?to=' + encodeURIComponent(BOARD), {}, 8000);
+    if (!res.ok) {
+      console.warn('cooldown_board_http_' + res.status);
+      return [];
+    }
+    return (res.json && res.json.notifs) || [];
+  } catch (e) {
+    console.warn('cooldown_board_fetch', e && e.message);
+    return [];
+  }
 }
 
 function findCooldown(notifs, user, postId) {
   var key = cooldownKey(user, postId);
   var best = null;
-  for (var i = 0; i < notifs.length; i++) {
+  for (var i = 0; i < (notifs || []).length; i++) {
     var n = notifs[i];
     if (!n) continue;
     var msg = parseMsg(n.message);
@@ -108,7 +117,6 @@ function findCooldown(notifs, user, postId) {
     var action = String((msg && msg.action_type) || ACTION);
     if (action !== ACTION) continue;
     if (from !== user || pid !== postId) continue;
-    // Prefer message.at; fall back to created_at from server
     var at = Number((msg && msg.at) || n.created_at || 0) || 0;
     if (!best || at > best.at) {
       best = {
@@ -119,7 +127,6 @@ function findCooldown(notifs, user, postId) {
       };
     }
   }
-  // Also check in-memory recent map (same instance)
   var mem = recent.get(key);
   if (mem && (!best || mem.at > best.at)) {
     best = {
@@ -139,43 +146,41 @@ async function writeCooldown(user, postId, minutes) {
     post_id: postId,
     action_type: ACTION,
     at: at,
-    minutes: Number(minutes) || 0
+    minutes: Number(minutes) || EXTEND_MINUTES
   };
   recent.set(cooldownKey(user, postId), { at: at });
-  var r = await fetch(CF_API + '/notifs', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      to_username: BOARD,
-      from_username: user,
-      type: 'extend_cd',
-      post_id: postId,
-      message: JSON.stringify(payload)
-    }),
-    cache: 'no-store'
-  });
-  if (!r.ok) {
-    var t = await r.text().catch(function () { return ''; });
-    throw new Error('cooldown_write_failed_' + r.status + ' ' + String(t).slice(0, 120));
+  try {
+    var res = await cfFetch('/notifs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to_username: BOARD,
+        from_username: user,
+        type: 'extend_cd',
+        post_id: postId,
+        message: JSON.stringify(payload)
+      })
+    }, 8000);
+    if (!res.ok) console.warn('cooldown_write_failed_' + res.status);
+  } catch (e) {
+    console.warn('cooldown_write', e && e.message);
   }
   return payload;
 }
 
 async function callCfExtend(postId, minutes, user) {
-  var r = await fetch(CF_API + '/posts/' + encodeURIComponent(postId) + '/extend', {
+  var res = await cfFetch('/posts/' + encodeURIComponent(postId) + '/extend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ minutes: sanitizeExtendMinutes(minutes), user: user }),
-    cache: 'no-store'
-  });
-  var j = await r.json().catch(function () { return {}; });
-  if (!r.ok) {
-    var err = new Error((j && (j.error || j.message)) || ('extend_http_' + r.status));
-    err.status = r.status;
-    err.body = j;
+    body: JSON.stringify({ minutes: Number(minutes) || EXTEND_MINUTES, user: user })
+  }, 14000);
+  if (!res.ok) {
+    var err = new Error((res.json && (res.json.error || res.json.message)) || ('extend_http_' + res.status));
+    err.status = res.status;
+    err.body = res.json;
     throw err;
   }
-  return j;
+  return res.json || {};
 }
 
 function statusPayload(user, postId, hit) {
@@ -187,6 +192,7 @@ function statusPayload(user, postId, hit) {
     remaining_ms: available ? 0 : remaining,
     remaining_sec: available ? 0 : Math.ceil(remaining / 1000),
     cooldown_ms: COOLDOWN_MS,
+    extend_minutes: EXTEND_MINUTES,
     user: user,
     post_id: postId,
     action_type: ACTION,
@@ -218,12 +224,9 @@ module.exports = async function handler(req, res) {
     var body = await readBody(req);
     var user = normUser(body.user || body.username || body.from_username);
     var postId = normPost(body.post_id || body.post || body.id);
-    // Use the post author's chosen extend amount (client sends minutes / extend_amount).
-    var minutes = sanitizeExtendMinutes(body.minutes || body.extend_amount || 360);
-    if (!user || user === 'guest' || user === 'anon') {
-      // Allow named anon handles used by the SPA (Anon_####), reject empty.
-      if (!user) return json(res, 401, { error: 'login_required' });
-    }
+    // Fixed +6h each extend (ignore client-chosen amounts for anti-confusion).
+    var minutes = EXTEND_MINUTES;
+    if (!user) return json(res, 401, { error: 'login_required' });
     if (!postId) return json(res, 400, { error: 'post_required' });
 
     var lockKey = cooldownKey(user, postId);
@@ -243,7 +246,7 @@ module.exports = async function handler(req, res) {
       if (existing && existing.remaining_ms > 0) {
         return json(res, 429, Object.assign({
           error: 'cooldown',
-          message: 'Puedes volver a extender en ' + fmtCooldownClock(existing.remaining_ms)
+          message: 'You can extend again in ' + fmtCooldownClock(existing.remaining_ms)
         }, statusPayload(user, postId, existing)));
       }
 
@@ -255,6 +258,7 @@ module.exports = async function handler(req, res) {
         expires_at: ext.expires_at || null,
         extensions: ext.extensions != null ? ext.extensions : null,
         extenders: ext.extenders || null,
+        minutes_added: minutes,
         cooldown_ms: COOLDOWN_MS,
         remaining_ms: COOLDOWN_MS,
         remaining_sec: Math.ceil(COOLDOWN_MS / 1000),
