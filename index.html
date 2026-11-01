@@ -19540,7 +19540,7 @@ async function onIdFace(e){
           else{
             cdEl.style.display='none';
             var conf=document.getElementById('btn-confirm-ext');
-            if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
+            if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
           }
         }
         if(!any && !document.querySelector('.btn-extend.is-cooling')){
@@ -19572,7 +19572,7 @@ async function onIdFace(e){
       var cdEl=document.getElementById('extend-cooldown');
       var conf=document.getElementById('btn-confirm-ext');
       if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
-      if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
+      if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
       var status=await fetchExtendCooldownStatus(id);
       if(status && status.remaining_ms>0){
         if(cdEl){
@@ -19663,7 +19663,7 @@ async function onIdFace(e){
         }
         if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
           toast((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
-          if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
+          if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
           return;
         }
         var base=Number((post&&post.expires)||0)||readCardExpires(id);
@@ -19699,7 +19699,7 @@ async function onIdFace(e){
       }catch(e){
         console.warn(e);
         toast('Extend failed — check connection');
-        if(conf){conf.disabled=false;conf.textContent='Confirm · +6h}
+        if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
       }finally{
         if(window.__extLock===id) window.__extLock=null;
       }
