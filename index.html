@@ -3023,7 +3023,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <div class="modal">
       <button class="modal-x" type="button" id="btn-extend-x" aria-label="Close">✕</button>
       <h3>⏱ Extend</h3>
-      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add <strong style="color:var(--orange)">1 day</strong> of visibility to this post. You can extend again in 1 hour.</p>
+      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add the author’s chosen extend time to this post. You can extend the same post again in 6 hours.</p>
       <p id="extend-cooldown" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,106,0,.12);border:1px solid rgba(255,106,0,.35);color:#ffb35c;font-size:13px;font-weight:800"></p>
       <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">Cancel</button>
@@ -3399,14 +3399,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           try{
             var exp=p.expires_at?new Date(p.expires_at).getTime():0;
             var created=p.created_at?new Date(p.created_at).getTime():0;
-            var amt=Number(p.extend_mins||p.extend_amount||parseExtendMins(tags,1440)||1440)*60000;
+            var amt=Number(p.extend_mins||p.extend_amount||parseExtendMins(tags,360)||360)*60000;
             if(exp&&created&&amt&&exp>created+amt){
               var guess=Math.round((exp-created-amt)/amt);
               if(guess>n)n=guess;
             }
           }catch(e){}
           return n;
-        })(),extendAmount:Number(p.extend_mins||p.extend_amount||parseExtendMins(tags,1440)),extenders:(function(){try{var x=p.extenders||[];if(typeof x==='string')x=JSON.parse(x);return Array.isArray(x)?x:[]}catch(e){return []}})(),likedBy:(function(){
+        })(),extendAmount:Number(p.extend_mins||p.extend_amount||parseExtendMins(tags,360)||360),extenders:(function(){try{var x=p.extenders||[];if(typeof x==='string')x=JSON.parse(x);return Array.isArray(x)?x:[]}catch(e){return []}})(),likedBy:(function(){
           var by=[];
           try{if(Array.isArray(p.liked_by))by=p.liked_by.slice()}catch(e){}
           try{
@@ -12184,7 +12184,7 @@ function openRoulette(){
       var alreadyHot=iAlreadyHotted(p.id);
       var hotBtn=timeless
         ?('<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>')
-        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +1 day</button>');
+        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(p.extendAmount||360)+'</button>');
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
@@ -13939,7 +13939,7 @@ function openRoulette(){
             var quick={
               id:lp.id,user:lp.user||currentUser.name,title:lp.title||'New post',desc:lp.desc||'',
               tags:lp.tags||[],created:Number(lp.t)||Date.now(),expires:exp,views:0,likes:0,extensions:0,
-              extendAmount:Number(lp.extendAmount)||EXTEND_ADD_MINUTES||1440,extenders:[],likedBy:[],image:lp.image||'',images:imgs,
+              extendAmount:Number(lp.extendAmount)||360,extenders:[],likedBy:[],image:lp.image||'',images:imgs,
               featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:!imgs.length,_imgFail:false
             };
             posts.unshift(quick);
@@ -17236,7 +17236,7 @@ function profileStatsHtml(userPosts, extra){
       var myR=getMyReaction(p);
       var dying=(!permanent && rem>0 && rem<4*3600000);
       var dyingBar=dying?'<div style="margin:0 8px 8px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'';
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+(permanent?'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>':'<button class="btn btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(p.id).replace(/"/g,'')+'" '+(already?'disabled aria-disabled="true"':'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?('Extended <span class="ext-cd">'+fmtExtendCountdown(alreadyCd)+'</span>'):('⚡ Extend +1 day · '+((p.extensions||0)+1)))+'</button>')+'</div></article>';
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+(permanent?'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>':'<button class="btn btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(p.id).replace(/"/g,'')+'" '+(already?'disabled aria-disabled="true"':'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?('Extended <span class="ext-cd">'+fmtExtendCountdown(alreadyCd)+'</span>'):('⚡ Extend +'+extL+' · '+((p.extensions||0)+1)))+'</button>')+'</div></article>';
     }
     
     function setupFeatCarousel(){
@@ -17708,7 +17708,7 @@ function profileStatsHtml(userPosts, extra){
       var mineR=getMyReaction(post);
       var extLed=(permanent||timeless||!timedLive)
         ? ((timeless && !permanent) ? ('<button class="dx-ext btn-extend" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT</b><i>no timer · boost</i></button>') : '')
-        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +1 day')+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
+        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+extL)+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';
@@ -19278,10 +19278,13 @@ async function onIdFace(e){
               b.disabled=false;
               b.classList.remove('is-cooling');
               b.style.opacity='';
+              var amtPost=null;
+              try{amtPost=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+              var amtLabel=fmtMin(postExtendMinutes(amtPost));
               if(b.classList.contains('dx-ext')){
-                b.innerHTML='<b>Extend +1 day</b><i>keep him on the board</i>';
+                b.innerHTML='<b>Extend +'+amtLabel+'</b><i>keep him on the board</i>';
               }else{
-                b.innerHTML='⚡ Extend +1 day · '+((Number(extensions)||0)+1);
+                b.innerHTML='⚡ Extend +'+amtLabel+' · '+((Number(extensions)||0)+1);
               }
             }else if(b.classList.contains('dx-ext')){
               b.innerHTML='<b>Extended</b><i>'+fmtExtendCountdown(remainingMs)+'</i>';
@@ -19290,8 +19293,27 @@ async function onIdFace(e){
         }catch(e){}
       });
     }
-    var EXTEND_COOLDOWN_MS=60*60*1000;
-    var EXTEND_ADD_MINUTES=1440; // +1 day each extend
+    var EXTEND_COOLDOWN_MS=6*60*60*1000; // 6h anti-spam per user+post
+    var EXTEND_ADD_MINUTES=360; // fallback when post has no chosen amount
+    var ALLOWED_EXTEND_MINS=[15,30,60,120,360,720,1440];
+    function postExtendMinutes(post){
+      var m=0;
+      try{m=Number(post&&(post.extendAmount||post.extend_amount||post.extend_mins))||0}catch(e){m=0}
+      if(!m){
+        try{m=parseExtendMins((post&&post.tags)||[],0)||0}catch(e){m=0}
+      }
+      m=Math.round(Number(m)||0);
+      if(ALLOWED_EXTEND_MINS.indexOf(m)>=0) return m;
+      if(m>0){
+        var best=EXTEND_ADD_MINUTES, bestDiff=Infinity;
+        for(var i=0;i<ALLOWED_EXTEND_MINS.length;i++){
+          var d=Math.abs(ALLOWED_EXTEND_MINS[i]-m);
+          if(d<bestDiff){bestDiff=d;best=ALLOWED_EXTEND_MINS[i]}
+        }
+        return best;
+      }
+      return EXTEND_ADD_MINUTES;
+    }
     function extendUserId(){
       try{
         if(currentUser&&currentUser.name) return String(currentUser.name).replace(/^@/,'').trim();
@@ -19337,8 +19359,11 @@ async function onIdFace(e){
     function fmtExtendCountdown(ms){
       ms=Math.max(0,Number(ms)||0);
       var totalSec=Math.ceil(ms/1000);
-      var m=Math.floor(totalSec/60);
+      var h=Math.floor(totalSec/3600);
+      var m=Math.floor((totalSec%3600)/60);
       var s=totalSec%60;
+      // 6h cooldown → HH:MM:SS (e.g. 05:59:59); under 1h stays MM:SS
+      if(h>0) return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
       return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
     }
     function fmtExtendCooldown(ms){
@@ -19403,7 +19428,7 @@ async function onIdFace(e){
             var post=null;
             try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
             var n=((post&&post.extensions)||0)+1;
-            btn.innerHTML='⚡ Extend +1 day · '+n;
+            btn.innerHTML='⚡ Extend +'+fmtMin(postExtendMinutes(post))+' · '+n;
           }
         });
         var cdEl=document.getElementById('extend-cooldown');
@@ -19413,7 +19438,9 @@ async function onIdFace(e){
           else{
             cdEl.style.display='none';
             var conf=document.getElementById('btn-confirm-ext');
-            if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
+            var readyPost=null;
+            try{readyPost=typeof findPostAnywhere==='function'?findPostAnywhere(currentExtendPostId):null}catch(e){}
+            if(conf){conf.disabled=false;conf.textContent='Confirm · +'+fmtMin(postExtendMinutes(readyPost))}
           }
         }
         if(!any && !document.querySelector('.btn-extend.is-cooling')){
@@ -19438,12 +19465,14 @@ async function onIdFace(e){
         }
       }catch(e){}
       currentExtendPostId=id;
+      var mins=postExtendMinutes(post);
+      var amtLabel=fmtMin(mins);
       var el=document.getElementById('extend-desc');
-      if(el)el.innerHTML='<strong style="color:#fff">Extend</strong><br>Add <strong style="color:var(--orange)">1 day</strong> of visibility to this post.<br><span style="color:#9a9aa3">Puedes volver a extender en 1 hora · contador 59:59</span>';
+      if(el)el.innerHTML='<strong style="color:#fff">Extend</strong><br>Add <strong style="color:var(--orange)">'+amtLabel+'</strong> of visibility to this post <span style="color:#9a9aa3">(tiempo que eligió el autor)</span>.<br><span style="color:#9a9aa3">Puedes volver a extender en 6 horas · contador 05:59:59</span>';
       var cdEl=document.getElementById('extend-cooldown');
       var conf=document.getElementById('btn-confirm-ext');
       if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
-      if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
+      if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLabel}
       var status=await fetchExtendCooldownStatus(id);
       if(status && status.remaining_ms>0){
         if(cdEl){
@@ -19493,14 +19522,15 @@ async function onIdFace(e){
           return;
         }
       }catch(e){}
-      var mins=EXTEND_ADD_MINUTES;
+      var mins=postExtendMinutes(post);
+      var amtLabel=fmtMin(mins);
       var conf=document.getElementById('btn-confirm-ext');
       if(conf){conf.disabled=true;conf.textContent='Extending…'}
       try{
         var r=await fetch('/api/extend',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({post_id:id,user:user,minutes:mins}),
+          body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
           cache:'no-store'
         });
         var extJ=await r.json().catch(function(){return{}});
@@ -19517,7 +19547,7 @@ async function onIdFace(e){
         }
         if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
           toast((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
-          if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
+          if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLabel}
           return;
         }
         var base=Number((post&&post.expires)||0)||readCardExpires(id);
@@ -19543,7 +19573,7 @@ async function onIdFace(e){
         try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
         paintPostExtend(id, expires, extensions, Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS);
         closeModals();
-        toast('Extended · +1 day · vuelve en 1h');
+        toast('Extended · +'+amtLabel+' · vuelve en 6h');
         try{awardXp(5,'extend')}catch(e){}
         try{grantXp && grantXp('extend', String(id), false)}catch(e){}
         refreshExtendCooldownButtons();
@@ -19551,7 +19581,7 @@ async function onIdFace(e){
       }catch(e){
         console.warn(e);
         toast('Extend failed — check connection');
-        if(conf){conf.disabled=false;conf.textContent='Confirm · +1 day'}
+        if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLabel}
       }finally{
         if(window.__extLock===id) window.__extLock=null;
       }
