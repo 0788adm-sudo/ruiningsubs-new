@@ -137,7 +137,7 @@ async function callCfExtend(postId, minutes, user) {
   var r = await fetch(CF_API + '/posts/' + encodeURIComponent(postId) + '/extend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ minutes: Number(minutes) || 360, user: user }),
+    body: JSON.stringify({ minutes: Number(minutes) || 1440, user: user }),
     cache: 'no-store'
   });
   var j = await r.json().catch(function () { return {}; });
@@ -190,7 +190,8 @@ module.exports = async function handler(req, res) {
     var body = await readBody(req);
     var user = normUser(body.user || body.username || body.from_username);
     var postId = normPost(body.post_id || body.post || body.id);
-    var minutes = Number(body.minutes || body.extend_amount || 360) || 360;
+    // Default +1 day per extend; client may send minutes explicitly.
+    var minutes = Number(body.minutes || body.extend_amount || 1440) || 1440;
     if (!user || user === 'guest' || user === 'anon') {
       // Allow named anon handles used by the SPA (Anon_####), reject empty.
       if (!user) return json(res, 401, { error: 'login_required' });
@@ -214,7 +215,11 @@ module.exports = async function handler(req, res) {
       if (existing && existing.remaining_ms > 0) {
         return json(res, 429, Object.assign({
           error: 'cooldown',
-          message: 'Available again in ' + Math.ceil(existing.remaining_ms / 60000) + 'm'
+          message: 'Puedes volver a extender en ' + (function(){
+            var sec=Math.ceil(existing.remaining_ms/1000);
+            var m=Math.floor(sec/60), s=sec%60;
+            return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+          })()
         }, statusPayload(user, postId, existing)));
       }
 
