@@ -1616,12 +1616,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   flex:0 0 calc(20% - 6px);min-width:68px;max-width:96px;padding:0;border:0;background:transparent;
   border-radius:12px;overflow:hidden;cursor:pointer;color:inherit;display:block;opacity:1;
   -webkit-tap-highlight-color:rgba(255,106,0,.28);
-  transition:opacity .55s ease, transform .35s ease, box-shadow .2s ease;
+  transition:transform .16s ease, box-shadow .16s ease;
 }
-#home-random-strip .home-strip-card.is-fading{
-  opacity:0;
-  transform:translateY(4px);
-}
+#home-random-strip .home-strip-card.is-broken{display:none}
 #home-random-strip .home-strip-card img{
   width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:block;border:1px solid #2a2a32;background:#111;
   pointer-events:none;
@@ -13225,105 +13222,195 @@ function openRoulette(){
     window.__homeStripPool=[];
     window.__homeStripShown=[];
     window.__homeStripTimer=null;
+    function homeStripDayKey(){
+      var d=new Date();
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
+    function homeStripImgOf(p){
+      if(!p)return '';
+      var imgs=[];
+      try{
+        if(p.images&&p.images.length) imgs=imgs.concat(p.images);
+        imgs=imgs.concat([p.image,p.poster,p.thumb_url,p.thumb,p.media_url]);
+      }catch(e){}
+      for(var k=0;k<imgs.length;k++){
+        var u=String(imgs[k]||'').trim();
+        if(!u)continue;
+        if(/^data:/i.test(u) && u.length<40)continue;
+        if(typeof isVideoUrl==='function' && isVideoUrl(u))continue;
+        if(/\.(mp4|webm|mov|m3u8)(\?|$)/i.test(u))continue;
+        if(/^https?:\/\//i.test(u) || u.indexOf('//')===0 || u.indexOf('data:image')===0) return u;
+      }
+      return '';
+    }
     function collectHomeStripPool(){
-      var src=(posts||[]).concat(normalFeedPosts||[]);
+      var src=[];
+      try{if(window.__pinBoard&&window.__pinBoard.length) src=src.concat(window.__pinBoard)}catch(e){}
+      try{
+        var snaps=JSON.parse(localStorage.getItem('rs_featured_posts')||'{}')||{};
+        Object.keys(snaps).forEach(function(k){
+          var s=snaps[k]; if(!s)return;
+          src.push({id:s.id||k,user:s.user,title:s.title,image:s.image,images:s.images||(s.image?[s.image]:[]),featuredUntil:s.featuredUntil||1,adminHot:true});
+        });
+      }catch(e){}
+      try{
+        var loc=JSON.parse(localStorage.getItem('rs_featured')||'{}')||{};
+        Object.keys(loc).forEach(function(k){
+          var until=Number(loc[k]&&loc[k].until!=null?loc[k].until:loc[k])||0;
+          if(until && until<Date.now())return;
+          var p=typeof findPostAnywhere==='function'?findPostAnywhere(k):null;
+          if(p) src.push(Object.assign({},p,{featuredUntil:until||p.featuredUntil||1}));
+        });
+      }catch(e){}
+      src=src.concat(posts||[]).concat(normalFeedPosts||[]);
       var seen={}, list=[];
       src.forEach(function(p){
         if(!p||p.id==null||seen[String(p.id)])return;
+        if(typeof isDeletedId==='function' && isDeletedId(p.id))return;
         if(typeof isVideoPost==='function' && isVideoPost(p))return;
-        var imgs=(p.images||[]).concat([p.image,p.poster,p.thumb_url]);
-        var img='';
-        for(var k=0;k<imgs.length;k++){
-          var u=imgs[k];
-          if(!u)continue;
-          if(typeof isVideoUrl==='function' && isVideoUrl(u))continue;
-          if(/\.mp4|\.webm|\.mov|\.m3u8/i.test(String(u)))continue;
-          img=u;break;
-        }
+        var img=homeStripImgOf(p);
         if(!img)return;
         seen[String(p.id)]=1;
-        list.push({id:p.id,img:img,title:p.title||'',user:p.user||''});
+        var pinned=false;
+        try{pinned=(typeof postFeaturedUntil==='function'?postFeaturedUntil(p):Number(p.featuredUntil||0))>Date.now()}catch(e){pinned=Number(p.featuredUntil||0)>Date.now()}
+        list.push({
+          id:p.id,
+          img:img,
+          title:p.title||'',
+          user:p.user||'',
+          pinned:!!pinned,
+          hot:typeof isAdminHot==='function'?isAdminHot(p):false,
+          eng:typeof postEngagementScore==='function'?postEngagementScore(p):0,
+          created:Number(p.created||0)||0
+        });
       });
-      // Prefer engagement / HOT for variety, then shuffle lightly
       list.sort(function(a,b){
-        var pa=findPostAnywhere(a.id)||a, pb=findPostAnywhere(b.id)||b;
-        var ha=isAdminHot(pa)?1:0, hb=isAdminHot(pb)?1:0;
-        if(hb!==ha) return hb-ha;
-        return postEngagementScore(pb)-postEngagementScore(pa);
+        if((b.pinned?1:0)!==(a.pinned?1:0)) return (b.pinned?1:0)-(a.pinned?1:0);
+        if((b.hot?1:0)!==(a.hot?1:0)) return (b.hot?1:0)-(a.hot?1:0);
+        if((b.eng||0)!==(a.eng||0)) return (b.eng||0)-(a.eng||0);
+        return (b.created||0)-(a.created||0);
       });
       window.__homeStripPool=list;
       return list;
     }
-    function pickHomeStripFive(avoidIds){
-      avoidIds=avoidIds||[];
-      var pool=window.__homeStripPool||[];
-      if(!pool.length) pool=collectHomeStripPool();
-      var avoid={}; avoidIds.forEach(function(id){avoid[String(id)]=1});
-      var candidates=pool.filter(function(p){return !avoid[String(p.id)]});
-      if(candidates.length<5) candidates=pool.slice();
-      // Fisher-Yates on a copy, but skip immediate repeats of last shown set
-      var arr=candidates.slice();
-      for(var i=arr.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=arr[i];arr[i]=arr[j];arr[j]=t}
-      var out=arr.slice(0,5);
-      // If still overlapping heavily with previous, rotate one more time from rest
-      if(out.length && avoidIds.length){
-        var overlap=out.filter(function(p){return avoid[String(p.id)]}).length;
-        if(overlap>=4 && pool.length>5){
-          var rest=pool.filter(function(p){return !avoid[String(p.id)]});
-          for(var r=rest.length-1;r>0;r--){var rj=Math.floor(Math.random()*(r+1));var rt=rest[r];rest[r]=rest[rj];rest[rj]=rt}
-          out=rest.slice(0,5);
-          while(out.length<5){
-            var filler=pool[out.length%pool.length];
-            if(filler) out.push(filler);
-            else break;
-          }
+    function loadHomeStripDay(){
+      try{
+        var raw=JSON.parse(localStorage.getItem('rs_home_strip_day')||'null');
+        if(raw&&raw.day===homeStripDayKey()&&Array.isArray(raw.ids)&&raw.ids.length) return raw;
+      }catch(e){}
+      return null;
+    }
+    function saveHomeStripDay(ids, items){
+      try{
+        localStorage.setItem('rs_home_strip_day', JSON.stringify({
+          day:homeStripDayKey(),
+          ids:(ids||[]).map(String).slice(0,5),
+          items:(items||[]).slice(0,5).map(function(p){
+            return {id:p.id,img:p.img,title:p.title||'',user:p.user||''};
+          }),
+          at:Date.now()
+        }));
+      }catch(e){}
+    }
+    function daySeededPick(pool, n){
+      n=n||5;
+      var arr=pool.slice();
+      var seed=0;
+      var key=homeStripDayKey();
+      for(var i=0;i<key.length;i++) seed=(seed*33+key.charCodeAt(i))>>>0;
+      // Deterministic shuffle for the calendar day
+      for(var i=arr.length-1;i>0;i--){
+        seed=(seed*1664525+1013904223)>>>0;
+        var j=seed%(i+1);
+        var t=arr[i]; arr[i]=arr[j]; arr[j]=t;
+      }
+      // Keep pinned/HOT near the front after seeded mix of the top candidates
+      var top=pool.slice(0, Math.min(24, pool.length));
+      var picked=[], used={};
+      // First lock any currently featured pins (up to 5)
+      top.forEach(function(p){
+        if(picked.length>=n)return;
+        if(!p.pinned&&!p.hot)return;
+        if(used[String(p.id)])return;
+        used[String(p.id)]=1; picked.push(p);
+      });
+      arr.forEach(function(p){
+        if(picked.length>=n)return;
+        if(used[String(p.id)])return;
+        used[String(p.id)]=1; picked.push(p);
+      });
+      return picked.slice(0,n);
+    }
+    function resolveHomeStripFive(){
+      var pool=collectHomeStripPool();
+      var saved=loadHomeStripDay();
+      var byId={};
+      pool.forEach(function(p){byId[String(p.id)]=p});
+      if(saved&&saved.ids&&saved.ids.length){
+        var kept=[];
+        saved.ids.forEach(function(id){
+          if(kept.length>=5)return;
+          var live=byId[String(id)];
+          if(live&&live.img){kept.push(live);return}
+          // Keep cached image for the day even if post dropped from memory
+          var cached=(saved.items||[]).filter(function(x){return String(x.id)===String(id)})[0];
+          if(cached&&cached.img) kept.push({id:cached.id,img:cached.img,title:cached.title||'',user:cached.user||''});
+        });
+        if(kept.length<5){
+          pool.forEach(function(p){
+            if(kept.length>=5)return;
+            if(kept.some(function(x){return String(x.id)===String(p.id)}))return;
+            kept.push(p);
+          });
+        }
+        if(kept.length){
+          saveHomeStripDay(kept.map(function(p){return p.id}), kept);
+          return kept.slice(0,5);
         }
       }
-      return out.slice(0,5);
+      var picked=daySeededPick(pool, 5);
+      if(picked.length) saveHomeStripDay(picked.map(function(p){return p.id}), picked);
+      return picked;
     }
-    function paintHomeStripCards(list, animate){
+    function paintHomeStripCards(list){
       var box=document.getElementById('home-random-strip');
       if(!box)return;
-      if(!list||!list.length){box.innerHTML='';return}
-      function write(){
-        box.setAttribute('role','list');
-        box.innerHTML=list.map(function(p){
-          var pid=String(p.id).replace(/"/g,'');
-          return '<button type="button" class="home-strip-card" role="listitem" data-pid="'+pid+'" data-home-strip="1" aria-label="Open post" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')"><img src="'+esc(p.img)+'" alt="'+(p.title?esc(String(p.title).slice(0,40)):'Post')+'" loading="lazy" decoding="async" draggable="false"/></button>';
-        }).join('');
+      if(!list||!list.length){
+        // Do not wipe a good strip if pool is temporarily empty during load
+        if(box.querySelector('.home-strip-card')) return;
+        box.innerHTML='';
+        return;
+      }
+      var sig=list.map(function(p){return String(p.id)+':'+(p.img||'')}).join('|');
+      if(box.getAttribute('data-strip-sig')===sig && box.querySelectorAll('.home-strip-card').length===list.length){
         window.__homeStripShown=list.map(function(p){return String(p.id)});
+        return;
       }
-      if(animate && box.querySelector('.home-strip-card')){
-        Array.prototype.forEach.call(box.querySelectorAll('.home-strip-card'),function(el){el.classList.add('is-fading')});
-        setTimeout(function(){write()},280);
-      }else{
-        write();
-      }
-    }
-    function rotateHomeRandomStrip(){
-      var prev=window.__homeStripShown||[];
-      var next=pickHomeStripFive(prev);
-      paintHomeStripCards(next, true);
+      box.setAttribute('role','list');
+      box.setAttribute('data-strip-sig',sig);
+      box.setAttribute('data-strip-day',homeStripDayKey());
+      box.innerHTML=list.map(function(p){
+        var pid=String(p.id).replace(/"/g,'');
+        return '<button type="button" class="home-strip-card" role="listitem" data-pid="'+pid+'" data-home-strip="1" aria-label="Open post" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')"><img src="'+esc(p.img)+'" alt="'+(p.title?esc(String(p.title).slice(0,40)):'Post')+'" loading="lazy" decoding="async" draggable="false" onerror="this.closest(\'.home-strip-card\')&&this.closest(\'.home-strip-card\').classList.add(\'is-broken\')"/></button>';
+      }).join('');
+      window.__homeStripShown=list.map(function(p){return String(p.id)});
     }
     function fillHomeRandomStrip(){
-      collectHomeStripPool();
-      var list=pickHomeStripFive(window.__homeStripShown||[]);
-      paintHomeStripCards(list, false);
-      if(window.__homeStripTimer) clearInterval(window.__homeStripTimer);
-      window.__homeStripTimer=setInterval(function(){
-        try{rotateHomeRandomStrip()}catch(e){}
-      }, 4500);
+      // Fixed 5 photos for the calendar day — no continuous rotation
+      if(window.__homeStripTimer){try{clearInterval(window.__homeStripTimer)}catch(e){} window.__homeStripTimer=null}
+      var list=resolveHomeStripFive();
+      paintHomeStripCards(list);
     }
     window.fillHomeRandomStrip=fillHomeRandomStrip;
-    window.rotateHomeRandomStrip=rotateHomeRandomStrip;
+    window.resolveHomeStripFive=resolveHomeStripFive;
     try{fillHomeRandomStrip()}catch(e){}
-    try{setTimeout(fillHomeRandomStrip,1500)}catch(e){}
+    try{setTimeout(fillHomeRandomStrip,1200)}catch(e){}
 
 
     try{fillHomePostStrip()}catch(e){}
     try{setTimeout(fillHomePostStrip,1200)}catch(e){}
-    try{setTimeout(fillHomeRandomStrip,1800)}catch(e){}
-    try{setTimeout(function(){collectHomeStripPool();rotateHomeRandomStrip()},4000)}catch(e){}
+    try{setTimeout(fillHomeRandomStrip,2500)}catch(e){}
+    try{setTimeout(fillHomeRandomStrip,6000)}catch(e){}
     function findPostAnywhere(id){
       id=String(id);
       var post=(posts||[]).find(function(p){return String(p.id)===id});

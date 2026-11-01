@@ -39,11 +39,13 @@ assert(html.includes('getTrikiChallenge') && html.includes('max:3'), 'Triki max 
 assert(html.includes('RETOS DISPONIBLES') && html.includes('Acepto este reto'), 'loss → challenges explicit accept');
 assert(html.includes('grantTrikiPinReward') || html.includes('REWARD: publicación fijada'), '3 wins → pin reward');
 
-// Video limits + carousel
+// Video limits + daily fixed hero strip
 assert(html.includes('limitMediaVideos') && html.includes('maxVideos'), 'max 2 videos helper');
 assert(html.includes('goontokMedia') && html.includes('slice(0,2)'), 'GoonTok max 2 videos');
-assert(html.includes('rotateHomeRandomStrip') && html.includes('__homeStripTimer'), 'hero auto carousel');
-assert(html.includes('home-strip-card.is-fading'), 'smooth carousel fade');
+assert(html.includes('rs_home_strip_day') && html.includes('homeStripDayKey'), 'hero strip locked to calendar day');
+assert(html.includes('resolveHomeStripFive') && html.includes('daySeededPick'), 'picks 5 photos once per day');
+assert(html.includes('no continuous rotation') || html.includes('Fixed 5 photos for the calendar day'), 'no continuous strip rotation');
+assert(!/setInterval\(function\(\)\{\s*try\{rotateHomeRandomStrip/.test(html), 'removed rotating strip interval');
 
 // Admin
 assert(html.includes('asec-games') && html.includes('loadAdminGames'), 'Admin games panel');
