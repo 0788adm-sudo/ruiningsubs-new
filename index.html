@@ -3245,12 +3245,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       pin:{throne:THRONE_PACK_5,paypal:PAYPAL_ME+'/5'}
     };
     var CF_MEDIA='https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
-    // Worker /media/* often 404s for crawlers/players; public R2 serves the same object keys.
+    // Videos live on Cloudflare R2. Worker /media/* often 404s; rewrite to public R2 keys.
     function publicMediaUrl(u){
       u=String(u||'').trim();
       if(!u)return '';
       var m=u.match(/^https?:\/\/ruiningsubs-api\.0788adm\.workers\.dev\/media\/([^?#]+)/i);
-      if(m&&m[1]) return CF_MEDIA+'/'+m[1];
+      if(m&&m[1]){
+        try{return CF_MEDIA+'/'+decodeURIComponent(m[1])}catch(e){return CF_MEDIA+'/'+m[1]}
+      }
       return u;
     }
     window.publicMediaUrl=publicMediaUrl;
@@ -10484,15 +10486,20 @@ function openRoulette(){
     }
     function sbRowToVideoRow(row){
       if(!row||row.id==null)return null;
+      var tags=row.tags||[];
+      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+      if(!Array.isArray(tags))tags=[];
       var imgs=[];
       try{imgs=parseImages(row.image_url||row.media_url||'')}catch(e){imgs=row.image_url?[row.image_url]:[]}
+      try{
+        // Albums often stash mp4s only in album: tags / @@ALBUM@@ markers.
+        if(typeof unpackAlbumTags==='function') unpackAlbumTags(tags).forEach(function(u){if(u&&imgs.indexOf(u)<0)imgs.push(u)});
+        if(typeof extractAlbumMarker==='function') extractAlbumMarker(row.description||row.desc||'').forEach(function(u){if(u&&imgs.indexOf(u)<0)imgs.push(u)});
+      }catch(e){}
       imgs=(imgs||[]).map(function(u){return publicMediaUrl(u)}).filter(Boolean);
       var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
       if(!vsrc && row.media_url && isVideoUrl(publicMediaUrl(row.media_url))) vsrc=publicMediaUrl(row.media_url);
       if(!vsrc) return null;
-      var tags=row.tags||[];
-      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
-      if(!Array.isArray(tags))tags=[];
       if(tags.indexOf('video')<0) tags=tags.concat(['video']);
       var poster=(imgs||[]).filter(function(u){return u&&!isVideoUrl(u)})[0]||row.thumb_url||'';
       return {
@@ -10517,17 +10524,34 @@ function openRoulette(){
       window.__vidFetchAt=Date.now();
       window.__vidFetchP=(async function(){
       try{
-        // CF /feed?type=video currently returns [] (and POST /posts is broken on D1).
-        // Pull general CF feed + Supabase video rows so GoonTok is not stuck empty.
+        // Playback files are on Cloudflare R2. CF D1 /feed?type=video is empty
+        // (POST /posts broken) — catalog is Supabase image_url → R2/worker keys.
+        // Prefer same-origin /api/videos (rewrites worker /media to R2).
+        var serverIds={};
+        function ingestSbVideoRows(rows){
+          (rows||[]).forEach(function(row){
+            var v=sbRowToVideoRow(row);
+            if(!v)return;
+            serverIds[String(v.id)]=true;
+            mergeVideoRow(v);
+          });
+        }
+        try{
+          var apiVid=await fetchWithTimeout('/api/videos',{cache:'no-store'},18000)
+            .then(function(r){return r&&r.ok?r.json():null})
+            .catch(function(){return null});
+          if(apiVid&&Array.isArray(apiVid.posts)&&apiVid.posts.length){
+            ingestSbVideoRows(apiVid.posts);
+          }
+        }catch(e){console.warn('api videos',e)}
+
         var buckets=[];
         try{buckets.push(await fetchCfFeed('video', 100))}catch(e){}
         try{buckets.push(await fetchCfFeed('goontok', 100))}catch(e){}
         try{buckets.push(await fetchCfFeed('', 100))}catch(e){}
-        var serverIds={};
         buckets.forEach(function(cf){
           (cf||[]).forEach(function(row){
             if(!row||row.id==null)return;
-            var mapped=row;
             // fetchCfFeed already maps via mapCfPost; accept either shape
             if(row.media_type==='video' || (typeof isVideoPost==='function' && isVideoPost(row)) ||
                (typeof isVideoUrl==='function' && (isVideoUrl(row.media_url)||isVideoUrl(row.video)||isVideoUrl(row.image)))){
@@ -10541,35 +10565,81 @@ function openRoulette(){
             }
           });
         });
-
+        // posts.media_url does NOT exist — never put it in filters (400 kills the scan
+        // and Videos/GoonTok shrink to ~1–2 tagged leftovers).
+        // Only ~2 rows carry tags={video}; the real library lives in image_url mp4/webm/mov.
+        // Use direct REST with PostgREST '*' wildcards (reliable). Avoid fragile .or().
+        // Encode { } in tags=cs so braces are not stripped by the URL parser (400).
+        try{
+          var sbHeaders={
+            apikey:SUPABASE_KEY,
+            Authorization:'Bearer '+SUPABASE_KEY,
+            Accept:'application/json'
+          };
+          // Narrow select — select=* pulls multi-MB base64 image_url rows and 500s/522s,
+          // which is how Videos/GoonTok collapsed to the ~2 tagged clips.
+          // Keep columns lean (no description) and prefer http+.mp4 to skip base64 false hits.
+          var sbCols='id,username,title,tags,image_url,created_at,expires_at,views,likes_count,optimized_url';
+          var sbPaths=[
+            '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bvideo%7D&order=created_at.desc&limit=80',
+            '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80',
+            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*http%.mp4%&order=created_at.desc&limit=80',
+            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*http%.webm%&order=created_at.desc&limit=80',
+            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*http%.mov%&order=created_at.desc&limit=80',
+            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*/Vids/%&order=created_at.desc&limit=80',
+            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*/media/%.mp4%&order=created_at.desc&limit=80'
+          ];
+          async function sbRestGet(path){
+            for(var attempt=0;attempt<3;attempt++){
+              try{
+                var r=await fetchWithTimeout(SUPABASE_URL+path,{headers:sbHeaders,cache:'no-store'},16000);
+                if(r&&r.ok){
+                  var j=await r.json();
+                  return Array.isArray(j)?j:[];
+                }
+                // 522/1101 edge flaps — brief backoff then retry
+                if(r&&(r.status===522||r.status===520||r.status===500||r.status===429)){
+                  await new Promise(function(res){setTimeout(res,600*(attempt+1))});
+                  continue;
+                }
+                return [];
+              }catch(e){
+                if(attempt>=2){console.warn('sb video rest',e);return []}
+                await new Promise(function(res){setTimeout(res,600*(attempt+1))});
+              }
+            }
+            return [];
+          }
+          // Parallel first; if CF/SB flaps (522/1101), fall back sequential for the main mp4 path.
+          var sbRest=await Promise.all(sbPaths.map(sbRestGet));
+          sbRest.forEach(ingestSbVideoRows);
+          var got=0; try{Object.keys(serverIds).forEach(function(){got++})}catch(e){}
+          if(got<8){
+            var fallbacks=[
+              '/rest/v1/posts?select=id,username,title,tags,image_url,created_at,views,likes_count&image_url=ilike.*http%.mp4%&order=created_at.desc&limit=80',
+              '/rest/v1/posts?select=id,username,title,tags,image_url,created_at,views,likes_count&image_url=ilike.*/media/%.mp4%&order=created_at.desc&limit=80',
+              '/rest/v1/posts?select=id,username,title,tags,image_url,created_at,views,likes_count&or=(image_url.ilike.*.mp4*,image_url.ilike.*.webm*,image_url.ilike.*.mov*)&order=created_at.desc&limit=80'
+            ];
+            for(var fi=0;fi<fallbacks.length;fi++){
+              ingestSbVideoRows(await sbRestGet(fallbacks[fi]));
+              got=0; try{Object.keys(serverIds).forEach(function(){got++})}catch(e){}
+              if(got>=20) break;
+            }
+          }
+        }catch(e){console.warn('sb video rest batch',e)}
+        // Optional: also try supabase-js if present (same filters; ignore failures)
         if(sb){
           try{
-            var sbVid=await sb.from('posts').select('*').contains('tags',['video']).order('created_at',{ascending:false}).limit(120);
-            (sbVid&&sbVid.data||[]).forEach(function(row){
-              var v=sbRowToVideoRow(row);
-              if(!v)return;
-              serverIds[String(v.id)]=true;
-              mergeVideoRow(v);
-            });
-          }catch(e){}
-          try{
-            var sbGt=await sb.from('posts').select('*').contains('tags',['goontok']).order('created_at',{ascending:false}).limit(120);
-            (sbGt&&sbGt.data||[]).forEach(function(row){
-              var v=sbRowToVideoRow(row);
-              if(!v)return;
-              serverIds[String(v.id)]=true;
-              mergeVideoRow(v);
-            });
-          }catch(e){}
-          try{
-            // Also catch rows that store mp4 URLs without a clean video tag
-            var sbMp4=await sb.from('posts').select('*').or('image_url.ilike.%.mp4%,image_url.ilike.%.webm%,image_url.ilike.%.mov%,media_url.ilike.%.mp4%,media_url.ilike.%.webm%').order('created_at',{ascending:false}).limit(120);
-            (sbMp4&&sbMp4.data||[]).forEach(function(row){
-              var v=sbRowToVideoRow(row);
-              if(!v)return;
-              serverIds[String(v.id)]=true;
-              mergeVideoRow(v);
-            });
+            var sbColsJs='id,username,title,tags,image_url,created_at,expires_at,views,likes_count,optimized_url';
+            var sbJs=await Promise.all([
+              sb.from('posts').select(sbColsJs).contains('tags',['video']).order('created_at',{ascending:false}).limit(80),
+              sb.from('posts').select(sbColsJs).contains('tags',['goontok']).order('created_at',{ascending:false}).limit(80),
+              sb.from('posts').select(sbColsJs).ilike('image_url','%http%.mp4%').order('created_at',{ascending:false}).limit(80),
+              sb.from('posts').select(sbColsJs).ilike('image_url','%/media/%.mp4%').order('created_at',{ascending:false}).limit(80)
+            ].map(function(p){
+              return Promise.resolve(p).then(function(r){return (r&&!r.error&&r.data)||[]}).catch(function(){return []});
+            }));
+            sbJs.forEach(ingestSbVideoRows);
           }catch(e){}
         }
 
@@ -10604,9 +10674,16 @@ function openRoulette(){
       try{
         rememberVideos((posts||[]).filter(function(p){return !isDeletedId(p.id)&&isVideoPost(p)}));
       }catch(e){}
+      // Rebuild video cache so Videos grid + GoonTok see the full Supabase set
+      try{
+        var rebuilt=collectVideos();
+        window.__videoCache=(rebuilt||[]).map(function(it){return it.p}).filter(Boolean);
+      }catch(e){}
       })();
       return window.__vidFetchP;
     }
+    window.fetchVideoPosts=fetchVideoPosts;
+    window.collectVideos=collectVideos;
 
     function renderVideos(){
       var box=document.getElementById('videos-grid');
