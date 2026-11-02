@@ -2,7 +2,7 @@
 // Telegram/Facebook/etc. do not run the SPA JS — they need server HTML meta tags.
 // Uses the public Supabase anon key (already in the client) + CF Worker fallback.
 
-const SITE = 'https://www.ruiningsubs.com';
+const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 const SITE_NAME = 'Ruining Subs';
 const DEFAULT_IMAGE = SITE + '/apple-touch-icon.png';
 const CF_API = 'https://ruiningsubs-api.0788adm.workers.dev';

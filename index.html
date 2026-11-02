@@ -3209,6 +3209,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       setTimeout(function(){bindImpressions(panel)},80);
     }
     var CF_API='https://ruiningsubs-api.0788adm.workers.dev';
+    var SITE_CANONICAL='https://www.ruinexpose.com';
+    function siteOrigin(){
+      try{
+        var o=String((location&&location.origin)||'');
+        if(o && /^https?:\/\//i.test(o) && o.indexOf('file:')!==0 && o!=='null') return o;
+      }catch(e){}
+      return SITE_CANONICAL;
+    }
+    window.siteOrigin=siteOrigin;
     var THRONE_HOME='https://throne.com/mastersan';
     var PAYPAL_ME='https://www.paypal.me/MartinJimenez205';
     var BTC_WALLET='135nMgiNWpSniDT7X9bhrJYGEA71N245V9';
@@ -11438,7 +11447,7 @@ function openRoulette(){
       }
     }
     function goontokShareUrl(){
-      var origin=(location.origin&&location.origin.indexOf('http')===0)?location.origin:'https://www.ruiningsubs.com';
+      var origin=(location.origin&&location.origin.indexOf('http')===0)?location.origin:siteOrigin();
       return origin+'/#goontok';
     }
     function copyGoonTokLink(){
@@ -18797,12 +18806,12 @@ async function onIdFace(e){
     function copyIdPageLink(){
       var isPea=(idRenderMode==='pea');
       var hash=isPea?'#pea':'#idcard';
-      var origin=location.origin||'https://ruiningsubs.com';
+      var origin=siteOrigin();
       var path=location.pathname||'/';
       if(!path||path==='/' ) path='/';
       var url=origin+path+hash;
       // Prefer production host if opened as local file
-      if(origin.indexOf('file:')===0||origin==='null'){url='https://ruiningsubs.com/'+hash}
+      if(String(location.origin||'').indexOf('file:')===0||location.origin==='null'){url=SITE_CANONICAL+'/'+hash}
       try{
         if(navigator.clipboard&&navigator.clipboard.writeText){
           navigator.clipboard.writeText(url).then(function(){toast(isPea?'PEA generator link copied':'ID generator link copied')}).catch(function(){prompt('Copy this link:',url)});
@@ -19596,6 +19605,58 @@ async function onIdFace(e){
         modal.classList.add('show');
       }
     }
+    function looksNumericPostId(id){
+      return /^\d+$/.test(String(id||'').trim());
+    }
+    async function writeExtendCooldownNotif(user, postId){
+      try{
+        await fetchWithTimeout(CF_API+'/notifs',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            to_username:'__EXTEND_COOLDOWN__',
+            from_username:user,
+            type:'extend_cd',
+            post_id:String(postId),
+            message:JSON.stringify({user:user,post_id:String(postId),action_type:'extend',at:Date.now(),minutes:EXTEND_ADD_MINUTES})
+          }),
+          cache:'no-store'
+        }, 4000);
+      }catch(e){}
+    }
+    async function extendViaSupabase(postId, user, minutes){
+      minutes=Number(minutes)||EXTEND_ADD_MINUTES;
+      if(!sb) throw new Error('supabase_unavailable');
+      var q=await sb.from('posts').select('id,expires_at,extensions_count,extenders').eq('id', looksNumericPostId(postId)?Number(postId):postId).maybeSingle();
+      var row=q&&q.data;
+      if(!row) throw new Error('not found');
+      var baseMs=row.expires_at?new Date(row.expires_at).getTime():0;
+      if(!baseMs || isNaN(baseMs) || baseMs<Date.now()) baseMs=Date.now();
+      var nextMs=baseMs+minutes*60000;
+      var extensions=(Number(row.extensions_count)||0)+1;
+      var extenders=[];
+      try{
+        if(Array.isArray(row.extenders)) extenders=row.extenders.slice();
+        else if(typeof row.extenders==='string') extenders=JSON.parse(row.extenders)||[];
+      }catch(e){extenders=[]}
+      if(user && extenders.indexOf(user)<0) extenders.push(user);
+      var up=await sb.from('posts').update({
+        expires_at:new Date(nextMs).toISOString(),
+        extensions_count:extensions,
+        extenders:extenders
+      }).eq('id', row.id).select('id,expires_at,extensions_count,extenders').maybeSingle();
+      if(up&&up.error) throw new Error(up.error.message||'sb_extend_failed');
+      var saved=(up&&up.data)||{expires_at:new Date(nextMs).toISOString(),extensions_count:extensions,extenders:extenders};
+      return {
+        ok:true,
+        source:'supabase',
+        expires_at:saved.expires_at?new Date(saved.expires_at).getTime():nextMs,
+        extensions:Number(saved.extensions_count)||extensions,
+        extenders:Array.isArray(saved.extenders)?saved.extenders:extenders,
+        remaining_ms:EXTEND_COOLDOWN_MS,
+        last_at:Date.now()
+      };
+    }
     async function confirmExtend(){
       var id=String(currentExtendPostId||'');
       window.__blockFeedTap=Date.now()+250;
@@ -19623,32 +19684,53 @@ async function onIdFace(e){
         }
       }catch(e){}
       var mins=EXTEND_ADD_MINUTES;
-      var amtLabel='6h';
       var conf=document.getElementById('btn-confirm-ext');
       if(conf){conf.disabled=true;conf.textContent='Extending…'}
       try{
-        var r=await fetchWithTimeout('/api/extend',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
-          cache:'no-store'
-        }, 18000);
-        var extJ=await r.json().catch(function(){return{}});
-        // If Vercel proxy / cooldown board flakes, fall back to direct CF extend so time still persists.
-        if((!r.ok && r.status>=500) || (extJ&&/cooldown_board|timeout|extend_failed/i.test(String(extJ.message||extJ.error||'')))){
+        var r={ok:false,status:0};
+        var extJ={};
+        // 1) Same-origin API (CF UUID + Supabase numeric). Short timeout — Vercel can hang.
+        try{
+          r=await fetchWithTimeout('/api/extend',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
+            cache:'no-store'
+          }, 12000);
+          extJ=await r.json().catch(function(){return{}});
+        }catch(eApi){
+          console.warn('api extend',eApi);
+          r={ok:false,status:0};
+          extJ={error:'extend_failed',message:'timeout'};
+        }
+        // 2) Direct CF for UUID posts when proxy flakes / times out / not found.
+        var needFallback=(!r.ok) || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null);
+        if(needFallback && r.status!==429 && !(extJ&&extJ.error==='cooldown') && !looksNumericPostId(id)){
           try{
             var cfr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(id)+'/extend',{
               method:'POST',
-              headers:{'Content-Type':'application/json'},
+              headers:{'Content-Type':'application/json',Origin:siteOrigin(),Referer:siteOrigin()+'/'},
               body:JSON.stringify({minutes:mins,user:user}),
               cache:'no-store'
-            }, 14000);
+            }, 10000);
             var cfj=await cfr.json().catch(function(){return{}});
             if(cfr.ok && cfj && (cfj.ok!==false) && (cfj.expires_at!=null || cfj.extensions!=null || cfj.ok)){
               r={ok:true,status:200};
-              extJ=Object.assign({ok:true,remaining_ms:EXTEND_COOLDOWN_MS,last_at:Date.now()}, cfj);
+              extJ=Object.assign({ok:true,remaining_ms:EXTEND_COOLDOWN_MS,last_at:Date.now(),source:'cloudflare'}, cfj);
+              try{writeExtendCooldownNotif(user,id)}catch(e){}
             }
           }catch(e2){console.warn('direct cf extend',e2)}
+        }
+        // 3) Supabase PATCH for numeric / CF-missing posts (ruiningsubs → ruinexpose shared DB).
+        if((!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)) && r.status!==429 && !(extJ&&extJ.error==='cooldown')){
+          try{
+            var sbj=await extendViaSupabase(id, user, mins);
+            if(sbj&&sbj.ok){
+              r={ok:true,status:200};
+              extJ=sbj;
+              try{writeExtendCooldownNotif(user,id)}catch(e){}
+            }
+          }catch(e3){console.warn('supabase extend',e3); if(!extJ||!extJ.message) extJ={error:'extend_failed',message:(e3&&e3.message)||'Extend failed'}}
         }
         if(r.status===429 || (extJ&&extJ.error==='cooldown')){
           var rem=Number(extJ.remaining_ms)||getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS;
@@ -19662,7 +19744,9 @@ async function onIdFace(e){
           return;
         }
         if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
-          toast((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
+          var failMsg=String((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
+          if(/not\s*found/i.test(failMsg)) failMsg='Could not extend this post — try again';
+          toast(failMsg);
           if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
           return;
         }
@@ -19680,7 +19764,10 @@ async function onIdFace(e){
           else post.extenders=(post.extenders||[]).concat([user]);
           try{rememberFeedPost(post)}catch(e){}
         }
-        setLocalExtendCooldown(id, Number(extJ.last_at)||Date.now(), Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS);
+        // Always start the 6h same-post cooldown countdown after a successful extend.
+        var coolRem=Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS;
+        var coolAt=Number(extJ.last_at)||Date.now();
+        setLocalExtendCooldown(id, coolAt, coolRem);
         try{
           var map=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};
           map[id]={expires:expires,extensions:extensions};
@@ -19688,11 +19775,11 @@ async function onIdFace(e){
         }catch(e){}
         try{localStorage.removeItem('rs_ext_'+id)}catch(e){}
         try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
-        paintPostExtend(id, expires, extensions, Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS);
+        paintPostExtend(id, expires, extensions, coolRem);
         try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
         try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
         closeModals();
-        toast('Extended · +6h');
+        toast('Extended · +6h · next in '+fmtExtendCountdown(coolRem));
         try{awardXp(5,'extend')}catch(e){}
         try{grantXp && grantXp('extend', String(id), false)}catch(e){}
         refreshExtendCooldownButtons();
@@ -20564,7 +20651,7 @@ async function onIdFace(e){
         }
       }
       try{
-        var link=id?('https://www.ruiningsubs.com/?p='+encodeURIComponent(String(id))):'';
+        var link=id?(siteOrigin()+'/?p='+encodeURIComponent(String(id))):'';
         var mail=['ACTION: '+label,'USER: @'+userName,'AMOUNT: '+amount,id?('POST ID: '+id):'',link?('POST LINK: '+link):'',msg].filter(Boolean).join('\n');
         await pingAdminMail('RS '+label+' @'+userName, mail);
       }catch(e){console.warn('admin mail',e)}
@@ -20697,12 +20784,9 @@ async function onIdFace(e){
         closeModals();
         return;
       }
-      payProgress(true,'Delete · $5 / 50 FC','Charging coins…',25);
+      toast('Deleting…');
       var ok=await spendFagCoins('delete', String(id));
-      if(!ok){payProgress(false);try{closeModals();openNeedCoins({cost:50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}return}
-      payProgress(true,'Delete · $5 / 50 FC','Deleting post…',70);
-      var removeDone=false;
-      setTimeout(function(){if(!removeDone){payProgress(true,'Removed','Closing…',100);setTimeout(function(){payProgress(false)},600)}},8000);
+      if(!ok){try{closeModals();openNeedCoins({cost:50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}return}
       try{
         var post=(posts||[]).find(function(p){return String(p.id)===String(id)});
         await notifyAdminPayment({
@@ -20721,12 +20805,7 @@ async function onIdFace(e){
       try{posts=(posts||[]).filter(function(p){return String(p.id)!==String(id)})}catch(e){}
       try{localStorage.setItem('rs_videos',JSON.stringify((JSON.parse(localStorage.getItem('rs_videos')||'[]')||[]).filter(function(p){return String(p.id)!==String(id)})))}catch(e){}
       closeModals();
-      removeDone=true;
-      payProgress(true,'Removed','Going to feed…',100);
-      setTimeout(function(){
-        payProgress(false);
-        try{showPanel('feed');renderPosts()}catch(e){}
-      },700);
+      try{showPanel('feed');renderPosts()}catch(e){}
       toast('Deleted');
     }
     window.removeWithCoins=removeWithCoins;
@@ -20761,8 +20840,10 @@ async function onIdFace(e){
       var removeMsg='🚨 DELETE PAYMENT REQUEST · @'+userName+' · post #'+id+' · $5 · user pressed I PAID'+(title?' · '+String(title).slice(0,40):'');
       var removeSent=false;
       var lastErr='';
+      // No 0→100% progress overlay — toast only (keeps Safari/mobile snappy).
+      try{closePinRequestProgress()}catch(e){}
+      toast('Sending delete request…');
       try{
-        pinRequestProgress(20,'Notifying admin…','🗑 Delete request');
         try{
           await notifyAdminPayment({
             kind:'remove_request',
@@ -20774,26 +20855,22 @@ async function onIdFace(e){
           });
           removeSent=true;
         }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('remove notif',e)}
-        pinRequestProgress(55,'Creating remove request…','🗑 Delete request');
         try{
           var rr=await cfCreateRequest({kind:'remove_request',postId:id,user:userName,amount:'$5',coins:0,provider:'throne/paypal',label:'DELETE',payload:{message:removeMsg,post_id:String(id),product:'Delete post'},message:removeMsg});
           if(rr) removeSent=true;
         }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('remove request',e)}
         if(!removeSent){
-          pinRequestProgress(75,'Retrying admin inbox…','🗑 Delete request');
           try{
             var alt=await sendAdminSiteRequest('remove_request', id, userName, removeMsg);
             if(alt&&alt.ok) removeSent=true;
           }catch(e){lastErr=(e&&e.message)||lastErr}
         }
         if(removeSent){
-          pinRequestProgress(100,'Request sent','Done');
-          setTimeout(closePinRequestProgress,900);
           closeModals();
           toast('Remove request sent ✓ Admin has received it.');
         }else{
-          pinRequestProgress(100,'Could not send request', lastErr||'Network error');
           toast('Could not send the remove request. Please try again.');
+          console.warn('remove request failed', lastErr);
         }
       }finally{
         __removeRequestLocks[lockKey]=false;
@@ -21277,8 +21354,7 @@ async function onIdFace(e){
     }
 
     function postShareUrl(id){
-      var origin='https://www.ruiningsubs.com';
-      return origin+'/?p='+encodeURIComponent(String(id));
+      return siteOrigin()+'/?p='+encodeURIComponent(String(id));
     }
     function shareHookFor(post){
       var who=(post&&post.user)?('@'+String(post.user).replace(/^@/,'')):'this sub';
@@ -21479,7 +21555,8 @@ async function onIdFace(e){
       if(btn){btn.disabled=true;btn.textContent='Sending…'}
       setAuthStatus('Step 1/2 — Sending recovery email…');
       try{
-        var redirect=(location.hostname.indexOf('ruiningsubs.com')>=0)?(location.origin+'/'):'https://www.ruiningsubs.com/';
+        var hn=String(location.hostname||'');
+        var redirect=(/ruinexpose\.com|ruiningsubs\.com/i.test(hn))?(location.origin+'/'):(SITE_CANONICAL+'/');
         var res=await sb.auth.resetPasswordForEmail(email,{redirectTo:redirect});
         if(res.error)throw res.error;
         setAuthStatus('Step 2/2 — Email sent. Open the link on this phone, then set a new password.','ok');
