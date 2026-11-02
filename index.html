@@ -9165,19 +9165,18 @@ function openRoulette(){
       document.getElementById('btn-publish').onclick=createPost;
       document.getElementById('media-upload').onclick=function(){document.getElementById('photo-input').click()};
       document.getElementById('photo-input').onchange=handlePhoto;
-            document.getElementById('btn-confirm-ext').onclick=confirmExtend;
       document.getElementById('btn-cancel-ext').onclick=closeModals;
       var extX=document.getElementById('btn-extend-x');
       if(extX) extX.onclick=closeModals;
       var extC=document.getElementById('btn-confirm-ext');
       if(extC && !extC._fast){
         extC._fast=1;
-        extC.addEventListener('pointerup',function(e){
-          e.preventDefault();
-          e.stopPropagation();
+        // Single handler — Safari was double-firing pointerup + click.
+        extC.onclick=function(e){
+          try{e.preventDefault();e.stopPropagation()}catch(err){}
           window.__blockFeedTap=Date.now()+250;
           confirmExtend();
-        },{passive:false});
+        };
       }
       document.getElementById('btn-cancel-rm').onclick=closeModals;
       var bdc=document.getElementById('btn-donate-close'); if(bdc)bdc.onclick=closeModals;
@@ -12148,10 +12147,22 @@ function openRoulette(){
       return Math.max(Number(p.hotCount)||0, fromTag, loc);
     }
     function wallRankScore(p){
-      // Newest-first base; each Hot lifts ~12h so timeless posts can climb the wall
-      var created=Number(p&&p.created||0)||0;
+      // Balance: fresh posts stay near the top, Hot lifts without burying newcomers,
+      // and older engaged posts don't die in oblivion.
+      var now=Date.now();
+      var created=Number(p&&p.created||0)||now;
+      var ageH=Math.max(0,(now-created)/3600000);
       var hot=postHotCount(p);
-      return created + hot * 12 * 3600 * 1000;
+      // Diminishing Hot lift (cap ~2.5 days) so mega-Hot can't own the wall forever
+      var hotBoost=Math.min(60, hot*7 + Math.log10(1+hot)*10) * 3600 * 1000;
+      // New-post grace: first ~36h get an extra push so they aren't buried
+      var freshBoost=Math.max(0, 36-ageH) * 0.55 * 3600 * 1000;
+      // Soft longevity from likes/views/Hot so older posts still surface
+      var eng=(Number(p.likes||0)||0) + (Number(p.views||0)||0)/25 + hot*2 + (Number(p.commentCount||p.comments||0)||0)*2;
+      var engBoost=Math.min(30, Math.log10(1+eng)*12) * 3600 * 1000;
+      // Mild age decay after 10 days so truly abandoned posts drift down
+      var agePenalty=ageH>240 ? Math.min(48,(ageH-240)*0.08)*3600*1000 : 0;
+      return created + hotBoost + freshBoost + engBoost - agePenalty;
     }
     function iAlreadyHotted(id){
       try{
@@ -12187,13 +12198,15 @@ function openRoulette(){
       if(!p) try{p=(window.__videoCache||[]).find(function(x){return String(x.id)===id})}catch(e){}
       if(!p) try{p=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       if(!p){toast('Post not found');return}
-      // IDs / PEAs / timeless wall posts can be Hot. Timed exposures use Extend instead.
+      // Wall / timeless / IDs / PEAs → Hot. Timed exposures use Extend instead.
       var allowHot=!!opts.allowAnon;
       try{
         if(typeof isTimelessWallPost==='function' && isTimelessWallPost(p)) allowHot=true;
+        if(typeof isWallNormalPost==='function' && isWallNormalPost(p)) allowHot=true;
         if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) allowHot=true;
+        if(typeof isWallTimedPost==='function' && isWallTimedPost(p)) allowHot=false;
         var tg=p.tags||[]; if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-        if(Array.isArray(tg) && tg.some(function(x){return /^(generated_id|generated_pea|idcard|pea|id)$/i.test(String(x||''))})) allowHot=true;
+        if(Array.isArray(tg) && tg.some(function(x){return /^(generated_id|generated_pea|idcard|pea|id|normal_feed|profile_gallery|profile_only)$/i.test(String(x||''))})) allowHot=true;
       }catch(e){}
       if(!allowHot){toast('Hot is for posts without a timer');return}
       var next=postHotCount(p)+1;
@@ -12209,17 +12222,17 @@ function openRoulette(){
         (window.__videoCache||[]).forEach(function(x){if(String(x.id)===id){x.hotCount=next;x.tags=withHotTag(x.tags||[],next)}});
       }catch(e){}
       try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
-      try{renderNormalFeed()}catch(e){}
       try{
-        var btn=document.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"] .gt-hot');
-        if(btn) btn.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span> '+next;
-      }catch(e){}
-      try{
-        document.querySelectorAll('.id-archive-card[data-pid="'+id.replace(/"/g,'')+'"] .btn-hot').forEach(function(b){
+        var escId=id.replace(/"/g,'');
+        document.querySelectorAll('.btn-hot[data-nf-id="'+escId+'"],[data-pid="'+escId+'"] .btn-hot,[data-normal-post-id="'+escId+'"] .btn-hot,.id-archive-card[data-pid="'+escId+'"] .btn-hot').forEach(function(b){
           b.classList.add('on'); b.disabled=true;
-          b.innerHTML='<span class="nf-action-icon">🔥</span> HOT · '+next;
+          b.innerHTML='🔥 HOT · '+next;
         });
+        var gt=document.querySelector('.gt-slide[data-gid="'+escId+'"] .gt-hot');
+        if(gt) gt.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span> '+next;
       }catch(e){}
+      try{renderNormalFeed()}catch(e){}
+      try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
       toast('Hot🔥 · boosted');
       try{await patchCfPost(id,{tags:p.tags})}catch(e){}
     }
@@ -12630,10 +12643,13 @@ function openRoulette(){
         return matchesWallFilter(p, wallFilter);
       });
       var sortNormalByHot=function(a,b){
+        // Prefer balanced wallRankScore (fresh + Hot + engagement) over raw Hot count
+        var rb=wallRankScore(b), ra=wallRankScore(a);
+        if(rb!==ra) return rb-ra;
         var hb=typeof postHotCount==='function'?postHotCount(b):0;
         var ha=typeof postHotCount==='function'?postHotCount(a):0;
         if(hb!==ha) return hb-ha;
-        return wallRankScore(b)-wallRankScore(a);
+        return (Number(b.created)||0)-(Number(a.created)||0);
       };
       var sortByRank=function(a,b){return wallRankScore(b)-wallRankScore(a)};
       var sortByTrending=function(a,b){return wallTrendingScore(b)-wallTrendingScore(a) || wallRankScore(b)-wallRankScore(a)};
@@ -17357,7 +17373,7 @@ function profileStatsHtml(userPosts, extra){
       var myR=getMyReaction(p);
       var dying=(!permanent && rem>0 && rem<4*3600000);
       var dyingBar=dying?'<div style="margin:0 8px 8px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'';
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+(permanent?'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>':'<button class="btn btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(p.id).replace(/"/g,'')+'" '+(already?'disabled aria-disabled="true"':'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?('Extended <span class="ext-cd">'+fmtExtendCountdown(alreadyCd)+'</span>'):('⚡ Extend +6h · '+((p.extensions||0)+1)))+'</button>')+'</div></article>';
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+((permanent||(typeof isTimelessWallPost==='function'&&isTimelessWallPost(p)))?('<button class="btn btn-hot'+(typeof iAlreadyHotted==='function'&&iAlreadyHotted(p.id)?' on':'')+'" type="button" '+(typeof iAlreadyHotted==='function'&&iAlreadyHotted(p.id)?'disabled':'')+' data-nf-act="hot" data-nf-id="'+String(p.id).replace(/"/g,'')+'" onclick="event.stopPropagation();hotBumpWall('+jsId(p.id)+')">🔥 Hot'+(typeof postHotCount==='function'&&postHotCount(p)?' · '+postHotCount(p):'')+'</button>'<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">Comment</button>'):('<button class="btn btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(p.id).replace(/"/g,'')+'" '+(already?'disabled aria-disabled="true":'')+' onclick="event.stopPropagation();openExtend('+jsId(p.id)+')">'+(already?('Extended <span class="ext-cd">'+fmtExtendCountdown(alreadyCd)+'</span>'):('⚡ Extend +6h · '+((p.extensions||0)+1)))+'</button>'))+'</div></article>';
     }
     
     function setupFeatCarousel(){
@@ -17827,8 +17843,12 @@ function profileStatsHtml(userPosts, extra){
       if(isOwner&&post.extenders&&post.extenders.length){extHtml='<div style="background:var(--elev);border:1px solid var(--border);border-radius:12px;padding:12px;margin:12px 14px"><strong style="color:var(--orange)">Who extended</strong>'+post.extenders.map(function(e){return '<div style="font-size:13px;color:var(--muted);padding:3px 0">@'+esc(e)+'</div>'}).join('')+'</div>'}
       var who='@'+String(post.user||'him').replace(/^@/,'');
       var mineR=getMyReaction(post);
-      var extLed=(permanent||timeless||!timedLive)
-        ? ((timeless && !permanent) ? ('<button class="dx-ext btn-extend" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT</b><i>no timer · boost</i></button>') : '')
+      var hotNDetail=(typeof postHotCount==='function'?postHotCount(post):0)||0;
+      var alreadyHotDetail=(typeof iAlreadyHotted==='function'&&iAlreadyHotted(post.id));
+      // Wall / timeless / non-timer posts → HOT. Live timed exposures → Extend.
+      var showHotBtn=!(timedLive && !timeless);
+      var extLed=showHotBtn
+        ? ('<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>')
         : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +6h')+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
@@ -19561,6 +19581,10 @@ async function onIdFace(e){
     async function openExtend(id){
       id=String(id||'');
       if(!id)return;
+      // Safari fires pointerup + click + onclick — debounce so one tap = one extend.
+      var now=Date.now();
+      if(window.__openExtTap && window.__openExtTap.id===id && (now-window.__openExtTap.t)<1100) return;
+      window.__openExtTap={id:id,t:now};
       var user=extendUserId();
       if(!user){toast('Login to extend');try{showPanel('profile')}catch(e){}return}
       var post=null;
@@ -19568,42 +19592,50 @@ async function onIdFace(e){
       // Posts without a live timer → HOT instead of Extend
       try{
         if(post && typeof isTimelessWallPost==='function' && isTimelessWallPost(post)){
-          toast('No timer on this post — use HOT');
           try{await hotBumpWall(id)}catch(e){try{hotBumpWall(id)}catch(e2){}}
           return;
         }
+        if(post && typeof isWallTimedPost==='function' && !isWallTimedPost(post) && typeof isWallNormalPost==='function' && isWallNormalPost(post)){
+          try{await hotBumpWall(id)}catch(e){}
+          return;
+        }
       }catch(e){}
+      // Instant local cooldown check — never wait on network before reacting (Safari lag).
+      var localRem=getLocalExtendCooldown(id);
+      if(localRem>0){
+        toast(fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem));
+        paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, localRem);
+        refreshExtendCooldownButtons();
+        return;
+      }
       currentExtendPostId=id;
-      var mins=EXTEND_ADD_MINUTES;
-      var amtLabel=fmtMin(mins);
       var el=document.getElementById('extend-desc');
       if(el)el.innerHTML='Add <strong style="color:var(--orange)">6h</strong> of visibility to this post.';
-      var cdEl=document.getElementById('extend-cooldown');
-      var conf=document.getElementById('btn-confirm-ext');
-      if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
-      if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
-      var status=await fetchExtendCooldownStatus(id);
-      if(status && status.remaining_ms>0){
-        if(cdEl){
-          cdEl.style.display='block';
-          cdEl.textContent=fmtExtendCooldown(status.remaining_ms)+' · '+fmtExtendCountdown(status.remaining_ms);
-        }
-        if(conf){conf.disabled=true;conf.textContent=fmtExtendCountdown(status.remaining_ms)}
-        paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, status.remaining_ms);
-        refreshExtendCooldownButtons();
-      }else{
-        try{
-          if(sessionStorage.getItem('rs_ext_skip_confirm')==='1'){
-            confirmExtend();
-            return;
+      // Optimistic button paint so the tap feels instant
+      try{
+        document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
+          if(b.disabled||b.classList.contains('is-cooling'))return;
+          b.textContent='Extending…';
+          b.disabled=true;
+        });
+      }catch(e){}
+      // One-tap extend (no modal / no cooldown GET wait). Modal only if confirmExtend fails.
+      try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
+      try{
+        await confirmExtend();
+      }catch(e){
+        var modal=document.getElementById('extend-modal');
+        if(modal){modal.style.display='';modal.classList.add('show')}
+      }
+      // Refresh cooldown from server in background (non-blocking)
+      try{
+        fetchExtendCooldownStatus(id).then(function(status){
+          if(status && status.remaining_ms>0){
+            paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, status.remaining_ms);
+            refreshExtendCooldownButtons();
           }
-        }catch(e){}
-      }
-      var modal=document.getElementById('extend-modal');
-      if(modal){
-        modal.style.display='';
-        modal.classList.add('show');
-      }
+        }).catch(function(){});
+      }catch(e){}
     }
     function looksNumericPostId(id){
       return /^\d+$/.test(String(id||'').trim());
@@ -19689,40 +19721,45 @@ async function onIdFace(e){
       try{
         var r={ok:false,status:0};
         var extJ={};
-        // 1) Same-origin API (CF UUID + Supabase numeric). Short timeout — Vercel can hang.
-        try{
-          r=await fetchWithTimeout('/api/extend',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
-            cache:'no-store'
-          }, 12000);
-          extJ=await r.json().catch(function(){return{}});
-        }catch(eApi){
-          console.warn('api extend',eApi);
-          r={ok:false,status:0};
-          extJ={error:'extend_failed',message:'timeout'};
+        function extendOk(){
+          return !!(r.ok && !(extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null));
         }
-        // 2) Direct CF for UUID posts when proxy flakes / times out / not found.
-        var needFallback=(!r.ok) || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null);
-        if(needFallback && r.status!==429 && !(extJ&&extJ.error==='cooldown') && !looksNumericPostId(id)){
+        // Safari-fast path: hit CF directly first for UUID posts (~0.2s). Vercel /api/extend often hangs.
+        if(!looksNumericPostId(id)){
           try{
             var cfr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(id)+'/extend',{
               method:'POST',
               headers:{'Content-Type':'application/json',Origin:siteOrigin(),Referer:siteOrigin()+'/'},
               body:JSON.stringify({minutes:mins,user:user}),
               cache:'no-store'
-            }, 10000);
+            }, 8000);
             var cfj=await cfr.json().catch(function(){return{}});
             if(cfr.ok && cfj && (cfj.ok!==false) && (cfj.expires_at!=null || cfj.extensions!=null || cfj.ok)){
               r={ok:true,status:200};
               extJ=Object.assign({ok:true,remaining_ms:EXTEND_COOLDOWN_MS,last_at:Date.now(),source:'cloudflare'}, cfj);
               try{writeExtendCooldownNotif(user,id)}catch(e){}
+            }else if(cfr.status===429){
+              r={ok:false,status:429}; extJ=Object.assign({error:'cooldown'}, cfj||{});
             }
           }catch(e2){console.warn('direct cf extend',e2)}
         }
-        // 3) Supabase PATCH for numeric / CF-missing posts (ruiningsubs → ruinexpose shared DB).
-        if((!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)) && r.status!==429 && !(extJ&&extJ.error==='cooldown')){
+        // Same-origin API (cooldown + Supabase numeric). Keep timeout tight for Safari.
+        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown')){
+          try{
+            r=await fetchWithTimeout('/api/extend',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
+              cache:'no-store'
+            }, 9000);
+            extJ=await r.json().catch(function(){return{}});
+          }catch(eApi){
+            console.warn('api extend',eApi);
+            if(!r.ok){ r={ok:false,status:0}; extJ={error:'extend_failed',message:'timeout'}; }
+          }
+        }
+        // Supabase PATCH for numeric / CF-missing posts (ruiningsubs → ruinexpose shared DB).
+        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown')){
           try{
             var sbj=await extendViaSupabase(id, user, mins);
             if(sbj&&sbj.ok){
@@ -19748,6 +19785,15 @@ async function onIdFace(e){
           if(/not\s*found/i.test(failMsg)) failMsg='Could not extend this post — try again';
           toast(failMsg);
           if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
+          // Restore optimistic "Extending…" feed buttons after Safari fail
+          try{
+            var nFail=((post&&post.extensions)||0)+1;
+            document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
+              if(b.classList.contains('is-cooling'))return;
+              b.disabled=false;
+              b.innerHTML='⚡ Extend +6h · '+nFail;
+            });
+          }catch(e){}
           return;
         }
         var base=Number((post&&post.expires)||0)||readCardExpires(id);
