@@ -3,7 +3,7 @@
 // Never trust browser-only balance mutations for these actions.
 
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
-const SITE = process.env.SITE_URL || 'https://www.ruiningsubs.com';
+const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 
 var FC_COSTS = {
   delete: Number(process.env.FC_COST_DELETE || 50),

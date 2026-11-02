@@ -28,5 +28,11 @@ assert(html.includes('Promise.all(jobs)') || html.includes('Parallel network'), 
 assert(api.includes('EXTEND_MINUTES = 360') || api.includes('EXTEND_MINUTES=360'), 'api fixed +6h');
 assert(api.includes('return []') && api.includes('cooldown_board'), 'api soft-fails cooldown board');
 assert(api.includes('You can extend again in '), 'api English cooldown message');
+assert(api.includes('callSbExtend') || api.includes('sbFetch'), 'api has Supabase extend fallback');
+assert(api.includes('ruinexpose.com'), 'api SITE defaults to ruinexpose');
+assert(html.includes('extendViaSupabase'), 'SPA Supabase extend fallback');
+assert(html.includes('SITE_CANONICAL') && html.includes('ruinexpose.com'), 'SPA canonical site is ruinexpose');
+assert(html.includes('Sending delete request'), 'delete request toast-only (no 100% bar)');
+assert(html.includes('next in ') || html.includes("toast('Extended · +6h · next in "), 'cooldown countdown toast after extend');
 assert(fs.existsSync(path.join(__dirname,'..','migrations','20261101_extend_cooldowns.sql')), 'migration file present');
 console.log('\\nAll V2 polish static checks passed');

@@ -3,7 +3,7 @@
 // and grants pin reward after 3 Triki wins in a challenge session.
 
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
-const SITE = process.env.SITE_URL || 'https://www.ruiningsubs.com';
+const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 const FC_ROULETTE = Number(process.env.FC_COST_ROULETTE || 10);
 const FC_DICE = Number(process.env.FC_COST_DICE || 10);
 const FC_CUSTOM = Number(process.env.FC_COST_CUSTOM_ROULETTE || 250);

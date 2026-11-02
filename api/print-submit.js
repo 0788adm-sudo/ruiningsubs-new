@@ -4,11 +4,11 @@
 // then creates the CF print_request and notifies @mastersan.
 
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
-const SITE = process.env.SITE_URL || 'https://www.ruiningsubs.com';
+const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 const PRINT_FC_COST = Number(process.env.PRINT_FC_COST || 350);
 const ALLOWED_PROOF_HOSTS = (
   process.env.PRINT_PROOF_HOSTS ||
-  'pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev,ruiningsubs-api.0788adm.workers.dev,snlpdolzhzcbbdyxqlnb.supabase.co,www.ruiningsubs.com,ruiningsubs.com'
+  'pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev,ruiningsubs-api.0788adm.workers.dev,snlpdolzhzcbbdyxqlnb.supabase.co,www.ruiningsubs.com,ruiningsubs.com,www.ruinexpose.com,ruinexpose.com'
 ).split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
 
 // In-process idempotency (best-effort on serverless; order_code also stored on the CF request).
