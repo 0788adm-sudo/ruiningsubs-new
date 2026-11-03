@@ -3028,11 +3028,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   <div class="modal-bg" id="extend-modal">
     <div class="modal">
       <button class="modal-x" type="button" id="btn-extend-x" aria-label="Close">✕</button>
-      <h3>⏱ Extend</h3>
-      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add <strong style="color:var(--orange)">the publisher’s time</strong> of visibility to this post.</p>
+      <h3>⏱ Extend?</h3>
+      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Do you want to add <strong style="color:var(--orange)">the publisher’s time</strong> of visibility to this post?</p>
       <p id="extend-cooldown" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,106,0,.12);border:1px solid rgba(255,106,0,.35);color:#ffb35c;font-size:13px;font-weight:800"></p>
-      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm · Extend</button>
-      <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">Cancel</button>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Yes · Extend</button>
+      <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">No</button>
     </div>
   </div>
   <div class="modal-bg" id="remove-modal">
@@ -9193,13 +9193,24 @@ function openRoulette(){
       document.getElementById('btn-publish').onclick=createPost;
       document.getElementById('media-upload').onclick=function(){document.getElementById('photo-input').click()};
       document.getElementById('photo-input').onchange=handlePhoto;
-      document.getElementById('btn-cancel-ext').onclick=closeModals;
+      function cancelExtendModal(){
+        var id=String(currentExtendPostId||'');
+        var post=null;
+        try{post=id&&typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+        closeModals();
+        // Never leave a stuck Extending… if the user said No.
+        if(id && !getLocalExtendCooldown(id)){
+          try{restoreExtendButtons(id, post)}catch(e){}
+        }
+      }
+      document.getElementById('btn-cancel-ext').onclick=cancelExtendModal;
       var extX=document.getElementById('btn-extend-x');
-      if(extX) extX.onclick=closeModals;
+      if(extX) extX.onclick=cancelExtendModal;
       var extC=document.getElementById('btn-confirm-ext');
       if(extC && !extC._fast){
         extC._fast=1;
         // Single handler — Safari was double-firing pointerup + click.
+        // Yes → apply extend immediately.
         extC.onclick=function(e){
           try{e.preventDefault();e.stopPropagation()}catch(err){}
           window.__blockFeedTap=Date.now()+250;
@@ -20012,7 +20023,7 @@ async function onIdFace(e){
             var conf=document.getElementById('btn-confirm-ext');
             var confPost=null;
             try{confPost=typeof findPostAnywhere==='function'?findPostAnywhere(currentExtendPostId):null}catch(e){}
-            if(conf){conf.disabled=false;conf.textContent='Confirm · +'+fmtMin(postExtendMinutes(confPost))}
+            if(conf){conf.disabled=false;conf.textContent='Yes · +'+fmtMin(postExtendMinutes(confPost))}
           }
         }
         if(!any && !document.querySelector('.btn-extend.is-cooling')){
@@ -20024,9 +20035,9 @@ async function onIdFace(e){
     async function openExtend(id){
       id=String(id||'');
       if(!id)return;
-      // Safari fires pointerup + click + onclick — debounce so one tap = one extend.
+      // Safari fires pointerup + click + onclick — debounce so one open = one confirm modal.
       var now=Date.now();
-      if(window.__openExtTap && window.__openExtTap.id===id && (now-window.__openExtTap.t)<1100) return;
+      if(window.__openExtTap && window.__openExtTap.id===id && (now-window.__openExtTap.t)<700) return;
       window.__openExtTap={id:id,t:now};
       if(window.__extLock===id){toast('Extend already in progress');return}
       var user=extendUserId();
@@ -20052,37 +20063,23 @@ async function onIdFace(e){
       var minsHint=postExtendMinutes(post);
       var amtLab=fmtMin(minsHint);
       var el=document.getElementById('extend-desc');
-      if(el)el.innerHTML='Add <strong style="color:var(--orange)">'+amtLab+'</strong> of visibility to this post.';
+      if(el)el.innerHTML='Do you want to add <strong style="color:var(--orange)">'+amtLab+'</strong> of visibility to this post?';
+      var cdEl=document.getElementById('extend-cooldown');
+      if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
       var confBtn=document.getElementById('btn-confirm-ext');
-      if(confBtn){confBtn.disabled=false;confBtn.textContent='Confirm · +'+amtLab}
-      // Optimistic button paint so the tap feels instant
-      try{
-        document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
-          if(b.disabled||b.classList.contains('is-cooling'))return;
-          b.textContent='Extending…';
-          b.disabled=true;
-        });
-      }catch(e){}
-      // One-tap extend (no modal / no cooldown GET wait). Modal only if confirmExtend fails hard.
-      try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
-      var ok=false;
-      try{
-        ok=!!(await confirmExtend());
-      }catch(e){
-        restoreExtendButtons(id, post, amtLab);
-        var modal=document.getElementById('extend-modal');
-        if(modal){modal.style.display='';modal.classList.add('show')}
-      }
-      if(!ok && !getLocalExtendCooldown(id)){
-        // Safety: never leave "Extending…" forever
-        restoreExtendButtons(id, post, amtLab);
-      }
-      // Refresh cooldown from server in background (non-blocking)
+      if(confBtn){confBtn.disabled=false;confBtn.textContent='Yes · +'+amtLab}
+      // Ask first (like before). Do NOT paint Extending… until the user taps Yes.
+      try{sessionStorage.removeItem('rs_ext_skip_confirm')}catch(e){}
+      var modal=document.getElementById('extend-modal');
+      if(modal){modal.style.display='';modal.classList.add('show')}
+      // Soft background refresh of cooldown status (non-blocking)
       try{
         fetchExtendCooldownStatus(id).then(function(status){
           if(status && status.remaining_ms>0){
             paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, status.remaining_ms);
             refreshExtendCooldownButtons();
+            if(cdEl){cdEl.style.display='block';cdEl.textContent=fmtExtendCooldown(status.remaining_ms)+' · '+fmtExtendCountdown(status.remaining_ms)}
+            if(confBtn){confBtn.disabled=true;confBtn.textContent=fmtExtendCountdown(status.remaining_ms)}
           }
         }).catch(function(){});
       }catch(e){}
@@ -20172,6 +20169,14 @@ async function onIdFace(e){
       var amtLab=fmtMin(mins);
       var conf=document.getElementById('btn-confirm-ext');
       if(conf){conf.disabled=true;conf.textContent='Extending…'}
+      // Only after Yes: show Extending… on the card, then apply immediately.
+      try{
+        document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
+          if(b.classList.contains('is-cooling'))return;
+          b.textContent='Extending…';
+          b.disabled=true;
+        });
+      }catch(e){}
       var succeeded=false;
       try{
         var r={ok:false,status:0};
@@ -20250,7 +20255,7 @@ async function onIdFace(e){
           if(/not\s*found/i.test(failMsg)) failMsg='Could not extend this post — try again';
           if(/timeout/i.test(failMsg)) failMsg='Extend timed out — try again';
           toast(failMsg);
-          if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLab}
+          if(conf){conf.disabled=false;conf.textContent='Yes · +'+amtLab}
           restoreExtendButtons(id, post, amtLab);
           return false;
         }
@@ -20293,7 +20298,7 @@ async function onIdFace(e){
       }catch(e){
         console.warn(e);
         toast('Extend failed — check connection');
-        if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLab}
+        if(conf){conf.disabled=false;conf.textContent='Yes · +'+amtLab}
         restoreExtendButtons(id, post, amtLab);
         return false;
       }finally{

@@ -15,6 +15,9 @@ assert(html.includes('restoreExtendButtons'), 'extend restores buttons on failur
 assert(html.includes('hardDeadline'), 'extend absolute deadline');
 assert(/toast\('Extended \+'/.test(html) || html.includes("toast('Extended +"), 'success toast Extended +amount');
 assert(html.includes('syncPostExpiresEverywhere'), 'sync expires across caches');
+assert(html.includes('Do you want to add'), 'extend asks for confirmation first');
+assert(html.includes('Yes · Extend') || html.includes("Yes · +"), 'Yes confirm CTA');
+assert(html.includes("sessionStorage.removeItem('rs_ext_skip_confirm')"), 'no one-tap skip — ask first');
 assert(html.includes("name:'TIC-TAC-TOE'"), 'Tic-Tac-Toe English');
 assert(html.includes("name:'WORD SCRAMBLE'"), 'Word Scramble English');
 assert(html.includes("name:'RUIN ROULETTE'"), 'Ruin Roulette');
