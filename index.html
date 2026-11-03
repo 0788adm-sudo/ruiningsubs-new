@@ -403,8 +403,12 @@
     .rs-xp-bar{height:8px;border-radius:999px;background:#1b1b22;overflow:hidden;border:1px solid #2a2a32}
     .rs-xp-bar>i{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#ff6a00);border-radius:999px}
     .rs-promo-strip{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word}
-    #panel-challenges .rs-game-card,#panel-challenges .rs-games-hero{max-width:100%;box-sizing:border-box}
-    #panel-challenges .rs-game-btn{min-height:44px}
+    #panel-challenges,#panel-challenges #games-hub,#panel-challenges #games-play{max-width:100%;overflow-x:hidden;box-sizing:border-box}
+    #panel-challenges .rs-game-card,#panel-challenges .rs-games-hero{max-width:100%;width:100%;box-sizing:border-box;overflow:hidden}
+    #panel-challenges .rs-game-name,#panel-challenges .rs-game-desc{overflow-wrap:anywhere;word-break:break-word}
+    #panel-challenges .rs-game-foot{min-width:0;flex-wrap:wrap}
+    #panel-challenges .rs-game-xp{min-width:0}
+    #panel-challenges .rs-game-btn{min-height:44px;flex:0 0 auto}
     .rs-streak-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.4);color:#ffb35c;font-size:11px;font-weight:900;margin-top:8px}
     .rs-badge-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#14141a;border:1px solid #2a2a32;font-size:11px;font-weight:800;color:#e8e8ec}
     .notif-item .ni-ico{font-size:18px;width:28px;flex:0 0 auto}
@@ -16161,7 +16165,7 @@ function profileStatsHtml(userPosts, extra){
         html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
         html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
         html+='<span>'+esc(g.difficulty)+'</span>'+(g.xp?'<span>+'+g.xp+' XP</span>':'')+'<span>'+esc(g.duration)+'</span></div>';
-        html+='<div class="rs-game-foot"><span class="rs-game-xp">'+(g.xp?('+'+g.xp+' XP'):'PLAY')+'</span>';
+        html+='<div class="rs-game-foot"><span class="rs-game-xp">'+(g.xp?('+'+g.xp+' XP'):(g.id==='roulette'||g.id==='dice'?'1 free · 10 FC':''))+'</span>';
         html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">JUGAR</button></div></div>';
       });
 
