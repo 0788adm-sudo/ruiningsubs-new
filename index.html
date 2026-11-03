@@ -9209,13 +9209,20 @@ function openRoulette(){
       var extC=document.getElementById('btn-confirm-ext');
       if(extC && !extC._fast){
         extC._fast=1;
-        // Single handler — Safari was double-firing pointerup + click.
-        // Yes → apply extend immediately.
-        extC.onclick=function(e){
+        // Instant Yes: hide modal on pointerdown (before paint) — never wait on click/network.
+        function onYesExtend(e){
           try{e.preventDefault();e.stopPropagation()}catch(err){}
-          window.__blockFeedTap=Date.now()+250;
-          confirmExtend();
-        };
+          if(window.__extYesTap && Date.now()-window.__extYesTap<500) return;
+          window.__extYesTap=Date.now();
+          window.__blockFeedTap=Date.now()+400;
+          try{
+            var m=document.getElementById('extend-modal');
+            if(m){m.classList.remove('show');m.style.display='none'}
+          }catch(err2){}
+          try{confirmExtend()}catch(err3){console.warn(err3)}
+        }
+        extC.addEventListener('pointerdown', onYesExtend, {passive:false});
+        extC.onclick=onYesExtend;
       }
       document.getElementById('btn-cancel-rm').onclick=closeModals;
       var bdc=document.getElementById('btn-donate-close'); if(bdc)bdc.onclick=closeModals;
@@ -20167,16 +20174,21 @@ async function onIdFace(e){
         last_at:Date.now()
       };
     }
-    async function confirmExtend(){
+    function confirmExtend(){
       var id=String(currentExtendPostId||'');
-      window.__blockFeedTap=Date.now()+250;
-      if(!id){closeModals();return false}
+      window.__blockFeedTap=Date.now()+400;
+      // Hide modal FIRST so Safari paints before any work (no Extending… hang).
+      try{
+        var m0=document.getElementById('extend-modal');
+        if(m0){m0.classList.remove('show');m0.style.display='none'}
+      }catch(e){}
+      closeModals();
+      if(!id) return false;
       var user=extendUserId();
-      if(!user){closeModals();toast('Login to extend');return false}
+      if(!user){toast('Login to extend');return false}
       if(window.__extLock===id){toast('Extend already in progress');return false}
       var localRem=getLocalExtendCooldown(id);
       if(localRem>0){
-        closeModals();
         toast(fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem));
         paintPostExtend(id, 0, 0, localRem);
         refreshExtendCooldownButtons();
@@ -20188,16 +20200,15 @@ async function onIdFace(e){
       try{
         if(post && typeof postHasActiveTimer==='function' && !postHasActiveTimer(post)){
           window.__extLock=null;
-          closeModals();
           toast('No timer on this post — use HOT');
           restoreExtendButtons(id, post);
-          try{await hotBumpWall(id)}catch(e){}
+          try{Promise.resolve(hotBumpWall(id)).catch(function(){})}catch(e){}
           return false;
         }
       }catch(e){}
       var mins=postExtendMinutes(post);
       var amtLab=fmtMin(mins);
-      // IMMEDIATE optimistic apply — never leave the modal stuck on Extending…
+      // IMMEDIATE optimistic apply — light DOM only; heavy re-renders deferred.
       var base=Number((post&&post.expires)||0)||readCardExpires(id);
       if(!base || base<Date.now()) base=Date.now();
       var expires=base+mins*60000;
@@ -20210,7 +20221,6 @@ async function onIdFace(e){
         if(user && (!post.extenders||post.extenders.indexOf(user)<0)){
           post.extenders=(post.extenders||[]).concat([user]);
         }
-        try{rememberFeedPost(post)}catch(e){}
       }
       syncPostExpiresEverywhere(id, expires, extensions);
       setLocalExtendCooldown(id, coolAt, EXTEND_COOLDOWN_MS);
@@ -20220,14 +20230,20 @@ async function onIdFace(e){
         localStorage.setItem('rs_ext_map',JSON.stringify(map));
       }catch(e){}
       paintPostExtend(id, expires, extensions, EXTEND_COOLDOWN_MS);
-      closeModals();
       toast('Extended +'+amtLab);
-      try{awardXp(5,'extend')}catch(e){}
-      try{grantXp && grantXp('extend', String(id), false)}catch(e){}
-      refreshExtendCooldownButtons();
-      try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
-      try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
-      try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
+      // Unlock right away — never block UI on network/re-render.
+      setTimeout(function(){ if(window.__extLock===id) window.__extLock=null; }, 120);
+
+      // Heavy feed rebuilds + XP + persist — after first paint.
+      setTimeout(function(){
+        try{if(post) rememberFeedPost(post)}catch(e){}
+        try{awardXp(5,'extend')}catch(e){}
+        try{grantXp && grantXp('extend', String(id), false)}catch(e){}
+        try{refreshExtendCooldownButtons()}catch(e){}
+        try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
+        try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
+        try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
+      }, 0);
 
       // Persist in background — UI already updated.
       (async function persistExtend(){
@@ -20305,8 +20321,6 @@ async function onIdFace(e){
           if(window.__extLock===id) window.__extLock=null;
         }
       })();
-      // Unlock quickly so user can interact; background still holds until persist finishes via __extLock clear in finally.
-      setTimeout(function(){ if(window.__extLock===id) window.__extLock=null; }, 400);
       return true;
     }
     var REACTIONS=['❤️','😍','😂','🔥','🤏','👏','😭'];
