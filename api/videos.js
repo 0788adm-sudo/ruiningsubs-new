@@ -12,7 +12,7 @@ const SUPABASE_ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
 const CF_MEDIA = process.env.CF_MEDIA || 'https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
-const COLS = 'id,username,title,tags,image_url,created_at,expires_at,views,likes_count,optimized_url';
+const COLS = 'id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
 
 function json(res, code, body) {
   res.statusCode = code;
@@ -165,40 +165,42 @@ async function sbGet(path, tries) {
 }
 
 async function collectFromSb() {
+  // Prefer lean paths first — heavy parallel ilike scans trip CF 1101/522.
   var paths = [
     '/rest/v1/posts?select=' + COLS + '&tags=cs.%7Bvideo%7D&order=created_at.desc&limit=80',
     '/rest/v1/posts?select=' + COLS + '&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.mp4%&order=created_at.desc&limit=80',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.webm%&order=created_at.desc&limit=80',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.mov%&order=created_at.desc&limit=80',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*/Vids/%&order=created_at.desc&limit=80',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*/media/%.mp4%&order=created_at.desc&limit=80',
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.mp4%&order=created_at.desc&limit=60',
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*/media/%.mp4%&order=created_at.desc&limit=60',
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*/Vids/%&order=created_at.desc&limit=60',
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.webm%&order=created_at.desc&limit=40',
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.mov%&order=created_at.desc&limit=40',
   ];
-  var batches = await Promise.all(paths.map(function (p) {
-    return sbGet(p);
-  }));
   var seen = {};
   var out = [];
-  batches.forEach(function (rows) {
+  function ingest(rows) {
     (rows || []).forEach(function (row) {
       var v = rowToVideo(row);
       if (!v || seen[String(v.id)]) return;
       seen[String(v.id)] = 1;
       out.push(v);
     });
-  });
+  }
+  // Sequential for the big media scans so SB edge stays healthy
+  ingest(await sbGet(paths[0]));
+  ingest(await sbGet(paths[1]));
+  for (var i = 2; i < paths.length; i++) {
+    ingest(await sbGet(paths[i], 4));
+    if (out.length >= 40) break;
+  }
   if (out.length < 8) {
-    var more = await sbGet(
-      '/rest/v1/posts?select=' +
-        COLS +
-        '&or=(image_url.ilike.*.mp4*,image_url.ilike.*.webm*,image_url.ilike.*.mov*)&order=created_at.desc&limit=80'
+    ingest(
+      await sbGet(
+        '/rest/v1/posts?select=' +
+          COLS +
+          '&or=(image_url.ilike.*.mp4*,image_url.ilike.*.webm*,image_url.ilike.*.mov*)&order=created_at.desc&limit=60',
+        4
+      )
     );
-    (more || []).forEach(function (row) {
-      var v = rowToVideo(row);
-      if (!v || seen[String(v.id)]) return;
-      seen[String(v.id)] = 1;
-      out.push(v);
-    });
   }
   out.sort(function (a, b) {
     return new Date(b.created_at || 0) - new Date(a.created_at || 0);

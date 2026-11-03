@@ -1476,7 +1476,8 @@ body.rc-on #hdr-fc{display:none!important}
 .gt-album.multi{overflow-x:auto;scroll-snap-type:x mandatory}
 .gt-media{min-width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;background:#000;position:relative}
 .gt-media img,.gt-media video{width:100%;height:100%;object-fit:contain;background:#000}
-.gt-media .gt-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:3;pointer-events:none;background:#111}
+    .gt-media .gt-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:3;pointer-events:none;background:#111}
+.gt-media video.gt-poster{object-fit:contain;background:#000}
 .gt-media .gt-poster.gt-poster-empty{background:radial-gradient(circle at 50% 40%,#1a1a22,#050507)}
 .gt-media .gt-poster.gt-hide{display:none!important;opacity:0}
 .gt-media video{position:relative;z-index:2;opacity:1;width:100%;height:100%;object-fit:contain;background:#000}
@@ -1950,7 +1951,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <button type="button" class="dur-btn" data-m="15">15m</button><button type="button" class="dur-btn" data-m="30">30m</button>
             <button type="button" class="dur-btn" data-m="60">1h</button><button type="button" class="dur-btn" data-m="120">2h</button>
             <button type="button" class="dur-btn" data-m="360">6h</button><button type="button" class="dur-btn" data-m="720">12h</button>
-            <button type="button" class="dur-btn sel" data-m="1440">24h</button>
+            <button type="button" class="dur-btn sel" data-m="1440">1 day</button>
+            <button type="button" class="dur-btn" data-m="4320">3 days 🔥</button>
           </div>
         </div>
         <div class="form-group" id="post-extend-group"><label>Extend amount</label>
@@ -10285,19 +10287,116 @@ function openRoulette(){
       if(d<86400000)return Math.floor(d/3600000)+'h ago';
       return Math.floor(d/86400000)+'d ago';
     }
+    function loadVideoPosterMap(){
+      try{return JSON.parse(localStorage.getItem('rs_vposter')||'{}')||{}}catch(e){return{}}
+    }
+    function cacheVideoPosterUrl(src, poster){
+      src=String(src||'').trim(); poster=String(poster||'').trim();
+      if(!src||!poster)return;
+      try{
+        var map=loadVideoPosterMap();
+        map[src]=poster;
+        var keys=Object.keys(map);
+        if(keys.length>180){
+          keys.slice(0, keys.length-140).forEach(function(k){delete map[k]});
+        }
+        localStorage.setItem('rs_vposter',JSON.stringify(map));
+      }catch(e){
+        try{
+          // Quota — drop oldest half and retry once
+          var map2=loadVideoPosterMap();
+          var ks=Object.keys(map2);
+          ks.slice(0, Math.floor(ks.length/2)).forEach(function(k){delete map2[k]});
+          map2[src]=poster;
+          localStorage.setItem('rs_vposter',JSON.stringify(map2));
+        }catch(e2){}
+      }
+    }
     function videoPosterOf(p, src){
       function ok(u){return u && !(typeof isVideoUrl==='function' && isVideoUrl(u)) && !/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(u))}
       if(p&&ok(p.poster))return p.poster;
       if(p&&ok(p.thumb_url))return p.thumb_url;
       try{
-        var map=JSON.parse(localStorage.getItem('rs_vposter')||'{}')||{};
+        var map=loadVideoPosterMap();
+        var pub=typeof publicMediaUrl==='function'?publicMediaUrl(src):src;
         if(src&&map[src])return map[src];
+        if(pub&&map[pub])return map[pub];
         var imgs0=postMediaList(p||{});
-        for(var i=0;i<imgs0.length;i++){if(map[imgs0[i]])return map[imgs0[i]]}
+        for(var i=0;i<imgs0.length;i++){
+          var u=imgs0[i];
+          if(map[u])return map[u];
+          var pu=typeof publicMediaUrl==='function'?publicMediaUrl(u):u;
+          if(pu&&map[pu])return map[pu];
+        }
       }catch(e){}
       var imgs=postMediaList(p||{});
       var shot=imgs.filter(ok)[0];
       return shot||'';
+    }
+    function capturePosterFromVideoEl(v, src){
+      try{
+        if(!v||!v.videoWidth||!v.videoHeight)return '';
+        var w=v.videoWidth,h=v.videoHeight,max=720;
+        if(w>max){h=Math.round(h*(max/w));w=max}
+        var c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(v,0,0,w,h);
+        var data=c.toDataURL('image/jpeg',0.72);
+        if(data&&data.length>800){
+          cacheVideoPosterUrl(src||v.getAttribute('data-src')||v.src||'', data);
+          return data;
+        }
+      }catch(e){}
+      return '';
+    }
+    window.capturePosterFromVideoEl=capturePosterFromVideoEl;
+    window.cacheVideoPosterUrl=cacheVideoPosterUrl;
+    window.scheduleVideoPosterFill=scheduleVideoPosterFill;
+    window.__gtPosterJobs=window.__gtPosterJobs||{};
+    function scheduleVideoPosterFill(src, applyFn){
+      src=typeof publicMediaUrl==='function'?publicMediaUrl(src):String(src||'');
+      if(!src||isImageUrl(src))return;
+      var cached=videoPosterOf(null, src);
+      if(cached){try{if(applyFn)applyFn(cached)}catch(e){}return}
+      if(window.__gtPosterJobs[src])return;
+      window.__gtPosterJobs[src]=1;
+      grabVideoPosterFromUrl(src).then(function(blob){
+        if(!blob){delete window.__gtPosterJobs[src];return}
+        try{
+          var r=new FileReader();
+          r.onload=function(){
+            var data=r.result||'';
+            if(data) cacheVideoPosterUrl(src, data);
+            try{if(applyFn&&data)applyFn(data)}catch(e){}
+            delete window.__gtPosterJobs[src];
+          };
+          r.onerror=function(){delete window.__gtPosterJobs[src]};
+          r.readAsDataURL(blob);
+        }catch(e){delete window.__gtPosterJobs[src]}
+      }).catch(function(){delete window.__gtPosterJobs[src]});
+    }
+    function applyPosterToGtSlide(slide, poster){
+      if(!slide||!poster)return;
+      try{
+        var media=slide.querySelector('.gt-media');
+        if(!media)return;
+        var pst=media.querySelector('.gt-poster');
+        if(pst&&pst.tagName==='IMG'){
+          pst.src=poster;pst.classList.remove('gt-poster-empty');
+          return;
+        }
+        // Replace empty shell or video-frame poster with a real image thumb
+        if(pst) pst.remove();
+        var img=document.createElement('img');
+        img.className='gt-poster';
+        img.alt='';
+        img.decoding='async';
+        img.src=poster;
+        media.insertBefore(img, media.firstChild);
+        try{
+          var main=media.querySelector('video[data-gt-vid]');
+          if(main) main.setAttribute('poster', poster);
+        }catch(e){}
+      }catch(e){}
     }
     function playListedVideo(el, src, poster){
       if(!el||!src)return;
@@ -10315,17 +10414,28 @@ function openRoulette(){
       var pid=String(p.id||'').replace(/'/g,'');
       var vid=isVideoUrl(it.src);
       var poster=videoPosterOf(p,it.src);
+      if(!poster && it.src){
+        try{
+          scheduleVideoPosterFill(it.src, function(data){
+            var row=document.querySelector('.vid-row[data-pid="'+String(p.id).replace(/"/g,'')+'"], .vid-card[data-pid="'+String(p.id).replace(/"/g,'')+'"]');
+            if(!row||!data)return;
+            var img=row.querySelector('img.vid-thumb-img, .vid-thumb img, img');
+            if(img){img.src=typeof feedThumb==='function'?feedThumb(data,640):data;img.style.display='block'}
+            try{p.poster=data;p.thumb_url=p.thumb_url||data}catch(e){}
+          });
+        }catch(e){}
+      }
       var media;
       if(mini){
-        if(poster) media='<img src="'+esc(feedThumb(poster,360))+'" alt="" loading="lazy" decoding="async"/>';
-        else media='<div style="width:100%;height:100%;min-height:120px;background:linear-gradient(160deg,#1a1024,#0a0a0a);display:flex;align-items:center;justify-content:center;color:#f5c518;font-size:28px">▶</div>';
-        return '<div class="vid-card" onclick="openDetail('+jsId(p.id)+')">'+media+'<span class="vid-play" style="position:absolute;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none">▶</span></div>';
+        if(poster) media='<img class="vid-thumb-img" src="'+esc(feedThumb(poster,360))+'" alt="" loading="lazy" decoding="async"/>';
+        else media='<div class="vid-thumb-ph" style="width:100%;height:100%;min-height:120px;background:linear-gradient(160deg,#1a1024,#0a0a0a);display:flex;align-items:center;justify-content:center;color:#f5c518;font-size:28px">▶</div>';
+        return '<div class="vid-card" data-pid="'+String(p.id).replace(/"/g,'')+'" onclick="openDetail('+jsId(p.id)+')">'+media+'<span class="vid-play" style="position:absolute;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none">▶</span></div>';
       }
       media=poster
-        ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img src="'+esc(feedThumb(poster,640))+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var v=this.nextElementSibling;if(v){v.style.display=\'block\';try{v.play()}catch(e){}}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'')+'#t=0.1')+'" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"></video></div>')
+        ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" src="'+esc(feedThumb(poster,640))+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var v=this.nextElementSibling;if(v){v.style.display=\'block\';try{v.play()}catch(e){}}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'')+'#t=0.1')+'" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"></video></div>')
         :(vid
-          ?('<video muted playsinline loop autoplay preload="auto" src="'+esc(String(it.src||'')+'#t=0.1')+'" style="width:100%;height:220px;object-fit:cover;display:block;background:#111"></video>')
-          :('<img src="'+esc(it.src||'')+'" alt="" loading="lazy"/>'));
+          ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" alt="" decoding="async" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'')+'#t=0.1')+'" style="width:100%;height:100%;object-fit:cover;display:block;background:#111" onloadeddata="try{var d=capturePosterFromVideoEl(this,\''+String(it.src||'').replace(/'/g,'')+'\');if(d){var i=this.previousElementSibling;if(i){i.src=d;i.style.display=\'block\';this.style.display=\'none\'}}}catch(e){}"></video></div>')
+          :('<img class="vid-thumb-img" src="'+esc(it.src||'')+'" alt="" loading="lazy"/>'));
       var liked=false,saved=false;
       try{liked=!!(typeof getMyReaction==='function'&&getMyReaction(p))}catch(e){}
       try{saved=!!(typeof isSaved==='function'&&isSaved(p.id))}catch(e){}
@@ -10579,7 +10689,7 @@ function openRoulette(){
           // Narrow select — select=* pulls multi-MB base64 image_url rows and 500s/522s,
           // which is how Videos/GoonTok collapsed to the ~2 tagged clips.
           // Keep columns lean (no description) and prefer http+.mp4 to skip base64 false hits.
-          var sbCols='id,username,title,tags,image_url,created_at,expires_at,views,likes_count,optimized_url';
+          var sbCols='id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
           var sbPaths=[
             '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bvideo%7D&order=created_at.desc&limit=80',
             '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80',
@@ -10630,7 +10740,7 @@ function openRoulette(){
         // Optional: also try supabase-js if present (same filters; ignore failures)
         if(sb){
           try{
-            var sbColsJs='id,username,title,tags,image_url,created_at,expires_at,views,likes_count,optimized_url';
+            var sbColsJs='id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
             var sbJs=await Promise.all([
               sb.from('posts').select(sbColsJs).contains('tags',['video']).order('created_at',{ascending:false}).limit(80),
               sb.from('posts').select(sbColsJs).contains('tags',['goontok']).order('created_at',{ascending:false}).limit(80),
@@ -10857,10 +10967,27 @@ function openRoulette(){
     function grabVideoPosterFromUrl(url){
       return new Promise(function(resolve){
         try{
+          url=typeof publicMediaUrl==='function'?publicMediaUrl(url):url;
           var v=document.createElement('video');
-          v.muted=true;v.playsInline=true;v.preload='auto';v.crossOrigin='anonymous';v.src=url;
+          v.muted=true;v.playsInline=true;v.preload='auto';
+          // Try CORS first (Supabase Vids). If R2 has no ACAO, retry without crossOrigin
+          // and accept that canvas export may fail — caller keeps video-frame poster fallback.
+          var triedNoCors=false;
+          function arm(cross){
+            try{if(cross)v.crossOrigin='anonymous';else v.removeAttribute('crossorigin')}catch(e){}
+            try{v.src=url}catch(e){}
+          }
           var done=false;
-          function fail(){if(done)return;done=true;resolve(null)}
+          function fail(){
+            if(done)return;
+            if(!triedNoCors){
+              triedNoCors=true;
+              arm(false);
+              try{v.load()}catch(e){}
+              return;
+            }
+            done=true;resolve(null);
+          }
           setTimeout(fail,9000);
           v.onerror=fail;
           v.onloadeddata=function(){try{v.currentTime=Math.min(1.1,Math.max(0.4,(v.duration||2)*0.1))}catch(e){fail()}};
@@ -10874,6 +11001,7 @@ function openRoulette(){
               c.toBlob(function(blob){done=true;resolve(blob&&blob.size>400?blob:null)},'image/jpeg',0.72);
             }catch(e){fail()}
           };
+          arm(true);
         }catch(e){resolve(null)}
       });
     }
@@ -11156,7 +11284,7 @@ function openRoulette(){
         }catch(e){}
         updateVideoProgress('Almost done','Publishing so everyone can see it…',94);
         var storeField=posterUrl?JSON.stringify([imageField,posterUrl]):imageField;
-        var videoMins=Math.max(60, Number(selectedCreateMin||1440)||1440);
+        var videoMins=Math.max(15, Number(selectedCreateMin||1440)||1440);
         var videoExpires=Date.now()+videoMins*60000;
         // If upload was already mobile-optimized, stamp optv so GoonTok prefers it
         try{
@@ -11197,10 +11325,8 @@ function openRoulette(){
         try{markVideoPlayable(saved.id, imageField); if(parseOptTag(tags)) markVideoHealth(saved.id,'playable',{optimized:imageField,src:imageField})}catch(e){}
         rememberVideos((posts||[]).filter(function(p){return String(p.id)===String(saved.id)}));
         try{
-          var map=JSON.parse(localStorage.getItem('rs_vposter')||'{}')||{};
-          if(posterUrl) map[imageField]=posterUrl;
-          else if(window.__vpPosterDataUrl) map[imageField]=window.__vpPosterDataUrl;
-          localStorage.setItem('rs_vposter',JSON.stringify(map));
+          if(posterUrl) cacheVideoPosterUrl(imageField, posterUrl);
+          else if(window.__vpPosterDataUrl) cacheVideoPosterUrl(imageField, window.__vpPosterDataUrl);
         }catch(e){}
         window.__vpFile=null;
         window.__vpData=null;
@@ -11284,8 +11410,9 @@ function openRoulette(){
     var gtTab='feed';
     var GT_TARGET=80;
     var GT_PAGE=24;
-    var GT_PROBE_MS=8000;
-    var GT_BROKEN_TTL=7*24*60*60*1000;
+    var GT_PROBE_MS=10000;
+    var GT_LOAD_TIMEOUT_MS=14000;
+    var GT_BROKEN_TTL=6*60*60*1000; // retry failed media after 6h
     function loadVideoHealth(){
       try{return JSON.parse(localStorage.getItem('rs_video_health')||'{}')||{}}catch(e){return{}}
     }
@@ -11303,8 +11430,8 @@ function openRoulette(){
       var m=loadVideoHealth();
       var h=m[String(id)]||null;
       if(!h)return null;
-      if(h.status==='broken' && h.at && Date.now()-Number(h.at)>GT_BROKEN_TTL){
-        // Allow retry after TTL (may have been optimized meanwhile)
+      if((h.status==='broken'||h.status==='error') && h.at && Date.now()-Number(h.at)>GT_BROKEN_TTL){
+        // Allow retry after TTL (CDN may have recovered / opt finished)
         delete m[String(id)];
         saveVideoHealth(m);
         return null;
@@ -11322,36 +11449,22 @@ function openRoulette(){
       markVideoHealth(id,'playable',{src:src||''});
     }
     function markVideoBroken(id, reason, src){
-      // Soft error only — never permanently hide a post from the GoonTok feed.
-      // Hard 404s still show an on-slide error UI; the slide stays mounted.
-      markVideoHealth(id,'error',{reason:String(reason||'fail').slice(0,80),src:src||''});
+      // Hard skip — failed Cloudflare/R2 media must leave the GoonTok feed.
+      markVideoHealth(id,'broken',{reason:String(reason||'fail').slice(0,80),src:src||''});
       enqueueVideoOptimize(id, reason||'broken');
     }
     function markVideoNeedsOpt(id, reason){
       var h=videoHealthOf(id);
       if(h&&h.status==='playable'&&h.optimized)return;
-      if(h&&h.status==='error')return;
+      if(h&&(h.status==='broken'||h.status==='error'))return;
       markVideoHealth(id,'needs_opt',{reason:String(reason||'needs_opt').slice(0,80)});
       enqueueVideoOptimize(id, reason||'needs_opt');
     }
     function isVideoHiddenFromGoonTok(id){
-      // Legacy: older builds wrote status=broken and removed slides. Keep those visible again.
-      return false;
+      var h=videoHealthOf(id);
+      if(!h)return false;
+      return h.status==='broken' || h.status==='error';
     }
-    function clearLegacyBrokenVideoHealth(){
-      try{
-        var m=loadVideoHealth();
-        var changed=false;
-        Object.keys(m||{}).forEach(function(id){
-          if(m[id]&&m[id].status==='broken'){
-            m[id]=Object.assign({},m[id],{status:'needs_opt',reason:'legacy_unhide',at:Date.now()});
-            changed=true;
-          }
-        });
-        if(changed) saveVideoHealth(m);
-      }catch(e){}
-    }
-    try{clearLegacyBrokenVideoHealth()}catch(e){}
     function parseOptTag(tags){
       tags=tags||[];
       if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
@@ -11550,13 +11663,32 @@ function openRoulette(){
     function goontokSlideHtml(p){
       var m=goontokPrimaryVideo(p);
       if(!m)return '';
+      if(isVideoHiddenFromGoonTok(p.id))return '';
       var pst=m.poster||'';
+      if(!pst){
+        // Kick off async frame grab so the empty shell fills before play
+        try{
+          scheduleVideoPosterFill(m.src, function(data){
+            var box=document.getElementById('gt-scroller');
+            if(!box)return;
+            var slide=box.querySelector('.gt-slide[data-gid="'+String(p.id).replace(/"/g,'')+'"]');
+            applyPosterToGtSlide(slide, data);
+            try{if(p){p.poster=data;p.thumb_url=p.thumb_url||data}}catch(e){}
+          });
+        }catch(e){}
+      }
       var hotN=typeof postHotCount==='function'?postHotCount(p):Number(p.hotCount||0);
+      // R2 public host has no CORS — never set crossorigin on the player (breaks CF clips).
+      // When no stored thumb exists, use a muted #t=0.1 video frame as the poster shell
+      // so the card is never blank black while the main player arms.
+      var posterHtml=pst
+        ?('<img class="gt-poster" src="'+esc(pst)+'" alt="" decoding="async" fetchpriority="high"/>')
+        :('<video class="gt-poster gt-poster-vid" muted playsinline preload="metadata" src="'+esc(m.src)+(String(m.src).indexOf('#')>=0?'':'#t=0.1')+'" aria-hidden="true"></video>');
       var album='<div class="gt-media" data-i="0">'
-        +(pst?'<img class="gt-poster" src="'+esc(pst)+'" alt="" decoding="async" fetchpriority="high"/>':'<div class="gt-poster gt-poster-empty" aria-hidden="true"></div>')
-        +'<video playsinline webkit-playsinline loop muted preload="metadata" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#000"></video>'
+        +posterHtml
+        +'<video playsinline webkit-playsinline loop muted preload="metadata" poster="'+(pst?esc(pst):'')+'" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#000"></video>'
         +'<div class="gt-load" hidden>Loading…</div>'
-        +'<div class="gt-err" hidden>Video unavailable · tap to retry</div>'
+        +'<div class="gt-err" hidden>Skipping broken video…</div>'
         +'</div>';
       var tags=(p.tags||[]).filter(function(t){var s=String(t||'');return s.indexOf('album:')!==0&&s.indexOf('optv:')!==0&&!/^hot:\d+$/i.test(s)}).slice(0,6).map(function(t){return '#'+String(t).replace(/^#/,'')}).join(' ');
       var av=avatarHtml(p.user);
@@ -11637,25 +11769,50 @@ function openRoulette(){
       return [].slice.call(box.querySelectorAll('.gt-slide[data-gid]')).map(function(el){return el.getAttribute('data-gid')});
     }
     function showGoonTokSlideError(id, reason){
+      // Broken media must leave the feed — no empty/black cards or stuck Loading…
+      silentlyDropGoonTokSlide(id, reason||'playback_fail');
+    }
+    function silentlyDropGoonTokSlide(id, reason){
       id=String(id||'');
       if(!id)return;
+      if(window.__gtDropping && window.__gtDropping[id])return;
+      window.__gtDropping=window.__gtDropping||{};
+      window.__gtDropping[id]=1;
       markVideoBroken(id, reason||'playback_fail');
       var box=document.getElementById('gt-scroller');
-      if(!box)return;
+      if(!box){delete window.__gtDropping[id];return}
       var slide=box.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"]');
-      if(!slide)return;
+      if(!slide){delete window.__gtDropping[id];return}
       try{
-        slide.querySelectorAll('video').forEach(function(v){try{v.pause()}catch(e){}});
-        var err=slide.querySelector('.gt-err');
-        var load=slide.querySelector('.gt-load');
-        if(load) load.hidden=true;
-        if(err){ err.hidden=false; err.textContent='Couldn’t play ('+String(reason||'error').slice(0,24)+') · tap to retry'; }
-        slide.setAttribute('data-gt-error','1');
-      }catch(e){}
-    }
-    // Legacy name kept for callers — MUST NOT remove slides from the feed.
-    function silentlyDropGoonTokSlide(id, reason){
-      showGoonTokSlideError(id, reason);
+        var slides=[].slice.call(box.querySelectorAll('.gt-slide'));
+        var idx=slides.indexOf(slide);
+        var h=box.clientHeight||1;
+        var activeIdx=Math.round((box.scrollTop||0)/h);
+        var wasActive=idx===activeIdx || Math.abs(idx-activeIdx)<1;
+        slide.querySelectorAll('video').forEach(function(v){
+          try{clearTimeout(v.__gtTimer)}catch(e){}
+          try{v.pause()}catch(e){}
+          try{v.removeAttribute('src');v.load()}catch(e){}
+        });
+        slide.remove();
+        box.setAttribute('data-gt-sig','');
+        var remaining=[].slice.call(box.querySelectorAll('.gt-slide'));
+        if(wasActive){
+          if(remaining.length){
+            var nextIdx=Math.min(Math.max(0,idx), remaining.length-1);
+            try{
+              remaining[nextIdx].scrollIntoView({block:'start',inline:'nearest'});
+              box.scrollTop=nextIdx*(box.clientHeight||h);
+            }catch(e){}
+          }else{
+            box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
+          }
+        }
+        try{bindGoonTok()}catch(e){}
+        try{refillGoonTokPlayable(false)}catch(e){}
+      }finally{
+        setTimeout(function(){try{delete window.__gtDropping[id]}catch(e){}},400);
+      }
     }
     async function refillGoonTokPlayable(forceFetch){
       if(window.__gtRefilling){
@@ -11809,16 +11966,25 @@ function openRoulette(){
         try{clearTimeout(v.__gtTimer)}catch(e){}
         setLoad(v,false);
         showPoster(v);
-        // Keep the slide in the feed — show retry UI instead of deleting it.
-        showGoonTokSlideError(id, reason||'error');
+        // Skip completely — advance feed to the next playable post.
+        silentlyDropGoonTokSlide(id, reason||'error');
+      }
+      function ensurePosterFromFrame(v, src){
+        try{
+          var sl=slideShell(v);
+          var hasImg=sl&&sl.querySelector('img.gt-poster');
+          if(hasImg&&hasImg.getAttribute('src')) return;
+          var data=capturePosterFromVideoEl(v, src);
+          if(data) applyPosterToGtSlide(sl, data);
+        }catch(e){}
       }
       function armVideo(v, play){
         if(!v)return;
         var s=publicMediaUrl(v.getAttribute('data-src')||'');
         if(s && v.getAttribute('data-src')!==s) v.setAttribute('data-src',s);
         if(!s){failVideo(v,'no_src');return}
-        // Only clear soft-error state when actively trying to play (or user retry).
-        // Neighbor warm-up must not wipe the error UI of a failed slide.
+        var sid=slideIdOf(v);
+        if(sid&&isVideoHiddenFromGoonTok(sid)){failVideo(v,'known_broken');return}
         if(play) clearSlideError(v);
         else if(v.__gtFailed) return;
         var needSet=v.getAttribute('src')!==s;
@@ -11834,6 +12000,7 @@ function openRoulette(){
         v.loop=true;
         if(play) setLoad(v,true);
         v.onplaying=function(){
+          ensurePosterFromFrame(v, s);
           hidePoster(v);
           setLoad(v,false);
           clearSlideError(v);
@@ -11842,36 +12009,60 @@ function openRoulette(){
           if(id) markVideoPlayable(id, s);
         };
         v.onwaiting=function(){ if(play) setLoad(v,true); };
-        v.oncanplay=function(){ if(play && !v.paused) setLoad(v,false); };
+        v.oncanplay=function(){
+          ensurePosterFromFrame(v, s);
+          if(play && !v.paused) setLoad(v,false);
+        };
         v.onloadeddata=function(){
-          if(play||!v.paused) hidePoster(v);
+          ensurePosterFromFrame(v, s);
+          if(!play){
+            // Warm neighbor: fill thumbnail, stay on poster until active
+            showPoster(v);
+            return;
+          }
+          if(!v.paused) hidePoster(v);
         };
         v.onerror=function(){
-          // Hard media error only — keep slide, show retry
           failVideo(v,'media_error');
         };
         if(!play){
           try{v.pause()}catch(e){}
           setLoad(v,false);
+          // Warm-load timeout: if metadata never arrives, skip so feed stays healthy
+          try{clearTimeout(v.__gtWarmTimer)}catch(e){}
+          v.__gtWarmTimer=setTimeout(function(){
+            if(v.__gtFailed)return;
+            if(v.error || (v.readyState===0 && !v.getAttribute('src'))){
+              failVideo(v,'warm_timeout');
+            }
+          }, GT_PROBE_MS);
           return;
         }
         try{clearTimeout(v.__gtTimer)}catch(e){}
-        // Soft timeout: keep waiting with loading UI — do NOT remove the slide.
+        try{clearTimeout(v.__gtWarmTimer)}catch(e){}
+        // Hard timeout: unplayable Cloudflare media must leave the feed.
         v.__gtTimer=setTimeout(function(){
           if(v.__gtFailed)return;
           if(v.error){failVideo(v,'play_error');return}
-          if(v.readyState===0 && v.paused){
-            setLoad(v,true);
-            // One more play attempt for slow networks / iOS
+          if(v.readyState>=2 && !v.paused){ setLoad(v,false); return; }
+          if(v.readyState===0 || v.paused){
+            // One recovery attempt, then drop
             try{v.load()}catch(e){}
             tryPlay();
+            setTimeout(function(){
+              if(v.__gtFailed)return;
+              if(v.paused && v.readyState<2){
+                failVideo(v,'load_timeout');
+              }
+            }, 4500);
           }
-        }, Math.max(GT_PROBE_MS, 12000));
+        }, GT_LOAD_TIMEOUT_MS);
         var tryPlay=function(){
           if(v.__gtFailed)return;
           var p=v.play();
           if(p&&p.then){
             p.then(function(){
+              ensurePosterFromFrame(v, s);
               hidePoster(v);
               setLoad(v,false);
               var id=slideIdOf(v);
@@ -11879,17 +12070,22 @@ function openRoulette(){
             }).catch(function(){
               v.muted=true;window.__gtSound=false;
               v.play().then(function(){
+                ensurePosterFromFrame(v, s);
                 hidePoster(v);
                 setLoad(v,false);
                 var id=slideIdOf(v);
                 if(id) markVideoPlayable(id, s);
               }).catch(function(){
-                // Autoplay blocked — keep poster + loading hint, do not drop
+                // Autoplay policy block (not a bad URL) — keep poster visible, stop spinner
                 setLoad(v,false);
+                ensurePosterFromFrame(v, s);
                 showPoster(v);
               });
             });
-          }else hidePoster(v);
+          }else{
+            ensurePosterFromFrame(v, s);
+            hidePoster(v);
+          }
         };
         if(v.readyState>=2) tryPlay();
         else{
@@ -11972,14 +12168,7 @@ function openRoulette(){
           if(!slide)return;
           slide.querySelectorAll('video[data-gt-vid]').forEach(function(v){
             try{
-              // Retry path after soft error — clear failed flag and re-arm
-              if(slide.getAttribute('data-gt-error')==='1' || v.__gtFailed){
-                v.__gtFailed=0;
-                slide.removeAttribute('data-gt-error');
-                try{v.removeAttribute('src');v.load()}catch(e){}
-                armVideo(v,true);
-                return;
-              }
+              if(v.__gtFailed)return;
               if(v.paused){
                 armVideo(v,true);
               }else{
@@ -22652,7 +22841,7 @@ async function onIdFace(e){
     }
     function updateTimers(){document.querySelectorAll('.timer[data-exp]').forEach(function(el){var v=el.querySelector('.t-val');var txt=fmt(parseInt(el.getAttribute('data-exp'),10)-Date.now());if(v)v.textContent=txt;else el.textContent=txt})}
     function fmt(ms){if(ms<=0)return'EXPIRED';var s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m '+(s%60)+'s'}
-    function fmtMin(min){if(min<60)return min+'m';if(min<1440)return(min/60)+'h';return(min/1440)+'d'}
+    function fmtMin(min){min=Number(min)||0;if(min<60)return min+'m';if(min<1440)return(min/60)+'h';if(min===1440)return'1 day';if(min===4320)return'3 days';return(min/1440)+'d'}
     function ago(ts){var m=Math.floor((Date.now()-ts)/60000);if(m<60)return m+'m ago';var h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
     function esc(t){var d=document.createElement('div');d.textContent=t||'';return d.innerHTML}
     
