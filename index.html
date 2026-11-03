@@ -403,8 +403,12 @@
     .rs-xp-bar{height:8px;border-radius:999px;background:#1b1b22;overflow:hidden;border:1px solid #2a2a32}
     .rs-xp-bar>i{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#ff6a00);border-radius:999px}
     .rs-promo-strip{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word}
-    #panel-challenges .rs-game-card,#panel-challenges .rs-games-hero{max-width:100%;box-sizing:border-box}
-    #panel-challenges .rs-game-btn{min-height:44px}
+    #panel-challenges,#panel-challenges #games-hub,#panel-challenges #games-play{max-width:100%;overflow-x:hidden;box-sizing:border-box}
+    #panel-challenges .rs-game-card,#panel-challenges .rs-games-hero{max-width:100%;width:100%;box-sizing:border-box;overflow:hidden}
+    #panel-challenges .rs-game-name,#panel-challenges .rs-game-desc{overflow-wrap:anywhere;word-break:break-word}
+    #panel-challenges .rs-game-foot{min-width:0;flex-wrap:wrap}
+    #panel-challenges .rs-game-xp{min-width:0}
+    #panel-challenges .rs-game-btn{min-height:44px;flex:0 0 auto}
     .rs-streak-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.4);color:#ffb35c;font-size:11px;font-weight:900;margin-top:8px}
     .rs-badge-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#14141a;border:1px solid #2a2a32;font-size:11px;font-weight:800;color:#e8e8ec}
     .notif-item .ni-ico{font-size:18px;width:28px;flex:0 0 auto}
@@ -2045,7 +2049,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <span class="entry-ico" style="color:#c4b5fd;border-color:rgba(167,139,250,.5);box-shadow:0 0 16px rgba(124,58,237,.3)">🎯</span>
           <div class="entry-body">
             <strong>Desafíos + Juegos</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tres en Raya · Juego de Letras · meta 10.000 XP</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Triki · Armar la palabra · Ruleta · Dados</div>
           </div>
           <span style="font-size:20px;color:#c4b5fd">›</span>
         </div>
@@ -2101,7 +2105,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             </div>
             <span style="font-size:20px;color:#5b21b6">›</span>
           </div>
-          <div class="tasks-entry" id="btn-explore-dice" role="button" style="margin:0" onclick="openDiceGame()">
+          <div class="tasks-entry" id="btn-explore-dice" role="button" style="margin:0" onclick="window.__gamesToolReturn=null;openDiceGame()">
             <span class="entry-ico pin" style="color:#f5c518;border-color:rgba(245,197,24,.5)">🎲</span>
             <div class="entry-body">
               <strong>Exposure Dice</strong>
@@ -2736,7 +2740,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
 
       <div id="panel-dice" class="panel">
-        <div class="panel-h"><button class="back" type="button" onclick="showPanel('explore')">←</button><h2>Exposure Dice</h2><span></span></div>
+        <div class="panel-h"><button class="back" type="button" id="btn-dice-back" onclick="backFromDiceGame()">←</button><h2>Exposure Dice</h2><span></span></div>
         <div class="dice-wrap">
           <p style="font-size:13px;color:var(--muted);text-align:center;line-height:1.45;margin:0 8px 10px;max-width:340px">3 dice · 12 faces each. Wear · Pose · Proof. 1 free roll a day. Extra roll = 10 FC ($1).</p>
           <div id="dice-fc-balance" style="font-size:13px;font-weight:800;color:#f5c518;margin:0 0 6px;text-align:center">— FC</div>
@@ -3025,9 +3029,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <div class="modal">
       <button class="modal-x" type="button" id="btn-extend-x" aria-label="Close">✕</button>
       <h3>⏱ Extend</h3>
-      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add <strong style="color:var(--orange)">6h</strong> of visibility to this post.</p>
+      <p id="extend-desc" style="font-size:14px;line-height:1.45;color:#cfcfd6">Add <strong style="color:var(--orange)">the publisher’s time</strong> of visibility to this post.</p>
       <p id="extend-cooldown" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,106,0,.12);border:1px solid rgba(255,106,0,.35);color:#ffb35c;font-size:13px;font-weight:800"></p>
-      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm · +6h</button>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Confirm · Extend</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">Cancel</button>
     </div>
   </div>
@@ -7653,7 +7657,18 @@ async function claimPayPalPack(p){
       var box=document.getElementById('dice-result');
       if(box) box.classList.remove('show');
     }
+    function backFromDiceGame(){
+      var ret=window.__gamesToolReturn;
+      window.__gamesToolReturn=null;
+      if(ret==='challenges'||ret==='games'){
+        showPanel('challenges');
+        try{renderChallengesHub()}catch(e){}
+        return;
+      }
+      showPanel('explore');
+    }
     window.openDiceGame=openDiceGame;
+    window.backFromDiceGame=backFromDiceGame;
     window.lastDiceRoll=null;
     async function buyDiceRoll(){
       // Charge happens inside rollExposureDice via /api/game-play
@@ -8405,8 +8420,8 @@ function openRoulette(){
         if(!el||el.__rsTapSafe)return;
         el.onclick=fn;
       }
-      softClick('btn-open-roulette', function(){ openRoulette(); });
-      softClick('btn-explore-roulette', function(){ openRoulette(); });
+      softClick('btn-open-roulette', function(){ window.__gamesToolReturn=null; openRoulette(); });
+      softClick('btn-explore-roulette', function(){ window.__gamesToolReturn=null; openRoulette(); });
       softClick('btn-explore-print', function(){ openPrintDirty(); });
       var exT = document.getElementById('btn-explore-tasks');
       var exC = document.getElementById('btn-explore-custom');
@@ -8418,7 +8433,16 @@ function openRoulette(){
       var exNb=document.getElementById('btn-explore-namebody');
       if(exNb) exNb.onclick=function(){try{openNameOnBody()}catch(e){}};
       var back = document.getElementById('btn-roulette-back');
-      if(back) back.onclick = function(){ showPanel('feed'); };
+      if(back) back.onclick = function(){
+        var ret=window.__gamesToolReturn;
+        window.__gamesToolReturn=null;
+        if(ret==='challenges'||ret==='games'){
+          showPanel('challenges');
+          try{renderChallengesHub()}catch(e){}
+          return;
+        }
+        showPanel('feed');
+      };
       function bindSpin(el){
         if(!el||el.dataset.spinBound)return;
         el.dataset.spinBound='1';
@@ -12584,7 +12608,7 @@ function openRoulette(){
       var alreadyHot=iAlreadyHotted(p.id);
       var hotBtn=timeless
         ?('<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>')
-        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +6h</button>');
+        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>');
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
@@ -16126,28 +16150,28 @@ function profileStatsHtml(userPosts, extra){
         sub:'DESBLOQUEA UNA RECOMPENSA ESPECIAL'
       });
 
-      // Featured games FIRST — Tres en Raya above everything else
+      // Games: Triki, Armar la palabra, Ruleta, Dados only
       html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:4px 0 10px">JUEGOS</div>';
+      var gameOrder={tic_tac_toe:0,word_challenge:1,roulette:2,dice:3};
       var featuredGames=RS_GAME_REGISTRY.filter(function(g){return g.status==='live'}).slice().sort(function(a,b){
-        // Tres en Raya first
-        if(a.id==='tic_tac_toe') return -1;
-        if(b.id==='tic_tac_toe') return 1;
-        return 0;
+        return (gameOrder[a.id]!=null?gameOrder[a.id]:9)-(gameOrder[b.id]!=null?gameOrder[b.id]:9);
       });
       featuredGames.forEach(function(g){
-        html+='<div class="rs-game-card"'+(g.id==='tic_tac_toe'?' style="border-color:rgba(124,58,237,.55)"':'')+'>';
-        html+='<div class="rs-game-cat">'+esc((g.id==='tic_tac_toe'?'🎯':'🔤')+' '+g.category)+'</div>';
+        var ico=g.id==='tic_tac_toe'?'🎯':g.id==='word_challenge'?'🔤':g.id==='roulette'?'🎰':g.id==='dice'?'🎲':'🎮';
+        var border=g.id==='tic_tac_toe'?' style="border-color:rgba(124,58,237,.55)"':(g.id==='roulette'?' style="border-color:rgba(255,106,0,.45)"':(g.id==='dice'?' style="border-color:rgba(245,197,24,.4)"':''));
+        html+='<div class="rs-game-card"'+border+'>';
+        html+='<div class="rs-game-cat">'+esc(ico+' '+g.category)+'</div>';
         html+='<div class="rs-game-name">'+esc(g.name)+'</div>';
         html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
         html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
-        html+='<span>'+esc(g.difficulty)+'</span><span>+'+g.xp+' XP</span><span>'+esc(g.duration)+'</span></div>';
-        html+='<div class="rs-game-foot"><span class="rs-game-xp">+'+g.xp+' XP</span>';
+        html+='<span>'+esc(g.difficulty)+'</span>'+(g.xp?'<span>+'+g.xp+' XP</span>':'')+'<span>'+esc(g.duration)+'</span></div>';
+        html+='<div class="rs-game-foot"><span class="rs-game-xp">'+(g.xp?('+'+g.xp+' XP'):(g.id==='roulette'||g.id==='dice'?'1 free · 10 FC':''))+'</span>';
         html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">JUGAR</button></div></div>';
       });
 
       html+=rsPromoStripHtml({
         title:'🎮 JUEGA · SUBE XP',
-        sub:'TRES EN RAYA Y JUEGO DE LETRAS SUMAN A TU META'
+        sub:'TRIKI · ARMAR LA PALABRA · RULETA · DADOS'
       });
 
       html+='<div class="rs-game-card rs-daily-card">';
@@ -16521,12 +16545,10 @@ function profileStatsHtml(userPosts, extra){
       return RS_WORD_BANK_DEFAULT.slice();
     }
     var RS_GAME_REGISTRY=[
-      {id:'tic_tac_toe',name:'TRES EN RAYA',desc:'Duelo rápido. Elige partida, amigo o rival aleatorio.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'PVP',status:'live',open:function(){startTicTacToeMenu()}},
-      {id:'word_challenge',name:'JUEGO DE LETRAS',desc:'Ordena letras de palabras de obediencia. Combos = más XP.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'live',open:function(){startWordChallenge()}},
-      {id:'memory',name:'MEMORY',desc:'Empareja pares bajo presión.',category:'GAMES',difficulty:'MEDIUM',xp:20,duration:'~90s',mode:'SOLO',status:'coming_soon'},
-      {id:'reaction',name:'REACTION',desc:'Toca al flash — gana la velocidad.',category:'GAMES',difficulty:'EASY',xp:15,duration:'~30s',mode:'SOLO',status:'coming_soon'},
-      {id:'typing',name:'TYPING',desc:'Escribe frases de obediencia con precisión.',category:'GAMES',difficulty:'MEDIUM',xp:20,duration:'~45s',mode:'SOLO',status:'coming_soon'},
-      {id:'sequence',name:'SEQUENCE',desc:'Repite el patrón antes de que crezca.',category:'GAMES',difficulty:'HARD',xp:25,duration:'~60s',mode:'SOLO',status:'coming_soon'}
+      {id:'tic_tac_toe',name:'TRIKI · TRES EN RAYA',desc:'Duelo rápido. Elige partida, amigo o rival aleatorio.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'PVP',status:'live',open:function(){startTicTacToeMenu()}},
+      {id:'word_challenge',name:'ARMAR LA PALABRA',desc:'Ordena letras de palabras de obediencia. Combos = más XP.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'live',open:function(){startWordChallenge()}},
+      {id:'roulette',name:'RUIN ROULETTE',desc:'Gira la ruleta. 1 free spin al día · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:0,duration:'spin',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openRoulette()}catch(e){showPanel('roulette')}}},
+      {id:'dice',name:'EXPOSURE DICE',desc:'3 dados · Wear · Pose · Proof. 1 free roll al día · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:0,duration:'roll',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openDiceGame()}catch(e){showPanel('dice')}}}
     ];
     function getGameDef(id){
       for(var i=0;i<RS_GAME_REGISTRY.length;i++) if(RS_GAME_REGISTRY[i].id===id) return RS_GAME_REGISTRY[i];
@@ -17625,9 +17647,10 @@ function profileStatsHtml(userPosts, extra){
         var cmtBtn = '<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
         return hotBtn + cmtBtn;
       }
+      var extAmt = (typeof postExtendMinutes === 'function' ? postExtendMinutes(p) : (Number(p.extendAmount) || 360));
       var label = already
         ? ('Extended <span class="ext-cd">' + fmtExtendCountdown(alreadyCd) + '</span>')
-        : ('⚡ Extend +6h · ' + ((p.extensions || 0) + 1));
+        : ('⚡ Extend +' + fmtMin(extAmt) + ' · ' + ((p.extensions || 0) + 1));
       return '<button class="btn btn-extend' + (already ? ' is-cooling' : '') +
         '" type="button" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
         (already ? 'disabled aria-disabled="true"' : '') +
@@ -18135,7 +18158,7 @@ function postCardHtml(p, compact){
       var showHotBtn=!(timedLive && !timeless);
       var extLed=showHotBtn
         ? ('<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>')
-        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +6h')+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
+        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';
@@ -19693,6 +19716,9 @@ async function onIdFace(e){
     function paintPostExtend(id, expires, extensions, remainingMs){
       id=String(id||'');
       remainingMs = remainingMs!=null ? Number(remainingMs)||0 : getLocalExtendCooldown(id);
+      var postForAmt=null;
+      try{postForAmt=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+      var amtLabel=fmtMin(postExtendMinutes(postForAmt));
       document.querySelectorAll('[data-pid="'+id+'"],[data-normal-post-id="'+id+'"],#detail-content .post').forEach(function(card){
         try{
           if(expires){
@@ -19713,7 +19739,6 @@ async function onIdFace(e){
               b.disabled=false;
               b.classList.remove('is-cooling');
               b.style.opacity='';
-              var amtLabel='6h';
               if(b.classList.contains('dx-ext')){
                 b.innerHTML='<b>Extend +'+amtLabel+'</b><i>keep him on the board</i>';
               }else{
@@ -19726,9 +19751,26 @@ async function onIdFace(e){
         }catch(e){}
       });
     }
-    var EXTEND_COOLDOWN_MS=6*60*60*1000; // 6h anti-spam per user+post
-    var EXTEND_ADD_MINUTES=360; // fixed +6h each extend
+    var EXTEND_COOLDOWN_MS=6*60*60*1000; // 6h — same user can re-extend the same post after this
+    var EXTEND_ADD_MINUTES=360; // fallback when post has no public extend amount
     function postExtendMinutes(post){
+      // Each Extender adds whatever the publisher set publicly (extend_amount / ext_N).
+      var n=Number(post&&(post.extendAmount!=null?post.extendAmount:post.extend_amount!=null?post.extend_amount:post.extend_mins));
+      if(isFinite(n)&&n>0){
+        n=Math.round(n);
+        if(n<15)n=15;
+        if(n>4320)n=4320;
+        return n;
+      }
+      try{
+        var fromTags=parseExtendMins(post&&post.tags,0);
+        if(fromTags>0){
+          fromTags=Math.round(fromTags);
+          if(fromTags<15)fromTags=15;
+          if(fromTags>4320)fromTags=4320;
+          return fromTags;
+        }
+      }catch(e){}
       return EXTEND_ADD_MINUTES;
     }
     function extendUserId(){
@@ -19845,7 +19887,7 @@ async function onIdFace(e){
             var post=null;
             try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
             var n=((post&&post.extensions)||0)+1;
-            btn.innerHTML='⚡ Extend +6h · '+n;
+            btn.innerHTML='⚡ Extend +'+fmtMin(postExtendMinutes(post))+' · '+n;
           }
         });
         var cdEl=document.getElementById('extend-cooldown');
@@ -19855,7 +19897,9 @@ async function onIdFace(e){
           else{
             cdEl.style.display='none';
             var conf=document.getElementById('btn-confirm-ext');
-            if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
+            var confPost=null;
+            try{confPost=typeof findPostAnywhere==='function'?findPostAnywhere(currentExtendPostId):null}catch(e){}
+            if(conf){conf.disabled=false;conf.textContent='Confirm · +'+fmtMin(postExtendMinutes(confPost))}
           }
         }
         if(!any && !document.querySelector('.btn-extend.is-cooling')){
@@ -19895,8 +19939,12 @@ async function onIdFace(e){
         return;
       }
       currentExtendPostId=id;
+      var minsHint=postExtendMinutes(post);
+      var amtLab=fmtMin(minsHint);
       var el=document.getElementById('extend-desc');
-      if(el)el.innerHTML='Add <strong style="color:var(--orange)">6h</strong> of visibility to this post.';
+      if(el)el.innerHTML='Add <strong style="color:var(--orange)">'+amtLab+'</strong> of visibility to this post.';
+      var confBtn=document.getElementById('btn-confirm-ext');
+      if(confBtn){confBtn.disabled=false;confBtn.textContent='Confirm · +'+amtLab}
       // Optimistic button paint so the tap feels instant
       try{
         document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
@@ -19926,7 +19974,7 @@ async function onIdFace(e){
     function looksNumericPostId(id){
       return /^\d+$/.test(String(id||'').trim());
     }
-    async function writeExtendCooldownNotif(user, postId){
+    async function writeExtendCooldownNotif(user, postId, minutes){
       try{
         await fetchWithTimeout(CF_API+'/notifs',{
           method:'POST',
@@ -19936,7 +19984,7 @@ async function onIdFace(e){
             from_username:user,
             type:'extend_cd',
             post_id:String(postId),
-            message:JSON.stringify({user:user,post_id:String(postId),action_type:'extend',at:Date.now(),minutes:EXTEND_ADD_MINUTES})
+            message:JSON.stringify({user:user,post_id:String(postId),action_type:'extend',at:Date.now(),minutes:Number(minutes)||EXTEND_ADD_MINUTES})
           }),
           cache:'no-store'
         }, 4000);
@@ -20001,7 +20049,8 @@ async function onIdFace(e){
           return;
         }
       }catch(e){}
-      var mins=EXTEND_ADD_MINUTES;
+      var mins=postExtendMinutes(post);
+      var amtLab=fmtMin(mins);
       var conf=document.getElementById('btn-confirm-ext');
       if(conf){conf.disabled=true;conf.textContent='Extending…'}
       try{
@@ -20023,13 +20072,13 @@ async function onIdFace(e){
             if(cfr.ok && cfj && (cfj.ok!==false) && (cfj.expires_at!=null || cfj.extensions!=null || cfj.ok)){
               r={ok:true,status:200};
               extJ=Object.assign({ok:true,remaining_ms:EXTEND_COOLDOWN_MS,last_at:Date.now(),source:'cloudflare'}, cfj);
-              try{writeExtendCooldownNotif(user,id)}catch(e){}
+              try{writeExtendCooldownNotif(user,id,mins)}catch(e){}
             }else if(cfr.status===429){
               r={ok:false,status:429}; extJ=Object.assign({error:'cooldown'}, cfj||{});
             }
           }catch(e2){console.warn('direct cf extend',e2)}
         }
-        // Same-origin API (cooldown + Supabase numeric). Keep timeout tight for Safari.
+        // Same-origin API (cooldown + publisher amount lookup + Supabase numeric). Keep timeout tight for Safari.
         if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown')){
           try{
             r=await fetchWithTimeout('/api/extend',{
@@ -20051,9 +20100,13 @@ async function onIdFace(e){
             if(sbj&&sbj.ok){
               r={ok:true,status:200};
               extJ=sbj;
-              try{writeExtendCooldownNotif(user,id)}catch(e){}
+              try{writeExtendCooldownNotif(user,id,mins)}catch(e){}
             }
           }catch(e3){console.warn('supabase extend',e3); if(!extJ||!extJ.message) extJ={error:'extend_failed',message:(e3&&e3.message)||'Extend failed'}}
+        }
+        if(extJ && Number(extJ.minutes_added)>0){
+          mins=Number(extJ.minutes_added);
+          amtLab=fmtMin(mins);
         }
         if(r.status===429 || (extJ&&extJ.error==='cooldown')){
           var rem=Number(extJ.remaining_ms)||getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS;
@@ -20070,14 +20123,14 @@ async function onIdFace(e){
           var failMsg=String((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
           if(/not\s*found/i.test(failMsg)) failMsg='Could not extend this post — try again';
           toast(failMsg);
-          if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
+          if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLab}
           // Restore optimistic "Extending…" feed buttons after Safari fail
           try{
             var nFail=((post&&post.extensions)||0)+1;
             document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
               if(b.classList.contains('is-cooling'))return;
               b.disabled=false;
-              b.innerHTML='⚡ Extend +6h · '+nFail;
+              b.innerHTML='⚡ Extend +'+amtLab+' · '+nFail;
             });
           }catch(e){}
           return;
@@ -20091,7 +20144,8 @@ async function onIdFace(e){
         if(post){
           post.expires=expires;
           post.extensions=extensions;
-          post.extendAmount=mins;
+          // Keep the publisher's public amount — don't overwrite with minutes just added.
+          if(!Number(post.extendAmount)) post.extendAmount=mins;
           if(Array.isArray(extJ.extenders)) post.extenders=extJ.extenders;
           else post.extenders=(post.extenders||[]).concat([user]);
           try{rememberFeedPost(post)}catch(e){}
@@ -20111,14 +20165,14 @@ async function onIdFace(e){
         try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
         try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
         closeModals();
-        toast('Extended · +6h · next in '+fmtExtendCountdown(coolRem));
+        toast('Extended · +'+amtLab+' · next in '+fmtExtendCountdown(coolRem));
         try{awardXp(5,'extend')}catch(e){}
         try{grantXp && grantXp('extend', String(id), false)}catch(e){}
         refreshExtendCooldownButtons();
       }catch(e){
         console.warn(e);
         toast('Extend failed — check connection');
-        if(conf){conf.disabled=false;conf.textContent='Confirm · +6h'}
+        if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLab}
       }finally{
         if(window.__extLock===id) window.__extLock=null;
       }

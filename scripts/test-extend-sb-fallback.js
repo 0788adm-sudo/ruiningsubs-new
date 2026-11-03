@@ -29,7 +29,7 @@ function mockRes() {
 
   const list = await fetch(
     SB +
-      '/rest/v1/posts?select=id,expires_at,extensions_count&expires_at=gt.' +
+      '/rest/v1/posts?select=id,expires_at,extensions_count,extend_amount,tags&expires_at=gt.' +
       encodeURIComponent(new Date().toISOString()) +
       '&order=expires_at.asc&limit=1',
     { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } }
@@ -39,6 +39,15 @@ function mockRes() {
   const postId = String(rows[0].id);
   const beforeExp = new Date(rows[0].expires_at).getTime();
   const beforeExt = Number(rows[0].extensions_count) || 0;
+  let expectMins = Number(rows[0].extend_amount) || 0;
+  if (!(expectMins > 0) && Array.isArray(rows[0].tags)) {
+    for (let i = 0; i < rows[0].tags.length; i++) {
+      const m = String(rows[0].tags[i] || '').match(/^ext(?:end)?_?(\d+)$/i);
+      if (m) { expectMins = Number(m[1]); break; }
+    }
+  }
+  if (!(expectMins > 0)) expectMins = 360;
+  expectMins = Math.max(15, Math.min(4320, Math.round(expectMins)));
   const user = 'exttest_' + Date.now().toString(36);
 
   const req = {
@@ -52,11 +61,11 @@ function mockRes() {
   assert(res.statusCode === 200, 'handler status 200 for numeric id ' + postId + ' got ' + res.statusCode + ' ' + res.body);
   assert(j.ok === true, 'handler ok');
   assert(j.source === 'supabase', 'source=supabase for numeric id');
-  assert(Number(j.minutes_added) === 360, 'minutes_added=360');
+  assert(Number(j.minutes_added) === expectMins, 'minutes_added=' + expectMins + ' (publisher amount)');
   assert(Number(j.cooldown_ms) === 6 * 60 * 60 * 1000, 'cooldown_ms=6h');
   assert(j.available === false, 'available=false after extend');
   assert(Number(j.remaining_ms) > 0, 'remaining_ms starts countdown');
-  assert(Number(j.expires_at) >= beforeExp + 360 * 60000 - 5000, 'expires_at advanced ~+6h');
+  assert(Number(j.expires_at) >= beforeExp + expectMins * 60000 - 5000, 'expires_at advanced by publisher amount');
   assert(Number(j.extensions) === beforeExt + 1, 'extensions_count +1');
 
   // Second call within cooldown → 429
