@@ -11445,8 +11445,9 @@ function openRoulette(){
     var gtTab='feed';
     var GT_TARGET=80;
     var GT_PAGE=24;
-    var GT_PROBE_MS=8000;
-    var GT_LOAD_TIMEOUT_MS=9000;
+    var GT_PROBE_MS=5000;
+    var GT_LOAD_TIMEOUT_MS=5000;
+    var GT_LOAD_UI_MS=1200; // hide Loading… overlay quickly; keep poster under it
     var GT_BROKEN_TTL=6*60*60*1000; // retry failed media after 6h
     // Verify the media can actually decode — URL existence alone is not enough.
     function probeVideoPlayable(url, ms){
@@ -11562,6 +11563,7 @@ function openRoulette(){
     }
     function goontokPrimaryVideo(p){
       if(!p)return null;
+      // GoonTok is video-only — never mount photo albums as fake clips.
       var health=videoHealthOf(p.id)||{};
       var opt=publicMediaUrl(p.optimized_url||health.optimized||parseOptTag(p.tags)||'');
       var candidates=[];
@@ -11570,6 +11572,7 @@ function openRoulette(){
       if(p.video) candidates.push(p.video);
       try{
         if(p.videos&&p.videos.length) candidates=candidates.concat(p.videos);
+        // Prefer explicit video fields first. Only fall back to images[] when items are real video URLs.
         if(p.images&&p.images.length) candidates=candidates.concat(p.images);
         else if(p.image) candidates=candidates.concat((typeof parseImages==='function')?parseImages(p.image):[p.image]);
       }catch(e){}
@@ -11610,18 +11613,28 @@ function openRoulette(){
         var k=String(p.id);
         if(seen[k]||(typeof isDeletedId==='function'&&isDeletedId(k)))return;
         if(isVideoHiddenFromGoonTok(k))return;
+        // Strict: must resolve to a real playable video URL (not photo albums).
         var media=goontokPrimaryVideo(p);
-        if(!media||!media.src)return;
+        if(!media||!media.src||!isVideoUrl(media.src))return;
         var blob=((p.title||'')+' '+(p.desc||'')+' '+(Array.isArray(p.tags)?p.tags.join(' '):'')+' '+(p.user||'')).toLowerCase();
         if(/\b(teen|underage|under age|preteen|loli|shota|years ?old|yearsold|#15|#16|#17)\b/.test(blob))return;
         seen[k]=1;out.push(p);
       }
-      (window.__videoCache||[]).forEach(add);
+      (window.__videoCache||[]).forEach(function(p){
+        if(typeof isVideoPost==='function' && !isVideoPost(p)) return;
+        add(p);
+      });
       try{
         var vids=JSON.parse(localStorage.getItem('rs_videos')||'[]')||[];
-        vids.forEach(add);
+        vids.forEach(function(p){
+          if(typeof isVideoPost==='function' && !isVideoPost(p)) return;
+          add(p);
+        });
       }catch(e){}
-      (posts||[]).forEach(add);
+      (posts||[]).forEach(function(p){
+        if(typeof isVideoPost==='function' && !isVideoPost(p)) return;
+        add(p);
+      });
       (normalFeedPosts||[]).forEach(function(p){
         if(typeof isVideoPost==='function'&&isVideoPost(p)) add(p);
       });
@@ -11911,19 +11924,8 @@ function openRoulette(){
           if(present[id])continue;
           if(isVideoHiddenFromGoonTok(id))continue;
           var media=goontokPrimaryVideo(p);
-          if(!media||!media.src)continue;
-          var health=videoHealthOf(id);
-          // Only skip when already proven playable OR never probed; probe unknown/needs_opt lightly.
-          if(!health || (health.status!=='playable' && health.status!=='broken' && health.status!=='error')){
-            try{
-              var probe=await probeVideoPlayable(media.src, 4500);
-              if(!probe||!probe.ok){
-                markVideoBroken(id, (probe&&probe.reason)||'preflight_fail', media.src);
-                continue;
-              }
-              markVideoPlayable(id, media.src);
-            }catch(eProbe){}
-          }
+          if(!media||!media.src||!isVideoUrl(media.src))continue;
+          // Mount immediately for TikTok-feel. Probe/playback failures drop the slide live.
           var html=goontokSlideHtml(p);
           if(!html)continue;
           if(box.querySelector('.gt-empty')) box.innerHTML='';
@@ -12004,8 +12006,22 @@ function openRoulette(){
       function setLoad(v, on){
         try{
           var sl=slideShell(v); if(!sl)return;
-          var el=sl.querySelector('.gt-load'); if(el) el.hidden=!on;
-          if(on){ var err=sl.querySelector('.gt-err'); if(err) err.hidden=true; }
+          var el=sl.querySelector('.gt-load'); if(!el)return;
+          try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
+          if(!on){ el.hidden=true; return; }
+          // Delay chip so fast muted autoplay never flashes Loading… over the poster.
+          // Cap visible time so it never sticks forever (Safari / broken CF).
+          el.hidden=true;
+          var err=sl.querySelector('.gt-err'); if(err) err.hidden=true;
+          v.__gtLoadUiTimer=setTimeout(function(){
+            try{
+              if(v.__gtFailed || (!v.paused && v.readyState>=2)){ el.hidden=true; return; }
+              el.hidden=false;
+              v.__gtLoadUiTimer=setTimeout(function(){
+                try{ if(el) el.hidden=true; }catch(e){}
+              }, GT_LOAD_UI_MS);
+            }catch(e){}
+          }, 350);
         }catch(e){}
       }
       function clearSlideError(v){
@@ -12022,6 +12038,8 @@ function openRoulette(){
         if(!v)return;
         try{v.pause()}catch(e){}
         try{clearTimeout(v.__gtTimer)}catch(e){}
+        try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
+        try{clearTimeout(v.__gtWaitTimer)}catch(e){}
         setLoad(v,false);
         showPoster(v);
       }
@@ -12080,9 +12098,12 @@ function openRoulette(){
         v.defaultMuted=!window.__gtSound;
         v.autoplay=!!play;
         v.loop=true;
-        // Always keep thumbnail visible until real playback starts — never blank.
+        // TikTok-style: poster always under; autoplay muted; Loading chip is brief only.
         showPoster(v);
-        if(play) setLoad(v,true);
+        if(play){
+          try{v.muted=true; v.defaultMuted=true; window.__gtSound=false}catch(e){}
+          setLoad(v,true);
+        }
         v.onplaying=function(){
           ensurePosterFromFrame(v, s);
           hidePoster(v);
@@ -12090,18 +12111,33 @@ function openRoulette(){
           clearSlideError(v);
           try{clearTimeout(v.__gtTimer)}catch(e){}
           try{clearTimeout(v.__gtLoadGuard)}catch(e){}
+          try{clearTimeout(v.__gtWaitTimer)}catch(e){}
           var id=slideIdOf(v);
           if(id) markVideoPlayable(id, s);
         };
-        v.onwaiting=function(){ if(play && v.paused===false) setLoad(v,true); };
+        v.onwaiting=function(){
+          // Don't flash Loading on every buffer hitch — only if stalled >700ms.
+          if(!(play && v.paused===false)) return;
+          try{clearTimeout(v.__gtWaitTimer)}catch(e){}
+          v.__gtWaitTimer=setTimeout(function(){
+            if(v.__gtFailed||v.paused) return;
+            if(v.readyState<3) setLoad(v,true);
+          }, 700);
+        };
         v.oncanplay=function(){
           ensurePosterFromFrame(v, s);
-          if(play && !v.paused) setLoad(v,false);
+          if(play){
+            setLoad(v,false);
+            if(v.paused) tryPlay();
+            else hidePoster(v);
+          }
         };
         v.onloadeddata=function(){
           ensurePosterFromFrame(v, s);
           if(!play){ showPoster(v); return; }
+          setLoad(v,false);
           if(!v.paused) hidePoster(v);
+          else tryPlay();
         };
         v.onerror=function(){
           failVideo(v,'media_error');
@@ -12110,19 +12146,13 @@ function openRoulette(){
           try{v.pause()}catch(e){}
           setLoad(v,false);
           try{clearTimeout(v.__gtWarmTimer)}catch(e){}
+          // Warm neighbor: soft timeout — drop only hard failures, not slow networks.
           v.__gtWarmTimer=setTimeout(function(){
             if(v.__gtFailed)return;
             if(v.error){failVideo(v,'warm_error');return}
             if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
               var wid=slideIdOf(v);
               if(wid) markVideoPlayable(wid, s);
-              return;
-            }
-            if(v.readyState===0){
-              probeVideoPlayable(s, 5000).then(function(res){
-                if(v.__gtFailed)return;
-                if(!res||!res.ok) failVideo(v, (res&&res.reason)||'warm_probe_fail');
-              });
             }
           }, GT_PROBE_MS);
           return;
@@ -12130,16 +12160,15 @@ function openRoulette(){
         try{clearTimeout(v.__gtTimer)}catch(e){}
         try{clearTimeout(v.__gtWarmTimer)}catch(e){}
         try{clearTimeout(v.__gtLoadGuard)}catch(e){}
-        // Hard timeout: never leave "Loading…" forever on broken Cloudflare media.
+        // Hard timeout: skip unplayable Cloudflare media and auto-advance.
         v.__gtTimer=setTimeout(function(){
           if(v.__gtFailed)return;
           if(v.error){failVideo(v,'play_error');return}
           if(!v.paused && v.readyState>=2){ setLoad(v,false); return; }
-          // Decoded but paused (autoplay policy) → keep poster, stop spinner, do NOT drop
           if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
             setLoad(v,false);
             ensurePosterFromFrame(v, s);
-            showPoster(v);
+            tryPlay();
             var okId=slideIdOf(v);
             if(okId) markVideoPlayable(okId, s);
             return;
@@ -12150,13 +12179,14 @@ function openRoulette(){
             if(v.__gtFailed)return;
             if(!v.paused && v.readyState>=2){ setLoad(v,false); return; }
             if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
-              setLoad(v,false); showPoster(v); return;
+              setLoad(v,false); tryPlay(); return;
             }
             failVideo(v,'load_timeout');
-          }, 4000);
+          }, 2800);
         }, GT_LOAD_TIMEOUT_MS);
         var tryPlay=function(){
           if(v.__gtFailed)return;
+          try{v.muted=true; v.defaultMuted=true}catch(e){}
           var p=v.play();
           if(p&&p.then){
             p.then(function(){
@@ -12166,7 +12196,7 @@ function openRoulette(){
               var id=slideIdOf(v);
               if(id) markVideoPlayable(id, s);
             }).catch(function(){
-              v.muted=true;window.__gtSound=false;
+              v.muted=true; window.__gtSound=false;
               v.play().then(function(){
                 ensurePosterFromFrame(v, s);
                 hidePoster(v);
@@ -12188,11 +12218,12 @@ function openRoulette(){
             if(!v.paused) hidePoster(v); else showPoster(v);
           }
         };
-        if(v.readyState>=2) tryPlay();
-        else{
+        // Kick autoplay ASAP (TikTok feel).
+        tryPlay();
+        if(v.readyState<2){
           var once=function(){v.removeEventListener('loadeddata',once);tryPlay()};
           v.addEventListener('loadeddata',once);
-          setTimeout(tryPlay,320);
+          setTimeout(tryPlay,180);
         }
       }
       function activeIndex(){
@@ -20145,9 +20176,8 @@ async function onIdFace(e){
       if(window.__extLock===id){toast('Extend already in progress');return false}
       var localRem=getLocalExtendCooldown(id);
       if(localRem>0){
+        closeModals();
         toast(fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem));
-        var cdEl0=document.getElementById('extend-cooldown');
-        if(cdEl0){cdEl0.style.display='block';cdEl0.textContent=fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem)}
         paintPostExtend(id, 0, 0, localRem);
         refreshExtendCooldownButtons();
         return true;
@@ -20167,144 +20197,117 @@ async function onIdFace(e){
       }catch(e){}
       var mins=postExtendMinutes(post);
       var amtLab=fmtMin(mins);
-      var conf=document.getElementById('btn-confirm-ext');
-      if(conf){conf.disabled=true;conf.textContent='Extending…'}
-      // Only after Yes: show Extending… on the card, then apply immediately.
-      try{
-        document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
-          if(b.classList.contains('is-cooling'))return;
-          b.textContent='Extending…';
-          b.disabled=true;
-        });
-      }catch(e){}
-      var succeeded=false;
-      try{
-        var r={ok:false,status:0};
-        var extJ={};
-        function extendOk(){
-          return !!(r.ok && !(extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null));
+      // IMMEDIATE optimistic apply — never leave the modal stuck on Extending…
+      var base=Number((post&&post.expires)||0)||readCardExpires(id);
+      if(!base || base<Date.now()) base=Date.now();
+      var expires=base+mins*60000;
+      var extensions=((post&&Number(post.extensions))||0)+1;
+      var coolAt=Date.now();
+      if(post){
+        post.expires=expires;
+        post.extensions=extensions;
+        if(!Number(post.extendAmount)) post.extendAmount=mins;
+        if(user && (!post.extenders||post.extenders.indexOf(user)<0)){
+          post.extenders=(post.extenders||[]).concat([user]);
         }
-        // Absolute deadline so Safari never spins forever across fallbacks.
-        var hardDeadline=Date.now()+16000;
-        function timeLeft(cap){
-          return Math.max(1200, Math.min(cap||8000, hardDeadline-Date.now()));
-        }
-        // Safari-fast path: hit CF directly first for UUID posts (~0.2s). Vercel /api/extend often hangs.
-        if(!looksNumericPostId(id) && Date.now()<hardDeadline){
-          try{
-            var cfr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(id)+'/extend',{
-              method:'POST',
-              headers:{'Content-Type':'application/json',Origin:siteOrigin(),Referer:siteOrigin()+'/'},
-              body:JSON.stringify({minutes:mins,user:user}),
-              cache:'no-store'
-            }, timeLeft(7000));
-            var cfj=await cfr.json().catch(function(){return{}});
-            if(cfr.ok && cfj && (cfj.ok!==false) && (cfj.expires_at!=null || cfj.extensions!=null || cfj.ok)){
-              r={ok:true,status:200};
-              extJ=Object.assign({ok:true,remaining_ms:EXTEND_COOLDOWN_MS,last_at:Date.now(),source:'cloudflare'}, cfj);
-              try{writeExtendCooldownNotif(user,id,mins)}catch(e){}
-            }else if(cfr.status===429){
-              r={ok:false,status:429}; extJ=Object.assign({error:'cooldown'}, cfj||{});
-            }
-          }catch(e2){console.warn('direct cf extend',e2)}
-        }
-        // Same-origin API (cooldown + publisher amount lookup + Supabase numeric).
-        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown') && Date.now()<hardDeadline){
-          try{
-            r=await fetchWithTimeout('/api/extend',{
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
-              cache:'no-store'
-            }, timeLeft(8000));
-            extJ=await r.json().catch(function(){return{}});
-          }catch(eApi){
-            console.warn('api extend',eApi);
-            if(!r.ok){ r={ok:false,status:0}; extJ={error:'extend_failed',message:'timeout'}; }
-          }
-        }
-        // Supabase PATCH for numeric / CF-missing posts.
-        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown') && Date.now()<hardDeadline){
-          try{
-            var sbj=await extendViaSupabase(id, user, mins);
-            if(sbj&&sbj.ok){
-              r={ok:true,status:200};
-              extJ=sbj;
-              try{writeExtendCooldownNotif(user,id,mins)}catch(e){}
-            }
-          }catch(e3){console.warn('supabase extend',e3); if(!extJ||!extJ.message) extJ={error:'extend_failed',message:(e3&&e3.message)||'Extend failed'}}
-        }
-        if(extJ && Number(extJ.minutes_added)>0){
-          mins=Number(extJ.minutes_added);
-          amtLab=fmtMin(mins);
-        }
-        if(r.status===429 || (extJ&&extJ.error==='cooldown')){
-          var rem=Number(extJ.remaining_ms)||getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS;
-          setLocalExtendCooldown(id, Date.now()-(EXTEND_COOLDOWN_MS-rem), rem);
-          paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, rem);
-          toast(fmtExtendCooldown(rem)+' · '+fmtExtendCountdown(rem));
-          var cdEl=document.getElementById('extend-cooldown');
-          if(cdEl){cdEl.style.display='block';cdEl.textContent=fmtExtendCooldown(rem)+' · '+fmtExtendCountdown(rem)}
-          if(conf){conf.disabled=true;conf.textContent=fmtExtendCountdown(rem)}
-          refreshExtendCooldownButtons();
-          succeeded=true;
-          return true;
-        }
-        if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
-          var failMsg=String((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
-          if(/not\s*found/i.test(failMsg)) failMsg='Could not extend this post — try again';
-          if(/timeout/i.test(failMsg)) failMsg='Extend timed out — try again';
-          toast(failMsg);
-          if(conf){conf.disabled=false;conf.textContent='Yes · +'+amtLab}
-          restoreExtendButtons(id, post, amtLab);
-          return false;
-        }
-        var base=Number((post&&post.expires)||0)||readCardExpires(id);
-        if(!base || base<Date.now()) base=Date.now();
-        var expires=base+mins*60000;
-        var extensions=((post&&Number(post.extensions))||0)+1;
-        if(extJ.expires_at) expires=Number(extJ.expires_at)||expires;
-        if(extJ.extensions!=null) extensions=Number(extJ.extensions)||extensions;
-        if(post){
-          post.expires=expires;
-          post.extensions=extensions;
-          if(!Number(post.extendAmount)) post.extendAmount=mins;
-          if(Array.isArray(extJ.extenders)) post.extenders=extJ.extenders;
-          else post.extenders=(post.extenders||[]).concat([user]);
-          try{rememberFeedPost(post)}catch(e){}
-        }
-        syncPostExpiresEverywhere(id, expires, extensions);
-        var coolRem=Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS;
-        var coolAt=Number(extJ.last_at)||Date.now();
-        setLocalExtendCooldown(id, coolAt, coolRem);
-        try{
-          var map=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};
-          map[id]={expires:expires,extensions:extensions};
-          localStorage.setItem('rs_ext_map',JSON.stringify(map));
-        }catch(e){}
-        try{localStorage.removeItem('rs_ext_'+id)}catch(e){}
-        try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
-        paintPostExtend(id, expires, extensions, coolRem);
-        try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
-        try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
-        try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
-        closeModals();
-        toast('Extended +'+amtLab);
-        try{awardXp(5,'extend')}catch(e){}
-        try{grantXp && grantXp('extend', String(id), false)}catch(e){}
-        refreshExtendCooldownButtons();
-        succeeded=true;
-        return true;
-      }catch(e){
-        console.warn(e);
-        toast('Extend failed — check connection');
-        if(conf){conf.disabled=false;conf.textContent='Yes · +'+amtLab}
-        restoreExtendButtons(id, post, amtLab);
-        return false;
-      }finally{
-        if(window.__extLock===id) window.__extLock=null;
-        if(!succeeded && !getLocalExtendCooldown(id)) restoreExtendButtons(id, post, amtLab);
+        try{rememberFeedPost(post)}catch(e){}
       }
+      syncPostExpiresEverywhere(id, expires, extensions);
+      setLocalExtendCooldown(id, coolAt, EXTEND_COOLDOWN_MS);
+      try{
+        var map=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};
+        map[id]={expires:expires,extensions:extensions};
+        localStorage.setItem('rs_ext_map',JSON.stringify(map));
+      }catch(e){}
+      paintPostExtend(id, expires, extensions, EXTEND_COOLDOWN_MS);
+      closeModals();
+      toast('Extended +'+amtLab);
+      try{awardXp(5,'extend')}catch(e){}
+      try{grantXp && grantXp('extend', String(id), false)}catch(e){}
+      refreshExtendCooldownButtons();
+      try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
+      try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
+      try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
+
+      // Persist in background — UI already updated.
+      (async function persistExtend(){
+        try{
+          var r={ok:false,status:0};
+          var extJ={};
+          function extendOk(){
+            return !!(r.ok && !(extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null));
+          }
+          var hardDeadline=Date.now()+14000;
+          function timeLeft(cap){
+            return Math.max(900, Math.min(cap||7000, hardDeadline-Date.now()));
+          }
+          // Safari-fast path: hit CF directly first for UUID posts.
+          if(!looksNumericPostId(id) && Date.now()<hardDeadline){
+            try{
+              var cfr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(id)+'/extend',{
+                method:'POST',
+                headers:{'Content-Type':'application/json',Origin:siteOrigin(),Referer:siteOrigin()+'/'},
+                body:JSON.stringify({minutes:mins,user:user}),
+                cache:'no-store'
+              }, timeLeft(6000));
+              var cfj=await cfr.json().catch(function(){return{}});
+              if(cfr.ok && cfj && (cfj.ok!==false) && (cfj.expires_at!=null || cfj.extensions!=null || cfj.ok)){
+                r={ok:true,status:200};
+                extJ=Object.assign({ok:true,source:'cloudflare'}, cfj);
+                try{writeExtendCooldownNotif(user,id,mins)}catch(e){}
+              }else if(cfr.status===429){
+                r={ok:false,status:429}; extJ=Object.assign({error:'cooldown'}, cfj||{});
+              }
+            }catch(e2){console.warn('direct cf extend',e2)}
+          }
+          if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown') && Date.now()<hardDeadline){
+            try{
+              r=await fetchWithTimeout('/api/extend',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
+                cache:'no-store'
+              }, timeLeft(7000));
+              extJ=await r.json().catch(function(){return{}});
+            }catch(eApi){console.warn('api extend',eApi)}
+          }
+          if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown') && Date.now()<hardDeadline){
+            try{
+              var sbj=await extendViaSupabase(id, user, mins);
+              if(sbj&&sbj.ok){
+                r={ok:true,status:200};
+                extJ=sbj;
+                try{writeExtendCooldownNotif(user,id,mins)}catch(e){}
+              }
+            }catch(e3){console.warn('supabase extend',e3)}
+          }
+          if(r.status===429 || (extJ&&extJ.error==='cooldown')){
+            var rem=Number(extJ.remaining_ms)||getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS;
+            setLocalExtendCooldown(id, Date.now()-(EXTEND_COOLDOWN_MS-rem), rem);
+            paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, rem);
+            refreshExtendCooldownButtons();
+            return;
+          }
+          if(extendOk()){
+            if(extJ.expires_at){
+              var serverExp=Number(extJ.expires_at)||expires;
+              if(post) post.expires=serverExp;
+              syncPostExpiresEverywhere(id, serverExp, extJ.extensions!=null?Number(extJ.extensions):extensions);
+              paintPostExtend(id, serverExp, extJ.extensions!=null?Number(extJ.extensions):extensions, getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS);
+            }
+            return;
+          }
+          // Soft fail — keep optimistic UI; toast once so user knows to retry later if needed.
+          console.warn('extend persist soft-fail', extJ);
+        }catch(e){
+          console.warn('extend persist', e);
+        }finally{
+          if(window.__extLock===id) window.__extLock=null;
+        }
+      })();
+      // Unlock quickly so user can interact; background still holds until persist finishes via __extLock clear in finally.
+      setTimeout(function(){ if(window.__extLock===id) window.__extLock=null; }, 400);
+      return true;
     }
     var REACTIONS=['❤️','😍','😂','🔥','🤏','👏','😭'];
     function reactBarHtml(post){
