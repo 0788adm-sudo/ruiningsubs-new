@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Static checks: Extend uses publisher amount + 6h re-extend;
- * Games hub keeps Triki + Armar la palabra + Ruleta + Dados only.
+ * Games hub keeps Tic-Tac-Toe + Word Scramble + Roulette + Dice only.
  */
 const fs = require('fs');
 const path = require('path');
@@ -15,7 +15,7 @@ function assert(c, m) {
 assert(html.includes('function postExtendMinutes'), 'postExtendMinutes helper');
 assert(/Each Extender adds whatever the publisher set/.test(html), 'publisher amount comment');
 assert(html.includes('parseExtendMins(post&&post.tags'), 'reads ext_N tags');
-assert(html.includes("toast('Extended · +'+amtLab"), 'toast uses publisher amount label');
+assert(html.includes("toast('Extended +'+amtLab"), 'toast uses publisher amount label');
 assert(html.includes("'⚡ Extend +'+fmtMin(postExtendMinutes(post))"), 'cooldown refresh uses publisher amount');
 assert(html.includes('EXTEND_COOLDOWN_MS=6*60*60*1000'), '6h same-post re-extend cooldown');
 assert(html.includes('__openExtTap'), 'Safari one-tap debounce');
@@ -30,17 +30,17 @@ assert(api.includes('cooldown_board') || api.includes('cooldown_check_skip'), 'a
 assert(api.includes('You can extend again in '), 'api English cooldown');
 assert(api.includes('minutes_added'), 'api returns minutes_added');
 
-assert(html.includes("id:'tic_tac_toe'"), 'Triki in registry');
-assert(html.includes("id:'word_challenge'"), 'Armar la palabra in registry');
-assert(html.includes("id:'roulette'") && html.includes("id:'dice'"), 'Ruleta + Dados in registry');
+assert(html.includes("id:'tic_tac_toe'"), 'Tic-Tac-Toe in registry');
+assert(html.includes("id:'word_challenge'"), 'Word Scramble in registry');
+assert(html.includes("id:'roulette'") && html.includes("id:'dice'"), 'Roulette + Dice in registry');
 assert(!html.includes("id:'memory'"), 'memory game removed');
 assert(!html.includes("id:'reaction'"), 'reaction game removed');
 assert(!html.includes("id:'typing'"), 'typing game removed');
 assert(!html.includes("id:'sequence'"), 'sequence game removed');
-assert(html.includes('ARMAR LA PALABRA'), 'Armar la palabra label');
-assert(html.includes('TRIKI'), 'Triki label');
+assert(html.includes('WORD SCRAMBLE'), 'Word Scramble label');
+assert(html.includes('TIC-TAC-TOE'), 'Tic-Tac-Toe label');
 assert(html.includes('backFromDiceGame'), 'dice back returns to games');
 assert(html.includes("__gamesToolReturn='challenges'"), 'roulette/dice remember games hub');
-assert(html.includes('TRIKI · ARMAR LA PALABRA · RULETA · DADOS'), 'promo lists four games');
+assert(html.includes('TIC-TAC-TOE · WORD SCRAMBLE · ROULETTE · DICE'), 'promo lists four games');
 
-console.log('\nExtend + Games Triki checks passed');
+console.log('\nExtend + Games checks passed');
