@@ -2048,8 +2048,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div class="tasks-entry" id="btn-explore-games" role="button" style="margin:0 0 14px;grid-column:1 / -1;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(255,106,0,.1));border:1px solid rgba(124,58,237,.4)" onclick="openChallengesHub()">
           <span class="entry-ico" style="color:#c4b5fd;border-color:rgba(167,139,250,.5);box-shadow:0 0 16px rgba(124,58,237,.3)">🎯</span>
           <div class="entry-body">
-            <strong>Desafíos + Juegos</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Triki · Armar la palabra · Ruleta · Dados</div>
+            <strong>Challenges + Games</strong>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tic-Tac-Toe · Word Scramble · Roulette · Dice</div>
           </div>
           <span style="font-size:20px;color:#c4b5fd">›</span>
         </div>
@@ -2942,7 +2942,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div class="admin-sec" id="asec-games" style="display:none">
             <div style="padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border);margin-bottom:12px">
               <strong style="color:var(--orange)">Game plays</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Ruleta, dados, Triki. Premios de publicación fijada.</p>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Roulette, dice, Tic-Tac-Toe. Pinned-post rewards.</p>
               <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminGames()">Refresh</button>
               <div id="admin-games-table" style="margin-top:10px;overflow:auto;font-size:12px">Loading…</div>
             </div>
@@ -11416,7 +11416,7 @@ function openRoulette(){
         }
       }
       if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
-      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 LLEGA A 10.000 XP',sub:'DESBLOQUEA UNA RECOMPENSA ESPECIAL',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Ver desafíos</button>'})}}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
+      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){try{if(typeof fetchVideoPosts==='function')fetchVideoPosts().then(function(){renderGoonTok()}).catch(function(){renderGoonTok()});else renderGoonTok()}catch(e){try{renderGoonTok()}catch(e2){}}startViewVisit('goontok')}
       if(name==='videos'){try{fetchVideoPosts().then(function(){try{renderVideos()}catch(e){}})}catch(e){}try{renderVideos()}catch(e){}startViewVisit('videos')}
@@ -11434,9 +11434,39 @@ function openRoulette(){
     var gtTab='feed';
     var GT_TARGET=80;
     var GT_PAGE=24;
-    var GT_PROBE_MS=10000;
-    var GT_LOAD_TIMEOUT_MS=14000;
+    var GT_PROBE_MS=8000;
+    var GT_LOAD_TIMEOUT_MS=9000;
     var GT_BROKEN_TTL=6*60*60*1000; // retry failed media after 6h
+    // Verify the media can actually decode — URL existence alone is not enough.
+    function probeVideoPlayable(url, ms){
+      return new Promise(function(resolve){
+        url=publicMediaUrl(String(url||''));
+        if(!url||(typeof isVideoUrl==='function'&&!isVideoUrl(url))){resolve({ok:false,reason:'bad_url'});return}
+        var done=false;
+        var v=document.createElement('video');
+        v.muted=true; v.defaultMuted=true; v.playsInline=true; v.preload='auto';
+        v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
+        v.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+        function finish(ok, reason){
+          if(done)return; done=true;
+          try{clearTimeout(timer)}catch(e){}
+          try{v.onerror=v.onloadeddata=v.oncanplay=null}catch(e){}
+          try{v.pause();v.removeAttribute('src');v.load()}catch(e){}
+          try{if(v.parentNode)v.parentNode.removeChild(v)}catch(e){}
+          resolve({ok:!!ok,reason:String(reason||'')});
+        }
+        var timer=setTimeout(function(){finish(false,'probe_timeout')}, Math.max(2500, Number(ms)||GT_PROBE_MS));
+        v.onerror=function(){finish(false,'media_error')};
+        function maybeOk(){
+          if(v.error){finish(false,'media_error');return}
+          if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0 || !isNaN(v.duration))) finish(true,'ready');
+        }
+        v.onloadeddata=maybeOk;
+        v.oncanplay=maybeOk;
+        try{document.body.appendChild(v); v.src=url; v.load()}catch(e){finish(false,'src_fail')}
+      });
+    }
+    window.probeVideoPlayable=probeVideoPlayable;
     function loadVideoHealth(){
       try{return JSON.parse(localStorage.getItem('rs_video_health')||'{}')||{}}catch(e){return{}}
     }
@@ -11868,6 +11898,21 @@ function openRoulette(){
           var p=pool[i];
           var id=String(p.id);
           if(present[id])continue;
+          if(isVideoHiddenFromGoonTok(id))continue;
+          var media=goontokPrimaryVideo(p);
+          if(!media||!media.src)continue;
+          var health=videoHealthOf(id);
+          // Only skip when already proven playable OR never probed; probe unknown/needs_opt lightly.
+          if(!health || (health.status!=='playable' && health.status!=='broken' && health.status!=='error')){
+            try{
+              var probe=await probeVideoPlayable(media.src, 4500);
+              if(!probe||!probe.ok){
+                markVideoBroken(id, (probe&&probe.reason)||'preflight_fail', media.src);
+                continue;
+              }
+              markVideoPlayable(id, media.src);
+            }catch(eProbe){}
+          }
           var html=goontokSlideHtml(p);
           if(!html)continue;
           if(box.querySelector('.gt-empty')) box.innerHTML='';
@@ -11988,6 +12033,8 @@ function openRoulette(){
         if(v.__gtFailed)return;
         v.__gtFailed=1;
         try{clearTimeout(v.__gtTimer)}catch(e){}
+        try{clearTimeout(v.__gtWarmTimer)}catch(e){}
+        try{clearTimeout(v.__gtLoadGuard)}catch(e){}
         setLoad(v,false);
         showPoster(v);
         // Skip completely — advance feed to the next playable post.
@@ -12022,6 +12069,8 @@ function openRoulette(){
         v.defaultMuted=!window.__gtSound;
         v.autoplay=!!play;
         v.loop=true;
+        // Always keep thumbnail visible until real playback starts — never blank.
+        showPoster(v);
         if(play) setLoad(v,true);
         v.onplaying=function(){
           ensurePosterFromFrame(v, s);
@@ -12029,21 +12078,18 @@ function openRoulette(){
           setLoad(v,false);
           clearSlideError(v);
           try{clearTimeout(v.__gtTimer)}catch(e){}
+          try{clearTimeout(v.__gtLoadGuard)}catch(e){}
           var id=slideIdOf(v);
           if(id) markVideoPlayable(id, s);
         };
-        v.onwaiting=function(){ if(play) setLoad(v,true); };
+        v.onwaiting=function(){ if(play && v.paused===false) setLoad(v,true); };
         v.oncanplay=function(){
           ensurePosterFromFrame(v, s);
           if(play && !v.paused) setLoad(v,false);
         };
         v.onloadeddata=function(){
           ensurePosterFromFrame(v, s);
-          if(!play){
-            // Warm neighbor: fill thumbnail, stay on poster until active
-            showPoster(v);
-            return;
-          }
+          if(!play){ showPoster(v); return; }
           if(!v.paused) hidePoster(v);
         };
         v.onerror=function(){
@@ -12052,34 +12098,51 @@ function openRoulette(){
         if(!play){
           try{v.pause()}catch(e){}
           setLoad(v,false);
-          // Warm-load timeout: if metadata never arrives, skip so feed stays healthy
           try{clearTimeout(v.__gtWarmTimer)}catch(e){}
           v.__gtWarmTimer=setTimeout(function(){
             if(v.__gtFailed)return;
-            if(v.error || (v.readyState===0 && !v.getAttribute('src'))){
-              failVideo(v,'warm_timeout');
+            if(v.error){failVideo(v,'warm_error');return}
+            if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
+              var wid=slideIdOf(v);
+              if(wid) markVideoPlayable(wid, s);
+              return;
+            }
+            if(v.readyState===0){
+              probeVideoPlayable(s, 5000).then(function(res){
+                if(v.__gtFailed)return;
+                if(!res||!res.ok) failVideo(v, (res&&res.reason)||'warm_probe_fail');
+              });
             }
           }, GT_PROBE_MS);
           return;
         }
         try{clearTimeout(v.__gtTimer)}catch(e){}
         try{clearTimeout(v.__gtWarmTimer)}catch(e){}
-        // Hard timeout: unplayable Cloudflare media must leave the feed.
+        try{clearTimeout(v.__gtLoadGuard)}catch(e){}
+        // Hard timeout: never leave "Loading…" forever on broken Cloudflare media.
         v.__gtTimer=setTimeout(function(){
           if(v.__gtFailed)return;
           if(v.error){failVideo(v,'play_error');return}
-          if(v.readyState>=2 && !v.paused){ setLoad(v,false); return; }
-          if(v.readyState===0 || v.paused){
-            // One recovery attempt, then drop
-            try{v.load()}catch(e){}
-            tryPlay();
-            setTimeout(function(){
-              if(v.__gtFailed)return;
-              if(v.paused && v.readyState<2){
-                failVideo(v,'load_timeout');
-              }
-            }, 4500);
+          if(!v.paused && v.readyState>=2){ setLoad(v,false); return; }
+          // Decoded but paused (autoplay policy) → keep poster, stop spinner, do NOT drop
+          if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
+            setLoad(v,false);
+            ensurePosterFromFrame(v, s);
+            showPoster(v);
+            var okId=slideIdOf(v);
+            if(okId) markVideoPlayable(okId, s);
+            return;
           }
+          try{v.load()}catch(e){}
+          tryPlay();
+          v.__gtLoadGuard=setTimeout(function(){
+            if(v.__gtFailed)return;
+            if(!v.paused && v.readyState>=2){ setLoad(v,false); return; }
+            if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
+              setLoad(v,false); showPoster(v); return;
+            }
+            failVideo(v,'load_timeout');
+          }, 4000);
         }, GT_LOAD_TIMEOUT_MS);
         var tryPlay=function(){
           if(v.__gtFailed)return;
@@ -12100,15 +12163,18 @@ function openRoulette(){
                 var id=slideIdOf(v);
                 if(id) markVideoPlayable(id, s);
               }).catch(function(){
-                // Autoplay policy block (not a bad URL) — keep poster visible, stop spinner
                 setLoad(v,false);
                 ensurePosterFromFrame(v, s);
                 showPoster(v);
+                if(v.readyState>=2){
+                  var id2=slideIdOf(v);
+                  if(id2) markVideoPlayable(id2, s);
+                }
               });
             });
           }else{
             ensurePosterFromFrame(v, s);
-            hidePoster(v);
+            if(!v.paused) hidePoster(v); else showPoster(v);
           }
         };
         if(v.readyState>=2) tryPlay();
@@ -12399,6 +12465,14 @@ function openRoulette(){
       // Far-future / permanent expiry = timeless (eligible for Hot)
       return exp>Date.now()+60*24*3600*1000;
     }
+    // Active countdown timer → Extend. No live timer (incl. pinned without expiry) → Hot.
+    // Never show both. Pinning alone does NOT switch Extend → Hot.
+    function postHasActiveTimer(p){
+      if(!p)return false;
+      var exp=Number(p.expires||0);
+      return !!(exp && isFinite(exp) && exp>Date.now());
+    }
+    window.postHasActiveTimer=postHasActiveTimer;
     function loadWallHotMap(){
       try{return JSON.parse(localStorage.getItem('rs_wall_hots')||'{}')||{}}catch(e){return{}}
     }
@@ -12488,16 +12562,13 @@ function openRoulette(){
       if(!p) try{p=(window.__videoCache||[]).find(function(x){return String(x.id)===id})}catch(e){}
       if(!p) try{p=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       if(!p){toast('Post not found');return}
-      // Wall / timeless / IDs / PEAs → Hot. Timed exposures use Extend instead.
-      var allowHot=!!opts.allowAnon;
+      // Hot ONLY when there is no active expiration timer. Active timer → Extend only.
+      var allowHot=false;
       try{
-        if(typeof isTimelessWallPost==='function' && isTimelessWallPost(p)) allowHot=true;
-        if(typeof isWallNormalPost==='function' && isWallNormalPost(p)) allowHot=true;
-        if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) allowHot=true;
-        if(typeof isWallTimedPost==='function' && isWallTimedPost(p)) allowHot=false;
-        var tg=p.tags||[]; if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-        if(Array.isArray(tg) && tg.some(function(x){return /^(generated_id|generated_pea|idcard|pea|id|normal_feed|profile_gallery|profile_only)$/i.test(String(x||''))})) allowHot=true;
-      }catch(e){}
+        if(typeof postHasActiveTimer==='function') allowHot=!postHasActiveTimer(p);
+        else allowHot=!(Number(p.expires||0)>Date.now());
+        if(opts.allowAnon && allowHot) allowHot=true;
+      }catch(e){allowHot=!(Number(p.expires||0)>Date.now())}
       if(!allowHot){toast('Hot is for posts without a timer');return}
       var next=postHotCount(p)+1;
       p.hotCount=next;
@@ -12606,9 +12677,10 @@ function openRoulette(){
           +'</button>';
       }).join('')+'</div>';
       var alreadyHot=iAlreadyHotted(p.id);
-      var hotBtn=timeless
-        ?('<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>')
-        :('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>');
+      var hasTimer=(typeof postHasActiveTimer==='function')?postHasActiveTimer(p):(!timeless && Number(p.expires||0)>Date.now());
+      var hotBtn=hasTimer
+        ?('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>')
+        :('<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>');
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
@@ -15769,9 +15841,9 @@ function profileStatsHtml(userPosts, extra){
       {id:'dis_noskip',cat:'DISCIPLINE',icon:'🔥',title:'SIN SKIP',desc:'Termina los retos de hoy sin saltarte. Confirma qué completaste.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Completado:'},
       {id:'dis_proof',cat:'DISCIPLINE',icon:'🔥',title:'PRUEBA',desc:'Captura que demuestre mejora de perfil o Wall hoy.',difficulty:'MEDIUM',evidence:'SCREENSHOT',validate:'photo',hours:24},
       // GAMES defs (hub shows live games above daily list)
-      {id:'game_word',cat:'GAMES',icon:'🔤',title:'JUEGO DE LETRAS',desc:'Ordena letras y encuentra la palabra. Resultado auto-verificado.',difficulty:'EASY',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'word_challenge'},
-      {id:'game_ttt',cat:'GAMES',icon:'🎯',title:'TRES EN RAYA',desc:'Juega Tres en Raya. Resultado auto-verificado.',difficulty:'MEDIUM',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'tic_tac_toe'},
-      {id:'defeat_response',cat:'GAMES',icon:'⚔️',title:'RESPUESTA A DERROTA',desc:'Perdiste. Publica en Wall tu respuesta y sube captura.',difficulty:'MEDIUM',evidence:'WALL_POST',validate:'photo',hours:48,prompt:'¿Cuál fue tu respuesta?',spawn:'defeat',xp:20},
+      {id:'game_word',cat:'GAMES',icon:'🔤',title:'WORD SCRAMBLE',desc:'Unscramble the word. Auto-verified result.',difficulty:'EASY',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'word_challenge'},
+      {id:'game_ttt',cat:'GAMES',icon:'🎯',title:'TIC-TAC-TOE',desc:'Play Tic-Tac-Toe. Auto-verified result.',difficulty:'MEDIUM',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'tic_tac_toe'},
+      {id:'defeat_response',cat:'GAMES',icon:'⚔️',title:'DEFEAT RESPONSE',desc:'You lost. Post your response on Wall and upload a screenshot.',difficulty:'MEDIUM',evidence:'WALL_POST',validate:'photo',hours:48,prompt:'What was your response?',spawn:'defeat',xp:20},
       // ELITE
       {id:'eli_profile_overhaul',cat:'PROFILE',icon:'🎯',title:'PERFIL COMPLETO',desc:'Rehaz bio y avatar para que ambos encajen. Luego presenta evidencia.',difficulty:'ELITE',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
       {id:'eli_wall_series',cat:'EXPOSURE',icon:'📸',title:'SERIE PRESENCIA',desc:'Publica en Wall, sube captura y una nota corta de qué mostraste.',difficulty:'ELITE',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'¿Qué mostraste y por qué?'},
@@ -16111,7 +16183,7 @@ function profileStatsHtml(userPosts, extra){
       if(play){play.style.display='none';play.innerHTML=''}
       box.style.display='block';
       if(!isRegistered()){
-        box.innerHTML='<div class="empty" style="padding:24px">Inicia sesión para ver tus desafíos.</div>';
+        box.innerHTML='<div class="empty" style="padding:24px">Log in to see your challenges.</div>';
         return;
       }
       tickDailyRetention();
@@ -16134,24 +16206,24 @@ function profileStatsHtml(userPosts, extra){
       });
       var html='';
       html+='<div class="rs-games-hero">';
-      html+='<div class="rs-games-kicker">🎯 DESAFÍOS</div>';
-      html+='<div class="rs-games-title">Retos rápidos · XP · recompensas</div>';
+      html+='<div class="rs-games-kicker">🎯 CHALLENGES</div>';
+      html+='<div class="rs-games-title">Quick challenges · XP · rewards</div>';
       html+='<div class="rs-games-meta">Rank L'+num+' · '+(lv.current.icon||'')+' '+esc(lv.current.name)
         +' · '+xp.toLocaleString()+' XP · 🔥 '+(Number(streak.current)||0)+'d</div>';
-      html+='<div class="rs-games-meta" style="margin-top:8px">🔥 Racha '+(Number(streak.current)||0)
-        +' · '+Number(st.stats.completed||0)+' retos · hoy '+completedToday
-        +' · XP hoy '+(RS_CHALLENGE_XP_CAP-remain)+'/'+RS_CHALLENGE_XP_CAP+'</div>';
+      html+='<div class="rs-games-meta" style="margin-top:8px">🔥 Streak '+(Number(streak.current)||0)
+        +' · '+Number(st.stats.completed||0)+' challenges · today '+completedToday
+        +' · XP today '+(RS_CHALLENGE_XP_CAP-remain)+'/'+RS_CHALLENGE_XP_CAP+'</div>';
       html+='</div>';
 
       // 10k XP goal bar (live XP — not hardcoded)
       html+=rsXpGoalProgressHtml(xp);
       html+=rsPromoStripHtml({
-        title:'🏆 LLEGA A 10.000 XP',
-        sub:'DESBLOQUEA UNA RECOMPENSA ESPECIAL'
+        title:'🏆 REACH 10,000 XP',
+        sub:'UNLOCK A SPECIAL REWARD'
       });
 
-      // Games: Triki, Armar la palabra, Ruleta, Dados only
-      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:4px 0 10px">JUEGOS</div>';
+      // Games: Tic-Tac-Toe, Word Scramble, Roulette, Dice only
+      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:4px 0 10px">GAMES</div>';
       var gameOrder={tic_tac_toe:0,word_challenge:1,roulette:2,dice:3};
       var featuredGames=RS_GAME_REGISTRY.filter(function(g){return g.status==='live'}).slice().sort(function(a,b){
         return (gameOrder[a.id]!=null?gameOrder[a.id]:9)-(gameOrder[b.id]!=null?gameOrder[b.id]:9);
@@ -16166,24 +16238,24 @@ function profileStatsHtml(userPosts, extra){
         html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
         html+='<span>'+esc(g.difficulty)+'</span>'+(g.xp?'<span>+'+g.xp+' XP</span>':'')+'<span>'+esc(g.duration)+'</span></div>';
         html+='<div class="rs-game-foot"><span class="rs-game-xp">'+(g.xp?('+'+g.xp+' XP'):(g.id==='roulette'||g.id==='dice'?'1 free · 10 FC':''))+'</span>';
-        html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">JUGAR</button></div></div>';
+        html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">PLAY</button></div></div>';
       });
 
       html+=rsPromoStripHtml({
-        title:'🎮 JUEGA · SUBE XP',
-        sub:'TRIKI · ARMAR LA PALABRA · RULETA · DADOS'
+        title:'🎮 PLAY · EARN XP',
+        sub:'TIC-TAC-TOE · WORD SCRAMBLE · ROULETTE · DICE'
       });
 
       html+='<div class="rs-game-card rs-daily-card">';
       html+='<div class="rs-game-cat">DAILY</div>';
-      html+='<div class="rs-game-name">🔥 Daily Devotion · Día '+dayN+'/7</div>';
-      html+='<div class="rs-game-desc">Reclama 1 vez al día para proteger tu racha. Bonus en días 3, 5 y 7.</div>';
+      html+='<div class="rs-game-name">🔥 Daily Devotion · Day '+dayN+'/7</div>';
+      html+='<div class="rs-game-desc">Claim once a day to protect your streak. Bonus on days 3, 5 and 7.</div>';
       html+='<div class="rs-game-foot"><span class="rs-game-xp">+10'+(dayN===3||dayN===5||dayN===7?'–30':'')+' XP</span>';
-      if(claim.available) html+='<button type="button" class="btn rs-game-btn" id="btn-daily-claim">RECLAMAR</button>';
-      else html+='<span class="rs-game-done">RECLAMADO HOY</span>';
+      if(claim.available) html+='<button type="button" class="btn rs-game-btn" id="btn-daily-claim">CLAIM</button>';
+      else html+='<span class="rs-game-done">CLAIMED TODAY</span>';
       html+='</div></div>';
 
-      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#ffb35c;margin:8px 0 10px">RETOS DE HOY</div>';
+      html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#ffb35c;margin:8px 0 10px">TODAY’S CHALLENGES</div>';
       daily.forEach(function(ch){
         var status=challengeStatusFor(ch);
         var xpAmt=challengeXpFor(ch);
@@ -16195,15 +16267,15 @@ function profileStatsHtml(userPosts, extra){
         html+='<div class="rs-game-desc">'+esc(ch.desc)+'</div>';
         html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;font-size:11px;font-weight:800;color:#9a9aa3">';
         html+='<span>'+esc(ch.difficulty)+'</span><span>+'+xpAmt+' XP</span><span>'+leftLabel+'</span><span>'+esc(ch.evidence)+'</span>';
-        if(status==='completed') html+='<span class="rs-game-done">✓ HECHO</span>';
-        else if(status==='pending') html+='<span style="color:#fbbf24">PENDIENTE</span>';
-        else if(status==='accepted') html+='<span style="color:#c4b5fd">ACEPTADO</span>';
+        if(status==='completed') html+='<span class="rs-game-done">✓ DONE</span>';
+        else if(status==='pending') html+='<span style="color:#fbbf24">PENDING</span>';
+        else if(status==='accepted') html+='<span style="color:#c4b5fd">ACCEPTED</span>';
         html+='</div>';
         html+='<div class="rs-game-foot">';
-        if(status==='completed') html+='<span class="rs-game-done">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VER</button>';
-        else if(status==='pending') html+='<span class="rs-game-xp">En revisión</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VER</button>';
-        else if(status==='accepted') html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">PRESENTAR PRUEBAS</button>';
-        else html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">ACEPTAR</button>';
+        if(status==='completed') html+='<span class="rs-game-done">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VIEW</button>';
+        else if(status==='pending') html+='<span class="rs-game-xp">In review</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">VIEW</button>';
+        else if(status==='accepted') html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">SUBMIT PROOF</button>';
+        else html+='<span class="rs-game-xp">+'+xpAmt+' XP</span><button type="button" class="btn rs-game-btn" data-open-ch="'+esc(ch.id)+'">ACCEPT</button>';
         html+='</div></div>';
       });
 
@@ -16218,11 +16290,11 @@ function profileStatsHtml(userPosts, extra){
           var status2=challengeStatusFor(Object.assign({},def,{id:sid}));
           if(status2==='completed')return;
           html+='<div class="rs-game-card" style="border-color:rgba(248,113,113,.45)">';
-          html+='<div class="rs-game-cat">⚔️ DERROTA</div>';
+          html+='<div class="rs-game-cat">⚔️ DEFEAT</div>';
           html+='<div class="rs-game-name">'+esc(def.title)+'</div>';
           html+='<div class="rs-game-desc">'+esc(def.desc)+'</div>';
           html+='<div class="rs-game-foot"><span class="rs-game-xp">+'+challengeXpFor(def)+' XP</span>';
-          html+='<button type="button" class="btn rs-game-btn" data-open-ch="'+esc(sid)+'">PRESENTAR PRUEBAS</button></div></div>';
+          html+='<button type="button" class="btn rs-game-btn" data-open-ch="'+esc(sid)+'">SUBMIT PROOF</button></div></div>';
         });
       }catch(e){}
 
@@ -16545,10 +16617,10 @@ function profileStatsHtml(userPosts, extra){
       return RS_WORD_BANK_DEFAULT.slice();
     }
     var RS_GAME_REGISTRY=[
-      {id:'tic_tac_toe',name:'TRIKI · TRES EN RAYA',desc:'Duelo rápido. Elige partida, amigo o rival aleatorio.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'PVP',status:'live',open:function(){startTicTacToeMenu()}},
-      {id:'word_challenge',name:'ARMAR LA PALABRA',desc:'Ordena letras de palabras de obediencia. Combos = más XP.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'live',open:function(){startWordChallenge()}},
-      {id:'roulette',name:'RUIN ROULETTE',desc:'Gira la ruleta. 1 free spin al día · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:0,duration:'spin',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openRoulette()}catch(e){showPanel('roulette')}}},
-      {id:'dice',name:'EXPOSURE DICE',desc:'3 dados · Wear · Pose · Proof. 1 free roll al día · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:0,duration:'roll',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openDiceGame()}catch(e){showPanel('dice')}}}
+      {id:'tic_tac_toe',name:'TIC-TAC-TOE',desc:'Quick duel. Play vs AI, a friend, or a random rival.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'PVP',status:'live',open:function(){startTicTacToeMenu()}},
+      {id:'word_challenge',name:'WORD SCRAMBLE',desc:'Unscramble obedience words. Combos = more XP.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'live',open:function(){startWordChallenge()}},
+      {id:'roulette',name:'RUIN ROULETTE',desc:'Spin the wheel. 1 free spin a day · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:0,duration:'spin',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openRoulette()}catch(e){showPanel('roulette')}}},
+      {id:'dice',name:'EXPOSURE DICE',desc:'3 dice · Wear · Pose · Proof. 1 free roll a day · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:0,duration:'roll',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openDiceGame()}catch(e){showPanel('dice')}}}
     ];
     function getGameDef(id){
       for(var i=0;i<RS_GAME_REGISTRY.length;i++) if(RS_GAME_REGISTRY[i].id===id) return RS_GAME_REGISTRY[i];
@@ -16776,7 +16848,7 @@ function profileStatsHtml(userPosts, extra){
         +'<div class="rs-games-title">'+(result==='win'?'NICE':'ROUND OVER')+'</div>'
         +'<div class="rs-games-meta">Score '+st.score+' · Correct '+st.correct+' · +'+xp+' XP</div></div>'
         +'<div class="rs-game-card"><button type="button" class="btn btn-primary" id="word-again" style="width:100%;min-height:48px;font-weight:900">PLAY AGAIN</button>'
-        +'<button type="button" class="btn btn-ghost" id="word-hub" style="width:100%;margin-top:8px">← Challenges</button></div>'
+        +'<button type="button" class="btn btn-ghost" id="word-hub" style="width:100%;margin-top:8px">← Games hub</button></div>'
       );
       var a=document.getElementById('word-again'); if(a)a.onclick=function(){startWordChallenge()};
       var h=document.getElementById('word-hub'); if(h)h.onclick=function(){renderChallengesHub()};
@@ -16801,21 +16873,21 @@ function profileStatsHtml(userPosts, extra){
     function startTicTacToeMenu(){
       var ch=getTrikiChallenge();
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TRIKI / TRES EN RAYA</div>'
-        +'<div class="rs-games-title">Desafío ×3</div>'
-        +'<div class="rs-games-meta">Máx 3 partidas · gana las 3 → publicación fijada · si pierdes → retos (aceptación explícita)</div>'
-        +'<div style="margin-top:8px;font-size:13px;color:#f5c518;font-weight:800">Partidas '+ch.games+'/'+ch.max+' · Victorias '+ch.wins+'/3</div></div>'
+        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TIC-TAC-TOE</div>'
+        +'<div class="rs-games-title">Challenge ×3</div>'
+        +'<div class="rs-games-meta">Max 3 games · win all 3 → pinned post · lose → challenges (explicit accept)</div>'
+        +'<div style="margin-top:8px;font-size:13px;color:#f5c518;font-weight:800">Games '+ch.games+'/'+ch.max+' · Wins '+ch.wins+'/3</div></div>'
         +'<div class="rs-game-card">'
-        +'<button type="button" class="btn btn-primary" data-ttt="ai" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3?' disabled':'')+'>VS PARTIDA</button>'
-        +'<button type="button" class="btn btn-secondary" data-ttt="friend" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3?' disabled':'')+'>VS AMIGO</button>'
-        +'<button type="button" class="btn btn-secondary" data-ttt="random" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3?' disabled':'')+'>VS ALEATORIO</button>'
-        +(ch.games>=3?'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Sesión completa. Reinicia para otro desafío.</div><button type="button" class="btn btn-primary" id="ttt-reset-ch" style="width:100%;margin-bottom:8px">Nuevo desafío ×3</button>':'')
-        +'<button type="button" class="btn btn-ghost" id="ttt-back" style="width:100%">← Atrás</button>'
+        +'<button type="button" class="btn btn-primary" data-ttt="ai" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3?' disabled':'')+'>VS AI</button>'
+        +'<button type="button" class="btn btn-secondary" data-ttt="friend" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3?' disabled':'')+'>VS FRIEND</button>'
+        +'<button type="button" class="btn btn-secondary" data-ttt="random" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3?' disabled':'')+'>VS RANDOM</button>'
+        +(ch.games>=3?'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Session complete. Reset for another challenge.</div><button type="button" class="btn btn-primary" id="ttt-reset-ch" style="width:100%;margin-bottom:8px">New challenge ×3</button>':'')
+        +'<button type="button" class="btn btn-ghost" id="ttt-back" style="width:100%">← Back</button>'
         +'</div>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-ttt]'),function(btn){
         btn.onclick=function(){
-          if(getTrikiChallenge().games>=3){toast('Máximo 3 partidas por sesión');return}
+          if(getTrikiChallenge().games>=3){toast('Maximum 3 games per session');return}
           beginTicTacToe(btn.getAttribute('data-ttt'));
         };
       });
@@ -16826,8 +16898,8 @@ function profileStatsHtml(userPosts, extra){
     function beginTicTacToe(mode){
       mode=String(mode||'ai');
       var ch=getTrikiChallenge();
-      if(ch.games>=3){toast('Máximo 3 partidas por sesión');startTicTacToeMenu();return}
-      var opponent='Partida';
+      if(ch.games>=3){toast('Maximum 3 games per session');startTicTacToeMenu();return}
+      var opponent='AI';
       var note='';
       if(mode==='random'){
         var lobby=null;
@@ -16842,21 +16914,21 @@ function profileStatsHtml(userPosts, extra){
           }else{
             lobbies.push({user:currentUser.name,at:Date.now()});
             localStorage.setItem('rs_ttt_lobby',JSON.stringify(lobbies.slice(-20)));
-            note='Sin rival disponible — duelo de partida';
+            note='No rival available — playing AI';
             mode='ai';
-            opponent='Partida';
+            opponent='AI';
             toast(note);
           }
         }catch(e){
-          note='Sin rival disponible — duelo de partida';
+          note='No rival available — playing AI';
           mode='ai';
-          opponent='Partida';
+          opponent='AI';
           toast(note);
         }
       }else if(mode==='friend'){
-        opponent='Amigo';
+        opponent='Friend';
       }else{
-        opponent='Partida';
+        opponent='AI';
       }
       __ttt={
         sessionId:ch.sessionId+'_g'+(ch.games+1),
@@ -16929,14 +17001,14 @@ function profileStatsHtml(userPosts, extra){
         return '<button type="button" data-cell="'+i+'" class="ttt-cell" style="width:100%;aspect-ratio:1;border-radius:14px;border:1px solid #2a2a32;background:#101014;color:#fff;font-size:28px;font-weight:900">'+(v||'')+'</button>';
       }).join('');
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TRES EN RAYA</div>'
-        +'<div class="rs-games-title">Duelo</div>'
-        +'<div class="rs-games-meta">Tú '+__ttt.you+' · vs '+esc(__ttt.opponent)
+        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TIC-TAC-TOE</div>'
+        +'<div class="rs-games-title">Duel</div>'
+        +'<div class="rs-games-meta">You '+__ttt.you+' · vs '+esc(__ttt.opponent)
         +(__ttt.note?(' · '+esc(__ttt.note)):'')
-        +(__ttt.over?'':(' · turno '+__ttt.turn))+'</div></div>'
+        +(__ttt.over?'':(' · turn '+__ttt.turn))+'</div></div>'
         +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:320px;margin:0 auto 12px">'+cells+'</div>'
         +'<div id="ttt-msg" style="text-align:center;min-height:28px;font-weight:800"></div>'
-        +'<button type="button" class="btn btn-ghost" id="ttt-menu" style="width:100%">← Modos</button>'
+        +'<button type="button" class="btn btn-ghost" id="ttt-menu" style="width:100%">← Modes</button>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-cell]'),function(btn){
         btn.onclick=function(){
@@ -16962,16 +17034,16 @@ function profileStatsHtml(userPosts, extra){
     function showTrikiRetosSection(){
       var retos=listTrikiRetoDefs();
       var html='<div style="margin:12px 0;padding:12px;border:1px solid rgba(255,106,0,.35);border-radius:14px;background:rgba(255,106,0,.06)">'
-        +'<div style="font-size:11px;letter-spacing:1px;color:#ffb35c;font-weight:900;margin-bottom:6px">RETOS DISPONIBLES</div>'
-        +'<p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.4">Nada se publica solo. Debes <b>aceptar</b> un reto explícitamente.</p>';
+        +'<div style="font-size:11px;letter-spacing:1px;color:#ffb35c;font-weight:900;margin-bottom:6px">AVAILABLE CHALLENGES</div>'
+        +'<p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.4">Nothing posts automatically. You must <b>accept</b> a challenge explicitly.</p>';
       if(!retos.length){
-        html+='<div style="font-size:12px;color:var(--muted)">Admin aún no configuró retos. Usa Respuesta a derrota.</div>';
+        html+='<div style="font-size:12px;color:var(--muted)">Admin has not set challenges yet. Use Defeat Response.</div>';
       }else{
         retos.forEach(function(c){
           html+='<div style="padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;background:#0c0c10">'
             +'<div style="font-weight:800">'+(c.icon||'🎯')+' '+esc(c.title)+'</div>'
             +'<div style="font-size:11px;color:var(--muted);margin:4px 0 8px">'+esc(c.cat||'')+' · '+esc(String(c.desc||'').slice(0,120))+'</div>'
-            +'<button type="button" class="btn btn-primary btn-sm" data-accept-reto="'+esc(c.id)+'" style="font-weight:900">Acepto este reto</button>'
+            +'<button type="button" class="btn btn-primary btn-sm" data-accept-reto="'+esc(c.id)+'" style="font-weight:900">I accept this challenge</button>'
             +'</div>';
         });
       }
@@ -16988,9 +17060,9 @@ function profileStatsHtml(userPosts, extra){
         mine.sort(function(a,b){return (Number(b.created||0)||0)-(Number(a.created||0)||0)});
         postId=String(mine[0].id||'');
       }else{
-        postId=String(prompt('3 victorias! Pega el ID de tu publicación para fijarla:')||'').trim();
+        postId=String(prompt('3 wins! Paste your post ID to pin it:')||'').trim();
       }
-      if(!postId){toast('Necesitas una publicación propia para el premio PINNED');return null}
+      if(!postId){toast('You need one of your posts for the PINNED reward');return null}
       var playId='triki_pin_'+ch.sessionId;
       var j=null;
       try{
@@ -17016,7 +17088,7 @@ function profileStatsHtml(userPosts, extra){
           return arr.slice(0,40);
         })()));
       }catch(e){}
-      toast('REWARD: publicación fijada (PINNED)');
+      toast('REWARD: post pinned');
       return {postId:postId,api:j};
     }
     async function finishTtt(){
@@ -17069,31 +17141,31 @@ function profileStatsHtml(userPosts, extra){
         try{pinInfo=await grantTrikiPinReward(ch)}catch(e){}
       }
 
-      var title=result==='win'?'GANASTE':(result==='draw'?'EMPATE':'PERDISTE');
+      var title=result==='win'?'YOU WON':(result==='draw'?'DRAW':'YOU LOST');
       var retosHtml=result==='loss'?showTrikiRetosSection():'';
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TRIKI</div>'
+        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TIC-TAC-TOE</div>'
         +'<div class="rs-games-title">'+title+'</div>'
-        +'<div class="rs-games-meta">vs '+esc(session.opponent)+' · +'+xp+' XP · Partida '+ch.games+'/3 · Wins '+ch.wins+'/3'
+        +'<div class="rs-games-meta">vs '+esc(session.opponent)+' · +'+xp+' XP · Game '+ch.games+'/3 · Wins '+ch.wins+'/3'
         +(pinInfo?' · ⭐ PINNED':'')
-        +(result==='loss'?' · elige un reto (aceptación explícita)':'')+'</div></div>'
+        +(result==='loss'?' · pick a challenge (explicit accept)':'')+'</div></div>'
         +retosHtml
         +'<div class="rs-game-card">'
-        +(result==='loss'?'<button type="button" class="btn btn-primary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">RESPUESTA A DERROTA</button>':'')
-        +(ch.games<3?'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">SIGUIENTE PARTIDA ('+ch.games+'/3)</button>'
-          :'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">VER RESUMEN / NUEVO</button>')
-        +'<button type="button" class="btn btn-ghost" id="ttt-hub" style="width:100%;margin-top:8px">← Desafíos</button></div>'
+        +(result==='loss'?'<button type="button" class="btn btn-primary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">DEFEAT RESPONSE</button>':'')
+        +(ch.games<3?'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">NEXT GAME ('+ch.games+'/3)</button>'
+          :'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">SUMMARY / NEW</button>')
+        +'<button type="button" class="btn btn-ghost" id="ttt-hub" style="width:100%;margin-top:8px">← Challenges</button></div>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-accept-reto]'),function(btn){
         btn.onclick=function(){
           var id=btn.getAttribute('data-accept-reto');
-          if(!confirm('¿Aceptas explícitamente este reto? Nada se publica automáticamente.')) return;
+          if(!confirm('Do you explicitly accept this challenge? Nothing posts automatically.')) return;
           try{spawnDefeatChallenge(session)}catch(e){}
-          try{openChallenge(id)}catch(e){toast('Reto aceptado: '+id)}
+          try{openChallenge(id)}catch(e){toast('Challenge accepted: '+id)}
         };
       });
       var d=document.getElementById('ttt-defeat'); if(d)d.onclick=function(){
-        if(!confirm('¿Aceptas la respuesta a derrota?')) return;
+        if(!confirm('Accept the defeat response?')) return;
         spawnDefeatChallenge(session);
         openChallenge('defeat_response');
       };
@@ -17637,8 +17709,11 @@ function profileStatsHtml(userPosts, extra){
     }
     
     function postCardActionButtons(p, permanent, already, alreadyCd){
-      var timelessCard = !!(permanent || (typeof isTimelessWallPost === 'function' && isTimelessWallPost(p)));
-      if(timelessCard){
+      // Pinned + active timer → Extend. Hot only when there is no live expiry.
+      var hasTimer = (typeof postHasActiveTimer === 'function')
+        ? postHasActiveTimer(p)
+        : (!!(Number(p && p.expires || 0) > Date.now()));
+      if(!hasTimer){
         var hotOn = (typeof iAlreadyHotted === 'function' && iAlreadyHotted(p.id));
         var hotN = (typeof postHotCount === 'function' ? postHotCount(p) : 0) || 0;
         var hotBtn = '<button class="btn btn-hot' + (hotOn ? ' on' : '') + '" type="button" ' + (hotOn ? 'disabled' : '') +
@@ -18154,11 +18229,11 @@ function postCardHtml(p, compact){
       var mineR=getMyReaction(post);
       var hotNDetail=(typeof postHotCount==='function'?postHotCount(post):0)||0;
       var alreadyHotDetail=(typeof iAlreadyHotted==='function'&&iAlreadyHotted(post.id));
-      // Wall / timeless / non-timer posts → HOT. Live timed exposures → Extend.
-      var showHotBtn=!(timedLive && !timeless);
-      var extLed=showHotBtn
-        ? ('<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>')
-        : ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>');
+      // Active timer (incl. pinned timed posts) → Extend only. No timer → Hot only.
+      var showExtendBtn=(typeof postHasActiveTimer==='function')?postHasActiveTimer(post):(!!(timedLive && !timeless));
+      var extLed=showExtendBtn
+        ? ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>')
+        : ('<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>');
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';
@@ -19713,13 +19788,47 @@ async function onIdFace(e){
         || document.querySelector('#detail-content .timer[data-exp]');
       return el?Number(el.getAttribute('data-exp'))||0:0;
     }
+    function syncPostExpiresEverywhere(id, expires, extensions){
+      id=String(id||'');
+      function touch(list){
+        try{
+          (list||[]).forEach(function(p){
+            if(!p||String(p.id)!==id)return;
+            if(expires) p.expires=Number(expires)||p.expires;
+            if(extensions!=null) p.extensions=Number(extensions)||0;
+          });
+        }catch(e){}
+      }
+      touch(posts); touch(normalFeedPosts); touch(window.__videoCache);
+      try{
+        document.querySelectorAll('[data-pid="'+id.replace(/"/g,'')+'"] .nf-timer-chip,[data-normal-post-id="'+id.replace(/"/g,'')+'"] .nf-timer-chip').forEach(function(chip){
+          if(expires && typeof fmt==='function') chip.textContent='⏱ '+fmt(Number(expires)-Date.now());
+        });
+      }catch(e){}
+    }
+    function restoreExtendButtons(id, post, amtLabel){
+      id=String(id||'');
+      amtLabel=amtLabel||fmtMin(postExtendMinutes(post));
+      var n=((post&&post.extensions)||0)+1;
+      try{
+        document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend,.dx-ext.btn-extend[data-pid="'+id.replace(/"/g,'')+'"]').forEach(function(b){
+          if(b.classList.contains('is-cooling'))return;
+          b.disabled=false;
+          b.removeAttribute('aria-disabled');
+          b.style.opacity='';
+          if(b.classList.contains('dx-ext')) b.innerHTML='<b>Extend +'+amtLabel+'</b><i>keep him on the board</i>';
+          else b.innerHTML='⚡ Extend +'+amtLabel+' · '+n;
+        });
+      }catch(e){}
+    }
     function paintPostExtend(id, expires, extensions, remainingMs){
       id=String(id||'');
       remainingMs = remainingMs!=null ? Number(remainingMs)||0 : getLocalExtendCooldown(id);
       var postForAmt=null;
       try{postForAmt=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       var amtLabel=fmtMin(postExtendMinutes(postForAmt));
-      document.querySelectorAll('[data-pid="'+id+'"],[data-normal-post-id="'+id+'"],#detail-content .post').forEach(function(card){
+      if(expires) syncPostExpiresEverywhere(id, expires, extensions);
+      document.querySelectorAll('[data-pid="'+id+'"],[data-normal-post-id="'+id+'"],#detail-content .post,#detail-content').forEach(function(card){
         try{
           if(expires){
             card.querySelectorAll('.timer[data-exp]').forEach(function(t){
@@ -19733,9 +19842,15 @@ async function onIdFace(e){
             var ico=s.querySelector('i');
             s.innerHTML=(ico?ico.outerHTML:'')+(Number(extensions)||0);
           });
-          card.querySelectorAll('.btn-extend,.dx-ext').forEach(function(b){
+          card.querySelectorAll('.btn-extend,.dx-ext.btn-extend').forEach(function(b){
             paintExtendButtonState(b, remainingMs);
-              if(!(remainingMs>0)){
+            if(remainingMs>0){
+              if(b.classList.contains('dx-ext')){
+                b.innerHTML='<b>Extended</b><i>'+fmtExtendCountdown(remainingMs)+'</i>';
+              }else{
+                b.innerHTML='Extended <span class="ext-cd">'+fmtExtendCountdown(remainingMs)+'</span>';
+              }
+            }else{
               b.disabled=false;
               b.classList.remove('is-cooling');
               b.style.opacity='';
@@ -19744,8 +19859,6 @@ async function onIdFace(e){
               }else{
                 b.innerHTML='⚡ Extend +'+amtLabel+' · '+((Number(extensions)||0)+1);
               }
-            }else if(b.classList.contains('dx-ext')){
-              b.innerHTML='<b>Extended</b><i>'+fmtExtendCountdown(remainingMs)+'</i>';
             }
           });
         }catch(e){}
@@ -19915,18 +20028,15 @@ async function onIdFace(e){
       var now=Date.now();
       if(window.__openExtTap && window.__openExtTap.id===id && (now-window.__openExtTap.t)<1100) return;
       window.__openExtTap={id:id,t:now};
+      if(window.__extLock===id){toast('Extend already in progress');return}
       var user=extendUserId();
       if(!user){toast('Login to extend');try{showPanel('profile')}catch(e){}return}
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
-      // Posts without a live timer → HOT instead of Extend
+      // No active timer → Hot (never Extend). Pinned timed posts stay on Extend.
       try{
-        if(post && typeof isTimelessWallPost==='function' && isTimelessWallPost(post)){
+        if(post && typeof postHasActiveTimer==='function' && !postHasActiveTimer(post)){
           try{await hotBumpWall(id)}catch(e){try{hotBumpWall(id)}catch(e2){}}
-          return;
-        }
-        if(post && typeof isWallTimedPost==='function' && !isWallTimedPost(post) && typeof isWallNormalPost==='function' && isWallNormalPost(post)){
-          try{await hotBumpWall(id)}catch(e){}
           return;
         }
       }catch(e){}
@@ -19953,13 +20063,19 @@ async function onIdFace(e){
           b.disabled=true;
         });
       }catch(e){}
-      // One-tap extend (no modal / no cooldown GET wait). Modal only if confirmExtend fails.
+      // One-tap extend (no modal / no cooldown GET wait). Modal only if confirmExtend fails hard.
       try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
+      var ok=false;
       try{
-        await confirmExtend();
+        ok=!!(await confirmExtend());
       }catch(e){
+        restoreExtendButtons(id, post, amtLab);
         var modal=document.getElementById('extend-modal');
         if(modal){modal.style.display='';modal.classList.add('show')}
+      }
+      if(!ok && !getLocalExtendCooldown(id)){
+        // Safety: never leave "Extending…" forever
+        restoreExtendButtons(id, post, amtLab);
       }
       // Refresh cooldown from server in background (non-blocking)
       try{
@@ -20026,48 +20142,57 @@ async function onIdFace(e){
     async function confirmExtend(){
       var id=String(currentExtendPostId||'');
       window.__blockFeedTap=Date.now()+250;
-      if(!id){closeModals();return}
+      if(!id){closeModals();return false}
       var user=extendUserId();
-      if(!user){closeModals();toast('Login to extend');return}
-      if(window.__extLock===id)return;
+      if(!user){closeModals();toast('Login to extend');return false}
+      if(window.__extLock===id){toast('Extend already in progress');return false}
       var localRem=getLocalExtendCooldown(id);
       if(localRem>0){
         toast(fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem));
         var cdEl0=document.getElementById('extend-cooldown');
         if(cdEl0){cdEl0.style.display='block';cdEl0.textContent=fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem)}
-        return;
+        paintPostExtend(id, 0, 0, localRem);
+        refreshExtendCooldownButtons();
+        return true;
       }
       window.__extLock=id;
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       try{
-        if(post && typeof isTimelessWallPost==='function' && isTimelessWallPost(post)){
+        if(post && typeof postHasActiveTimer==='function' && !postHasActiveTimer(post)){
           window.__extLock=null;
           closeModals();
           toast('No timer on this post — use HOT');
+          restoreExtendButtons(id, post);
           try{await hotBumpWall(id)}catch(e){}
-          return;
+          return false;
         }
       }catch(e){}
       var mins=postExtendMinutes(post);
       var amtLab=fmtMin(mins);
       var conf=document.getElementById('btn-confirm-ext');
       if(conf){conf.disabled=true;conf.textContent='Extending…'}
+      var succeeded=false;
       try{
         var r={ok:false,status:0};
         var extJ={};
         function extendOk(){
           return !!(r.ok && !(extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null));
         }
+        // Absolute deadline so Safari never spins forever across fallbacks.
+        var hardDeadline=Date.now()+16000;
+        function timeLeft(cap){
+          return Math.max(1200, Math.min(cap||8000, hardDeadline-Date.now()));
+        }
         // Safari-fast path: hit CF directly first for UUID posts (~0.2s). Vercel /api/extend often hangs.
-        if(!looksNumericPostId(id)){
+        if(!looksNumericPostId(id) && Date.now()<hardDeadline){
           try{
             var cfr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(id)+'/extend',{
               method:'POST',
               headers:{'Content-Type':'application/json',Origin:siteOrigin(),Referer:siteOrigin()+'/'},
               body:JSON.stringify({minutes:mins,user:user}),
               cache:'no-store'
-            }, 8000);
+            }, timeLeft(7000));
             var cfj=await cfr.json().catch(function(){return{}});
             if(cfr.ok && cfj && (cfj.ok!==false) && (cfj.expires_at!=null || cfj.extensions!=null || cfj.ok)){
               r={ok:true,status:200};
@@ -20078,23 +20203,23 @@ async function onIdFace(e){
             }
           }catch(e2){console.warn('direct cf extend',e2)}
         }
-        // Same-origin API (cooldown + publisher amount lookup + Supabase numeric). Keep timeout tight for Safari.
-        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown')){
+        // Same-origin API (cooldown + publisher amount lookup + Supabase numeric).
+        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown') && Date.now()<hardDeadline){
           try{
             r=await fetchWithTimeout('/api/extend',{
               method:'POST',
               headers:{'Content-Type':'application/json'},
               body:JSON.stringify({post_id:id,user:user,minutes:mins,extend_amount:mins}),
               cache:'no-store'
-            }, 9000);
+            }, timeLeft(8000));
             extJ=await r.json().catch(function(){return{}});
           }catch(eApi){
             console.warn('api extend',eApi);
             if(!r.ok){ r={ok:false,status:0}; extJ={error:'extend_failed',message:'timeout'}; }
           }
         }
-        // Supabase PATCH for numeric / CF-missing posts (ruiningsubs → ruinexpose shared DB).
-        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown')){
+        // Supabase PATCH for numeric / CF-missing posts.
+        if(!extendOk() && r.status!==429 && !(extJ&&extJ.error==='cooldown') && Date.now()<hardDeadline){
           try{
             var sbj=await extendViaSupabase(id, user, mins);
             if(sbj&&sbj.ok){
@@ -20117,23 +20242,17 @@ async function onIdFace(e){
           if(cdEl){cdEl.style.display='block';cdEl.textContent=fmtExtendCooldown(rem)+' · '+fmtExtendCountdown(rem)}
           if(conf){conf.disabled=true;conf.textContent=fmtExtendCountdown(rem)}
           refreshExtendCooldownButtons();
-          return;
+          succeeded=true;
+          return true;
         }
         if(!r.ok || (extJ&&extJ.error && !extJ.ok && extJ.expires_at==null && extJ.extensions==null)){
           var failMsg=String((extJ&&(extJ.message||extJ.error))||'Extend failed — try again');
           if(/not\s*found/i.test(failMsg)) failMsg='Could not extend this post — try again';
+          if(/timeout/i.test(failMsg)) failMsg='Extend timed out — try again';
           toast(failMsg);
           if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLab}
-          // Restore optimistic "Extending…" feed buttons after Safari fail
-          try{
-            var nFail=((post&&post.extensions)||0)+1;
-            document.querySelectorAll('.btn-extend[data-pid="'+id.replace(/"/g,'')+'"],[data-pid="'+id.replace(/"/g,'')+'"] .btn-extend').forEach(function(b){
-              if(b.classList.contains('is-cooling'))return;
-              b.disabled=false;
-              b.innerHTML='⚡ Extend +'+amtLab+' · '+nFail;
-            });
-          }catch(e){}
-          return;
+          restoreExtendButtons(id, post, amtLab);
+          return false;
         }
         var base=Number((post&&post.expires)||0)||readCardExpires(id);
         if(!base || base<Date.now()) base=Date.now();
@@ -20144,13 +20263,12 @@ async function onIdFace(e){
         if(post){
           post.expires=expires;
           post.extensions=extensions;
-          // Keep the publisher's public amount — don't overwrite with minutes just added.
           if(!Number(post.extendAmount)) post.extendAmount=mins;
           if(Array.isArray(extJ.extenders)) post.extenders=extJ.extenders;
           else post.extenders=(post.extenders||[]).concat([user]);
           try{rememberFeedPost(post)}catch(e){}
         }
-        // Always start the 6h same-post cooldown countdown after a successful extend.
+        syncPostExpiresEverywhere(id, expires, extensions);
         var coolRem=Number(extJ.remaining_ms)||EXTEND_COOLDOWN_MS;
         var coolAt=Number(extJ.last_at)||Date.now();
         setLocalExtendCooldown(id, coolAt, coolRem);
@@ -20163,18 +20281,24 @@ async function onIdFace(e){
         try{sessionStorage.setItem('rs_ext_skip_confirm','1')}catch(e){}
         paintPostExtend(id, expires, extensions, coolRem);
         try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
+        try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
         try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
         closeModals();
-        toast('Extended · +'+amtLab+' · next in '+fmtExtendCountdown(coolRem));
+        toast('Extended +'+amtLab);
         try{awardXp(5,'extend')}catch(e){}
         try{grantXp && grantXp('extend', String(id), false)}catch(e){}
         refreshExtendCooldownButtons();
+        succeeded=true;
+        return true;
       }catch(e){
         console.warn(e);
         toast('Extend failed — check connection');
         if(conf){conf.disabled=false;conf.textContent='Confirm · +'+amtLab}
+        restoreExtendButtons(id, post, amtLab);
+        return false;
       }finally{
         if(window.__extLock===id) window.__extLock=null;
+        if(!succeeded && !getLocalExtendCooldown(id)) restoreExtendButtons(id, post, amtLab);
       }
     }
     var REACTIONS=['❤️','😍','😂','🔥','🤏','👏','😭'];

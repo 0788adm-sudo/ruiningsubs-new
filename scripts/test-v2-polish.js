@@ -34,7 +34,7 @@ assert(api.includes('ruinexpose.com'), 'api SITE defaults to ruinexpose');
 assert(html.includes('extendViaSupabase'), 'SPA Supabase extend fallback');
 assert(html.includes('SITE_CANONICAL') && html.includes('ruinexpose.com'), 'SPA canonical site is ruinexpose');
 assert(html.includes('Sending delete request'), 'delete request toast-only (no 100% bar)');
-assert(html.includes('next in ') || html.includes("toast('Extended · +"), 'cooldown countdown toast after extend');
+assert(html.includes("toast('Extended +") || html.includes('next in '), 'success toast after extend');
 assert(html.includes('__openExtTap'), 'Safari one-tap extend debounce');
 assert(html.includes('Safari-fast path') || html.includes('hit CF directly first'), 'CF-first extend for Safari speed');
 assert(html.includes('boost wall interaction') || html.includes('🔥 Hot'), 'HOT button on wall/timeless posts');
