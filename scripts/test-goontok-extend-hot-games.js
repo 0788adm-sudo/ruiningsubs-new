@@ -30,7 +30,7 @@ assert(html.includes('>PLAY</button>'), 'PLAY button English');
 assert(html.includes('TIC-TAC-TOE · WORD SCRAMBLE · ROULETTE · DICE'), 'promo English four games');
 assert(html.includes('function probeVideoPlayable'), 'GoonTok playable probe');
 assert(html.includes('GT_LOAD_UI_MS'), 'brief Loading chip (not forever)');
-assert(html.includes('GT_LOAD_TIMEOUT_MS=5000'), 'faster load timeout');
+assert(html.includes('GT_LOAD_TIMEOUT_MS=3800') || html.includes('GT_LOAD_TIMEOUT_MS=5000'), 'faster load timeout');
 assert(html.includes("failVideo(v,'load_timeout')"), 'drop on load timeout');
 assert(html.includes('TikTok-style') || html.includes('showPoster(v)'), 'poster kept while loading');
 assert(html.includes('Kick autoplay ASAP') || html.includes('tryPlay();'), 'TikTok muted autoplay kick');
@@ -40,4 +40,8 @@ assert(/function confirmExtend\(\)\{/.test(html) && !/async function confirmExte
 assert(html.includes('Heavy feed rebuilds') || /setTimeout\(function\(\)\{[\s\S]*renderPosts/.test(html), 'heavy renderPosts deferred after paint');
 assert(html.includes('silentlyDropGoonTokSlide'), 'auto-advance on broken');
 assert(html.includes('!isVideoUrl(media.src)') || html.includes('isVideoUrl(media.src)'), 'strict video-only GoonTok pool');
+assert(html.includes('probeVideoPlayable') && html.includes('preflight_fail'), 'GoonTok probes before mount');
+assert(html.includes('pruneBrokenGoonTokSlides'), 'prunes black/broken GoonTok slides');
+assert(html.includes('pure chronology') || /currentFilter==='new'[\s\S]{0,180}b\.created/, 'Newest is chronological');
+assert(html.includes('normalFeedPosts.unshift(local)') || html.includes('normalFeedPosts.unshift'), 'publish pins to Wall immediately');
 console.log('\nGoonTok / Extend / Hot / Games checks passed');

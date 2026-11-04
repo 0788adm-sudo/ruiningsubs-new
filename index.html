@@ -11452,10 +11452,11 @@ function openRoulette(){
     var gtTab='feed';
     var GT_TARGET=80;
     var GT_PAGE=24;
-    var GT_PROBE_MS=5000;
-    var GT_LOAD_TIMEOUT_MS=5000;
-    var GT_LOAD_UI_MS=1200; // hide Loading… overlay quickly; keep poster under it
-    var GT_BROKEN_TTL=6*60*60*1000; // retry failed media after 6h
+    var GT_PROBE_MS=4000;
+    var GT_LOAD_TIMEOUT_MS=3800; // drop black/unplayable active slides fast
+    var GT_LOAD_UI_MS=900; // hide Loading… overlay quickly; keep poster under it
+    var GT_BROKEN_TTL=45*60*1000; // retry failed media after 45m (was 6h — starved the feed)
+    var GT_PREFLIGHT_MS=2800;
     // Verify the media can actually decode — URL existence alone is not enough.
     function probeVideoPlayable(url, ms){
       return new Promise(function(resolve){
@@ -11523,8 +11524,15 @@ function openRoulette(){
     }
     function markVideoBroken(id, reason, src){
       // Hard skip — failed Cloudflare/R2 media must leave the GoonTok feed.
-      markVideoHealth(id,'broken',{reason:String(reason||'fail').slice(0,80),src:src||''});
-      enqueueVideoOptimize(id, reason||'broken');
+      // Soft-timeouts use needs_opt so the pool can recover sooner than hard media errors.
+      var why=String(reason||'fail');
+      if(/load_timeout|probe_timeout|warm_/.test(why)){
+        markVideoNeedsOpt(id, why);
+        markVideoHealth(id,'broken',{reason:why.slice(0,80),src:src||'',soft:1});
+      }else{
+        markVideoHealth(id,'broken',{reason:why.slice(0,80),src:src||''});
+        enqueueVideoOptimize(id, reason||'broken');
+      }
     }
     function markVideoNeedsOpt(id, reason){
       var h=videoHealthOf(id);
@@ -11666,6 +11674,10 @@ function openRoulette(){
         return s%1000;
       }
       out.sort(function(a,b){
+        // Prefer already-proven playable clips so the first swipe screens aren't black.
+        var ha=videoHealthOf(a.id), hb=videoHealthOf(b.id);
+        var playA=(ha&&ha.status==='playable')?1:0, playB=(hb&&hb.status==='playable')?1:0;
+        if(playB!==playA) return playB-playA;
         var hotA=typeof postHotCount==='function'?postHotCount(a):Number(a.hotCount||0);
         var hotB=typeof postHotCount==='function'?postHotCount(b):Number(b.hotCount||0);
         var scoreA=hotA*40+(Number(a.likes)||0)*6+(Number(a.views)||0)*0.15+gtRot(a.id)*0.08;
@@ -11908,23 +11920,27 @@ function openRoulette(){
       try{
         var box=document.getElementById('gt-scroller');
         if(!box)return;
+        try{pruneBrokenGoonTokSlides()}catch(e){}
         var have=gtVisibleIds();
         if(have.length>=GT_TARGET && !forceFetch)return;
-        if(forceFetch || have.length<GT_TARGET){
+        if(forceFetch || have.length<Math.min(12, GT_TARGET)){
           try{
-            // Bust short cache so we can discover more candidates when many are broken
+            // Full catalog (SB + R2) — CF /feed?type=video is often empty.
             window.__vidFetchAt=0;window.__vidFetchP=null;
-            await fetchCfFeed('video', 50).then(function(cf){
-              (cf||[]).forEach(function(row){try{mergeVideoRow(row)}catch(e){}});
-            });
+            await fetchVideoPosts();
           }catch(e){
-            try{await fetchVideoPosts()}catch(e2){}
+            try{
+              await fetchCfFeed('video', 50).then(function(cf){
+                (cf||[]).forEach(function(row){try{mergeVideoRow(row)}catch(e2){}});
+              });
+            }catch(e3){}
           }
         }
         have=gtVisibleIds();
         var pool=goontokCandidatePool();
         var present={};have.forEach(function(id){present[id]=1});
         var added=0;
+        var probed=0;
         for(var i=0;i<pool.length && have.length+added<GT_TARGET;i++){
           var p=pool[i];
           var id=String(p.id);
@@ -11932,7 +11948,23 @@ function openRoulette(){
           if(isVideoHiddenFromGoonTok(id))continue;
           var media=goontokPrimaryVideo(p);
           if(!media||!media.src||!isVideoUrl(media.src))continue;
-          // Mount immediately for TikTok-feel. Probe/playback failures drop the slide live.
+          var health=videoHealthOf(id);
+          // Only mount real playable clips — probe unknowns before they become black slides.
+          if(!health || health.status!=='playable'){
+            if(probed>=10) continue; // don't stall refill forever
+            probed++;
+            try{
+              var probe=await probeVideoPlayable(media.src, GT_PREFLIGHT_MS);
+              if(!probe||!probe.ok){
+                markVideoBroken(id, (probe&&probe.reason)||'preflight_fail', media.src);
+                continue;
+              }
+              markVideoPlayable(id, media.src);
+            }catch(eProbe){
+              markVideoBroken(id, 'preflight_err', media.src);
+              continue;
+            }
+          }
           var html=goontokSlideHtml(p);
           if(!html)continue;
           if(box.querySelector('.gt-empty')) box.innerHTML='';
@@ -11953,6 +11985,45 @@ function openRoulette(){
         }
       }
     }
+    function pruneBrokenGoonTokSlides(){
+      if(window.__gtPruning)return 0;
+      window.__gtPruning=1;
+      var box=document.getElementById('gt-scroller');
+      if(!box){window.__gtPruning=0;return 0}
+      var dropIds=[];
+      [].slice.call(box.querySelectorAll('.gt-slide[data-gid]')).forEach(function(sl){
+        var id=sl.getAttribute('data-gid');
+        if(!id)return;
+        if(isVideoHiddenFromGoonTok(id)){ dropIds.push(id); return; }
+        try{
+          var v=sl.querySelector('video[data-gt-vid]');
+          var src=v&&(v.getAttribute('data-src')||v.getAttribute('src'));
+          if(!src || (typeof isVideoUrl==='function' && !isVideoUrl(src))) dropIds.push(id);
+        }catch(e){}
+      });
+      // Remove DOM nodes in one pass — avoid re-entrant bind/refill per slide.
+      dropIds.forEach(function(id){
+        try{
+          markVideoBroken(id, 'prune_broken');
+          var slide=box.querySelector('.gt-slide[data-gid="'+String(id).replace(/"/g,'')+'"]');
+          if(!slide)return;
+          slide.querySelectorAll('video').forEach(function(v){
+            try{v.pause()}catch(e){}
+            try{v.removeAttribute('src');v.load()}catch(e){}
+          });
+          slide.remove();
+        }catch(e){}
+      });
+      if(dropIds.length){
+        try{box.setAttribute('data-gt-sig','')}catch(e){}
+        if(!box.querySelector('.gt-slide')){
+          box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
+        }
+      }
+      window.__gtPruning=0;
+      return dropIds.length;
+    }
+    window.pruneBrokenGoonTokSlides=pruneBrokenGoonTokSlides;
     window.silentlyDropGoonTokSlide=silentlyDropGoonTokSlide;
     window.refillGoonTokPlayable=refillGoonTokPlayable;
     window.__gtSound=false;
@@ -11985,6 +12056,7 @@ function openRoulette(){
           }catch(e){}
         }, {passive:true});
       }
+      try{pruneBrokenGoonTokSlides()}catch(e){}
       var slides=[].slice.call(sc.querySelectorAll('.gt-slide'));
       if(!slides.length)return;
       try{
@@ -12153,13 +12225,19 @@ function openRoulette(){
           try{v.pause()}catch(e){}
           setLoad(v,false);
           try{clearTimeout(v.__gtWarmTimer)}catch(e){}
-          // Warm neighbor: soft timeout — drop only hard failures, not slow networks.
+          // Warm neighbor: drop hard failures so black shells never sit in the swipe stack.
           v.__gtWarmTimer=setTimeout(function(){
             if(v.__gtFailed)return;
             if(v.error){failVideo(v,'warm_error');return}
             if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
               var wid=slideIdOf(v);
               if(wid) markVideoPlayable(wid, s);
+              ensurePosterFromFrame(v, s);
+              showPoster(v);
+              return;
+            }
+            if(v.readyState===0){
+              failVideo(v,'warm_timeout');
             }
           }, GT_PROBE_MS);
           return;
@@ -12211,13 +12289,21 @@ function openRoulette(){
                 var id=slideIdOf(v);
                 if(id) markVideoPlayable(id, s);
               }).catch(function(){
+                // Never leave a black "playable" shell — drop so next real clip advances.
                 setLoad(v,false);
+                if(v.error || v.readyState<2){
+                  failVideo(v, v.error?'play_error':'play_reject');
+                  return;
+                }
+                // Decoded but blocked by autoplay policy — keep poster, retry once shortly.
                 ensurePosterFromFrame(v, s);
                 showPoster(v);
-                if(v.readyState>=2){
-                  var id2=slideIdOf(v);
-                  if(id2) markVideoPlayable(id2, s);
-                }
+                setTimeout(function(){
+                  if(v.__gtFailed||!v.paused)return;
+                  v.muted=true;
+                  var r=v.play();
+                  if(r&&r.then) r.catch(function(){ failVideo(v,'autoplay_blocked'); });
+                }, 400);
               });
             });
           }else{
@@ -12247,14 +12333,17 @@ function openRoulette(){
           var dist=Math.abs(n-i);
           if(n===i){
             vids.forEach(function(v){armVideo(v,true)});
-          } else if(dist===1){
-            // Keep prev/next warm (src attached, paused)
+          } else if(dist<=2){
+            // Keep nearby warm with poster visible — never black empty shells.
             vids.forEach(function(v){armVideo(v,false)});
-          } else if(dist===2){
-            vids.forEach(function(v){try{v.pause()}catch(e){}});
+          } else if(dist===3){
+            vids.forEach(function(v){
+              try{v.pause()}catch(e){}
+              showPoster(v);
+            });
           } else {
-            // Far slides: pause + free buffer, but slide nodes stay in the feed
-            vids.forEach(unloadFarVideo);
+            // Far slides: free decode buffer but KEEP poster so swipe never hits black.
+            vids.forEach(function(v){unloadFarVideo(v); showPoster(v)});
           }
         });
       }
@@ -14283,6 +14372,25 @@ function openRoulette(){
           if(!list.some(function(x){return String(x.id)===String(p.id)})) list.push(p);
         });
       }catch(e){}
+      // Just-published post must appear on Wall even if CF feed lags.
+      try{
+        var lp=JSON.parse(localStorage.getItem('rs_last_pub')||'null');
+        if(lp&&lp.id&&!isDeletedId(lp.id)&&(Date.now()-(Number(lp.t)||0)<15*60*1000)){
+          if(!list.some(function(x){return String(x.id)===String(lp.id)})){
+            var imgs=[];try{imgs=parseImages(lp.image)}catch(e){imgs=lp.image?[lp.image]:[]}
+            var exp=0;try{exp=lp.expires?new Date(lp.expires).getTime():0}catch(e){exp=Number(lp.expires)||0}
+            list.unshift({
+              id:lp.id,user:lp.user||(currentUser&&currentUser.name)||'anon',title:lp.title||'New post',desc:lp.desc||'',
+              tags:lp.tags||[],created:Number(lp.t)||Date.now(),expires:exp||0,views:0,likes:0,extensions:0,
+              extendAmount:Number(lp.extendAmount)||360,image:lp.image||'',images:imgs,featuredUntil:0,commentCount:0
+            });
+          }else{
+            // Move fresh publish to the front of the wall list
+            var ix=list.findIndex(function(x){return String(x.id)===String(lp.id)});
+            if(ix>0){ var row=list.splice(ix,1)[0]; list.unshift(row); }
+          }
+        }
+      }catch(e){}
       try{
         var arch=JSON.parse(localStorage.getItem('rs_id_archive')||'[]')||[];
         arch.slice(0,30).forEach(function(r){
@@ -14332,7 +14440,28 @@ function openRoulette(){
           if(mapped) mapped.hotCount=postHotCount(mapped);
           return mapped;
         }).filter(Boolean));
+        // Supabase recent rows fill CF lag so brand-new publishes appear for everyone.
+        if(!more && typeof sb!=='undefined' && sb){
+          try{
+            var sbRecent=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(30);
+            ((sbRecent&&sbRecent.data)||[]).forEach(function(r){
+              var mapped=null;
+              try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
+              if(!mapped||isDeletedId(mapped.id))return;
+              mapped.hotCount=postHotCount(mapped);
+              if(!list.some(function(p){return String(p.id)===String(mapped.id)})) list.push(mapped);
+            });
+          }catch(eSb){}
+        }
         list=wallMergeLocalExtras(list).sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
+        // Keep just-published on top for a short window even if Hot ranks higher.
+        try{
+          var lp2=JSON.parse(localStorage.getItem('rs_last_pub')||'null');
+          if(lp2&&lp2.id&&(Date.now()-(Number(lp2.t)||0)<10*60*1000)){
+            var ix2=list.findIndex(function(x){return String(x.id)===String(lp2.id)});
+            if(ix2>0){ var row2=list.splice(ix2,1)[0]; list.unshift(row2); }
+          }
+        }catch(e){}
         if(more){
           // Append new ids only
           var seen={};(normalFeedPosts||[]).forEach(function(p){seen[String(p.id)]=1});
@@ -14344,7 +14473,7 @@ function openRoulette(){
         window.__wallFetchedAt=Date.now();
         window.__wallDone=list.length<pageSize;
         if(more) window.__wallVisible=Math.min(normalFeedPosts.length, (window.__wallVisible||12)+12);
-        else window.__wallVisible=Math.min(12, normalFeedPosts.length);
+        else window.__wallVisible=Math.min(Math.max(12, 16), normalFeedPosts.length);
         try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
         renderNormalFeed();
         try{prefetchAvatars(normalFeedPosts.slice(0,window.__wallVisible||12)).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
@@ -14555,7 +14684,29 @@ function openRoulette(){
       try{
         posts=(posts||[]).filter(function(p){return p && !isDeletedId(p.id) && (isCfPost(p) || /^\d+$/.test(String(p.id)));});
         normalFeedPosts=(normalFeedPosts||[]).filter(function(p){return !isDeletedId(p.id)});
+        // Re-pin last publish to front after network merge so it never disappears into rank noise.
+        try{
+          var lpKeep=JSON.parse(localStorage.getItem('rs_last_pub')||'null');
+          if(lpKeep&&lpKeep.id&&(Date.now()-(Number(lpKeep.t)||0)<15*60*1000)){
+            var keepIx=(posts||[]).findIndex(function(x){return String(x.id)===String(lpKeep.id)});
+            if(keepIx>0){ var keepRow=posts.splice(keepIx,1)[0]; posts.unshift(keepRow); }
+            else if(keepIx<0){
+              // Re-inject if network merge dropped it (CF lag)
+              var expK=0;try{expK=lpKeep.expires?new Date(lpKeep.expires).getTime():0}catch(e){expK=Number(lpKeep.expires)||0}
+              if(!expK || expK>Date.now()){
+                var imgsK=[];try{imgsK=parseImages(lpKeep.image)}catch(e){imgsK=lpKeep.image?[lpKeep.image]:[]}
+                posts.unshift({
+                  id:lpKeep.id,user:lpKeep.user||currentUser.name,title:lpKeep.title||'New post',desc:lpKeep.desc||'',
+                  tags:lpKeep.tags||[],created:Number(lpKeep.t)||Date.now(),expires:expK,views:0,likes:0,extensions:0,
+                  extendAmount:Number(lpKeep.extendAmount)||360,extenders:[],likedBy:[],image:lpKeep.image||'',images:imgsK,
+                  featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{}
+                });
+              }
+            }
+          }
+        }catch(e){}
         if(!viewingSaved)renderPosts();
+        try{renderNormalFeed()}catch(e){}
       }catch(e){}
       if(!(posts&&posts.length) && box) box.innerHTML='<div class="empty">No active exposures</div>';
       })();
@@ -18076,7 +18227,10 @@ function postCardHtml(p, compact){
       if(currentFilter==='time')list.sort(function(a,b){return (b.expires||0)-(a.expires||0)});
       else if(currentFilter==='ext')list.sort(function(a,b){return extendedFeedRank(b)-extendedFeedRank(a) || ((b.extensions||0)-(a.extensions||0))});
       else if(currentFilter==='ending'||currentFilter==='soon')list.sort(function(a,b){return (a.expires||0)-(b.expires||0)});
-      else if(currentFilter==='new')list.sort(function(a,b){return feedPrioritySort(a,b) || homeFeedRank(b)-homeFeedRank(a) || ((b.created||0)-(a.created||0))});
+      else if(currentFilter==='new'){
+        // Newest = pure chronology so brand-new publishes surface immediately.
+        list.sort(function(a,b){return (Number(b.created||0)||0)-(Number(a.created||0)||0)});
+      }
       else list.sort(function(a,b){return feedPrioritySort(a,b) || extendedFeedRank(b)-extendedFeedRank(a) || homeFeedRank(b)-homeFeedRank(a) || ((b.created||0)-(a.created||0))});
       // Feed search filter
       var q=(typeof feedSearchQuery!=='undefined'?feedSearchQuery:'').trim().toLowerCase();
@@ -19711,9 +19865,10 @@ async function onIdFace(e){
           }
         }
         if(!row || !row.id) throw new Error('Post did not save. The server is busy, try again.');
+        // Soft verify with short timeout — never stall publish UI waiting on CF.
         try{
-          var check=await fetch(CF_API+'/posts/'+encodeURIComponent(String(row.id)),{cache:'no-store'});
-          if(!check.ok && window.sb){
+          var check=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(String(row.id)),{cache:'no-store'}, 2500);
+          if(check && !check.ok && window.sb){
             var chk=await sb.from('posts').select('id').eq('id',row.id).limit(1);
             if(!(chk&&chk.data&&chk.data[0])) throw new Error('Saved locally but others cannot see it yet. Try again.');
           }
@@ -19758,6 +19913,14 @@ async function onIdFace(e){
             posts=posts.filter(function(p){return String(p.id)!==String(local.id)});
             // Permanent profile/normal posts stay available for detail/reactions but never as timed exposures
             posts.unshift(local);
+            // Also pin onto Wall immediately so new posts don't wait on CF feed lag.
+            try{
+              normalFeedPosts=(normalFeedPosts||[]).filter(function(p){return String(p.id)!==String(local.id)});
+              normalFeedPosts.unshift(local);
+              window.__wallVisible=Math.max(Number(window.__wallVisible)||12, Math.min(24, (normalFeedPosts.length||1)));
+              try{writePostCache('rs_wall_cache', normalFeedPosts)}catch(eW){}
+              try{writePostCache('rs_home_cache', posts)}catch(eH){}
+            }catch(eN){}
           }catch(e){console.warn(e)}
         }
         if(row&&row.id){
@@ -19813,10 +19976,15 @@ async function onIdFace(e){
         setPublishProgress(100,'Published');
         showPanel('feed');
         try{renderPosts()}catch(e){}
+        try{renderNormalFeed()}catch(e){}
+        // Refresh soon, but keep the just-published row pinned locally.
         setTimeout(function(){
-          try{loadPosts()}catch(e){}
+          Promise.resolve(loadPosts()).then(function(){
+            try{renderPosts()}catch(e){}
+            try{renderNormalFeed()}catch(e){}
+          }).catch(function(){});
           try{loadNormalFeed()}catch(e){}
-        },500);
+        },350);
       }catch(e){
         console.error(e);
         var msg=(e&&e.message)||(e&&e.error_description)||'Error publishing';
