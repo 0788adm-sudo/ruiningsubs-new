@@ -4371,6 +4371,21 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
     }catch(e){}
     setInterval(function(){loadBannedUsers().then(loadPosts).catch(function(){loadPosts()})},60000);
+    // Live feed refresh so brand-new publishes appear for everyone without a hard reload.
+    setInterval(function(){
+      try{
+        if(document.hidden) return;
+        var act=document.querySelector('.panel.active');
+        var pid=act&&act.id||'';
+        if(pid==='panel-feed'||pid==='panel-extended'||pid===''){
+          window.__loadPostsAt=0;
+          loadPosts();
+        }
+        if(pid==='panel-wall'||pid==='panel-explore'){
+          loadNormalFeed();
+        }
+      }catch(e){}
+    },18000);
     setInterval(loadNotifs,20000);setInterval(updateMsgBadge,15000);setInterval(updateTimers,1000);
     }
     function initUser(){
@@ -11851,13 +11866,22 @@ function openRoulette(){
       var keepScroll=box.scrollTop||0;
       box.setAttribute('data-gt-sig',sig);
       box.setAttribute('data-gt-tab',gtTab);
-      box.innerHTML=list.map(goontokSlideHtml).filter(Boolean).join('');
+      // First paint: only mount proven-playable clips (or a tiny unknown seed).
+      // Unknowns are probed in refillGoonTokPlayable so swipe never hits black shells.
+      var paint=[];
+      var unknownSeed=0;
+      list.forEach(function(p){
+        var h=videoHealthOf(p.id);
+        if(h&&h.status==='playable'){ paint.push(p); return; }
+        if(unknownSeed<3){ paint.push(p); unknownSeed++; }
+      });
+      box.innerHTML=paint.map(goontokSlideHtml).filter(Boolean).join('');
       if(!box.querySelector('.gt-slide')){
         box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
       }
       try{box.scrollTop=keepScroll}catch(e){}
       bindGoonTok();
-      try{refillGoonTokPlayable(false)}catch(e){}
+      try{refillGoonTokPlayable(true)}catch(e){}
       try{scheduleVideoOptimizeWorker()}catch(e){}
     }
     function gtVisibleIds(){
@@ -12648,6 +12672,27 @@ function openRoulette(){
       try{loc=Number((loadWallHotMap()[String(p.id)]||{}).n)||0}catch(e){}
       return Math.max(Number(p.hotCount)||0, fromTag, loc);
     }
+    var BRAND_NEW_MS=2*60*60*1000; // 2h — brand-new publishes stay first for everyone
+    function isBrandNewPost(p, graceMs){
+      graceMs=graceMs!=null?Number(graceMs):BRAND_NEW_MS;
+      var c=Number(p&&p.created||0)||0;
+      if(!c) return false;
+      var age=Date.now()-c;
+      return age>=-60000 && age<graceMs;
+    }
+    function pinBrandNewFirst(list, graceMs){
+      // Universal: any client pins posts by created time (not localStorage).
+      list=(list||[]).slice();
+      var fresh=[], rest=[];
+      list.forEach(function(p){
+        if(isBrandNewPost(p, graceMs)) fresh.push(p);
+        else rest.push(p);
+      });
+      fresh.sort(function(a,b){return (Number(b.created||0)||0)-(Number(a.created||0)||0)});
+      return fresh.concat(rest);
+    }
+    window.isBrandNewPost=isBrandNewPost;
+    window.pinBrandNewFirst=pinBrandNewFirst;
     function wallRankScore(p){
       // Balance: fresh posts stay near the top, Hot lifts without burying newcomers,
       // and older engaged posts don't die in oblivion.
@@ -12659,6 +12704,8 @@ function openRoulette(){
       var hotBoost=Math.min(60, hot*7 + Math.log10(1+hot)*10) * 3600 * 1000;
       // New-post grace: first ~36h get an extra push so they aren't buried
       var freshBoost=Math.max(0, 36-ageH) * 0.55 * 3600 * 1000;
+      // Brand-new window (~2h): huge lift so every user sees fresh publishes first
+      if(ageH<2) freshBoost += (2-ageH) * 8 * 3600 * 1000;
       // Soft longevity from likes/views/Hot so older posts still surface
       var eng=(Number(p.likes||0)||0) + (Number(p.views||0)||0)/25 + hot*2 + (Number(p.commentCount||p.comments||0)||0)*2;
       var engBoost=Math.min(30, Math.log10(1+eng)*12) * 3600 * 1000;
@@ -14443,7 +14490,7 @@ function openRoulette(){
         // Supabase recent rows fill CF lag so brand-new publishes appear for everyone.
         if(!more && typeof sb!=='undefined' && sb){
           try{
-            var sbRecent=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(30);
+            var sbRecent=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
             ((sbRecent&&sbRecent.data)||[]).forEach(function(r){
               var mapped=null;
               try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
@@ -14454,19 +14501,13 @@ function openRoulette(){
           }catch(eSb){}
         }
         list=wallMergeLocalExtras(list).sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
-        // Keep just-published on top for a short window even if Hot ranks higher.
-        try{
-          var lp2=JSON.parse(localStorage.getItem('rs_last_pub')||'null');
-          if(lp2&&lp2.id&&(Date.now()-(Number(lp2.t)||0)<10*60*1000)){
-            var ix2=list.findIndex(function(x){return String(x.id)===String(lp2.id)});
-            if(ix2>0){ var row2=list.splice(ix2,1)[0]; list.unshift(row2); }
-          }
-        }catch(e){}
+        // Brand-new by created_at first — same experience for every user (not just publisher).
+        try{list=pinBrandNewFirst(list, BRAND_NEW_MS)}catch(e){}
         if(more){
           // Append new ids only
           var seen={};(normalFeedPosts||[]).forEach(function(p){seen[String(p.id)]=1});
           list.forEach(function(p){if(!seen[String(p.id)]) normalFeedPosts.push(p)});
-          normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
+          normalFeedPosts=pinBrandNewFirst(normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
         }else{
           normalFeedPosts=list;
         }
@@ -14491,7 +14532,7 @@ function openRoulette(){
               }
             });
             if(changed){
-              normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
+              normalFeedPosts=pinBrandNewFirst(normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
               try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
               renderNormalFeed();
             }
@@ -14635,21 +14676,24 @@ function openRoulette(){
         ];
         if(typeof sb!=='undefined' && sb){
           jobs.push(sb.from('posts').select('*').gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(80).then(function(r){return (r&&r.data)||[]}).catch(function(){return[]}));
-          jobs.push(sb.from('posts').select('*').order('created_at',{ascending:false}).limit(40).then(function(r){return (r&&r.data)||[]}).catch(function(){return[]}));
+          // Recent-by-created: primary source so brand-new publishes appear for every user.
+          jobs.push(sb.from('posts').select('*').order('created_at',{ascending:false}).limit(60).then(function(r){return (r&&r.data)||[]}).catch(function(){return[]}));
         }
         var parts=await Promise.all(jobs);
         var cfRows=(parts[0]||[]).slice();
         (parts[1]||[]).forEach(function(r){
           if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) cfRows.unshift(r);
         });
-        var mergeSb=function(rows){
+        var mergeSb=function(rows, toFront){
           (rows||[]).forEach(function(r){
             if(!r||r.id==null)return;
-            if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) cfRows.push(r);
+            if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})){
+              if(toFront) cfRows.unshift(r); else cfRows.push(r);
+            }
           });
         };
-        if(parts[2]) mergeSb(parts[2]);
-        if(parts[3]) mergeSb(parts[3]);
+        if(parts[2]) mergeSb(parts[2], false);
+        if(parts[3]) mergeSb(parts[3], true);
 
         if(cfRows&&cfRows.length){
           var mapped=cfRows.map(function(r){try{return cfRowToFeed(r)}catch(e){return null}}).filter(function(p){
@@ -14670,12 +14714,15 @@ function openRoulette(){
               if(p.extendAmount) cur.extendAmount=p.extendAmount;
               if(p.image) cur.image=p.image;
               if(p.images&&p.images.length) cur.images=p.images;
+              if(p.created) cur.created=Math.max(Number(cur.created)||0, Number(p.created)||0);
               posts[i]=cur;
               return;
             }
             var dup=posts.some(function(x){return isNearDupPost(x,p)});
             if(dup)return;
-            posts.push(p);
+            // Brand-new rows go to the front of the in-memory list for every client.
+            if(typeof isBrandNewPost==='function' && isBrandNewPost(p)) posts.unshift(p);
+            else posts.push(p);
           });
           try{writePostCache('rs_home_cache', posts)}catch(e){}
           if(!viewingSaved)renderPosts();
@@ -14684,14 +14731,13 @@ function openRoulette(){
       try{
         posts=(posts||[]).filter(function(p){return p && !isDeletedId(p.id) && (isCfPost(p) || /^\d+$/.test(String(p.id)));});
         normalFeedPosts=(normalFeedPosts||[]).filter(function(p){return !isDeletedId(p.id)});
-        // Re-pin last publish to front after network merge so it never disappears into rank noise.
+        // Re-pin publisher's own last publish (local) + any brand-new by created for everyone.
         try{
           var lpKeep=JSON.parse(localStorage.getItem('rs_last_pub')||'null');
           if(lpKeep&&lpKeep.id&&(Date.now()-(Number(lpKeep.t)||0)<15*60*1000)){
             var keepIx=(posts||[]).findIndex(function(x){return String(x.id)===String(lpKeep.id)});
             if(keepIx>0){ var keepRow=posts.splice(keepIx,1)[0]; posts.unshift(keepRow); }
             else if(keepIx<0){
-              // Re-inject if network merge dropped it (CF lag)
               var expK=0;try{expK=lpKeep.expires?new Date(lpKeep.expires).getTime():0}catch(e){expK=Number(lpKeep.expires)||0}
               if(!expK || expK>Date.now()){
                 var imgsK=[];try{imgsK=parseImages(lpKeep.image)}catch(e){imgsK=lpKeep.image?[lpKeep.image]:[]}
@@ -14705,6 +14751,7 @@ function openRoulette(){
             }
           }
         }catch(e){}
+        try{posts=pinBrandNewFirst(posts, BRAND_NEW_MS)}catch(e){}
         if(!viewingSaved)renderPosts();
         try{renderNormalFeed()}catch(e){}
       }catch(e){}
@@ -18232,6 +18279,10 @@ function postCardHtml(p, compact){
         list.sort(function(a,b){return (Number(b.created||0)||0)-(Number(a.created||0)||0)});
       }
       else list.sort(function(a,b){return feedPrioritySort(a,b) || extendedFeedRank(b)-extendedFeedRank(a) || homeFeedRank(b)-homeFeedRank(a) || ((b.created||0)-(a.created||0))});
+      // Every filter: brand-new posts (by created_at) stay first for ALL users.
+      if(currentFilter!=='ending' && currentFilter!=='soon'){
+        try{list=pinBrandNewFirst(list, BRAND_NEW_MS)}catch(e){}
+      }
       // Feed search filter
       var q=(typeof feedSearchQuery!=='undefined'?feedSearchQuery:'').trim().toLowerCase();
       if(q){
@@ -19977,14 +20028,27 @@ async function onIdFace(e){
         showPanel('feed');
         try{renderPosts()}catch(e){}
         try{renderNormalFeed()}catch(e){}
-        // Refresh soon, but keep the just-published row pinned locally.
+        // Jump to top so the new post is #1 on screen immediately.
+        try{
+          window.scrollTo(0,0);
+          var feedPanel=document.getElementById('panel-feed');
+          if(feedPanel) feedPanel.scrollTop=0;
+          var postsBox=document.getElementById('posts-container');
+          if(postsBox) postsBox.scrollTop=0;
+          var feedScroll=document.querySelector('#panel-feed .feed-scroll, #panel-feed .scroll, #panel-feed');
+          if(feedScroll) feedScroll.scrollTop=0;
+        }catch(e){}
+        // Bust coalesce lock so the post-publish refresh always runs.
+        try{window.__loadPostsAt=0;window.__loadPostsBusy=null}catch(e){}
+        // Refresh soon — Newest + brand-new pin so every client sees it first after network merge.
         setTimeout(function(){
           Promise.resolve(loadPosts()).then(function(){
-            try{renderPosts()}catch(e){}
+            try{currentFilter='new';renderPosts()}catch(e){}
             try{renderNormalFeed()}catch(e){}
+            try{window.scrollTo(0,0)}catch(e){}
           }).catch(function(){});
           try{loadNormalFeed()}catch(e){}
-        },350);
+        },250);
       }catch(e){
         console.error(e);
         var msg=(e&&e.message)||(e&&e.error_description)||'Error publishing';
@@ -23261,6 +23325,14 @@ async function onIdFace(e){
               var i=typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():0;
               window.__gtWindowVideos(i);
             }
+          }catch(e){}
+          // Returning to the tab: pull fresh posts so others' new publishes show first.
+          try{
+            window.__loadPostsAt=0;
+            var act=document.querySelector('.panel.active');
+            var pid=act&&act.id||'';
+            if(pid==='panel-feed'||pid==='panel-extended'||pid==='') loadPosts();
+            if(pid==='panel-wall'||pid==='panel-explore') loadNormalFeed();
           }catch(e){}
         }
       });
