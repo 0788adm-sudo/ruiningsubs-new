@@ -44,4 +44,7 @@ assert(html.includes('probeVideoPlayable') && html.includes('preflight_fail'), '
 assert(html.includes('pruneBrokenGoonTokSlides'), 'prunes black/broken GoonTok slides');
 assert(html.includes('pure chronology') || /currentFilter==='new'[\s\S]{0,180}b\.created/, 'Newest is chronological');
 assert(html.includes('normalFeedPosts.unshift(local)') || html.includes('normalFeedPosts.unshift'), 'publish pins to Wall immediately');
+assert(html.includes('function pinBrandNewFirst') && html.includes('BRAND_NEW_MS'), 'brand-new posts pinned first for all users');
+assert(html.includes('pinBrandNewFirst(list') || html.includes('pinBrandNewFirst(posts'), 'feed/wall use brand-new pin');
+assert(html.includes('Live feed refresh') || /setInterval\(function\(\)\{[\s\S]{0,400}loadPosts\(\)/.test(html), 'live feed refresh pulls new publishes');
 console.log('\nGoonTok / Extend / Hot / Games checks passed');
