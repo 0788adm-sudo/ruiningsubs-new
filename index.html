@@ -4384,6 +4384,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(pid==='panel-wall'||pid==='panel-explore'){
           loadNormalFeed();
         }
+        if(pid==='panel-goontok'||pid==='panel-videos'){
+          window.__vidFetchAt=0;window.__vidFetchP=null;
+          Promise.resolve(fetchVideoPosts()).then(function(){
+            if(pid==='panel-goontok'){ try{renderGoonTok()}catch(e){} try{refillGoonTokPlayable(false)}catch(e){} }
+            if(pid==='panel-videos'){ try{drawVideoGrid()}catch(e){} }
+          }).catch(function(){});
+        }
       }catch(e){}
     },18000);
     setInterval(loadNotifs,20000);setInterval(updateMsgBadge,15000);setInterval(updateTimers,1000);
@@ -10650,6 +10657,8 @@ function openRoulette(){
       }
       posts=upsert(posts);
       window.normalFeedPosts=upsert(window.normalFeedPosts||[]);
+      // Keep the dedicated video cache in sync so Videos + GoonTok see publishes instantly.
+      try{window.__videoCache=upsert(window.__videoCache||[])}catch(e){}
     }
     function sbRowToVideoRow(row){
       if(!row||row.id==null)return null;
@@ -10687,7 +10696,7 @@ function openRoulette(){
       };
     }
     async function fetchVideoPosts(){
-      if(window.__vidFetchP && Date.now()-(window.__vidFetchAt||0)<25000) return window.__vidFetchP;
+      if(window.__vidFetchP && Date.now()-(window.__vidFetchAt||0)<15000) return window.__vidFetchP;
       window.__vidFetchAt=Date.now();
       window.__vidFetchP=(async function(){
       try{
@@ -10703,106 +10712,92 @@ function openRoulette(){
             mergeVideoRow(v);
           });
         }
-        try{
-          var apiVid=await fetchWithTimeout('/api/videos',{cache:'no-store'},18000)
-            .then(function(r){return r&&r.ok?r.json():null})
-            .catch(function(){return null});
-          if(apiVid&&Array.isArray(apiVid.posts)&&apiVid.posts.length){
-            ingestSbVideoRows(apiVid.posts);
-          }
-        }catch(e){console.warn('api videos',e)}
-
-        var buckets=[];
-        try{buckets.push(await fetchCfFeed('video', 100))}catch(e){}
-        try{buckets.push(await fetchCfFeed('goontok', 100))}catch(e){}
-        try{buckets.push(await fetchCfFeed('', 100))}catch(e){}
-        buckets.forEach(function(cf){
-          (cf||[]).forEach(function(row){
-            if(!row||row.id==null)return;
-            // fetchCfFeed already maps via mapCfPost; accept either shape
-            if(row.media_type==='video' || (typeof isVideoPost==='function' && isVideoPost(row)) ||
-               (typeof isVideoUrl==='function' && (isVideoUrl(row.media_url)||isVideoUrl(row.video)||isVideoUrl(row.image)))){
-              serverIds[String(row.id)]=true;
-              try{mergeVideoRow(row.username!=null?row:{
-                id:row.id,username:row.user,title:row.title,description:row.desc,tags:row.tags,
-                media_url:row.media_url||row.video||row.image,thumb_url:row.thumb_url||row.poster,
-                media_type:'video',created_at:row.created,expires_at:row.expires?new Date(row.expires).toISOString():null,
-                views:row.views,likes_count:row.likes
-              })}catch(e){try{mergeVideoRow(row)}catch(e2){}}
+        // Race /api/videos with a direct *.mp4* scan so a slow API never leaves us with ~2 clips.
+        var sbHeaders={
+          apikey:SUPABASE_KEY,
+          Authorization:'Bearer '+SUPABASE_KEY,
+          Accept:'application/json'
+        };
+        var sbCols='id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
+        async function sbRestGet(path){
+          for(var attempt=0;attempt<2;attempt++){
+            try{
+              var r=await fetchWithTimeout(SUPABASE_URL+path,{headers:sbHeaders,cache:'no-store'},9000);
+              if(r&&r.ok){
+                var j=await r.json();
+                return Array.isArray(j)?j:[];
+              }
+              if(r&&(r.status===522||r.status===520||r.status===500||r.status===429)){
+                await new Promise(function(res){setTimeout(res,400*(attempt+1))});
+                continue;
+              }
+              return [];
+            }catch(e){
+              if(attempt>=1) return [];
+              await new Promise(function(res){setTimeout(res,400*(attempt+1))});
             }
-          });
-        });
+          }
+          return [];
+        }
+        // PRIMARY: *.mp4* works (~78 rows / <1s). *http%.mp4% / */media% currently 500.
+        var primaryMp4='/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.mp4*&order=created_at.desc&limit=100';
+        try{
+          var raced=await Promise.all([
+            fetchWithTimeout('/api/videos',{cache:'no-store'},12000)
+              .then(function(r){return r&&r.ok?r.json():null})
+              .catch(function(){return null}),
+            sbRestGet(primaryMp4)
+          ]);
+          if(raced[0]&&Array.isArray(raced[0].posts)&&raced[0].posts.length){
+            ingestSbVideoRows(raced[0].posts);
+          }
+          ingestSbVideoRows(raced[1]||[]);
+        }catch(e){console.warn('api/primary video race',e)}
+
+        // CF feeds are often empty — never block catalog on them.
+        try{
+          Promise.resolve(fetchCfFeed('video', 50)).then(function(cf){
+            (cf||[]).forEach(function(row){
+              if(!row||row.id==null)return;
+              if(row.media_type==='video' || (typeof isVideoPost==='function' && isVideoPost(row)) ||
+                 (typeof isVideoUrl==='function' && (isVideoUrl(row.media_url)||isVideoUrl(row.video)||isVideoUrl(row.image)))){
+                serverIds[String(row.id)]=true;
+                try{mergeVideoRow(row.username!=null?row:{
+                  id:row.id,username:row.user,title:row.title,description:row.desc,tags:row.tags,
+                  media_url:row.media_url||row.video||row.image,thumb_url:row.thumb_url||row.poster,
+                  media_type:'video',created_at:row.created,expires_at:row.expires?new Date(row.expires).toISOString():null,
+                  views:row.views,likes_count:row.likes
+                })}catch(e){}
+              }
+            });
+          }).catch(function(){});
+        }catch(e){}
+
         // posts.media_url does NOT exist — never put it in filters (400 kills the scan
         // and Videos/GoonTok shrink to ~1–2 tagged leftovers).
         // Only ~2 rows carry tags={video}; the real library lives in image_url mp4/webm/mov.
-        // Use direct REST with PostgREST '*' wildcards (reliable). Avoid fragile .or().
-        // Encode { } in tags=cs so braces are not stripped by the URL parser (400).
         try{
-          var sbHeaders={
-            apikey:SUPABASE_KEY,
-            Authorization:'Bearer '+SUPABASE_KEY,
-            Accept:'application/json'
-          };
-          // Narrow select — select=* pulls multi-MB base64 image_url rows and 500s/522s,
-          // which is how Videos/GoonTok collapsed to the ~2 tagged clips.
-          // Keep columns lean (no description) and prefer http+.mp4 to skip base64 false hits.
-          var sbCols='id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
           var sbPaths=[
+            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.webm*&order=created_at.desc&limit=40',
+            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.mov*&order=created_at.desc&limit=40',
             '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bvideo%7D&order=created_at.desc&limit=80',
-            '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80',
-            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*http%.mp4%&order=created_at.desc&limit=80',
-            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*http%.webm%&order=created_at.desc&limit=80',
-            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*http%.mov%&order=created_at.desc&limit=80',
-            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*/Vids/%&order=created_at.desc&limit=80',
-            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*/media/%.mp4%&order=created_at.desc&limit=80'
+            '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80'
           ];
-          async function sbRestGet(path){
-            for(var attempt=0;attempt<3;attempt++){
-              try{
-                var r=await fetchWithTimeout(SUPABASE_URL+path,{headers:sbHeaders,cache:'no-store'},16000);
-                if(r&&r.ok){
-                  var j=await r.json();
-                  return Array.isArray(j)?j:[];
-                }
-                // 522/1101 edge flaps — brief backoff then retry
-                if(r&&(r.status===522||r.status===520||r.status===500||r.status===429)){
-                  await new Promise(function(res){setTimeout(res,600*(attempt+1))});
-                  continue;
-                }
-                return [];
-              }catch(e){
-                if(attempt>=2){console.warn('sb video rest',e);return []}
-                await new Promise(function(res){setTimeout(res,600*(attempt+1))});
-              }
-            }
-            return [];
-          }
-          // Parallel first; if CF/SB flaps (522/1101), fall back sequential for the main mp4 path.
           var sbRest=await Promise.all(sbPaths.map(sbRestGet));
           sbRest.forEach(ingestSbVideoRows);
           var got=0; try{Object.keys(serverIds).forEach(function(){got++})}catch(e){}
           if(got<8){
-            var fallbacks=[
-              '/rest/v1/posts?select=id,username,title,tags,image_url,created_at,views,likes_count&image_url=ilike.*http%.mp4%&order=created_at.desc&limit=80',
-              '/rest/v1/posts?select=id,username,title,tags,image_url,created_at,views,likes_count&image_url=ilike.*/media/%.mp4%&order=created_at.desc&limit=80',
-              '/rest/v1/posts?select=id,username,title,tags,image_url,created_at,views,likes_count&or=(image_url.ilike.*.mp4*,image_url.ilike.*.webm*,image_url.ilike.*.mov*)&order=created_at.desc&limit=80'
-            ];
-            for(var fi=0;fi<fallbacks.length;fi++){
-              ingestSbVideoRows(await sbRestGet(fallbacks[fi]));
-              got=0; try{Object.keys(serverIds).forEach(function(){got++})}catch(e){}
-              if(got>=20) break;
-            }
+            // Last-resort fallback if primary somehow failed
+            ingestSbVideoRows(await sbRestGet(primaryMp4));
           }
         }catch(e){console.warn('sb video rest batch',e)}
-        // Optional: also try supabase-js if present (same filters; ignore failures)
         if(sb){
           try{
             var sbColsJs='id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
             var sbJs=await Promise.all([
+              sb.from('posts').select(sbColsJs).ilike('image_url','%.mp4%').order('created_at',{ascending:false}).limit(100),
               sb.from('posts').select(sbColsJs).contains('tags',['video']).order('created_at',{ascending:false}).limit(80),
-              sb.from('posts').select(sbColsJs).contains('tags',['goontok']).order('created_at',{ascending:false}).limit(80),
-              sb.from('posts').select(sbColsJs).ilike('image_url','%http%.mp4%').order('created_at',{ascending:false}).limit(80),
-              sb.from('posts').select(sbColsJs).ilike('image_url','%/media/%.mp4%').order('created_at',{ascending:false}).limit(80)
+              sb.from('posts').select(sbColsJs).contains('tags',['goontok']).order('created_at',{ascending:false}).limit(80)
             ].map(function(p){
               return Promise.resolve(p).then(function(r){return (r&&!r.error&&r.data)||[]}).catch(function(){return []});
             }));
@@ -10845,6 +10840,8 @@ function openRoulette(){
       try{
         var rebuilt=collectVideos();
         window.__videoCache=(rebuilt||[]).map(function(it){return it.p}).filter(Boolean);
+        // Newest first for TikTok-style discovery
+        window.__videoCache.sort(function(a,b){return (Number(b.created||0)||0)-(Number(a.created||0)||0)});
       }catch(e){}
       })();
       return window.__vidFetchP;
@@ -11305,6 +11302,7 @@ function openRoulette(){
       if(!window.__vpFile && !window.__vpData){toast('Pick a video first');return}
       if(typeof isRegistered==='function' && !isRegistered()){toast('Register to publish');try{showAuth('login')}catch(e){}return}
       tags.push('video');
+      tags.push('goontok');
       tags.push(window.__vpGender||'man');
       if(window.__publishingVideo){toast('Already publishing');return}
       window.__publishingVideo=true;
@@ -11381,20 +11379,34 @@ function openRoulette(){
         }catch(e){}
         try{markVideoPlayable(saved.id, imageField); if(parseOptTag(tags)) markVideoHealth(saved.id,'playable',{optimized:imageField,src:imageField})}catch(e){}
         rememberVideos((posts||[]).filter(function(p){return String(p.id)===String(saved.id)}));
+        // Pin brand-new video to the front of GoonTok/Videos for everyone (by created).
+        try{
+          var just={
+            id:saved.id,user:saved.username||((currentUser&&currentUser.name)||'anon'),title:title,desc:desc,tags:tags,
+            created:Date.now(),expires:videoExpires,views:0,likes:0,image:imageField,images:[imageField].concat(posterUrl?[posterUrl]:[]),
+            media_url:imageField,video:imageField,thumb_url:posterUrl||'',poster:posterUrl||'',media_type:'video',_kind:'video'
+          };
+          window.__videoCache=(window.__videoCache||[]).filter(function(x){return String(x.id)!==String(saved.id)});
+          window.__videoCache.unshift(just);
+          window.__gtLoaded=Math.max(Number(window.__gtLoaded)||GT_PAGE, GT_PAGE);
+          try{localStorage.setItem('rs_last_vid',JSON.stringify({id:saved.id,t:Date.now(),src:imageField,title:title,user:just.user}))}catch(eL){}
+        }catch(e){}
         try{
           if(posterUrl) cacheVideoPosterUrl(imageField, posterUrl);
           else if(window.__vpPosterDataUrl) cacheVideoPosterUrl(imageField, window.__vpPosterDataUrl);
         }catch(e){}
         window.__vpFile=null;
         window.__vpData=null;
-        updateVideoProgress('Video published','Live on the site',100);
+        updateVideoProgress('Video published','Live on GoonTok',100);
         setTimeout(hideVideoProgress,500);
-        toast(cfVid.deduped?'Already live':'Video live on feed');
+        toast(cfVid.deduped?'Already live':'Video live on GoonTok');
         try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
+        try{showPanel('goontok')}catch(e){try{openGoonTok()}catch(e2){}}
         try{if(typeof renderGoonTok==='function')renderGoonTok()}catch(e){}
-        showPanel('feed');
+        try{window.__vidFetchAt=0;window.__vidFetchP=null}catch(e){}
         try{await fetchVideoPosts()}catch(e){}
         try{drawVideoGrid()}catch(e){try{renderVideos()}catch(err){}}
+        try{if(typeof renderGoonTok==='function')renderGoonTok()}catch(e){}
         try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
         try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
       }catch(e){
@@ -11538,27 +11550,27 @@ function openRoulette(){
       markVideoHealth(id,'playable',{src:src||''});
     }
     function markVideoBroken(id, reason, src){
-      // Hard skip — failed Cloudflare/R2 media must leave the GoonTok feed.
-      // Soft-timeouts use needs_opt so the pool can recover sooner than hard media errors.
+      // Soft timeouts must NOT hide clips forever — only hard media errors leave the pool.
       var why=String(reason||'fail');
-      if(/load_timeout|probe_timeout|warm_/.test(why)){
+      if(/load_timeout|probe_timeout|warm_|preflight_|play_reject|autoplay_blocked|prune_/.test(why)){
         markVideoNeedsOpt(id, why);
-        markVideoHealth(id,'broken',{reason:why.slice(0,80),src:src||'',soft:1});
-      }else{
-        markVideoHealth(id,'broken',{reason:why.slice(0,80),src:src||''});
-        enqueueVideoOptimize(id, reason||'broken');
+        return;
       }
+      markVideoHealth(id,'broken',{reason:why.slice(0,80),src:src||''});
+      enqueueVideoOptimize(id, reason||'broken');
     }
     function markVideoNeedsOpt(id, reason){
       var h=videoHealthOf(id);
       if(h&&h.status==='playable'&&h.optimized)return;
-      if(h&&(h.status==='broken'||h.status==='error'))return;
-      markVideoHealth(id,'needs_opt',{reason:String(reason||'needs_opt').slice(0,80)});
+      if(h&&h.status==='broken'&&!h.soft)return;
+      markVideoHealth(id,'needs_opt',{reason:String(reason||'needs_opt').slice(0,80),soft:1});
       enqueueVideoOptimize(id, reason||'needs_opt');
     }
     function isVideoHiddenFromGoonTok(id){
       var h=videoHealthOf(id);
       if(!h)return false;
+      // Soft/needs_opt stay in the pool — only hard broken/error hide.
+      if(h.soft || h.status==='needs_opt') return false;
       return h.status==='broken' || h.status==='error';
     }
     function parseOptTag(tags){
@@ -11689,7 +11701,11 @@ function openRoulette(){
         return s%1000;
       }
       out.sort(function(a,b){
-        // Prefer already-proven playable clips so the first swipe screens aren't black.
+        // Brand-new first (TikTok), then proven playable, then engagement mix.
+        var newA=(typeof isBrandNewPost==='function'&&isBrandNewPost(a))?1:0;
+        var newB=(typeof isBrandNewPost==='function'&&isBrandNewPost(b))?1:0;
+        if(newB!==newA) return newB-newA;
+        if(newA&&newB) return (Number(b.created||0)||0)-(Number(a.created||0)||0);
         var ha=videoHealthOf(a.id), hb=videoHealthOf(b.id);
         var playA=(ha&&ha.status==='playable')?1:0, playB=(hb&&hb.status==='playable')?1:0;
         if(playB!==playA) return playB-playA;
@@ -11738,13 +11754,31 @@ function openRoulette(){
     }
     function openGoonTok(){
       showPanel('goontok');
-      // Paint cached videos immediately, then refresh
+      // Clear soft health so a prior bad probe pass can't leave only ~2 clips forever.
+      try{
+        var hm=loadVideoHealth();
+        var changed=false;
+        Object.keys(hm||{}).forEach(function(k){
+          var h=hm[k];
+          if(!h)return;
+          if(h.soft || h.status==='needs_opt' || /timeout|preflight|warm_|play_reject/.test(String(h.reason||''))){
+            delete hm[k]; changed=true;
+          }
+        });
+        if(changed) saveVideoHealth(hm);
+      }catch(e){}
+      // Paint cached videos immediately, then refresh full catalog.
       try{renderGoonTok()}catch(e){}
       var jobs=[];
+      try{window.__vidFetchAt=0;window.__vidFetchP=null}catch(e){}
       if(typeof fetchVideoPosts==='function') jobs.push(Promise.resolve(fetchVideoPosts()));
       if(typeof syncFollowingFromServer==='function') jobs.push(Promise.resolve(syncFollowingFromServer()));
       if(jobs.length){
-        Promise.all(jobs.map(function(j){return Promise.resolve(j).catch(function(){})})).then(function(){renderGoonTok()}).catch(function(){renderGoonTok()});
+        Promise.all(jobs.map(function(j){return Promise.resolve(j).catch(function(){})})).then(function(){
+          try{window.__gtLoaded=Math.max(Number(window.__gtLoaded)||0, GT_PAGE)}catch(e){}
+          renderGoonTok();
+          try{refillGoonTokPlayable(true)}catch(e){}
+        }).catch(function(){renderGoonTok()});
       }
     }
     function goontokShareUrl(){
@@ -11866,15 +11900,8 @@ function openRoulette(){
       var keepScroll=box.scrollTop||0;
       box.setAttribute('data-gt-sig',sig);
       box.setAttribute('data-gt-tab',gtTab);
-      // First paint: only mount proven-playable clips (or a tiny unknown seed).
-      // Unknowns are probed in refillGoonTokPlayable so swipe never hits black shells.
-      var paint=[];
-      var unknownSeed=0;
-      list.forEach(function(p){
-        var h=videoHealthOf(p.id);
-        if(h&&h.status==='playable'){ paint.push(p); return; }
-        if(unknownSeed<3){ paint.push(p); unknownSeed++; }
-      });
+      // First paint: mount a full page of clips (TikTok feel). Drop hard failures live.
+      var paint=list.slice(0, Math.max(GT_PAGE, 24));
       box.innerHTML=paint.map(goontokSlideHtml).filter(Boolean).join('');
       if(!box.querySelector('.gt-slide')){
         box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
@@ -11964,7 +11991,7 @@ function openRoulette(){
         var pool=goontokCandidatePool();
         var present={};have.forEach(function(id){present[id]=1});
         var added=0;
-        var probed=0;
+        // Mount the full catalog page immediately (TikTok). Hard failures drop live via armVideo.
         for(var i=0;i<pool.length && have.length+added<GT_TARGET;i++){
           var p=pool[i];
           var id=String(p.id);
@@ -11972,23 +11999,6 @@ function openRoulette(){
           if(isVideoHiddenFromGoonTok(id))continue;
           var media=goontokPrimaryVideo(p);
           if(!media||!media.src||!isVideoUrl(media.src))continue;
-          var health=videoHealthOf(id);
-          // Only mount real playable clips — probe unknowns before they become black slides.
-          if(!health || health.status!=='playable'){
-            if(probed>=10) continue; // don't stall refill forever
-            probed++;
-            try{
-              var probe=await probeVideoPlayable(media.src, GT_PREFLIGHT_MS);
-              if(!probe||!probe.ok){
-                markVideoBroken(id, (probe&&probe.reason)||'preflight_fail', media.src);
-                continue;
-              }
-              markVideoPlayable(id, media.src);
-            }catch(eProbe){
-              markVideoBroken(id, 'preflight_err', media.src);
-              continue;
-            }
-          }
           var html=goontokSlideHtml(p);
           if(!html)continue;
           if(box.querySelector('.gt-empty')) box.innerHTML='';
