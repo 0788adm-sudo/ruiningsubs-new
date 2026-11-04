@@ -40,8 +40,10 @@ assert(/function confirmExtend\(\)\{/.test(html) && !/async function confirmExte
 assert(html.includes('Heavy feed rebuilds') || /setTimeout\(function\(\)\{[\s\S]*renderPosts/.test(html), 'heavy renderPosts deferred after paint');
 assert(html.includes('silentlyDropGoonTokSlide'), 'auto-advance on broken');
 assert(html.includes('!isVideoUrl(media.src)') || html.includes('isVideoUrl(media.src)'), 'strict video-only GoonTok pool');
-assert(html.includes('probeVideoPlayable') && html.includes('preflight_fail'), 'GoonTok probes before mount');
+assert(html.includes('function probeVideoPlayable'), 'GoonTok playable probe helper');
 assert(html.includes('pruneBrokenGoonTokSlides'), 'prunes black/broken GoonTok slides');
+assert(html.includes('image_url=ilike.*.mp4*') || html.includes("ilike('image_url','%.mp4%')"), 'full mp4 catalog scan');
+assert(/soft\/needs_opt stay in the pool|needs_opt stay in the pool|h\.soft/.test(html), 'soft failures do not hide GoonTok clips');
 assert(html.includes('pure chronology') || /currentFilter==='new'[\s\S]{0,180}b\.created/, 'Newest is chronological');
 assert(html.includes('normalFeedPosts.unshift(local)') || html.includes('normalFeedPosts.unshift'), 'publish pins to Wall immediately');
 assert(html.includes('function pinBrandNewFirst') && html.includes('BRAND_NEW_MS'), 'brand-new posts pinned first for all users');

@@ -4,6 +4,9 @@
 // CF D1 /feed?type=video is empty (POST /posts broken) — the index is Supabase
 // posts.image_url pointing at those R2/worker media keys. Never query media_url
 // (column does not exist → 400 → UI collapses to ~2 tagged clips).
+//
+// CRITICAL: Prefer image_url=ilike.*.mp4* — patterns like *http%.mp4% / */media/%.mp4%
+// currently 500 on SB edge and starve the catalog down to the ~2 tagged rows.
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://snlpdolzhzcbbdyxqlnb.supabase.co';
 const SUPABASE_ANON =
@@ -111,6 +114,7 @@ function rowToVideo(row) {
   var vsrc = imgs.filter(isVideoUrl)[0] || '';
   if (!vsrc) return null;
   if (tags.indexOf('video') < 0) tags = tags.concat(['video']);
+  if (tags.indexOf('goontok') < 0) tags = tags.concat(['goontok']);
   var poster = imgs.filter(function (u) {
     return u && !isVideoUrl(u);
   })[0] || '';
@@ -133,7 +137,7 @@ function rowToVideo(row) {
 
 async function sbGet(path, tries) {
   var lastStatus = 0;
-  for (var i = 0; i < (tries || 3); i++) {
+  for (var i = 0; i < (tries || 2); i++) {
     try {
       var r = await fetch(SUPABASE_URL + path, {
         headers: {
@@ -150,14 +154,14 @@ async function sbGet(path, tries) {
       }
       if (r.status === 522 || r.status === 520 || r.status === 500 || r.status === 429) {
         await new Promise(function (res) {
-          setTimeout(res, 500 * (i + 1));
+          setTimeout(res, 400 * (i + 1));
         });
         continue;
       }
       return [];
     } catch (e) {
       await new Promise(function (res) {
-        setTimeout(res, 500 * (i + 1));
+        setTimeout(res, 400 * (i + 1));
       });
     }
   }
@@ -165,15 +169,14 @@ async function sbGet(path, tries) {
 }
 
 async function collectFromSb() {
-  // Prefer lean paths first — heavy parallel ilike scans trip CF 1101/522.
+  // Lead with the working extension scans (*.mp4* returns ~78 in <1s).
+  // Do NOT lead with *http%.mp4% / */media% — those 500 on SB edge.
   var paths = [
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*.mp4*&order=created_at.desc&limit=100',
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*.webm*&order=created_at.desc&limit=40',
+    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*.mov*&order=created_at.desc&limit=40',
     '/rest/v1/posts?select=' + COLS + '&tags=cs.%7Bvideo%7D&order=created_at.desc&limit=80',
     '/rest/v1/posts?select=' + COLS + '&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.mp4%&order=created_at.desc&limit=60',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*/media/%.mp4%&order=created_at.desc&limit=60',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*/Vids/%&order=created_at.desc&limit=60',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.webm%&order=created_at.desc&limit=40',
-    '/rest/v1/posts?select=' + COLS + '&image_url=ilike.*http%.mov%&order=created_at.desc&limit=40',
   ];
   var seen = {};
   var out = [];
@@ -185,23 +188,13 @@ async function collectFromSb() {
       out.push(v);
     });
   }
-  // Sequential for the big media scans so SB edge stays healthy
-  ingest(await sbGet(paths[0]));
-  ingest(await sbGet(paths[1]));
-  for (var i = 2; i < paths.length; i++) {
-    ingest(await sbGet(paths[i], 4));
-    if (out.length >= 40) break;
-  }
-  if (out.length < 8) {
-    ingest(
-      await sbGet(
-        '/rest/v1/posts?select=' +
-          COLS +
-          '&or=(image_url.ilike.*.mp4*,image_url.ilike.*.webm*,image_url.ilike.*.mov*)&order=created_at.desc&limit=60',
-        4
-      )
-    );
-  }
+  // Primary mp4 scan first (fast + complete)
+  ingest(await sbGet(paths[0], 3));
+  // Fill extras in parallel
+  var extra = await Promise.all(paths.slice(1).map(function (p) {
+    return sbGet(p, 2);
+  }));
+  extra.forEach(ingest);
   out.sort(function (a, b) {
     return new Date(b.created_at || 0) - new Date(a.created_at || 0);
   });
@@ -210,7 +203,13 @@ async function collectFromSb() {
 
 async function collectFromCf() {
   try {
-    var r = await fetch(CF_API + '/feed?limit=200', { cache: 'no-store' });
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var to = ctrl ? setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 4000) : null;
+    var r = await fetch(CF_API + '/feed?limit=200', {
+      cache: 'no-store',
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+    if (to) clearTimeout(to);
     if (!r.ok) return [];
     var j = await r.json();
     var posts = (j && j.posts) || [];
@@ -224,7 +223,7 @@ async function collectFromCf() {
         id: row.id,
         username: row.username || 'anon',
         title: row.title || '',
-        tags: normalizeTags(row.tags).concat(['video']),
+        tags: normalizeTags(row.tags).concat(['video', 'goontok']),
         image_url: media,
         media_url: media,
         thumb_url: thumb && !isVideoUrl(thumb) ? thumb : '',

@@ -25,8 +25,8 @@ assert(html.includes('GT_PAGE=24') || html.includes('GT_PAGE = 24'), 'GoonTok pa
 assert(html.includes('GT_LOAD_TIMEOUT_MS'), 'playable load timeout');
 assert(!/media_url\.ilike\.%\.mp4%/.test(html), 'SB video scan must not query missing media_url column');
 assert(
-  html.includes('image_url=ilike.*http%.mp4%') || html.includes("ilike('image_url','%http%.mp4%')"),
-  'SB video scan uses REST image_url http+.mp4'
+  html.includes('image_url=ilike.*.mp4*') || html.includes("ilike('image_url','%.mp4%')"),
+  'SB video scan uses REST image_url *.mp4*'
 );
 assert(html.includes('collectVideos()'), 'fetchVideoPosts rebuilds video cache');
 assert(html.includes('cacheVideoPosterUrl'), 'thumbnail cache wired');
