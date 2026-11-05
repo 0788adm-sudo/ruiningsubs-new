@@ -1973,7 +1973,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <button type="button" class="dur-btn" data-m="1440">24h</button>
           </div>
         </div>
-        <div id="profile-post-note" style="display:none;background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.30);border-radius:12px;padding:10px 12px;margin-bottom:10px;color:var(--muted);font-size:12px;line-height:1.4">Wall post · no timer · no extensions. Add text, photos, or both. You can delete it from your profile whenever you want.</div>
+        <div id="profile-post-note" style="display:none;background:rgba(255,106,0,.10);border:1px solid rgba(255,106,0,.35);border-radius:12px;padding:10px 12px;margin-bottom:10px;color:#ffd7b0;font-size:12px;line-height:1.45"><b style="color:#ff6a00">Permanent Wall post</b> — does not expire, no Extend timer. Once published it stays on The Wall. Removal is not free (only you can delete your own post).</div>
         <label class="consent-box"><input type="checkbox" class="consent-check" id="consent-publish"/><span>I accept this consent. I am doing this because I <em>deserve</em> it.</span></label>
         <button class="btn btn-primary" style="width:100%" id="btn-publish" type="button">Publish Exposure</button>
         <div id="publish-progress-wrap" style="display:none;margin-top:10px">
@@ -2224,6 +2224,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('wall','Wall')">Share</button>
               </div>
               <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" style="width:min(320px,92%);padding:14px 18px;font-weight:900;font-size:16px;border-radius:16px;box-shadow:0 0 22px rgba(124,58,237,.45)">＋ Post</button>
+            </div>
+            <div id="wall-permanence-notice" style="margin:0 10px 12px;padding:10px 12px;border-radius:14px;background:rgba(255,106,0,.08);border:1px solid rgba(255,106,0,.32);color:#ffd7b0;font-size:12px;line-height:1.45;text-align:left">
+              <b style="color:#ff6a00">Wall posts are permanent.</b> They never expire and cannot be removed for free. Only the author can delete their own post. Use <b>⏱ Timed</b> for temporary exposures.
             </div>
             <div class="wall-quick-actions">
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
@@ -13024,22 +13027,33 @@ function openRoulette(){
       opts=opts||{};
       id=String(id||'');
       if(!id)return;
-      // GoonTok / wall: registered OR anonymous once (device key acts as IP-ish client token)
-      if(!isRegistered() && !opts.allowAnon){toast('Log in to mark Hot');return}
+      // Guests and logged-in users can Hot — device key limits one tap / 12h.
       if(iAlreadyHotted(id)){toast('Already marked Hot');return}
       var p=null;
       try{p=(normalFeedPosts||[]).find(function(x){return String(x.id)===id})}catch(e){}
       if(!p) try{p=(posts||[]).find(function(x){return String(x.id)===id})}catch(e){}
       if(!p) try{p=(window.__videoCache||[]).find(function(x){return String(x.id)===id})}catch(e){}
+      if(!p){
+        try{
+          var rv=JSON.parse(localStorage.getItem('rs_videos')||'[]')||[];
+          p=rv.find(function(x){return String(x.id)===id})||null;
+        }catch(e){}
+      }
       if(!p) try{p=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       if(!p){toast('Post not found');return}
-      // Hot ONLY when there is no active expiration timer. Active timer → Extend only.
-      var allowHot=false;
+      var isVideo=false;
+      try{isVideo=!!(opts.fromGoonTok || opts.skipTimer || p._kind==='video' || (typeof isVideoPost==='function' && isVideoPost(p)))}catch(e){isVideo=!!opts.fromGoonTok}
+      // Wall timeless / GoonTok videos → Hot. Active Extend timers (photos) stay Extend-only.
+      var allowHot=true;
       try{
-        if(typeof postHasActiveTimer==='function') allowHot=!postHasActiveTimer(p);
-        else allowHot=!(Number(p.expires||0)>Date.now());
-        if(opts.allowAnon && allowHot) allowHot=true;
-      }catch(e){allowHot=!(Number(p.expires||0)>Date.now())}
+        if(opts.fromGoonTok || opts.skipTimer || isVideo){
+          allowHot=true;
+        }else if(typeof postHasActiveTimer==='function'){
+          allowHot=!postHasActiveTimer(p);
+        }else{
+          allowHot=!(Number(p.expires||0)>Date.now());
+        }
+      }catch(e){allowHot=true}
       if(!allowHot){toast('Hot is for posts without a timer');return}
       var next=postHotCount(p)+1;
       p.hotCount=next;
@@ -13052,6 +13066,12 @@ function openRoulette(){
         (normalFeedPosts||[]).forEach(function(x){if(String(x.id)===id){x.hotCount=next;x.tags=withHotTag(x.tags||[],next)}});
         (posts||[]).forEach(function(x){if(String(x.id)===id){x.hotCount=next;x.tags=withHotTag(x.tags||[],next)}});
         (window.__videoCache||[]).forEach(function(x){if(String(x.id)===id){x.hotCount=next;x.tags=withHotTag(x.tags||[],next)}});
+        try{
+          var rv2=JSON.parse(localStorage.getItem('rs_videos')||'[]')||[];
+          var changed=false;
+          rv2.forEach(function(x){if(String(x.id)===id){x.hotCount=next;x.tags=withHotTag(x.tags||[],next);changed=true}});
+          if(changed) localStorage.setItem('rs_videos',JSON.stringify(rv2));
+        }catch(e){}
       }catch(e){}
       try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
       try{
@@ -13063,13 +13083,14 @@ function openRoulette(){
         var gt=document.querySelector('.gt-slide[data-gid="'+escId+'"] .gt-hot');
         if(gt) gt.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span> '+next;
       }catch(e){}
-      try{renderNormalFeed()}catch(e){}
-      try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
+      try{if(!opts.fromGoonTok) renderNormalFeed()}catch(e){}
+      try{if(!opts.fromGoonTok && typeof renderPosts==='function')renderPosts()}catch(e){}
       toast('Hot🔥 · boosted');
       try{await patchCfPost(id,{tags:p.tags})}catch(e){}
     }
     function hotBumpGoonTok(id){
-      return hotBumpWall(id,{allowAnon:true});
+      // GoonTok videos always allow Hot (guests + logged-in), even if a catalog timer exists.
+      return hotBumpWall(id,{allowAnon:true,fromGoonTok:true,skipTimer:true});
     }
     window.hotBumpWall=hotBumpWall;
     window.hotBumpGoonTok=hotBumpGoonTok;
@@ -13362,6 +13383,14 @@ function openRoulette(){
     function isWallTimedPost(p){
       if(!p)return false;
       if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))return false;
+      // GoonTok / Videos clips stay out of Wall Timed to avoid cross-section duplicates.
+      if(typeof isVideoPost==='function'&&isVideoPost(p))return false;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(Array.isArray(tg)){
+        tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+        if(tg.indexOf('video')>=0||tg.indexOf('goontok')>=0) return false;
+      }
       var exp=Number(p.expires||0);
       if(!exp||!isFinite(exp))return false;
       var now=Date.now();
@@ -13383,9 +13412,10 @@ function openRoulette(){
     }
     function isWallMomentPost(p){
       if(!p)return false;
+      // Moment is permanent Wall only — timed exposures live under Timed / Extend.
+      if(isWallTimedPost(p)) return false;
       var age=Date.now()-Number(p.created||0);
       if(age>=0 && age<48*3600*1000) return true;
-      if(isWallTimedPost(p) && Number(p.expires||0)-Date.now()<8*3600*1000) return true;
       var hot=(typeof postHotCount==='function'?postHotCount(p):0)||0;
       if(hot>0 && age<7*24*3600*1000) return true;
       var score=(Number(p.likes)||0)*8+(Number(p.views)||0)+(Number(p.commentCount||p.comments)||0)*5+(Number(p.extensions)||0)*6;
@@ -13434,17 +13464,36 @@ function openRoulette(){
       }catch(e){}
       return isWallMomentPost(p)||isWallTrendingPost(p);
     }
+    function isWallNativePost(p){
+      // Wall-composed posts (status/photos/roulette proofs) vs GoonTok catalog clips.
+      if(!p)return false;
+      if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)) return true;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('normal_feed')>=0||tg.indexOf('profile_gallery')>=0||tg.indexOf('profile_only')>=0) return true;
+      if(tg.indexOf('roulette')>=0||tg.indexOf('roulette_task')>=0) return true;
+      // Catalog video clips belong in GoonTok / Videos only.
+      if(typeof isVideoPost==='function'&&isVideoPost(p)) return false;
+      if(tg.indexOf('video')>=0||tg.indexOf('goontok')>=0) return false;
+      return true;
+    }
     function matchesWallFilter(p, filter){
       filter=filter||wallFilter||'moment';
+      // Timed exposures belong in Timed (and Extend) — never duplicate into other Wall tabs.
       if(filter==='timed') return isWallTimedPost(p);
+      if(isWallTimedPost(p)) return false;
       if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
+      // Keep GoonTok catalog clips out of permanent Wall tabs.
+      if(!isWallNativePost(p) && filter!=='generated') return false;
       if(filter==='text') return isWallTextPost(p);
       if(filter==='normal') return isWallNormalPost(p);
       if(filter==='following') return isWallFollowingPost(p);
       if(filter==='new') return isWallNewPost(p);
       if(filter==='foryou') return isWallForYouPost(p);
       if(filter==='trending') return isWallTrendingPost(p);
-      // moment = full live wall (normals first, then the rest)
+      // moment = permanent Wall board (normals / IDs / text) — no active timers
       return true;
     }
     function wallSortNormalFirst(a,b,withinNormal,withinRest){
@@ -14395,12 +14444,16 @@ function openRoulette(){
     try{setTimeout(fillHomeRandomStrip,2500)}catch(e){}
     try{setTimeout(fillHomeRandomStrip,6000)}catch(e){}
     function findPostAnywhere(id){
-      id=String(id);
-      var post=(posts||[]).find(function(p){return String(p.id)===id});
-      if(!post && typeof normalFeedPosts!=='undefined'){
-        post=(normalFeedPosts||[]).find(function(p){return String(p.id)===id});
+      // Keep video caches so GoonTok / Videos Hot and detail lookup never miss.
+      id=String(id||'');
+      var pools=[window.__videoCache||[], posts||[], normalFeedPosts||[]];
+      try{pools.push(JSON.parse(localStorage.getItem('rs_videos')||'[]')||[])}catch(e){}
+      for(var i=0;i<pools.length;i++){
+        for(var j=0;j<(pools[i]||[]).length;j++){
+          if(String(pools[i][j]&&pools[i][j].id)===id) return pools[i][j];
+        }
       }
-      return post||null;
+      return null;
     }
     function rememberFeedPost(post){
       if(!post||post.id==null)return post;
@@ -14714,7 +14767,8 @@ function openRoulette(){
       try{
         (posts||[]).concat(window.__videoCache||[]).forEach(function(p){
           if(!p||isDeletedId(p.id))return;
-          // Include timed exposure posts too — Wall is the live board for everything
+          // Timed exposures stay available for the Timed chip only; permanent Wall posts always merge.
+          // Do not skip timed entirely — matchesWallFilter decides which tab shows them.
           if(!list.some(function(x){return String(x.id)===String(p.id)})) list.push(p);
         });
       }catch(e){}
@@ -14858,7 +14912,7 @@ function openRoulette(){
       var note=document.getElementById('profile-post-note');
       if(note){
         note.style.display='block';
-        note.innerHTML='Normal post · permanent · no timer. Post a <strong>status</strong> (text only), <strong>photos</strong>, or both. Everyone can see it.';
+        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Post a <strong>status</strong>, <strong>photos</strong>, or both. Removal is not free for others; only you can delete your own post.';
       }
       var desc=document.getElementById('new-desc');
       if(desc){desc.placeholder="What's on your mind? Write a status..."; desc.maxLength=500;}
@@ -18656,9 +18710,13 @@ function postCardHtml(p, compact){
           return false;
         }
         if(typeof isPeaOrIdPost==='function' && isPeaOrIdPost(p)) return false;
+        // Videos belong in GoonTok / Videos — keep Extend free of the same clip.
+        if(typeof isVideoPost==='function' && isVideoPost(p)) return false;
         var tg=p.tags||[];if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
         if(!Array.isArray(tg))tg=[];
         if(tg.indexOf('generated_id')>=0||tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('idcard')>=0)return false;
+        if(tg.indexOf('video')>=0||tg.indexOf('goontok')>=0) return false;
+        if(tg.indexOf('normal_feed')>=0||tg.indexOf('profile_gallery')>=0||tg.indexOf('profile_only')>=0) return false;
         var title=String(p.title||'').toLowerCase();
         if(title.indexOf('published id')>=0||title.indexOf('published pea')>=0)return false;
         var exp=Number(p.expires||0);
@@ -20237,7 +20295,7 @@ async function onIdFace(e){
       var note=document.getElementById('profile-post-note');
       if(note){
         note.style.display='block';
-        note.innerHTML='The Wall · no timer. Text, photos, or both.';
+        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Removal is not free for others; only you can delete your own post. Text, photos, or both.';
       }
       var btn=document.getElementById('btn-publish'); if(btn)btn.textContent='Post on the wall';
       var up=document.getElementById('media-upload'); if(up)up.textContent='📸 Optional — tap to add photos (max 5)';
