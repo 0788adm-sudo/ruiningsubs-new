@@ -886,6 +886,10 @@
       font-weight:900;color:#111;background:linear-gradient(135deg,#ff8a00,#ff6a00);
       box-shadow:0 0 18px rgba(255,106,0,.45);text-align:center;
     }
+    .dx-ext.btn-hot{
+      color:#fff;background:linear-gradient(90deg,#ff6a00,#ff2d55);
+      box-shadow:0 0 14px rgba(255,106,0,.35);
+    }
     .dx-ext b{display:block;font-size:16px}
     .dx-ext i{display:block;font-style:normal;font-size:11px;opacity:.8;margin-top:2px;font-weight:700}
     .dx-pin{
@@ -4366,7 +4370,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(/^\d+$/.test(h))return h;
       return '';
     }
-    function openHashPost(){
+    function openHashPost(opts){
+      opts=opts||{};
+      // Never auto-open a post while the user is mid-navigation between sections.
+      if(!opts.force && window.__blockFeedTap && Date.now()<window.__blockFeedTap) return;
+      if(!opts.force && window.__suppressAutoOpenPost && Date.now()<window.__suppressAutoOpenPost) return;
       var h=(location.hash||'').replace('#','');
       if(h.indexOf('profile-')===0){
         var username='';
@@ -4378,7 +4386,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         return;
       }
       var h2=(location.hash||'').replace('#','').split('?')[0];
-      if(/^(wall|explore|coins|buy|feed|home|extend|spotlight|goontok|goon|videos|messages|profile|admin|pea|ids)$/i.test(h2))return;
+      if(/^(wall|explore|coins|buy|feed|home|extend|spotlight|goontok|goon|videos|messages|profile|admin|pea|ids|print|games|alerts|new|tasks|doms|login|register|caged50|map|roulette|dice|randomcam)$/i.test(h2))return;
       var raw=parseSharedPostId();
       if(!raw)return;
       // Accept ?p= / ?post= / /post/:id / /p/:id / #p= / #post- forms (Telegram shares use ?p=)
@@ -4391,6 +4399,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var hasPath=/^\/(?:post|p)\/[^\/?#]+$/i.test(path)||/^\/\d+$/.test(path);
       var hasHash=location.hash.indexOf('#p=')>=0||location.hash.indexOf('post-')>=0||location.hash.indexOf('post/')>=0||/^\d+$/.test((location.hash||'').replace(/^#/,''));
       if(!hasQuery&&!hasPath&&!hasHash)return;
+      // Section paths like /wall must never re-open a sticky shared post unless ?p=/ #p= is present.
+      try{
+        var parts=path.split('/').filter(Boolean);
+        var sectionOnly=parts[0] && parts[0]!=='post' && parts[0]!=='p' && parts[0]!=='index.html' && !/^\d+$/.test(parts[0]);
+        if(sectionOnly && !hasQuery && !hasHash) return;
+      }catch(e){}
       if(window.__openedHashPost===String(raw))return;
       window.__openedHashPost=String(raw);
       if(String(currentDetailId)===String(raw) && document.getElementById('panel-detail') && document.getElementById('panel-detail').classList.contains('active')) return;
@@ -4398,6 +4412,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(found){openDetail(found.id);return;}
       if(typeof ensureFeedPost==='function'){
         ensureFeedPost(raw).then(function(p3){
+          if(window.__suppressAutoOpenPost && Date.now()<window.__suppressAutoOpenPost) return;
           if(p3)openDetail(p3.id);
           else toast('Post not found. Ask them to send the link again from the post.');
         });
@@ -4443,16 +4458,22 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         try{slug=currentRouteSlug()}catch(e){}
         if(slug && slug!=='feed' && slug!=='home' && slug!=='extend' && slug!=='spotlight') return;
         return loadPosts();
-      }).then(function(){applyLocationRoute();openHashPost(); setTimeout(openHashPost,700); checkRecoveryHash();updateProfilePanel();}).catch(function(e){
+      }).then(function(){applyLocationRoute();openHashPost({force:true}); setTimeout(function(){openHashPost({force:true})},700); checkRecoveryHash();updateProfilePanel();}).catch(function(e){
         console.warn('initial feed bootstrap',e);
         try{loadPosts()}catch(e2){}
-        try{applyLocationRoute();openHashPost()}catch(e2){}
+        try{applyLocationRoute();openHashPost({force:true})}catch(e2){}
       });
       loadNotifs();updateMsgBadge();loadXpFromProfile();updateProfilePanel();setupPullRefresh();
       try{setTimeout(function(){tickDailyRetention();paintProfileRetention()},600)}catch(e){}
       setInterval(function(){try{pollMessagesLive()}catch(e){}},8000);
-      window.addEventListener('hashchange',function(){applyLocationRoute();openHashPost()});
-      window.addEventListener('popstate',function(){applyLocationRoute();openHashPost()});
+      window.addEventListener('hashchange',function(){
+        if(window.__suppressAutoOpenPost && Date.now()<window.__suppressAutoOpenPost){ try{applyLocationRoute()}catch(e){} return; }
+        applyLocationRoute();openHashPost();
+      });
+      window.addEventListener('popstate',function(){
+        if(window.__suppressAutoOpenPost && Date.now()<window.__suppressAutoOpenPost){ try{applyLocationRoute()}catch(e){} return; }
+        applyLocationRoute();openHashPost();
+      });
       function tickLiveViews(){}
       function liveWatching(){return 0}
       try{wireIdCard()}catch(e){}
@@ -10373,7 +10394,9 @@ function openRoulette(){
       opts=opts||{};
       if(window.__routing && !opts.force)return;
       if(name==='detail')return;
-      try{if(typeof parseSharedPostId==='function' && parseSharedPostId() && name==='feed' && !opts.force)return;}catch(e){}
+      // During boot only: keep ?p=/#p= while restoring feed so openHashPost can consume it.
+      // After boot, section taps must clear sticky post ids so posts never re-open alone.
+      try{if(window.__routing && typeof parseSharedPostId==='function' && parseSharedPostId() && name==='feed' && !opts.force)return;}catch(e){}
       var slug=PANEL_ROUTE[name];
       if(slug===undefined)slug=name;
       if(name==='print-dirty'){try{fillPrintVideos()}catch(e){}}
@@ -11643,6 +11666,20 @@ function openRoulette(){
         showPanel('feed');
         return;
       }
+      // Leaving detail / switching sections must never auto-reopen a previous post.
+      // Skip suppress during boot/route restore so shared ?p= / #p= deep-links still work.
+      if(name!=='detail'){
+        try{
+          window.__blockFeedTap=Date.now()+450;
+          if(!window.__routing && !opts.fromRoute){
+            window.__suppressAutoOpenPost=Date.now()+1400;
+            if(!opts.keepPostHash){
+              window.__openedHashPost=null;
+              currentDetailId=null;
+            }
+          }
+        }catch(e){}
+      }
       try{document.body.classList.toggle('gt-on',name==='goontok')}catch(e){}
       try{document.body.classList.toggle('rc-on',name==='randomcam')}catch(e){}
       if(name!=='goontok'&&name!=='randomcam'){try{stopAllMedia()}catch(e){}}
@@ -12031,8 +12068,12 @@ function openRoulette(){
     window.goontokShareUrl=goontokShareUrl;
     window.setGoonTokTab=setGoonTokTab;
     function goontokTimed(p){
-      // GoonTok policy: no Extender / no auto-expiry chrome on the swipe feed.
-      return false;
+      // Timed video posts keep Extend available on GoonTok; permanent clips stay Hot-only.
+      try{
+        if(typeof postHasActiveTimer==='function') return postHasActiveTimer(p);
+        var exp=Number(p&&p.expires||0);
+        return !!(exp && isFinite(exp) && exp>Date.now() && exp<=Date.now()+60*24*3600*1000);
+      }catch(e){return false}
     }
     function goontokSlideHtml(p){
       var m=goontokPrimaryVideo(p);
@@ -12052,6 +12093,10 @@ function openRoulette(){
         }catch(e){}
       }
       var hotN=typeof postHotCount==='function'?postHotCount(p):Number(p.hotCount||0);
+      var timed=goontokTimed(p);
+      var alreadyCd=0;try{alreadyCd=typeof getLocalExtendCooldown==='function'?getLocalExtendCooldown(p.id):0}catch(e){alreadyCd=0}
+      var alreadyExt=alreadyCd>0;
+      var extAmt=typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360);
       // R2 public host has no CORS — never set crossorigin on the player (breaks CF clips).
       // When no stored thumb exists, use a muted #t=0.1 video frame as the poster shell
       // so the card is never blank black while the main player arms.
@@ -12068,14 +12113,22 @@ function openRoulette(){
       var av=avatarHtml(p.user);
       var likes=Number(p.likes)||0;
       var comments=Number(p.commentCount||p.comments||0);
+      var extBtn=timed
+        ?('<button class="gt-act gt-ext'+(alreadyExt?' is-cooling':'')+'" type="button" '+(alreadyExt?'disabled':'')+' onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">⏱</span><span class="lab">'+(alreadyExt?'WAIT':'EXTEND')+'</span></button>')
+        :'';
+      var keepBtn=timed
+        ?('<button class="gt-keep'+(alreadyExt?' is-cooling':'')+'" type="button" '+(alreadyExt?'disabled':'')+' onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')">'+(alreadyExt?('Extended · '+fmtExtendCountdown(alreadyCd)):('Extend +'+fmtMin(extAmt)+' · keep this clip live'))+'</button>')
+        :'';
       return '<div class="gt-slide" data-gid="'+String(p.id).replace(/"/g,'')+'">'+
         '<div class="gt-album">'+album+'</div>'+
+        keepBtn+
         '<div class="gt-rail">'+
           '<div class="gt-av" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">'+av+'</div>'+
           '<span class="gt-plus">+</span>'+
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openReact(\''+String(p.id).replace(/'/g,'')+'\',event)"><span class="ico">♥</span>'+likes+'</button>'+
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openDetail(\''+String(p.id).replace(/'/g,'')+'\',true)"><span class="ico">💬</span>'+comments+'</button>'+
           '<button class="gt-act gt-hot" type="button" onclick="event.stopPropagation();hotBumpGoonTok(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🔥</span><span class="lab">HOT</span> '+hotN+'</button>'+
+          extBtn+
           '<button class="gt-act gt-share" type="button" onclick="event.stopPropagation();sharePost && sharePost(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">↗</span>Share</button>'+
         '</div>'+
         '<div class="gt-meta">'+
@@ -12912,7 +12965,7 @@ function openRoulette(){
       return exp>Date.now()+60*24*3600*1000;
     }
     // Active countdown timer → Extend. No live timer (incl. pinned without expiry) → Hot.
-    // Never show both. Pinning alone does NOT switch Extend → Hot.
+    // Timed videos may show BOTH Extend and Hot. Pinning alone does NOT remove Extend.
     // Far-future / permanent expiry is Wall territory (Hot), not Extend.
     function postHasActiveTimer(p){
       if(!p)return false;
@@ -13170,9 +13223,17 @@ function openRoulette(){
       }).join('')+'</div>';
       var alreadyHot=iAlreadyHotted(p.id);
       var hasTimer=(typeof postHasActiveTimer==='function')?postHasActiveTimer(p):(!timeless && Number(p.expires||0)>Date.now());
-      var hotBtn=hasTimer
-        ?('<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>')
-        :('<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>');
+      var isVid=!!vsrc || (typeof isVideoPost==='function' && isVideoPost(p)) || p._kind==='video';
+      // Permanent → Hot only. Timed → Extend. Timed videos → Extend + Hot (Hot never blocked by timer).
+      var actionBtns='';
+      if(hasTimer){
+        actionBtns+='<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>';
+        if(isVid){
+          actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
+        }
+      }else{
+        actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
+      }
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
@@ -13181,7 +13242,7 @@ function openRoulette(){
         +'<span class="nf-action-hint">Tap a reaction to leave your mark</span>'
         +reactRow
         +'<div class="normal-feed-post-actions">'
-        +hotBtn
+        +actionBtns
         +'<button class="btn btn-like'+(mine?' liked':'')+'" type="button" data-nf-act="picker" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · '+(p.likes||0)+'</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span> '+(saved?'Saved':'Save')+'</button>'
@@ -14511,13 +14572,15 @@ function openRoulette(){
       }
       function openCardFromEvent(e){
         if(window.__blockFeedTap && Date.now()<window.__blockFeedTap) return false;
+        if(window.__suppressAutoOpenPost && Date.now()<window.__suppressAutoOpenPost) return false;
         if(st && Date.now()-st>500)return false;
         var t=tapPoint(e);
         if(!t)return false;
-        if(Math.abs((t.clientX||0)-sx)>32||Math.abs((t.clientY||0)-sy)>32)return false;
+        if(Math.abs((t.clientX||0)-sx)>28||Math.abs((t.clientY||0)-sy)>28)return false;
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
-        if(el.closest('.modal-bg,.bottom-nav,.gt-rail,.gt-top,.gt-keep,.dx-actions,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico'))return false;
+        // Never treat Spotlight carousel / GoonTok swipe / nav chrome as an accidental open.
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-carousel,#feat-carousel,.feat-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice'))return false;
         var homeStrip=el.closest('#home-random-strip [data-pid],#home-post-strip [data-pid],.home-strip-card');
         if(homeStrip){
           var hid=homeStrip.getAttribute('data-pid')||(homeStrip.closest('[data-pid]')&&homeStrip.closest('[data-pid]').getAttribute('data-pid'));
@@ -14535,6 +14598,17 @@ function openRoulette(){
             return true;
           }
         }
+        var hotHit=el.closest('.btn-hot,.gt-hot,[data-nf-act="hot"]');
+        if(hotHit){
+          var artH=hotHit.closest('[data-pid],[data-normal-post-id],[data-gid]');
+          var idH=hotHit.getAttribute('data-nf-id')||(artH&&(artH.getAttribute('data-pid')||artH.getAttribute('data-normal-post-id')||artH.getAttribute('data-gid')));
+          if(idH){
+            e.preventDefault();e.stopPropagation();
+            if(hotHit.classList.contains('gt-hot')||hotHit.closest('.gt-slide')) hotBumpGoonTok(idH);
+            else hotBumpWall(idH,{allowAnon:true});
+            return true;
+          }
+        }
         var ext=el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext');
         if(ext && !ext.disabled && !ext.classList.contains('is-cooling')){
           var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
@@ -14542,9 +14616,11 @@ function openRoulette(){
           if(id){e.preventDefault();openExtend(id);return true;}
         }
         if(el.closest('.post-actions button,.normal-feed-post-actions button,.normal-feed-reacts,.react-bar,.cmt-in,.id-archive-actions'))return false;
-        if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost'))return false;
-        var card=el.closest('article.post,article.normal-feed-post,.feat-slide,.home-strip-card,[data-pid],[data-normal-post-id]');
+        if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost,button.gt-act'))return false;
+        // Only real post cards — never bare [data-pid] (chips / counters / nested wrappers).
+        var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card,.normal-feed-post');
         if(!card)return false;
+        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide')) return false;
         var id2=card.getAttribute('data-pid')||card.getAttribute('data-normal-post-id')||card.getAttribute('data-gid');
         if(!id2)return false;
         try{e.preventDefault();e.stopPropagation();}catch(err){}
@@ -14566,9 +14642,10 @@ function openRoulette(){
       document.addEventListener('click',function(e){
         var el=e.target;
         if(!el||!el.closest)return;
-        if(el.closest('button,.btn,.react-bar,.post-actions,.dx-actions,input,textarea,a'))return;
-        var card=el.closest('article.post,article.normal-feed-post,.feat-slide,[data-pid]');
+        if(el.closest('button,.btn,.react-bar,.post-actions,.dx-actions,input,textarea,a,.feat-carousel,#feat-carousel,.bottom-nav,.nav-row'))return;
+        var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card');
         if(!card)return;
+        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide')) return;
         var id2=card.getAttribute('data-pid')||card.getAttribute('data-normal-post-id');
         if(!id2)return;
         if(window.__openDetailLock && window.__openDetailLock.id===String(id2) && Date.now()-window.__openDetailLock.t<700){
@@ -14623,7 +14700,8 @@ function openRoulette(){
             reactFromFeed(p.id, emoji);
           });
         } else if(act==='hot'){
-          hotBumpWall(id);
+          // Guests + timed videos can Hot; hotBumpWall decides via isVideo / skipTimer.
+          hotBumpWall(id,{allowAnon:true});
         } else if(act==='extend'){
           if(typeof openExtend==='function') openExtend(id);
         }
@@ -18392,27 +18470,31 @@ function profileStatsHtml(userPosts, extra){
     }
     
     function postCardActionButtons(p, permanent, already, alreadyCd){
-      // Pinned + active timer → Extend. Hot only when there is no live expiry.
+      // Permanent / no timer → Hot only. Active timer → Extend.
+      // Timed videos → Extend + Hot (timer must not block Hot on video posts).
       var hasTimer = (typeof postHasActiveTimer === 'function')
         ? postHasActiveTimer(p)
         : (!!(Number(p && p.expires || 0) > Date.now()));
+      var isVid = false;
+      try{isVid = !!(p && (p._kind==='video' || (typeof isVideoPost==='function' && isVideoPost(p))))}catch(e){isVid=false}
+      var hotOn = (typeof iAlreadyHotted === 'function' && iAlreadyHotted(p.id));
+      var hotN = (typeof postHotCount === 'function' ? postHotCount(p) : 0) || 0;
+      var hotBtn = '<button class="btn btn-hot' + (hotOn ? ' on' : '') + '" type="button" ' + (hotOn ? 'disabled' : '') +
+        ' data-nf-act="hot" data-nf-id="' + String(p.id).replace(/"/g, '') +
+        '" onclick="event.stopPropagation();hotBumpWall(' + jsId(p.id) + ',{allowAnon:true,skipTimer:true})">🔥 Hot' + (hotN ? (' · ' + hotN) : '') + '</button>';
+      var cmtBtn = '<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
       if(!hasTimer){
-        var hotOn = (typeof iAlreadyHotted === 'function' && iAlreadyHotted(p.id));
-        var hotN = (typeof postHotCount === 'function' ? postHotCount(p) : 0) || 0;
-        var hotBtn = '<button class="btn btn-hot' + (hotOn ? ' on' : '') + '" type="button" ' + (hotOn ? 'disabled' : '') +
-          ' data-nf-act="hot" data-nf-id="' + String(p.id).replace(/"/g, '') +
-          '" onclick="event.stopPropagation();hotBumpWall(' + jsId(p.id) + ')">🔥 Hot' + (hotN ? (' · ' + hotN) : '') + '</button>';
-        var cmtBtn = '<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
         return hotBtn + cmtBtn;
       }
       var extAmt = (typeof postExtendMinutes === 'function' ? postExtendMinutes(p) : (Number(p.extendAmount) || 360));
       var label = already
         ? ('Extended <span class="ext-cd">' + fmtExtendCountdown(alreadyCd) + '</span>')
         : ('⚡ Extend +' + fmtMin(extAmt) + ' · ' + ((p.extensions || 0) + 1));
-      return '<button class="btn btn-extend' + (already ? ' is-cooling' : '') +
+      var extBtn = '<button class="btn btn-extend' + (already ? ' is-cooling' : '') +
         '" type="button" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
         (already ? 'disabled aria-disabled="true"' : '') +
         ' onclick="event.stopPropagation();openExtend(' + jsId(p.id) + ')">' + label + '</button>';
+      return isVid ? (extBtn + hotBtn + cmtBtn) : (extBtn);
     }
 function postCardHtml(p, compact){
       // Same pin/exposure source as Spotlight — never leave stubs at expires:0 while pinned.
@@ -18504,12 +18586,18 @@ function postCardHtml(p, compact){
           var x=(e.changedTouches&&e.changedTouches[0])?e.changedTouches[0].clientX:sx;
           var dx=x-sx;
           var cur=idx();
+          if(moved || Math.abs(dx)>12){
+            try{window.__blockFeedTap=Date.now()+500;window.__suppressAutoOpenPost=Date.now()+500}catch(err){}
+          }
           if(dx<-35) go(cur+1,true);
           else if(dx>35) go(cur-1,true);
           else go(cur,true);
         },{passive:true});
         box.addEventListener('click',function(e){
-          if(moved){e.stopPropagation();e.preventDefault();moved=false}
+          if(moved || (window.__blockFeedTap && Date.now()<window.__blockFeedTap)){
+            e.stopPropagation();e.preventDefault();moved=false;
+            return;
+          }
         },true);
       }
       document.querySelectorAll('#featured-slot .feat-dot').forEach(function(d){
@@ -18854,7 +18942,8 @@ function postCardHtml(p, compact){
             featBox.setAttribute('data-feat-sig',featSig);
             var slides=featuredList.map(function(item,i){
               var left=item.fu-Date.now();
-              return '<div class="feat-slide" data-fi="'+i+'" data-pid="'+String(item.p.id).replace(/"/g,'')+'" onclick="openDetail(\''+String(item.p.id).replace(/'/g,'')+'\')"><div class="featured-label" data-pin-exp="'+item.fu+'">Pinned · '+fmt(left)+' left'+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'')+'</div><div class="featured-wrap">'+postCardHtml(item.p,true)+'</div></div>';
+              // No outer onclick — open only from the inner card (user tap). Carousel swipes must not open.
+              return '<div class="feat-slide" data-fi="'+i+'" data-pid="'+String(item.p.id).replace(/"/g,'')+'"><div class="featured-label" data-pin-exp="'+item.fu+'">Pinned · '+fmt(left)+' left'+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'')+'</div><div class="featured-wrap">'+postCardHtml(item.p,true)+'</div></div>';
             }).join('');
             var dots=featuredList.length>1?('<div class="feat-dots">'+featuredList.map(function(_,i){return '<span class="feat-dot'+(i===0?' on':'')+'" data-fi="'+i+'"></span>'}).join('')+'</div>'):'';
             featBox.innerHTML='<div style="width:100%;padding:0 12px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-sizing:border-box"><span style="font-size:13px;font-weight:900;letter-spacing:1.4px">SPOTLIGHT</span><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();copySectionLink(\'spotlight\')">Share</button></div><div class="feat-carousel" id="feat-carousel">'+slides+'</div>'+dots;
@@ -18990,7 +19079,7 @@ function postCardHtml(p, compact){
         try{timedLive=typeof isFeedTimerPost==='function'?isFeedTimerPost(post):false}catch(e){}
       }
       var permanent=isProfileOnly(post)||timeless||!post.expires||!isFinite(post.expires);
-      // Pinned Extend posts still use the real exposure countdown, never Hot.
+      // Pinned Extend posts still use the real exposure countdown (Extend stays available).
       if((typeof postHasActiveTimer==='function')?postHasActiveTimer(post):false){
         permanent=false;
         timedLive=true;
@@ -19013,11 +19102,16 @@ function postCardHtml(p, compact){
       var mineR=getMyReaction(post);
       var hotNDetail=(typeof postHotCount==='function'?postHotCount(post):0)||0;
       var alreadyHotDetail=(typeof iAlreadyHotted==='function'&&iAlreadyHotted(post.id));
-      // Active timer (incl. pinned timed posts) → Extend only. No timer → Hot only.
+      // Active timer → Extend. No timer / permanent → Hot only.
+      // Timed videos also keep Hot (timer must not block video Hot).
       var showExtendBtn=(typeof postHasActiveTimer==='function')?postHasActiveTimer(post):(!!(timedLive && !timeless));
+      var detailIsVideo=false;
+      try{detailIsVideo=!!(post._kind==='video' || (typeof isVideoPost==='function' && isVideoPost(post)))}catch(e){detailIsVideo=false}
+      var hotLed='<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+',{allowAnon:true,skipTimer:true})"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>';
+      var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
       var extLed=showExtendBtn
-        ? ('<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>')
-        : ('<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+')"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>');
+        ? (detailIsVideo ? (extendLed + hotLed) : extendLed)
+        : hotLed;
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';
@@ -20681,6 +20775,25 @@ async function onIdFace(e){
           });
         }catch(e){}
       });
+      // Keep GoonTok Extend chrome in sync with cooldown / timer.
+      try{
+        var slide=document.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"]');
+        if(slide){
+          slide.querySelectorAll('.gt-ext,.gt-keep').forEach(function(b){
+            if(remainingMs>0){
+              b.disabled=true;
+              b.classList.add('is-cooling');
+              if(b.classList.contains('gt-keep')) b.textContent='Extended · '+fmtExtendCountdown(remainingMs);
+              else b.innerHTML='<span class="ico">⏱</span><span class="lab">WAIT</span>';
+            }else{
+              b.disabled=false;
+              b.classList.remove('is-cooling');
+              if(b.classList.contains('gt-keep')) b.textContent='Extend +'+amtLabel+' · keep this clip live';
+              else b.innerHTML='<span class="ico">⏱</span><span class="lab">EXTEND</span>';
+            }
+          });
+        }
+      }catch(e){}
     }
     var EXTEND_COOLDOWN_MS=6*60*60*1000; // 6h — same user can re-extend the same post after this
     var EXTEND_ADD_MINUTES=360; // fallback when post has no public extend amount
