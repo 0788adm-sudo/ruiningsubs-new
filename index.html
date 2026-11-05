@@ -2018,7 +2018,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div class="panel-h">
           <button class="back" type="button" onclick="showPanel('explore')">←</button>
           <h2>Challenges</h2>
-          <span></span>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('games','Games')">Share</button>
         </div>
         <div id="games-hub"></div>
         <div id="games-play" style="display:none"></div>
@@ -2351,7 +2351,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <button class="back" type="button" onclick="showPanel('feed')">←</button>
           <h2>Buy Fag Coins</h2>
         </div>
-        <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin:0 0 10px" onclick="navigator.clipboard.writeText('https://www.ruiningsubs.com/#coins');toast('Link copied')">Copy page link</button>
+        <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin:0 0 10px" onclick="copySectionLink('coins','Coins')">Copy page link</button>
         <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay Throne / PayPal / BTC on a pack below → tap <b style="color:#f5c518">I paid</b> → watch <b style="color:#f5c518">Pending credit</b> until Master adds your FC.</p>
         <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 FC for 48 hours. Delete · $5 / 50 FC. Min recharge $5 → 60 FC.</p>
         <div id="coin-balance" style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:12px;padding:12px;margin-bottom:12px;font-weight:800;color:#f5c518">Balance: — FC</div>
@@ -2554,7 +2554,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
 
       <div id="panel-print-dirty" class="panel">
-        <div class="panel-h"><button class="back" id="btn-print-dirty-back" type="button">←</button><h2>Get printed</h2><span></span></div>
+        <div class="panel-h"><button class="back" id="btn-print-dirty-back" type="button">←</button><h2>Get printed</h2><button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('print','Print')">Share</button></div>
         <div style="padding:4px 2px 24px">
           <div style="margin:0 0 14px;border-radius:18px;padding:1px;background:linear-gradient(135deg,#f5c518,#ff6a00 40%,#3b0764)">
             <div style="border-radius:17px;background:#0b0b0e;padding:16px 14px 14px">
@@ -2645,7 +2645,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
 
       <div id="panel-roulette" class="panel">
-        <div class="panel-h"><button class="back" id="btn-roulette-back" type="button">←</button><h2>Ruin Roulette</h2><span></span></div>
+        <div class="panel-h"><button class="back" id="btn-roulette-back" type="button">←</button><h2>Ruin Roulette</h2><button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('roulette','Ruin Roulette')">Share</button></div>
         <div class="roulette-wrap">
           <p style="font-size:13px;color:var(--muted);text-align:center;line-height:1.45;margin:0 8px 14px;max-width:320px">30 tasks on the wheel. 3 spins every day. Land, obey, post proof.</p>
           <div class="roulette-pointer"></div>
@@ -2746,7 +2746,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
 
       <div id="panel-dice" class="panel">
-        <div class="panel-h"><button class="back" type="button" id="btn-dice-back" onclick="backFromDiceGame()">←</button><h2>Exposure Dice</h2><span></span></div>
+        <div class="panel-h"><button class="back" type="button" id="btn-dice-back" onclick="backFromDiceGame()">←</button><h2>Exposure Dice</h2><button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('dice','Exposure Dice')">Share</button></div>
         <div class="dice-wrap">
           <p style="font-size:13px;color:var(--muted);text-align:center;line-height:1.45;margin:0 8px 10px;max-width:340px">3 dice · 12 faces each. Wear · Pose · Proof. 1 free roll a day. Extra roll = 10 FC ($1).</p>
           <div id="dice-fc-balance" style="font-size:13px;font-weight:800;color:#f5c518;margin:0 0 6px;text-align:center">— FC</div>
@@ -4484,9 +4484,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           loadNormalFeed();
         }
         if(pid==='panel-goontok'||pid==='panel-videos'){
-          window.__vidFetchAt=0;window.__vidFetchP=null;
+          // Do NOT clear the fetch lock — let the 15s coalescer prevent API spam.
+          // Append-only refresh: never re-arm a playing GoonTok slide from this timer.
           Promise.resolve(fetchVideoPosts()).then(function(){
-            if(pid==='panel-goontok'){ try{renderGoonTok()}catch(e){} try{refillGoonTokPlayable(false)}catch(e){} }
+            if(pid==='panel-goontok'){
+              try{renderGoonTok({quiet:true})}catch(e){}
+              try{refillGoonTokPlayable(false)}catch(e){}
+            }
             if(pid==='panel-videos'){ try{drawVideoGrid()}catch(e){} }
           }).catch(function(){});
         }
@@ -7823,6 +7827,7 @@ async function claimPayPalPack(p){
     }
     function openLockMonth(){
       showPanel('lockmonth');
+      try{setPanelRoute('lockmonth',{replace:!!window.__routing})}catch(e){}
       renderLockMonth();
       loadLockBoard();
     }
@@ -8053,6 +8058,7 @@ async function claimPayPalPack(p){
       if(!c) return;
       window.__openCommunityId=id;
       showPanel('community');
+      try{setPanelRoute('community',{extra:id,replace:true})}catch(e){}
       var title=document.getElementById('community-title');
       if(title) title.textContent=c.name;
       var joined=communityJoined().indexOf(id)>=0;
@@ -8081,7 +8087,7 @@ async function claimPayPalPack(p){
 
     function postInTopic(id){
       window.__topicPost=id;
-      showPanel('create');
+      showPanel('post');
       toast('Up to 5 photos or 1 video. It gets a timer and stays in this topic.');
     }
     window.postInTopic=postInTopic;
@@ -10206,6 +10212,7 @@ function openRoulette(){
       'goontok':'goontok',
       'randomcam':'randomcam',
       'videos':'videos',
+      'video-post':'upload-video',
       'map':'map',
       'coins':'coins',
       'print-dirty':'print',
@@ -10221,77 +10228,108 @@ function openRoulette(){
       'detail':'',
       'auth':'login',
       'doms':'doms',
-      'dice':'dice'
+      'dice':'dice',
+      'challenges':'games',
+      'games':'games',
+      'community':'c',
+      'lockmonth':'caged50',
+      'user':'u',
+      'packages':'coins'
     };
     var ROUTE_PANEL={
       '':'feed','feed':'feed','home':'feed','extend':'feed','spotlight':'feed',
-      'wall':'wall','thewall':'wall',
+      'wall':'wall','thewall':'wall','normal':'wall',
       'explore':'explore','search':'explore',
       'goontok':'goontok','goon':'goontok','tiktok':'goontok',
       'randomcam':'randomcam','random':'randomcam','ome':'randomcam','chat':'randomcam',
       'videos':'videos','video':'videos',
+      'upload-video':'video-post','videopost':'video-post','video-post':'video-post',
       'map':'map','exposuremap':'map',
       'print':'print-dirty','print-dirty':'print-dirty','exposure':'print-dirty',
       'roulette':'roulette','ruleta':'roulette',
       'messages':'messages','inbox':'messages',
       'profile':'profile','me':'profile',
-      // Unlinked admin entry (also /admin via vercel rewrite)
-      'admin':'admin',
-      'rs-ops':'admin',
+      'admin':'admin','rs-ops':'admin',
       'tasks':'tasks','dares':'tasks',
       'alerts':'notifs','notifs':'notifs',
-      'new':'post','post':'post',
+      'new':'post','post':'post','create':'post',
       'idcard':'idcard','id':'idcard','pea':'idcard',
-      'login':'auth','normal':'wall',
-      'coins':'coins','buy':'coins','fagcoins':'coins',
+      'login':'profile','register':'profile','auth':'profile',
+      'coins':'coins','buy':'coins','fagcoins':'coins','packages':'coins',
       'doms':'doms','dominants':'doms','verified':'doms',
-      'dice':'dice'
+      'dice':'dice',
+      'games':'challenges','challenges':'challenges',
+      'c':'community','community':'community',
+      'caged50':'lockmonth','lockmonth':'lockmonth','caged':'lockmonth',
+      'u':'user','user':'user'
     };
-    function currentRouteSlug(){
+    var SECTION_LABELS={
+      extend:'Extend',feed:'Extend',wall:'Wall',goontok:'GoonTok',explore:'Explore',
+      spotlight:'Spotlight',videos:'Videos',print:'Print',games:'Games',challenges:'Games',
+      profile:'Profile',messages:'Messages',coins:'Coins',map:'Map',roulette:'Ruin Roulette',
+      dice:'Exposure Dice',randomcam:'RandomCam',alerts:'Alerts',notifs:'Alerts',
+      new:'New post',idcard:'ID Card',pea:'PEA',tasks:'Tasks',doms:'Verified Doms',
+      caged50:'Caged 50',login:'Login','upload-video':'Publish video',admin:'Admin'
+    };
+    function routePathParts(){
       try{
-        var path=(location.pathname||'/').replace(/\/+$/,'')||'';
-        var parts=path.split('/').filter(Boolean);
+        return String((location.pathname||'/').replace(/\/+$/,'')||'/').split('/').filter(Boolean);
+      }catch(e){return []}
+    }
+    function currentRouteSlug(){
+      // Prefer pathname so /goontok wins over leftover hashes.
+      try{
+        var parts=routePathParts();
         if(parts[0]==='admin') return 'admin';
+        if(parts[0]==='index.html') parts=parts.slice(1);
+        if(parts[0]==='post'||parts[0]==='p'||/^\d+$/.test(parts[0]||'')) return '';
+        if(parts.length) return String(parts[0]).toLowerCase();
       }catch(e){}
-      var h=(location.hash||'').replace(/^#\/?/,'').split('?')[0];
-      if(h){
-        if(h.indexOf('p=')===0||h.indexOf('post-')===0||h.indexOf('profile-')===0) return '';
-        // Keep section deep-links like #wall / #extend while a post hash is open separately.
-        return h.split('/')[0].toLowerCase();
-      }
       try{
         var q=new URLSearchParams(location.search||'');
         if(q.has('goontok')||q.get('view')==='goontok') return 'goontok';
         var view=String(q.get('view')||q.get('section')||'').toLowerCase();
         if(view) return view;
       }catch(e){}
-      try{
-        var path2=(location.pathname||'/').replace(/\/+$/,'')||'';
-        var parts2=path2.split('/').filter(Boolean);
-        if(parts2.length && parts2[0]!=='index.html' && parts2[0]!=='post' && parts2[0]!=='p' && !/^\d+$/.test(parts2[0])) return parts2[0].toLowerCase();
-      }catch(e){}
+      var h=(location.hash||'').replace(/^#\/?/,'').split('?')[0];
+      if(h){
+        if(h.indexOf('p=')===0||h.indexOf('post-')===0||h.indexOf('profile-')===0) return '';
+        return h.split('/')[0].toLowerCase();
+      }
       return '';
     }
-    function sectionPathFor(nameOrSlug){
+    function sectionPathFor(nameOrSlug, extra){
       var key=String(nameOrSlug||'extend').toLowerCase();
       if(key==='feed'||key==='home'||key==='extended') key='extend';
       if(key==='spotlight') return '/spotlight';
+      if(key==='pea') return '/pea';
+      if(key==='create') key='new';
       var slug=PANEL_ROUTE[key];
       if(slug===undefined){
         if(ROUTE_PANEL[key]) slug=key;
         else slug=key;
       }
       if(!slug||slug==='feed') slug='extend';
-      return '/'+String(slug).replace(/^\/+/,'');
+      var path='/'+String(slug).replace(/^\/+/,'');
+      if(extra!=null && String(extra)!==''){
+        path+='/'+encodeURIComponent(String(extra).replace(/^\/+/,''));
+      }else if(key==='community'||slug==='c'){
+        var cid=window.__openCommunityId||'';
+        if(cid) path+='/'+encodeURIComponent(String(cid));
+      }else if(key==='user'||slug==='u'){
+        var un=window.viewingUser||'';
+        if(un) path+='/'+encodeURIComponent(String(un));
+      }
+      return path;
     }
-    function sectionShareUrl(section){
+    function sectionShareUrl(section, extra){
       var origin=(location.origin&&location.origin.indexOf('http')===0)?location.origin:siteOrigin();
-      return origin+sectionPathFor(section);
+      return origin+sectionPathFor(section, extra);
     }
-    function copySectionLink(section, label){
+    function copySectionLink(section, label, extra){
       var slug=String(section||'extend').toLowerCase();
-      var url=sectionShareUrl(slug);
-      var name=label||({extend:'Extend',wall:'Wall',goontok:'GoonTok',explore:'Explore',spotlight:'Spotlight'}[slug]||slug);
+      var url=sectionShareUrl(slug, extra);
+      var name=label||SECTION_LABELS[slug]||slug;
       var pack=name+' on RuiningSubs\n'+url;
       if(navigator.share){
         navigator.share({title:name,text:pack,url:url}).catch(function(){});
@@ -10328,10 +10366,11 @@ function openRoulette(){
       }catch(e){}
     }
     window.scrollToSpotlight=scrollToSpotlight;
-    function setPanelRoute(name){
-      if(window.__routing)return;
+    function setPanelRoute(name, opts){
+      opts=opts||{};
+      if(window.__routing && !opts.force)return;
       if(name==='detail')return;
-      try{if(typeof parseSharedPostId==='function' && parseSharedPostId() && name==='feed')return;}catch(e){}
+      try{if(typeof parseSharedPostId==='function' && parseSharedPostId() && name==='feed' && !opts.force)return;}catch(e){}
       var slug=PANEL_ROUTE[name];
       if(slug===undefined)slug=name;
       if(name==='print-dirty'){try{fillPrintVideos()}catch(e){}}
@@ -10344,12 +10383,21 @@ function openRoulette(){
           try{sessionStorage.setItem('rs_panel','admin')}catch(e){}
           return;
         }
-        var next=sectionPathFor(name==='feed'?'extend':(slug||name));
-        // Prefer clean shareable paths (/extend, /wall…) while keeping hash fallbacks readable.
+        var next=opts.path||sectionPathFor(name==='feed'?'extend':(slug||name), opts.extra);
         var curPath=(location.pathname||'/').replace(/\/+$/,'')||'/';
-        var wantPath=next.replace(/\/+$/,'')||'/';
-        if(curPath!==wantPath || location.hash || location.search){
-          history.replaceState({panel:name},'', next);
+        var wantPath=String(next).replace(/\/+$/,'')||'/';
+        if(curPath===wantPath && !location.hash && !location.search){
+          try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
+          return;
+        }
+        var state={panel:name};
+        if(opts.extra) state.extra=opts.extra;
+        // pushState for real section navigation so browser Back/Forward works.
+        // replaceState for boot/restore and in-place updates.
+        if(opts.replace || window.__routing){
+          history.replaceState(state,'', next);
+        }else{
+          history.pushState(state,'', next);
         }
       }catch(e){
         try{location.hash=slug||'extend'}catch(e2){}
@@ -10358,6 +10406,7 @@ function openRoulette(){
     }
     function applyLocationRoute(){
       if(typeof parseSharedPostId==='function' && parseSharedPostId()) return false;
+      var parts=routePathParts();
       var slug=currentRouteSlug();
       if(!slug){
         try{
@@ -10369,71 +10418,47 @@ function openRoulette(){
         }catch(e){}
       }
       if(!slug)return false;
-      if(slug==='spotlight'){
-        window.__routing=true;
-        try{scrollToSpotlight()}catch(e){try{showPanel('feed')}catch(e2){}}
-        window.__routing=false;
-        return true;
-      }
-      if(slug==='extend'||slug==='feed'||slug==='home'){
-        window.__routing=true;
-        try{showPanel('feed')}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      if(slug==='normal'||slug==='wall'||slug==='thewall'){
-        window.__routing=true;
-        try{showPanel('wall');if(typeof loadNormalFeed==='function')loadNormalFeed()}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      if(slug==='coins'||slug==='buy'||slug==='fagcoins'){
-        window.__routing=true;
-        try{if(typeof openCoinShop==='function')openCoinShop();else showPanel('coins')}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      if(slug==='goontok'||slug==='goon'||slug==='tiktok'){
-        window.__routing=true;
-        try{if(typeof openGoonTok==='function')openGoonTok();else showPanel('goontok')}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      if(slug==='randomcam'||slug==='random'||slug==='ome'||slug==='chat'){
-        window.__routing=true;
-        try{if(typeof openRandomCam==='function')openRandomCam();else showPanel('randomcam')}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      if(slug==='map'||slug==='exposuremap'){
-        window.__routing=true;
-        try{if(typeof openExposureMap==='function')openExposureMap();else showPanel('map')}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      if(slug==='dice'){
-        window.__routing=true;
-        try{if(typeof openDiceGame==='function')openDiceGame();else showPanel('dice')}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      // Unlinked admin routes (not shown in public UI)
-      if(slug==='admin'||slug==='rs-ops'){
-        window.__routing=true;
-        try{openAdminRoute({keepScroll:true})}catch(e){}
-        window.__routing=false;
-        return true;
-      }
-      var panel=ROUTE_PANEL[slug];
-      if(!panel)return false;
       window.__routing=true;
       try{
-        if(slug==='pea'&&typeof openIdCard==='function')openIdCard('pea');
-        else if(slug==='id'||slug==='idcard'){if(typeof openIdCard==='function')openIdCard('id');else showPanel('idcard')}
-        else showPanel(panel);
-      }catch(e){}
-      window.__routing=false;
-      return true;
+        if(slug==='spotlight'){ try{scrollToSpotlight()}catch(e){showPanel('feed')} return true; }
+        if(slug==='extend'||slug==='feed'||slug==='home'){ showPanel('feed'); return true; }
+        if(slug==='normal'||slug==='wall'||slug==='thewall'){ showPanel('wall'); try{loadNormalFeed()}catch(e){} return true; }
+        if(slug==='coins'||slug==='buy'||slug==='fagcoins'||slug==='packages'){ try{openCoinShop()}catch(e){showPanel('coins')} return true; }
+        if(slug==='goontok'||slug==='goon'||slug==='tiktok'){ try{openGoonTok()}catch(e){showPanel('goontok')} return true; }
+        if(slug==='randomcam'||slug==='random'||slug==='ome'||slug==='chat'){ try{openRandomCam()}catch(e){showPanel('randomcam')} return true; }
+        if(slug==='map'||slug==='exposuremap'){ try{openExposureMap()}catch(e){showPanel('map')} return true; }
+        if(slug==='dice'){ try{openDiceGame()}catch(e){showPanel('dice')} return true; }
+        if(slug==='roulette'||slug==='ruleta'){ try{openRoulette()}catch(e){showPanel('roulette')} return true; }
+        if(slug==='print'||slug==='print-dirty'||slug==='exposure'){ try{openPrintDirty()}catch(e){showPanel('print-dirty')} return true; }
+        if(slug==='games'||slug==='challenges'){ try{openChallengesHub()}catch(e){showPanel('challenges')} return true; }
+        if(slug==='caged50'||slug==='lockmonth'||slug==='caged'){ try{openLockMonth()}catch(e){showPanel('lockmonth')} return true; }
+        if(slug==='c'||slug==='community'){
+          var cid=parts[1]||window.__openCommunityId||'';
+          if(cid && typeof openCommunity==='function') openCommunity(decodeURIComponent(cid));
+          else showPanel('community');
+          return true;
+        }
+        if(slug==='u'||slug==='user'){
+          var uname=parts[1]||'';
+          if(uname && typeof openUser==='function') openUser(decodeURIComponent(uname));
+          else showPanel('profile');
+          return true;
+        }
+        if(slug==='upload-video'||slug==='videopost'||slug==='video-post'){ showPanel('video-post'); return true; }
+        if(slug==='admin'||slug==='rs-ops'){ try{openAdminRoute({keepScroll:true})}catch(e){} return true; }
+        if(slug==='login'||slug==='register'||slug==='auth'){
+          showPanel('profile');
+          try{showAuth(slug==='register'?'register':'login')}catch(e){}
+          return true;
+        }
+        if(slug==='pea'){ try{openIdCard('pea')}catch(e){showPanel('idcard')} return true; }
+        if(slug==='id'||slug==='idcard'){ try{openIdCard('id')}catch(e){showPanel('idcard')} return true; }
+        var panel=ROUTE_PANEL[slug];
+        if(!panel) return false;
+        showPanel(panel);
+        return true;
+      }catch(e){return false}
+      finally{ window.__routing=false; }
     }
     function goHome(){
       try{if(typeof setGlobalFeedMode==='function')setGlobalFeedMode('extended')}catch(e){}
@@ -11642,7 +11667,16 @@ function openRoulette(){
       if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
       if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
-      if(name==='goontok'){try{if(typeof fetchVideoPosts==='function')fetchVideoPosts().then(function(){renderGoonTok()}).catch(function(){renderGoonTok()});else renderGoonTok()}catch(e){try{renderGoonTok()}catch(e2){}}startViewVisit('goontok')}
+      if(name==='goontok'){
+        // openGoonTok already fetches + paints; avoid a second remount/re-arm storm.
+        if(!window.__gtOpening){
+          try{
+            if(typeof fetchVideoPosts==='function') fetchVideoPosts().then(function(){renderGoonTok({quiet:true})}).catch(function(){renderGoonTok({quiet:true})});
+            else renderGoonTok({quiet:true});
+          }catch(e){try{renderGoonTok({quiet:true})}catch(e2){}}
+        }
+        startViewVisit('goontok');
+      }
       if(name==='videos'){try{fetchVideoPosts().then(function(){try{renderVideos()}catch(e){}})}catch(e){}try{renderVideos()}catch(e){}startViewVisit('videos')}
       if(name==='idcard'){try{loadIdArchive()}catch(e){}startViewVisit('idcard')}
       if(name==='feed'){try{fetchVideoPosts()}catch(e){}}
@@ -11910,14 +11944,21 @@ function openRoulette(){
       return pool.slice(0, want);
     }
     function loadMoreGoonTok(){
+      var now=Date.now();
+      if(window.__gtLoadMoreAt && now-window.__gtLoadMoreAt<700) return;
+      window.__gtLoadMoreAt=now;
       var pool=goontokCandidatePool();
       var have=Number(window.__gtLoaded)||GT_PAGE;
       if(have>=pool.length){
-        try{refillGoonTokPlayable(true)}catch(e){}
+        // Exhausted local pool — soft refill without clearing the fetch lock every swipe.
+        if(!window.__gtEndFetchAt || now-window.__gtEndFetchAt>60000){
+          window.__gtEndFetchAt=now;
+          try{refillGoonTokPlayable(false)}catch(e){}
+        }
         return;
       }
       window.__gtLoaded=Math.min(pool.length, have+GT_PAGE);
-      try{renderGoonTok()}catch(e){}
+      try{renderGoonTok({quiet:true})}catch(e){}
     }
     function setGoonTokTab(tab){
       gtTab=tab||'foryou';
@@ -11932,32 +11973,42 @@ function openRoulette(){
       renderGoonTok();
     }
     function openGoonTok(){
-      showPanel('goontok');
-      // Clear soft health so a prior bad probe pass can't leave only ~2 clips forever.
+      window.__gtOpening=1;
+      try{showPanel('goontok')}catch(e){}
+      window.__gtOpening=0;
+      // Soft-fail cooldown map (session) — stop remount loops of the same clip.
+      if(!window.__gtSoftCooldown) window.__gtSoftCooldown={};
+      // Clear only expired soft health so a prior bad probe pass can't starve the feed forever.
       try{
         var hm=loadVideoHealth();
         var changed=false;
+        var now=Date.now();
         Object.keys(hm||{}).forEach(function(k){
           var h=hm[k];
           if(!h)return;
-          if(h.soft || h.status==='needs_opt' || /timeout|preflight|warm_|play_reject/.test(String(h.reason||''))){
+          if((h.soft || h.status==='needs_opt') && h.at && now-Number(h.at)>GT_BROKEN_TTL){
             delete hm[k]; changed=true;
           }
         });
         if(changed) saveVideoHealth(hm);
       }catch(e){}
-      // Paint cached videos immediately, then refresh full catalog.
-      try{renderGoonTok()}catch(e){}
+      // Paint cached videos immediately — do not wipe or re-arm if already mounted.
+      try{renderGoonTok({quiet:true})}catch(e){}
       var jobs=[];
-      try{window.__vidFetchAt=0;window.__vidFetchP=null}catch(e){}
+      // Respect the 15s fetch coalescer; only force a fresh pull if catalog is empty.
+      var haveVids=0;
+      try{haveVids=(window.__videoCache&&window.__videoCache.length)||0}catch(e){}
+      if(haveVids<8){
+        try{window.__vidFetchAt=0;window.__vidFetchP=null}catch(e){}
+      }
       if(typeof fetchVideoPosts==='function') jobs.push(Promise.resolve(fetchVideoPosts()));
       if(typeof syncFollowingFromServer==='function') jobs.push(Promise.resolve(syncFollowingFromServer()));
       if(jobs.length){
         Promise.all(jobs.map(function(j){return Promise.resolve(j).catch(function(){})})).then(function(){
           try{window.__gtLoaded=Math.max(Number(window.__gtLoaded)||0, GT_PAGE)}catch(e){}
-          renderGoonTok();
-          try{refillGoonTokPlayable(true)}catch(e){}
-        }).catch(function(){renderGoonTok()});
+          renderGoonTok({quiet:true});
+          try{refillGoonTokPlayable(false)}catch(e){}
+        }).catch(function(){renderGoonTok({quiet:true})});
       }
     }
     function goontokShareUrl(){
@@ -12032,7 +12083,9 @@ function openRoulette(){
         '</div>'+
       '</div>';
     }
-    function renderGoonTok(){
+    function renderGoonTok(opts){
+      opts=opts||{};
+      var quiet=!!opts.quiet;
       var box=document.getElementById('gt-scroller');
       if(!box)return;
       var list=goontokList();
@@ -12040,7 +12093,7 @@ function openRoulette(){
         if(!box.querySelector('.gt-slide')){
           box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
         }
-        try{refillGoonTokPlayable(true)}catch(e){}
+        if(!quiet) try{refillGoonTokPlayable(false)}catch(e){}
         return;
       }
       var existing=gtVisibleIds();
@@ -12054,6 +12107,7 @@ function openRoulette(){
         list.forEach(function(p){
           var id=String(p.id);
           if(present[id])return;
+          if(window.__gtSoftCooldown && window.__gtSoftCooldown[id] && Date.now()<window.__gtSoftCooldown[id]) return;
           var html=goontokSlideHtml(p);
           if(!html)return;
           box.insertAdjacentHTML('beforeend', html);
@@ -12061,14 +12115,15 @@ function openRoulette(){
         });
         box.setAttribute('data-gt-tab',gtTab);
         box.setAttribute('data-gt-sig',gtVisibleIds().join(',')+'|'+gtTab);
-        bindGoonTok();
-        try{refillGoonTokPlayable(false)}catch(e){}
+        // Only rebind/re-arm when new slides were actually mounted.
+        if(added>0 || !window.__gtBound) bindGoonTok({preservePlay:true});
+        if(!quiet) try{refillGoonTokPlayable(false)}catch(e){}
         try{scheduleVideoOptimizeWorker()}catch(e){}
         return;
       }
       var sig=list.map(function(p){return String(p.id)}).join(',')+'|'+gtTab;
       if(box.getAttribute('data-gt-sig')===sig && box.querySelector('.gt-slide')){
-        bindGoonTok();
+        if(!window.__gtBound) bindGoonTok({preservePlay:true});
         return;
       }
       var keepScroll=box.scrollTop||0;
@@ -12081,8 +12136,8 @@ function openRoulette(){
         box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
       }
       try{box.scrollTop=keepScroll}catch(e){}
-      bindGoonTok();
-      try{refillGoonTokPlayable(true)}catch(e){}
+      bindGoonTok({preservePlay:false});
+      if(!quiet) try{refillGoonTokPlayable(false)}catch(e){}
       try{scheduleVideoOptimizeWorker()}catch(e){}
     }
     function gtVisibleIds(){
@@ -12118,6 +12173,11 @@ function openRoulette(){
         });
         slide.remove();
         box.setAttribute('data-gt-sig','');
+        // Soft failures: cooldown so refill does not remount the same clip in a loop.
+        if(/load_timeout|warm_|play_reject|autoplay_blocked|probe_timeout|preflight_/.test(String(reason||''))){
+          window.__gtSoftCooldown=window.__gtSoftCooldown||{};
+          window.__gtSoftCooldown[id]=Date.now()+5*60*1000;
+        }
         var remaining=[].slice.call(box.querySelectorAll('.gt-slide'));
         if(wasActive){
           if(remaining.length){
@@ -12130,7 +12190,7 @@ function openRoulette(){
             box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
           }
         }
-        try{bindGoonTok()}catch(e){}
+        try{bindGoonTok({preservePlay:!wasActive})}catch(e){}
         try{refillGoonTokPlayable(false)}catch(e){}
       }finally{
         setTimeout(function(){try{delete window.__gtDropping[id]}catch(e){}},400);
@@ -12150,8 +12210,8 @@ function openRoulette(){
         if(have.length>=GT_TARGET && !forceFetch)return;
         if(forceFetch || have.length<Math.min(12, GT_TARGET)){
           try{
-            // Full catalog (SB + R2) — CF /feed?type=video is often empty.
-            window.__vidFetchAt=0;window.__vidFetchP=null;
+            // Only clear the fetch lock when explicitly forced — quiet refills reuse the coalescer.
+            if(forceFetch){ window.__vidFetchAt=0;window.__vidFetchP=null; }
             await fetchVideoPosts();
           }catch(e){
             try{
@@ -12164,6 +12224,8 @@ function openRoulette(){
         have=gtVisibleIds();
         var pool=goontokCandidatePool();
         var present={};have.forEach(function(id){present[id]=1});
+        var soft=window.__gtSoftCooldown||{};
+        var now=Date.now();
         var added=0;
         // Mount the full catalog page immediately (TikTok). Hard failures drop live via armVideo.
         for(var i=0;i<pool.length && have.length+added<GT_TARGET;i++){
@@ -12171,6 +12233,7 @@ function openRoulette(){
           var id=String(p.id);
           if(present[id])continue;
           if(isVideoHiddenFromGoonTok(id))continue;
+          if(soft[id] && now<soft[id]) continue;
           var media=goontokPrimaryVideo(p);
           if(!media||!media.src||!isVideoUrl(media.src))continue;
           var html=goontokSlideHtml(p);
@@ -12181,7 +12244,7 @@ function openRoulette(){
         }
         if(added){
           box.setAttribute('data-gt-sig','');
-          bindGoonTok();
+          bindGoonTok({preservePlay:true});
         }else if(!gtVisibleIds().length){
           box.innerHTML='<div class="gt-empty">No playable videos right now. Try again soon.</div>';
         }
@@ -12189,7 +12252,7 @@ function openRoulette(){
         window.__gtRefilling=false;
         if(window.__gtRefillAgain){
           window.__gtRefillAgain=false;
-          setTimeout(function(){refillGoonTokPlayable(true).catch(function(){})},0);
+          setTimeout(function(){refillGoonTokPlayable(false).catch(function(){})},0);
         }
       }
     }
@@ -12250,7 +12313,9 @@ function openRoulette(){
       }catch(e){}
     }
     window.gtAlbumMove=gtAlbumMove;
-    function bindGoonTok(){
+    function bindGoonTok(opts){
+      opts=opts||{};
+      var preservePlay=!!opts.preservePlay;
       var sc=document.getElementById('gt-scroller');
       if(!sc||typeof sc.addEventListener!=='function')return;
       if(window.__gtObs){try{window.__gtObs.disconnect()}catch(e){}}
@@ -12267,6 +12332,7 @@ function openRoulette(){
       try{pruneBrokenGoonTokSlides()}catch(e){}
       var slides=[].slice.call(sc.querySelectorAll('.gt-slide'));
       if(!slides.length)return;
+      window.__gtBound=1;
       try{
         var h=sc.clientHeight||(window.innerHeight-82);
         sc.style.setProperty('--gt-h',h+'px');
@@ -12375,6 +12441,19 @@ function openRoulette(){
         if(play) clearSlideError(v);
         else if(v.__gtFailed) return;
         var needSet=v.getAttribute('src')!==s;
+        // Already playing stably — never flash Loading / restart the same clip.
+        if(play && !needSet && !v.__gtFailed && !v.paused && v.readyState>=2){
+          hidePoster(v);
+          setLoad(v,false);
+          return;
+        }
+        // Neighbor already buffered — keep poster, do not restart warm timers.
+        if(!play && !needSet && v.readyState>=2 && !v.__gtFailed){
+          try{v.pause()}catch(e){}
+          showPoster(v);
+          setLoad(v,false);
+          return;
+        }
         if(needSet){
           try{v.preload=play?'auto':'metadata'}catch(e){}
           try{v.src=s}catch(e){}
@@ -12433,7 +12512,8 @@ function openRoulette(){
           try{v.pause()}catch(e){}
           setLoad(v,false);
           try{clearTimeout(v.__gtWarmTimer)}catch(e){}
-          // Warm neighbor: drop hard failures so black shells never sit in the swipe stack.
+          // Warm neighbor: keep poster. Do NOT drop solely for readyState===0 —
+          // that remount loop caused endless Loading… on slow mobile networks.
           v.__gtWarmTimer=setTimeout(function(){
             if(v.__gtFailed)return;
             if(v.error){failVideo(v,'warm_error');return}
@@ -12444,9 +12524,9 @@ function openRoulette(){
               showPoster(v);
               return;
             }
-            if(v.readyState===0){
-              failVideo(v,'warm_timeout');
-            }
+            // Still buffering — leave poster up; arm again when user swipes to it.
+            showPoster(v);
+            setLoad(v,false);
           }, GT_PROBE_MS);
           return;
         }
@@ -12593,9 +12673,17 @@ function openRoulette(){
         },{root:sc,threshold:[0.55,0.7,0.85]});
         slides.forEach(function(sl){window.__gtIO.observe(sl)});
       }
-      last=-1;
-      windowVideos(activeIndex());
-      last=activeIndex();
+      var idx=activeIndex();
+      if(preservePlay && typeof window.__gtLastIdx==='number' && window.__gtLastIdx===idx){
+        // Same active slide already armed — only warm new neighbors if needed.
+        last=idx;
+        windowVideos(idx);
+      }else{
+        last=-1;
+        windowVideos(idx);
+        last=idx;
+      }
+      window.__gtLastIdx=last;
       if(!sc.__gtTap){
         sc.__gtTap=1;
         sc.addEventListener('click',function(ev){
@@ -12763,6 +12851,15 @@ function openRoulette(){
       if(tab==='login'||tab==='register'){
         /* keep status if error shown */
       }
+      try{
+        var authPath=tab==='register'?'/register':(tab==='forgot'?'/login':(tab==='newpass'?'/login':'/login'));
+        if(!window.__routing && (location.pathname||'').indexOf('/profile')!==0){
+          // Keep shareable auth URLs when auth UI is shown from profile gate.
+          if(tab==='login'||tab==='register'){
+            history.replaceState({panel:'profile',auth:tab},'',authPath);
+          }
+        }
+      }catch(e){}
       try{window.scrollTo(0,0)}catch(e){}
     }
 
@@ -16600,6 +16697,7 @@ function profileStatsHtml(userPosts, extra){
 
     function openChallengesHub(){
       showPanel('challenges');
+      try{setPanelRoute('challenges',{replace:!!window.__routing})}catch(e){}
       renderChallengesHub();
     }
     function openGamesHub(){ openChallengesHub(); }
@@ -18989,6 +19087,7 @@ function postCardHtml(p, compact){
       if(gCount)gCount.textContent='';
       window.__profileFeedView='extended';
       showPanel('user');
+      try{setPanelRoute('user',{extra:username,replace:true})}catch(e){}
 
       (async function(){
         var gallery=[];
@@ -19614,7 +19713,7 @@ async function onIdFace(e){
         var tags=document.getElementById('new-tags');
         if(tags)tags.value=tags.value||'idcard,exposed';
       }catch(e){}
-      showPanel('create');
+      showPanel('post');
       toast('Set title, timer & you can add up to 3 more photos');
       try{
         setTimeout(function(){
@@ -19979,6 +20078,12 @@ async function onIdFace(e){
     function openIdCard(mode){
       if(mode==='pea'||mode==='id')idRenderMode=mode;
       showPanel('idcard');
+      try{
+        setPanelRoute('idcard',{
+          path:idRenderMode==='pea'?'/pea':'/idcard',
+          replace:true
+        });
+      }catch(e){}
       var act=document.getElementById('id-actions');if(act)act.style.display='none';
       var h2=document.querySelector('#panel-idcard .panel-h h2');
       if(h2)h2.textContent=(idRenderMode==='pea'?'PEA Generator':'ID Generator');
@@ -23765,9 +23870,15 @@ async function onIdFace(e){
         if(document.hidden){try{stopAllMedia()}catch(e){}}
         else{
           try{
-            if(document.body.classList.contains('gt-on') && typeof window.__gtWindowVideos==='function'){
+            // Resume only the active GoonTok slide if it paused — do not restart Loading.
+            if(document.body.classList.contains('gt-on')){
+              var sc=document.getElementById('gt-scroller');
+              var slides=sc?[].slice.call(sc.querySelectorAll('.gt-slide')):[];
               var i=typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():0;
-              window.__gtWindowVideos(i);
+              var v=slides[i]&&slides[i].querySelector('video[data-gt-vid]');
+              if(v && !v.__gtFailed && v.paused){
+                try{v.muted=true;v.play().catch(function(){})}catch(e){}
+              }
             }
           }catch(e){}
           // Returning to the tab: pull fresh posts so others' new publishes show first.
@@ -23783,8 +23894,14 @@ async function onIdFace(e){
       window.addEventListener('pagehide',function(){try{stopAllMedia()}catch(e){}});
       window.addEventListener('pageshow',function(){
         try{
-          if(document.body.classList.contains('gt-on') && typeof window.__gtWindowVideos==='function'){
-            window.__gtWindowVideos(typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():0);
+          if(document.body.classList.contains('gt-on')){
+            var sc=document.getElementById('gt-scroller');
+            var slides=sc?[].slice.call(sc.querySelectorAll('.gt-slide')):[];
+            var i=typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():0;
+            var v=slides[i]&&slides[i].querySelector('video[data-gt-vid]');
+            if(v && !v.__gtFailed && v.paused){
+              try{v.muted=true;v.play().catch(function(){})}catch(e){}
+            }
           }
         }catch(e){}
       });
