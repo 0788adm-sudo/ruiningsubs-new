@@ -9533,7 +9533,14 @@ function openRoulette(){
       if(list.length){
         html+='<div style="font-size:12px;color:var(--muted);margin:12px 0 8px;font-weight:700">Posts'+(isTag?' · #'+esc(term):'')+'</div>';
         html+=list.map(function(p){
-          return '<div class="post" style="cursor:pointer;padding:10px" onclick="openDetail('+p.id+')"><div style="display:flex;gap:10px;align-items:flex-start">'+postThumb(p)+'<div style="flex:1;min-width:0"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">@'+esc(p.user)+' · '+(p.tags||[]).map(function(tg){return '#'+tg}).join(' ')+'</div><div class="post-stats" style="padding:8px 0 0;border:0"><span>👀 '+displayViews(p.views)+'</span><span>❤️ '+(p.likes||0)+'</span><span>⏱ '+(p.extensions||0)+'</span></div></div></div></div>';
+          try{if(typeof hydratePinnedPost==='function') p=hydratePinnedPost(p)}catch(e){}
+          var pinUntil=0;
+          try{pinUntil=typeof getPinUntil==='function'?getPinUntil(p):(Number(p.featuredUntil)||0)}catch(e){}
+          var expMs=Number(p.expires)||0;
+          var timerExp=(expMs>Date.now())?expMs:(pinUntil>Date.now()?pinUntil:0);
+          var timerTxt=timerExp?fmt(timerExp-Date.now()):'—';
+          var pinHtml=pinUntil>Date.now()?'<span style="color:var(--orange);font-weight:800">Pinned · '+fmt(pinUntil-Date.now())+'</span>':'';
+          return '<div class="post" style="cursor:pointer;padding:10px" onclick="openDetail('+p.id+')"><div style="display:flex;gap:10px;align-items:flex-start">'+postThumb(p)+'<div style="flex:1;min-width:0"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">@'+esc(p.user)+' · '+(p.tags||[]).map(function(tg){return '#'+tg}).join(' ')+'</div><div class="post-stats" style="padding:8px 0 0;border:0"><span>👀 '+displayViews(p.views)+'</span><span>❤️ '+(p.likes||0)+'</span><span>⏱ '+timerTxt+'</span>'+(pinHtml?' · '+pinHtml:'')+'</div></div></div></div>';
         }).join('');
       }
       box.innerHTML=html;
@@ -13887,16 +13894,28 @@ function openRoulette(){
           if(!id||until<=Date.now())return;
           if(String(id)==='abc'||String(data.title||'').toLowerCase()==='test'||String(data.user||'')==='system')return;
           if(typeof isDeletedId==='function' && isDeletedId(id))return;
+          var live=null;
+          try{live=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+          var exp=0;
+          try{exp=Number(data.expires)||0}catch(e){exp=0}
+          if(!exp && live) exp=Number(live.expires)||0;
+          try{
+            var snapE=getFeaturedSnaps()[String(id)];
+            if(snapE) exp=Math.max(exp, Number(snapE.expires)||0);
+          }catch(e){}
           var row={
-            id:id,user:data.user||n.from_username||'anon',title:data.title||'Pinned',
-            desc:data.desc||'',image:data.image||'',images:data.images||(data.image?[data.image]:[]),
-            featuredUntil:until,expires:0,views:0,likes:0,tags:[],created:Date.now()
+            id:id,user:data.user||(live&&live.user)||n.from_username||'anon',title:data.title||(live&&live.title)||'Pinned',
+            desc:data.desc||(live&&live.desc)||'',image:data.image||(live&&live.image)||'',
+            images:data.images||(live&&live.images)||(data.image?[data.image]:[]),
+            featuredUntil:until,expires:exp,views:(live&&live.views)||0,likes:(live&&live.likes)||0,
+            tags:(live&&live.tags)||[],created:(live&&live.created)||Date.now(),
+            extensions:(live&&live.extensions)||0,extendAmount:(live&&live.extendAmount)||360
           };
           if(typeof isBlockedPinContent==='function' && isBlockedPinContent(row)){
             try{markDeleted(id)}catch(e){}
             return;
           }
-          out.push(row);
+          out.push(typeof hydratePinnedPost==='function'?hydratePinnedPost(row):row);
         });
         window.__pinBoard=out;
         try{renderPosts()}catch(e){}
@@ -17896,12 +17915,65 @@ function profileStatsHtml(userPosts, extra){
       if(until && until>Date.now())m[String(id)]=until; else delete m[String(id)];
       localStorage.setItem('rs_featured',JSON.stringify(m));
     }
+    function getPinUntil(pOrId){
+      // Single source of truth for Spotlight pin expiry across feed / search / snaps / pin board.
+      var id='', p=null;
+      if(pOrId && typeof pOrId==='object'){ p=pOrId; id=String(p.id||''); }
+      else id=String(pOrId||'');
+      if(!id || (typeof isDeletedId==='function' && isDeletedId(id))) return 0;
+      if(p && typeof isBlockedPinContent==='function' && isBlockedPinContent(p)) return 0;
+      var until=0;
+      try{until=Math.max(until, Number(p&&p.featuredUntil)||0)}catch(e){}
+      try{until=Math.max(until, Number(getLocalFeatured()[id])||0)}catch(e){}
+      try{
+        var snap=getFeaturedSnaps()[id];
+        if(snap) until=Math.max(until, Number(snap.featuredUntil)||0);
+      }catch(e){}
+      try{
+        (window.__pinBoard||[]).forEach(function(row){
+          if(row && String(row.id)===id) until=Math.max(until, Number(row.featuredUntil)||0);
+        });
+      }catch(e){}
+      return until>Date.now()?until:0;
+    }
+    function hydratePinnedPost(p){
+      // Merge live feed fields onto pin stubs so Spotlight cards keep real exposure timers.
+      if(!p||p.id==null)return p;
+      var id=String(p.id);
+      var live=null;
+      try{live=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+      if(!live){
+        try{live=(posts||[]).find(function(x){return String(x.id)===id})||null}catch(e){}
+      }
+      if(!live){
+        try{live=(normalFeedPosts||[]).find(function(x){return String(x.id)===id})||null}catch(e){}
+      }
+      var out=Object.assign({}, live||{}, p);
+      out.id=live&&live.id!=null?live.id:p.id;
+      var pinUntil=getPinUntil(out);
+      if(pinUntil) out.featuredUntil=pinUntil;
+      // Never let pin stubs wipe a live exposure timer.
+      var liveExp=Number(live&&live.expires)||0;
+      var snapExp=0;
+      try{snapExp=Number((getFeaturedSnaps()[id]||{}).expires)||0}catch(e){}
+      out.expires=Math.max(Number(out.expires)||0, liveExp, snapExp);
+      if(live){
+        if(live.image && !out.image) out.image=live.image;
+        if(live.images&&live.images.length) out.images=live.images;
+        if(live.title) out.title=live.title;
+        if(live.user) out.user=live.user;
+        if(live.extendAmount) out.extendAmount=live.extendAmount;
+        if(live.extensions!=null) out.extensions=live.extensions;
+      }
+      return out;
+    }
     function postFeaturedUntil(p){
       if(!p||isDeletedId(p.id)||isBlockedPinContent(p)) return 0;
-      var loc=getLocalFeatured()[String(p.id)]||0;
-      return Math.max(p.featuredUntil||0, loc||0);
+      return getPinUntil(p);
     }
     function isFeatured(p){return postFeaturedUntil(p)>Date.now()}
+    window.getPinUntil=getPinUntil;
+    window.hydratePinnedPost=hydratePinnedPost;
     function getPhotoMax(){ return 5; }
     function profileGalleryPostHtml(p, isOwner){
       var imgs=p.images&&p.images.length?p.images:parseImages(p.image);
@@ -17989,7 +18061,17 @@ function profileStatsHtml(userPosts, extra){
         ' onclick="event.stopPropagation();openExtend(' + jsId(p.id) + ')">' + label + '</button>';
     }
 function postCardHtml(p, compact){
-      var permanent=isProfileOnly(p)||!p.expires||!isFinite(p.expires);var rem=permanent?0:p.expires-Date.now(),tc=rem>21600000?'long':'';
+      // Same pin/exposure source as Spotlight — never leave stubs at expires:0 while pinned.
+      try{if(typeof hydratePinnedPost==='function') p=hydratePinnedPost(p)}catch(e){}
+      var pinUntil=0;
+      try{pinUntil=typeof getPinUntil==='function'?getPinUntil(p):(Number(p&&p.featuredUntil)||0)}catch(e){pinUntil=Number(p&&p.featuredUntil)||0}
+      var isPin=pinUntil>Date.now();
+      var expMs=Number(p&&p.expires)||0;
+      var hasExposure=expMs>Date.now();
+      // Prefer live exposure countdown; for pin stubs without expiry, show pin remaining.
+      var timerExp=hasExposure?expMs:(isPin?pinUntil:expMs);
+      var permanent=isProfileOnly(p)||(!hasExposure&&!isPin&&(!expMs||!isFinite(expMs)));
+      var rem=permanent?0:(timerExp-Date.now());
       var alreadyCd=0;try{alreadyCd=typeof getLocalExtendCooldown==='function'?getLocalExtendCooldown(p.id):0}catch(e){alreadyCd=0}
       var already=alreadyCd>0;
       var liked=(p.likedBy||[]).indexOf((currentUser&&currentUser.name)||'')>=0;
@@ -18005,16 +18087,22 @@ function postCardHtml(p, compact){
       var extL=fmtMin(p.extendAmount||360);
       var uCls=userClickable(p.user)?'post-user clickable':'post-user';
       var uClick=userClickable(p.user)?'data-user="'+String(p.user).replace(/"/g,'')+'" onclick="event.stopPropagation();openUser(this.getAttribute(\'data-user\'))"':'';
-      var feat=isFeatured(p);
+      var feat=isFeatured(p)||isPin;
       var rank=getRank(p.id);
       var rankHtml=feat?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':'');
       var cls='post'+(compact?' post-compact':'')+(feat?' featured-card':'');
       var saved=isSaved(p.id);
       var displayName=isVerifiedUser(p.user)?nameWithVerified(p.user):('@'+esc(p.user));
       var myR=getMyReaction(p);
-      var dying=(!permanent && rem>0 && rem<4*3600000);
+      // Dying warning only for real exposure timers (not pin-only stubs).
+      var dying=(!permanent && hasExposure && rem>0 && rem<4*3600000);
       var dyingBar=dying?'<div style="margin:0 8px 8px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'';
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+(permanent?'':hourTimerHtml(p.expires,rem))+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent, already, alreadyCd)+'</div></article>';
+      var timerHtml=permanent?'':hourTimerHtml(timerExp,rem);
+      // Mark pin-driven timers so updateTimers can keep Spotlight labels in sync.
+      if(timerHtml && isPin && !hasExposure){
+        timerHtml=timerHtml.replace('class="timer','class="timer pin-timer').replace('data-exp="','data-pin-timer="1" data-exp="');
+      }
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
     }
     
     function setupFeatCarousel(){
@@ -18313,25 +18401,40 @@ function postCardHtml(p, compact){
       if(feedGenderFilter && feedGenderFilter!=='all'){
         list=list.filter(function(p){return postGender(p)===feedGenderFilter});
       }
-      // Featured: up to 2 active pins, carousel
+      // Featured / Spotlight — hydrate from live posts so timers match the feed.
       var featuredList=[];
       var featSeen={};
-      function addFeat(p){
-        if(!p)return;
+      function addFeat(raw){
+        if(!raw)return;
+        var p=typeof hydratePinnedPost==='function'?hydratePinnedPost(raw):raw;
         if(isDeletedId(p.id)||isBlockedPinContent(p)){
           try{clearFeaturedForPost(p.id)}catch(e){}
           return;
         }
-        var fu=postFeaturedUntil(p);
+        var fu=typeof getPinUntil==='function'?getPinUntil(p):postFeaturedUntil(p);
         try{
           var snap=getFeaturedSnaps()[String(p.id)];
           if(snap&&isBlockedPinContent(snap)){ clearFeaturedForPost(p.id); return; }
-          if(snap&&snap.featuredUntil)fu=Math.max(fu,snap.featuredUntil||0);
         }catch(e){}
         if(fu<=Date.now())return;
-        if(p.expires>0 && Number(p.expires)<=Date.now())return;
+        // Drop only when exposure truly expired (not pin stubs with expires=0).
+        if(Number(p.expires||0)>0 && Number(p.expires)<=Date.now())return;
         var k=String(p.id);
         if(featSeen[k])return;
+        // Prefer a richer live copy already queued.
+        for(var fi=0;fi<featuredList.length;fi++){
+          if(typeof isNearDupPost==='function' && isNearDupPost(featuredList[fi].p, p)){
+            // Keep the one with a real exposure timer when possible.
+            if(!(Number(featuredList[fi].p.expires||0)>Date.now()) && Number(p.expires||0)>Date.now()){
+              featuredList[fi]={p:p,fu:Math.max(featuredList[fi].fu,fu)};
+            }else{
+              featuredList[fi].fu=Math.max(featuredList[fi].fu,fu);
+            }
+            featSeen[k]=1;
+            featSeen[String(featuredList[fi].p.id)]=1;
+            return;
+          }
+        }
         featSeen[k]=1;
         p.featuredUntil=fu;
         featuredList.push({p:p,fu:fu});
@@ -18361,14 +18464,24 @@ function postCardHtml(p, compact){
               if(lab){
                 var left=item.fu-Date.now();
                 lab.textContent='Pinned · '+fmt(left)+' left'+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'');
+                lab.setAttribute('data-pin-exp', String(item.fu));
               }
+              // Keep exposure hourglass in sync while the carousel DOM is reused.
+              try{
+                var wrap=featBox.querySelector('.feat-slide[data-fi="'+i+'"] .featured-wrap');
+                if(wrap && item.p && Number(item.p.expires||0)>Date.now()){
+                  wrap.querySelectorAll('.timer[data-exp]').forEach(function(t){
+                    t.setAttribute('data-exp', String(item.p.expires));
+                  });
+                }
+              }catch(e){}
             });
             setupFeatCarousel();
           } else {
             featBox.setAttribute('data-feat-sig',featSig);
             var slides=featuredList.map(function(item,i){
               var left=item.fu-Date.now();
-              return '<div class="feat-slide" data-fi="'+i+'" onclick="openDetail(\''+String(item.p.id).replace(/'/g,'')+'\')"><div class="featured-label">Pinned · '+fmt(left)+' left'+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'')+'</div><div class="featured-wrap">'+postCardHtml(item.p,true)+'</div></div>';
+              return '<div class="feat-slide" data-fi="'+i+'" data-pid="'+String(item.p.id).replace(/"/g,'')+'" onclick="openDetail(\''+String(item.p.id).replace(/'/g,'')+'\')"><div class="featured-label" data-pin-exp="'+item.fu+'">Pinned · '+fmt(left)+' left'+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'')+'</div><div class="featured-wrap">'+postCardHtml(item.p,true)+'</div></div>';
             }).join('');
             var dots=featuredList.length>1?('<div class="feat-dots">'+featuredList.map(function(_,i){return '<span class="feat-dot'+(i===0?' on':'')+'" data-fi="'+i+'"></span>'}).join('')+'</div>'):'';
             featBox.innerHTML='<div style="width:100%;padding:0 12px 6px;font-size:13px;font-weight:900;letter-spacing:1.4px">SPOTLIGHT</div><div class="feat-carousel" id="feat-carousel">'+slides+'</div>'+dots;
@@ -18376,8 +18489,17 @@ function postCardHtml(p, compact){
           }
         } else featBox.innerHTML='';
       }
-      var featIds={};featuredList.forEach(function(item){featIds[item.p.id]=1});
-      var rest=list.filter(function(p){return !featIds[p.id]});
+      // Exclude Spotlight posts from the regular feed (string ids + near-dup).
+      var featIds={};
+      featuredList.forEach(function(item){featIds[String(item.p.id)]=1});
+      var rest=list.filter(function(p){
+        if(!p)return false;
+        if(featIds[String(p.id)]) return false;
+        if(featuredList.some(function(item){
+          return typeof isNearDupPost==='function' && isNearDupPost(item.p, p);
+        })) return false;
+        return true;
+      });
       if(!rest.length && !featured){box.innerHTML='<div class="empty">No active exposures</div>';updateTimers();return}
       if(!rest.length){box.innerHTML='';updateTimers();return}
       window.__feedRest=rest;
@@ -23147,9 +23269,19 @@ async function onIdFace(e){
       try{src=(posts||[]).find(function(p){return String(p.id)===String(id)})}catch(e){}
       try{if(!src)src=(normalFeedPosts||[]).find(function(p){return String(p.id)===String(id)})}catch(e){}
       try{if(!src && typeof findPostAnywhere==='function') src=findPostAnywhere(id)}catch(e){}
+      try{if(src && typeof hydratePinnedPost==='function') src=hydratePinnedPost(src)}catch(e){}
       try{
         (posts||[]).forEach(function(p){if(String(p.id)===String(id))p.featuredUntil=until});
         (normalFeedPosts||[]).forEach(function(p){if(String(p.id)===String(id))p.featuredUntil=until});
+      }catch(e){}
+      // Persist snap with live expires so Spotlight cards keep a real timer.
+      try{
+        if(pin && src){
+          src.featuredUntil=until;
+          saveFeaturedSnap(src, until);
+        }else if(!pin){
+          clearFeaturedForPost(id);
+        }
       }catch(e){}
       var ok=false, err='';
       try{
@@ -23165,6 +23297,7 @@ async function onIdFace(e){
           else if(up&&up.error) err=up.error.message||err;
         }
       }catch(e){err=(e&&e.message)||err}
+      // Fallback create only if patch failed — keep original id when possible to avoid feed dupes.
       if(!ok && src && typeof createCfPost==='function'){
         try{
           var created=await createCfPost({
@@ -23181,9 +23314,13 @@ async function onIdFace(e){
           var row=(created&&(created.post||created.data))||created||{};
           var newId=row.id||created.id;
           if(newId){
+            // Keep pin board linked to the new row, but also map local featured for both ids.
+            var oldId=id;
             id=String(newId);
             src.id=newId;
+            try{setLocalFeatured(oldId, until)}catch(e){}
             try{setLocalFeatured(id, until)}catch(e){}
+            try{saveFeaturedSnap(src, until)}catch(e){}
             var again=await patchCfPost(id,{featured_until:until||0});
             if(again&&again.ok) ok=true;
           }
@@ -23192,6 +23329,7 @@ async function onIdFace(e){
       try{
         if(pin){
           var snap=src||{};
+          var snapExp=Number(snap.expires)||0;
           await fetch(CF_API+'/notifs',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
@@ -23203,19 +23341,28 @@ async function onIdFace(e){
               message:JSON.stringify({
                 id:String(id),
                 until:until,
+                expires:snapExp,
                 user:snap.user||snap.username||'',
                 title:snap.title||'',
                 desc:snap.desc||snap.description||'',
                 image:(snap.images&&snap.images[0])||snap.image||snap.media_url||'',
-                images:snap.images||[]
+                images:snap.images||[],
+                tags:snap.tags||[],
+                extensions:snap.extensions||0,
+                extendAmount:snap.extendAmount||360,
+                views:snap.views||0,
+                likes:snap.likes||0
               })
             })
           });
+        }else{
+          try{clearFeaturedForPost(id)}catch(e){}
         }
       }catch(e){}
       try{payProgress(false)}catch(e){}
       if(ok) toast(pin?'Pinned 48h · everyone can see it':'Unpinned');
       else toast(pin?'Pinned 48h · published for everyone':'Unpinned');
+      try{await loadPublicPins()}catch(e){}
       try{await loadPosts()}catch(e){}
       try{renderPosts()}catch(e){}
       try{await renderAdminReqTab('pin')}catch(e){}
@@ -23281,7 +23428,52 @@ async function onIdFace(e){
       if(String(currentDetailId)===id)showPanel('feed');
       return true;
     }
-    function updateTimers(){document.querySelectorAll('.timer[data-exp]').forEach(function(el){var v=el.querySelector('.t-val');var txt=fmt(parseInt(el.getAttribute('data-exp'),10)-Date.now());if(v)v.textContent=txt;else el.textContent=txt})}
+    function updateTimers(){
+      var now=Date.now();
+      var pinExpired=false;
+      document.querySelectorAll('.timer[data-exp]').forEach(function(el){
+        var exp=parseInt(el.getAttribute('data-exp'),10)||0;
+        var left=exp-now;
+        var v=el.querySelector('.t-val');
+        var txt=fmt(left);
+        if(v)v.textContent=txt;else el.textContent=txt;
+        if(left<=0 && el.getAttribute('data-pin-timer')==='1') pinExpired=true;
+      });
+      // Keep Spotlight "Pinned · Xm left" labels ticking from the same pin until.
+      document.querySelectorAll('.featured-label[data-pin-exp]').forEach(function(lab){
+        var fu=parseInt(lab.getAttribute('data-pin-exp'),10)||0;
+        var left=fu-now;
+        if(left<=0){ pinExpired=true; return; }
+        var slide=lab.closest('.feat-slide');
+        var fi=slide?slide.getAttribute('data-fi'):'';
+        var total=0;
+        try{total=document.querySelectorAll('#featured-slot .feat-slide').length}catch(e){total=0}
+        var suffix=(total>1 && fi!=null)?(' · '+(Number(fi)+1)+'/'+total):'';
+        lab.textContent='Pinned · '+fmt(left)+' left'+suffix;
+      });
+      // When a pin expires, rebuild feed so the post returns to the normal listing.
+      if(pinExpired && !window.__pinExpiryRefreshing){
+        window.__pinExpiryRefreshing=true;
+        try{
+          // Drop stale local pin state for expired ids.
+          document.querySelectorAll('[data-pin-until]').forEach(function(node){
+            var until=parseInt(node.getAttribute('data-pin-until'),10)||0;
+            if(until>now)return;
+            var pid=node.getAttribute('data-pid');
+            if(pid){ try{clearFeaturedForPost(pid)}catch(e){} }
+          });
+          document.querySelectorAll('.featured-label[data-pin-exp]').forEach(function(lab){
+            var fu=parseInt(lab.getAttribute('data-pin-exp'),10)||0;
+            if(fu>now)return;
+            var slide=lab.closest('.feat-slide');
+            var pid=slide&&slide.getAttribute('data-pid');
+            if(pid){ try{clearFeaturedForPost(pid)}catch(e){} }
+          });
+        }catch(e){}
+        try{renderPosts()}catch(e){}
+        setTimeout(function(){window.__pinExpiryRefreshing=false},1500);
+      }
+    }
     function fmt(ms){if(ms<=0)return'EXPIRED';var s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m '+(s%60)+'s'}
     function fmtMin(min){min=Number(min)||0;if(min<60)return min+'m';if(min<1440)return(min/60)+'h';if(min===1440)return'1 day';if(min===4320)return'3 days';return(min/1440)+'d'}
     function ago(ts){var m=Math.floor((Date.now()-ts)/60000);if(m<60)return m+'m ago';var h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
