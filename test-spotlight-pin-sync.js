@@ -46,6 +46,7 @@ var api = new Function(
   extractFn('getPinUntil') + '\n' +
   extractFn('hydratePinnedPost') + '\n' +
   extractFn('isNearDupPost') + '\n' +
+  extractFn('postHasActiveTimer') + '\n' +
   'var posts=ctx.posts, normalFeedPosts=ctx.normalFeedPosts, window=ctx.window;\n' +
   'function isDeletedId(){return false}\n' +
   'function isBlockedPinContent(){return false}\n' +
@@ -61,12 +62,14 @@ var api = new Function(
   'return {\n' +
   '  getPinUntil:function(x){posts=ctx.posts;normalFeedPosts=ctx.normalFeedPosts;window=ctx.window;return getPinUntil(x)},\n' +
   '  hydratePinnedPost:function(x){posts=ctx.posts;normalFeedPosts=ctx.normalFeedPosts;window=ctx.window;return hydratePinnedPost(x)},\n' +
+  '  postHasActiveTimer:postHasActiveTimer,\n' +
   '  isNearDupPost:isNearDupPost\n' +
   '};'
 )(ctx);
 
 var getPinUntil = api.getPinUntil;
 var hydratePinnedPost = api.hydratePinnedPost;
+var postHasActiveTimer = api.postHasActiveTimer;
 var isNearDupPost = api.isNearDupPost;
 
 var now = Date.now();
@@ -79,11 +82,18 @@ ctx.window.__pinBoard = [{ id: 42, featuredUntil: pinUntil - 5000 }];
 var until = getPinUntil({ id: 42, featuredUntil: pinUntil - 9000 });
 assert(until === pinUntil, 'getPinUntil should take max across sources, got ' + until);
 
-ctx.posts = [{ id: 42, user: 'alice', title: 'Exposed', expires: liveExp, featuredUntil: 0, views: 9 }];
-var stub = { id: '42', user: 'alice', title: 'Pinned', featuredUntil: pinUntil, expires: 0 };
+ctx.posts = [{ id: 42, user: 'alice', title: 'Exposed', expires: liveExp, featuredUntil: 0, views: 9, extensions: 7, extendAmount: 360 }];
+var stub = { id: '42', user: 'alice', title: 'Pinned', featuredUntil: pinUntil, expires: 0, extensions: 0 };
 var hydrated = hydratePinnedPost(stub);
 assert(Number(hydrated.expires) === liveExp, 'hydrate should merge live expires, got ' + hydrated.expires);
 assert(Number(hydrated.featuredUntil) === pinUntil, 'hydrate should keep pin until');
+assert(Number(hydrated.extensions) === 7, 'hydrate should keep real extend count, got ' + hydrated.extensions);
+assert(postHasActiveTimer(hydrated) === true, 'pinned Extend stub must still count as active timer');
+assert(postHasActiveTimer({ id: 1, expires: now + 200 * 24 * 3600 * 1000 }) === false, 'far-future expiry is Hot territory');
+assert(html.indexOf('btn-extend') >= 0 && html.indexOf('postCardActionButtons') >= 0, 'cards still render Extend actions');
+assert(html.indexOf('detailGalleryStep') >= 0, 'detail gallery step helper present');
+assert(html.indexOf('copySectionLink') >= 0, 'section share helper present');
+assert(html.indexOf("'/extend'") >= 0 || html.indexOf('"/extend"') >= 0 || html.indexOf('/extend') >= 0, 'extend route present');
 
 var featuredList = [{ p: hydrated, fu: pinUntil }];
 var featIds = {};
