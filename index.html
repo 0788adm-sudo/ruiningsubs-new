@@ -1312,13 +1312,21 @@
 
 
     .gender-grid,.gender-filter{display:flex;gap:8px;flex-wrap:wrap}
-    .gender-filter{padding:0 2px 10px;flex-direction:column;align-items:stretch}
-    #btn-gender-toggle{width:100%;flex:none}
-    .gender-btn{
-      flex:1;min-width:72px;border:1px solid #1c1c24;background:#0a0a0c;color:#a1a1aa;
-      border-radius:12px;padding:10px 8px;font-weight:700;font-size:13px;cursor:pointer;
+    .gender-filter{padding:0 2px 10px;flex-direction:column;align-items:stretch;position:relative;z-index:6;pointer-events:auto}
+    #btn-gender-toggle{display:none!important}
+    #feed-gender-row{
+      display:flex!important;width:100%;gap:8px;flex-wrap:wrap;margin:0;
+      position:relative;z-index:7;pointer-events:auto;-webkit-tap-highlight-color:rgba(124,58,237,.28);
     }
-    .gender-btn.sel{background:#3b0764;color:#ede9fe;border-color:#5b21b6}
+    .gender-btn{
+      flex:1;min-width:64px;border:1px solid #1c1c24;background:#0a0a0c;color:#a1a1aa;
+      border-radius:12px;padding:10px 8px;font-weight:700;font-size:13px;cursor:pointer;
+      touch-action:manipulation;-webkit-user-select:none;user-select:none;pointer-events:auto;
+    }
+    .gender-btn.sel{background:#3b0764;color:#ede9fe;border-color:#5b21b6;box-shadow:0 0 12px rgba(124,58,237,.35)}
+    #feed-gender-row .gender-btn[data-gf].sel{
+      background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;
+    }
     .post-gender{
       display:inline-block;margin-left:6px;font-size:10px;font-weight:800;letter-spacing:.4px;
       color:#b7a8d4;border:1px solid #2a2140;border-radius:999px;padding:2px 7px;vertical-align:middle;
@@ -1898,14 +1906,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <span class="fs-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg></span>
           <input type="search" id="feed-search" placeholder="Search posts, @users, #tags..." autocomplete="off"/>
         </div>
-        <div class="gender-filter" id="feed-gender-filter">
-          <button type="button" class="gender-btn sel" id="btn-gender-toggle">Filter: All</button>
-          <div id="feed-gender-row" style="display:none;width:100%;margin-top:8px">
-            <button type="button" class="gender-btn sel" data-gf="all">All</button>
-            <button type="button" class="gender-btn" data-gf="man">Men</button>
-            <button type="button" class="gender-btn" data-gf="woman">Women</button>
-            <button type="button" class="gender-btn" data-gf="trans">Trans</button>
-            <button type="button" class="gender-btn" data-gf="other">Other</button>
+        <div class="gender-filter" id="feed-gender-filter" role="tablist" aria-label="Category filters">
+          <button type="button" class="gender-btn sel" id="btn-gender-toggle" aria-hidden="true" tabindex="-1">Filter: All</button>
+          <div id="feed-gender-row" style="display:flex;width:100%;gap:8px;flex-wrap:wrap">
+            <button type="button" class="gender-btn sel" data-gf="all" role="tab" aria-selected="true">All</button>
+            <button type="button" class="gender-btn" data-gf="man" role="tab" aria-selected="false">Men</button>
+            <button type="button" class="gender-btn" data-gf="woman" role="tab" aria-selected="false">Women</button>
+            <button type="button" class="gender-btn" data-gf="trans" role="tab" aria-selected="false">Trans</button>
+            <button type="button" class="gender-btn" data-gf="other" role="tab" aria-selected="false">Other</button>
           </div>
         </div>
         <div class="feed-sort-head">
@@ -8413,16 +8421,53 @@ function openRoulette(){
     function postGender(p){
       var tags=p&&p.tags;
       if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
-      tags=tags||[];
+      if(!Array.isArray(tags)) tags=[];
       var s=tags.join(' ').toLowerCase();
       if(tags.indexOf('gender_woman')>=0 || /(^|\s)#?woman\b|(^|\s)#?women\b|(^|\s)#?female\b/.test(s)) return 'woman';
       if(tags.indexOf('gender_trans')>=0 || /(^|\s)#?trans\b/.test(s)) return 'trans';
       if(tags.indexOf('gender_man')>=0 || /(^|\s)#?man\b|(^|\s)#?men\b|(^|\s)#?male\b/.test(s)) return 'man';
+      if(tags.indexOf('gender_other')>=0 || /(^|\s)#?other\b|(^|\s)#?nb\b|(^|\s)#?nonbinary\b/.test(s)) return 'other';
       return '';
     }
     function genderLabel(g){
       return g==='woman'?'Woman':g==='trans'?'Trans':g==='other'?'Other':g==='man'?'Man':'';
     }
+    function matchesFeedGender(p, filter){
+      filter=String(filter||'all');
+      if(!filter || filter==='all') return true;
+      var g=postGender(p);
+      // Other = explicitly tagged other OR untagged (still in All).
+      if(filter==='other') return g==='other' || !g;
+      return g===filter;
+    }
+    function syncFeedGenderUi(){
+      var row=document.getElementById('feed-gender-row');
+      if(!row)return;
+      var cur=String(feedGenderFilter||'all');
+      row.querySelectorAll('[data-gf]').forEach(function(x){
+        var on=x.getAttribute('data-gf')===cur;
+        x.classList.toggle('sel', on);
+        x.setAttribute('aria-selected', on?'true':'false');
+      });
+      var tog=document.getElementById('btn-gender-toggle');
+      if(tog){
+        var lab=cur==='all'?'All':cur==='man'?'Men':cur==='woman'?'Women':cur==='other'?'Other':'Trans';
+        tog.textContent='Filter: '+lab;
+      }
+    }
+    function setFeedGenderFilter(g, btnEl){
+      g=String(g||'all');
+      if(['all','man','woman','trans','other'].indexOf(g)<0) g='all';
+      var now=Date.now();
+      if(window.__genderStamp && now-window.__genderStamp<160 && window.__genderLast===g) return;
+      window.__genderStamp=now;
+      window.__genderLast=g;
+      feedGenderFilter=g;
+      syncFeedGenderUi();
+      try{renderPosts()}catch(e){}
+    }
+    window.setFeedGenderFilter=setFeedGenderFilter;
+    window.matchesFeedGender=matchesFeedGender;
     function setupGenderPickers(){
       var box=document.getElementById('create-gender');
       if(box && !box.dataset.bound){
@@ -8434,28 +8479,23 @@ function openRoulette(){
         });
       }
       var flt=document.getElementById('feed-gender-filter');
-      if(flt && !flt.dataset.bound){
+      var row=document.getElementById('feed-gender-row');
+      if(flt && row && !flt.dataset.bound){
         flt.dataset.bound='1';
-        var tog=document.getElementById('btn-gender-toggle');
-        var row=document.getElementById('feed-gender-row');
-        if(tog) tog.onclick=function(e){
-          e.stopPropagation();
-          if(!row)return;
-          row.style.display=row.style.display==='none'?'flex':'none';
-        };
-        if(row){
-          row.style.display='none';
-          row.style.gap='8px';
-          row.addEventListener('click',function(e){
-            var b=e.target.closest('[data-gf]'); if(!b)return;
-            feedGenderFilter=b.getAttribute('data-gf')||'all';
-            row.querySelectorAll('[data-gf]').forEach(function(x){x.classList.toggle('sel',x===b)});
-            var lab=feedGenderFilter==='all'?'All':feedGenderFilter==='man'?'Men':feedGenderFilter==='woman'?'Women':feedGenderFilter==='other'?'Other':'Trans';
-            if(tog) tog.textContent='Filter: '+lab;
-            row.style.display='none';
-            try{renderPosts()}catch(e){}
-          });
+        row.style.display='flex';
+        row.style.gap='8px';
+        function pick(e){
+          var b=e&&e.target&&e.target.closest?e.target.closest('[data-gf]'):null;
+          if(!b||!row.contains(b))return;
+          try{e.preventDefault();e.stopPropagation()}catch(err){}
+          setFeedGenderFilter(b.getAttribute('data-gf')||'all', b);
         }
+        row.addEventListener('pointerup',function(e){
+          if(e.pointerType==='mouse' && e.button!==0)return;
+          pick(e);
+        },true);
+        row.addEventListener('click',pick,true);
+        syncFeedGenderUi();
       }
     }
     function setupFeedSearch(){
@@ -9565,17 +9605,8 @@ function openRoulette(){
         },true);
         t.addEventListener('click',go,true);
       });
-      var gTog=document.getElementById('btn-gender-toggle');
-      if(gTog && !gTog._fast){
-        gTog._fast=1;
-        function togGender(e){
-          if(e){try{e.preventDefault();e.stopPropagation()}catch(err){}}
-          var row=document.getElementById('feed-gender-row');
-          if(!row)return;
-          row.style.display=row.style.display==='none'?'flex':'none';
-        }
-        gTog.addEventListener('pointerup',togGender,true);
-      }
+      // Gender chips stay always visible — bound in setupGenderPickers / setFeedGenderFilter.
+      try{setupGenderPickers();syncFeedGenderUi()}catch(e){}
       document.querySelectorAll('#create-dur .dur-btn').forEach(function(b){b.onclick=function(){document.querySelectorAll('#create-dur .dur-btn').forEach(function(x){x.classList.remove('sel')});b.classList.add('sel');selectedCreateMin=parseInt(b.getAttribute('data-m'),10)}});
       document.querySelectorAll('#ext-dur .dur-btn').forEach(function(b){b.onclick=function(){document.querySelectorAll('#ext-dur .dur-btn').forEach(function(x){x.classList.remove('sel')});b.classList.add('sel');selectedExtendAmount=parseInt(b.getAttribute('data-m'),10)}});
       document.querySelectorAll('.modal-bg').forEach(function(m){m.onclick=function(e){if(e.target===m)closeModals()}});
@@ -14694,7 +14725,7 @@ function openRoulette(){
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
         // Never treat Spotlight carousel / GoonTok swipe / nav chrome as an accidental open.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-carousel,#feat-carousel,.feat-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice'))return false;
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-carousel,#feat-carousel,.feat-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
         var homeStrip=el.closest('#home-random-strip [data-pid],#home-post-strip [data-pid],.home-strip-card');
         if(homeStrip){
           var hid=homeStrip.getAttribute('data-pid')||(homeStrip.closest('[data-pid]')&&homeStrip.closest('[data-pid]').getAttribute('data-pid'));
@@ -16604,18 +16635,19 @@ function profileStatsHtml(userPosts, extra){
       {id:'ob_timer',cat:'OBEDIENCE',icon:'👑',title:'15 MINUTOS',desc:'Pon un timer de 15 min, termina una tarea útil y reporta qué hiciste.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Tarea terminada:'},
       {id:'ob_focus',cat:'OBEDIENCE',icon:'👑',title:'FOCO',desc:'10 minutos en perfil o Wall sin cambiar de app. Di el resultado.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Resultado:'},
       // EXPOSURE
-      {id:'exp_presence',cat:'EXPOSURE',icon:'📸',title:'PRESENCIA',desc:'Publica en Wall y di en una frase qué decidiste mostrar.',difficulty:'MEDIUM',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'¿Qué mostraste?'},
+      // Removed from Daily Challenges UI (kept id for historical completions)
+      {id:'exp_presence',cat:'EXPOSURE',icon:'📸',title:'PRESENCIA',desc:'Publica en Wall y di en una frase qué decidiste mostrar.',difficulty:'MEDIUM',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'¿Qué mostraste?',hidden:true},
       {id:'exp_wall',cat:'EXPOSURE',icon:'📸',title:'CHECK-IN WALL',desc:'Publica algo nuevo en Wall y sube captura del post.',difficulty:'HARD',evidence:'SCREENSHOT',validate:'photo',hours:24},
       {id:'exp_caption',cat:'EXPOSURE',icon:'📸',title:'CAPTION',desc:'Escribe un caption corto que asuma lo que compartes.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Tu caption:'},
       {id:'exp_photo',cat:'EXPOSURE',icon:'📸',title:'FOTO PRESENCIA',desc:'Sube una foto de presencia que estés dispuesto a sostener.',difficulty:'MEDIUM',evidence:'IMAGE',validate:'photo',hours:24},
       // PROFILE
-      {id:'pro_check',cat:'PROFILE',icon:'🎯',title:'PRUEBA DE PERFIL',desc:'Actualiza bio y avatar para que reflejen tu estilo. Luego presenta evidencia.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
+      {id:'pro_check',cat:'PROFILE',icon:'🎯',title:'PRUEBA DE PERFIL',desc:'Actualiza bio y avatar para que reflejen tu estilo. Luego presenta evidencia.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'bio',hours:24,hidden:true},
       {id:'pro_bio',cat:'PROFILE',icon:'🎯',title:'BIO RÁPIDA',desc:'Reescribe tu bio en una línea clara.',difficulty:'EASY',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
-      {id:'pro_avatar',cat:'PROFILE',icon:'🎯',title:'AVATAR',desc:'Cambia tu avatar a uno que defenderías en público.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'avatar',hours:24},
+      {id:'pro_avatar',cat:'PROFILE',icon:'🎯',title:'AVATAR',desc:'Cambia tu avatar a uno que defenderías en público.',difficulty:'MEDIUM',evidence:'PROFILE_ACTION',validate:'avatar',hours:24,hidden:true},
       {id:'pro_shot',cat:'PROFILE',icon:'🎯',title:'CAPTURA PERFIL',desc:'Sube una captura de tu perfil actualizado.',difficulty:'EASY',evidence:'SCREENSHOT',validate:'photo',hours:24},
       // COMMUNITY
       {id:'com_engage',cat:'COMMUNITY',icon:'🤝',title:'ENGAGE',desc:'Like o comenta un post. Di cuál y por qué.',difficulty:'EASY',evidence:'COMMUNITY_ACTION',validate:'engage',hours:24,prompt:'¿Con qué interactuaste?'},
-      {id:'com_encourage',cat:'COMMUNITY',icon:'🤝',title:'ÁNIMO',desc:'Deja un comentario alentador (sin contenido gráfico). Pégalo aquí.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Comentario:'},
+      {id:'com_encourage',cat:'COMMUNITY',icon:'🤝',title:'ÁNIMO',desc:'Deja un comentario alentador (sin contenido gráfico). Pégalo aquí.',difficulty:'MEDIUM',evidence:'TEXT',validate:'text',hours:24,prompt:'Comentario:',hidden:true},
       {id:'com_follow',cat:'COMMUNITY',icon:'🤝',title:'FOLLOW',desc:'Sigue a alguien cuya presencia respetes. Di quién y por qué.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Quién y por qué:'},
       {id:'com_map',cat:'COMMUNITY',icon:'🤝',title:'PIN MAPA',desc:'Pon o actualiza tu ciudad en Exposure Map.',difficulty:'EASY',evidence:'TEXT',validate:'text',hours:24,prompt:'Ciudad / país:'},
       // CREATIVITY
@@ -16749,10 +16781,14 @@ function profileStatsHtml(userPosts, extra){
       }
       // Level gates only — never filter by today's completion (sticky set).
       // GAMES + defeat-spawned + hidden (e.g. INFORME DIARIO) stay out of daily cards.
+      var bannedDaily={exp_presence:1,pro_check:1,pro_avatar:1,com_encourage:1,ob_evening:1};
       var pool=allChallengeDefs().filter(function(c){
-        if(c.hidden||c.id==='ob_evening') return false;
+        if(!c||!c.id) return false;
+        if(c.hidden||bannedDaily[c.id]) return false;
         if(c.spawn==='defeat') return false;
         if(c.cat==='GAMES'||c.evidence==='GAME_RESULT') return false;
+        var title=String(c.title||'').toUpperCase();
+        if(title==='PRESENCIA'||title==='PRUEBA DE PERFIL'||title==='ÁNIMO'||title==='ANIMO'||title==='AVATAR') return false;
         if(c.difficulty==='ELITE'&&level<8) return false;
         if(c.difficulty==='HARD'&&level<3) return false;
         return true;
@@ -16777,7 +16813,8 @@ function profileStatsHtml(userPosts, extra){
       }
       return out.slice(0,n);
     }
-    var RS_CHALLENGE_SET_VER='2026-10-28b';
+    var RS_CHALLENGE_SET_VER='2026-11-06-drop4';
+    var RS_REMOVED_DAILY_IDS={exp_presence:1,pro_check:1,pro_avatar:1,com_encourage:1,ob_evening:1};
     function pickDailyChallenges(n){
       n=n||4;
       if(!currentUser||!currentUser.name) return [];
@@ -16795,11 +16832,30 @@ function profileStatsHtml(userPosts, extra){
         ids=computeDailyChallengeIds(n);
         st.dailySets[day]=ids.slice();
         persistChallengeUser(st);
+      }else{
+        // Drop retired challenges from sticky sets without wiping the whole day.
+        var cleaned=ids.filter(function(id){
+          if(RS_REMOVED_DAILY_IDS[id]) return false;
+          var def=getChallengeDef(id);
+          if(!def||def.hidden) return false;
+          var t=String(def.title||'').toUpperCase();
+          if(t==='PRESENCIA'||t==='PRUEBA DE PERFIL'||t==='ÁNIMO'||t==='ANIMO'||t==='AVATAR') return false;
+          return true;
+        });
+        if(cleaned.length<ids.length){
+          if(cleaned.length<n){
+            var refill=computeDailyChallengeIds(n);
+            refill.forEach(function(id){if(cleaned.indexOf(id)<0) cleaned.push(id)});
+          }
+          ids=cleaned.slice(0,n);
+          st.dailySets[day]=ids.slice();
+          persistChallengeUser(st);
+        }
       }
       var expiresAt=new Date(day+'T23:59:59').getTime();
       return ids.map(function(id){
         var c=getChallengeDef(id);
-        if(!c) return null;
+        if(!c||c.hidden||RS_REMOVED_DAILY_IDS[id]) return null;
         var copy=Object.assign({},c);
         copy.xp=challengeXpFor(c);
         copy.expiresAt=expiresAt;
@@ -16985,7 +17041,11 @@ function profileStatsHtml(userPosts, extra){
       var dayN=((Number(streak.current)||1)-1)%7+1;
       var remain=challengeXpRemainingToday();
       var daily=pickDailyChallenges(4).filter(function(ch){
-        return ch&&ch.id!=='ob_evening'&&!ch.hidden&&String(ch.title||'').toUpperCase().indexOf('INFORME DIARIO')<0&&String(ch.title||'').toUpperCase().indexOf('DAILY REPORT')<0;
+        if(!ch||!ch.id||ch.hidden||RS_REMOVED_DAILY_IDS[ch.id]) return false;
+        var t=String(ch.title||'').toUpperCase();
+        if(t.indexOf('INFORME DIARIO')>=0||t.indexOf('DAILY REPORT')>=0) return false;
+        if(t==='PRESENCIA'||t==='PRUEBA DE PERFIL'||t==='ÁNIMO'||t==='ANIMO'||t==='AVATAR') return false;
+        return true;
       });
       var completedToday=0;
       Object.keys(st.completions||{}).forEach(function(k){
@@ -17010,12 +17070,13 @@ function profileStatsHtml(userPosts, extra){
         sub:'UNLOCK A SPECIAL REWARD'
       });
 
-      // Games: Tic-Tac-Toe, Word Scramble, Roulette, Dice only
+      // Games: exactly Roulette, Dice, Tic-Tac-Toe, Word Scramble
       html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:4px 0 10px">GAMES</div>';
-      var gameOrder={tic_tac_toe:0,word_challenge:1,roulette:2,dice:3};
-      var featuredGames=RS_GAME_REGISTRY.filter(function(g){return g.status==='live'}).slice().sort(function(a,b){
+      var gameOrder={roulette:0,dice:1,tic_tac_toe:2,word_challenge:3};
+      var allowedGames={roulette:1,dice:1,tic_tac_toe:1,word_challenge:1};
+      var featuredGames=RS_GAME_REGISTRY.filter(function(g){return g&&g.status==='live'&&allowedGames[g.id]}).slice().sort(function(a,b){
         return (gameOrder[a.id]!=null?gameOrder[a.id]:9)-(gameOrder[b.id]!=null?gameOrder[b.id]:9);
-      });
+      }).slice(0,4);
       featuredGames.forEach(function(g){
         var ico=g.id==='tic_tac_toe'?'🎯':g.id==='word_challenge'?'🔤':g.id==='roulette'?'🎰':g.id==='dice'?'🎲':'🎮';
         var border=g.id==='tic_tac_toe'?' style="border-color:rgba(124,58,237,.55)"':(g.id==='roulette'?' style="border-color:rgba(255,106,0,.45)"':(g.id==='dice'?' style="border-color:rgba(245,197,24,.4)"':''));
@@ -17491,7 +17552,9 @@ function profileStatsHtml(userPosts, extra){
       toast('Defeat Response unlocked — post on Wall, then submit evidence');
     }
     function openRegisteredGame(id){
-      if(!isRegistered()){toast('Login first');showAuth('login');return}
+      if(!isRegistered()){toast('Login first';showAuth('login');return}
+      id=String(id||'');
+      if(['roulette','dice','tic_tac_toe','word_challenge'].indexOf(id)<0){toast('Game not available');return}
       var g=getGameDef(id);
       if(!g){toast('Game not found');return}
       if(g.status==='coming_soon'){toast('Coming soon');return}
@@ -18959,7 +19022,7 @@ function postCardHtml(p, compact){
         });
       }
       if(feedGenderFilter && feedGenderFilter!=='all'){
-        list=list.filter(function(p){return postGender(p)===feedGenderFilter});
+        list=list.filter(function(p){return matchesFeedGender(p, feedGenderFilter)});
       }
       // Featured / Spotlight — hydrate from live posts so timers match the feed.
       var featuredList=[];
