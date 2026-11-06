@@ -2201,14 +2201,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div style="font-size:11px;color:#666;margin-top:6px;line-height:1.35">What you write here is your responsibility.</div>
           </div>
           <div style="font-size:12px;color:var(--muted);margin:0 0 8px;font-weight:700">Direct messages</div>
-          <div id="conv-list"></div>
+          <div id="conv-list" style="padding-bottom:24px"></div>
           <div id="chat-view" style="display:none">
             <div class="panel-h" style="margin-bottom:8px">
               <button class="back" id="btn-chat-back" type="button">←</button>
               <h2 id="chat-with" style="font-size:1rem">Chat</h2>
               <span></span>
             </div>
-            <div id="chat-msgs" style="height:52vh;overflow-y:auto;margin-bottom:10px;padding:8px 2px;background:#0b141a;border-radius:12px"></div>
+            <div id="chat-msgs" style="height:52vh;overflow-y:auto;margin-bottom:10px;padding:8px 2px;background:#0b141a;border-radius:12px;-webkit-overflow-scrolling:touch"></div>
             <div class="cmt-in">
               <input type="text" id="msg-text" placeholder="Text only…"/>
               <button class="btn btn-primary btn-sm" type="button" id="btn-msg-send">Send</button>
@@ -9270,7 +9270,17 @@ function openRoulette(){
           if(u){e.preventDefault();openChat(u)}
         },true);
       }
-      var bcb=document.getElementById('btn-chat-back');if(bcb)bcb.onclick=function(){chatWith=null;document.getElementById('chat-view').style.display='none';document.getElementById('conv-list').style.display='block';var gb=document.getElementById('global-chat-box');if(gb)gb.style.display='none';var ob=document.getElementById('btn-open-ruined');if(ob)ob.style.display='block';loadConversations()};
+      var bcb=document.getElementById('btn-chat-back');if(bcb)bcb.onclick=function(){
+        chatWith=null;
+        window.__chatLoadWho=null;
+        window.__chatLoadTok=(window.__chatLoadTok||0)+1;
+        document.getElementById('chat-view').style.display='none';
+        document.getElementById('conv-list').style.display='block';
+        var gb=document.getElementById('global-chat-box');if(gb)gb.style.display='none';
+        var ob=document.getElementById('btn-open-ruined');if(ob)ob.style.display='block';
+        var box=document.getElementById('chat-msgs');if(box){box.removeAttribute('data-who');box.innerHTML=''}
+        loadConversations();
+      };
       var bms=document.getElementById('btn-msg-send');if(bms)bms.onclick=sendMessage;
       var bgs=document.getElementById('btn-global-send');if(bgs)bgs.onclick=sendGlobalChat;
       var bds=document.getElementById('btn-dom-send');if(bds)bds.onclick=sendDomChat;
@@ -9732,6 +9742,58 @@ function openRoulette(){
         }
       }catch(e){toast('Error')}
     }
+    function chatPromiseTimeout(promise, ms, fallback){
+      ms=Number(ms)||5000;
+      var settled=false;
+      return new Promise(function(resolve){
+        var t=setTimeout(function(){
+          if(settled)return;
+          settled=true;
+          resolve(fallback);
+        }, ms);
+        Promise.resolve(promise).then(function(v){
+          if(settled)return;
+          settled=true;
+          clearTimeout(t);
+          resolve(v);
+        }).catch(function(){
+          if(settled)return;
+          settled=true;
+          clearTimeout(t);
+          resolve(fallback);
+        });
+      });
+    }
+    function mergeChatRows(rows){
+      rows=(rows||[]).filter(function(m){return m && (m.body||m.text)});
+      rows.sort(function(a,b){return new Date(a.created_at||0)-new Date(b.created_at||0)});
+      var seen={};
+      return rows.filter(function(m){
+        var body=String(m.body||m.text||'');
+        var k=String(m.from_user||m.username||'')+'|'+body+'|'+String(m.created_at||'');
+        if(seen[k])return false;seen[k]=1;return true;
+      });
+    }
+    function paintChatMsgs(box, rows, who){
+      if(!box)return;
+      if(who && box.getAttribute('data-who') && box.getAttribute('data-who')!==String(who))return;
+      rows=mergeChatRows(rows);
+      if(!rows.length){
+        box.innerHTML='<div class="empty">Say hi</div>';
+        try{window.__lastChatCount=0}catch(e){}
+        return;
+      }
+      box.innerHTML=rows.map(function(m){
+        var from=m.from_user||m.username||'';
+        var body=m.body||m.text||'';
+        var mine=String(from)===String(currentUser&&currentUser.name);
+        return '<div style="display:flex;justify-content:'+(mine?'flex-end':'flex-start')+';margin:0 6px 8px">'
+          +'<div class="wa-bubble '+(mine?'wa-me':'wa-them')+'">'+linkifyChat(body)
+          +'<div class="wa-time-in">'+ago(new Date(m.created_at||Date.now()).getTime())+'</div></div></div>';
+      }).join('');
+      box.scrollTop=box.scrollHeight;
+      try{window.__lastChatCount=rows.length}catch(e){}
+    }
     async function openChat(user){
       user=user||viewingUser;
       if(!isRegistered()){toast('Login to message');return}
@@ -9743,15 +9805,14 @@ function openRoulette(){
       var pn=document.getElementById('msg-photo-name');if(pn)pn.textContent='';
       var box=document.getElementById('chat-msgs');
       if(box){box.setAttribute('data-who',chatWith);box.innerHTML='<div class="empty">Loading…</div>';}
-      window.__chatLoadTok=(window.__chatLoadTok||0)+1;
       var cw=document.getElementById('chat-with');
       cw.innerHTML='';
       var a=document.createElement('span');
-      a.textContent='@'+user;
+      a.textContent='@'+chatWith;
       a.style.color='var(--orange)';
       a.style.cursor='pointer';
       a.className='post-user clickable';
-      a.onclick=function(e){e.stopPropagation();openUser(user)};
+      a.onclick=function(e){e.stopPropagation();openUser(chatWith)};
       cw.appendChild(a);
       showPanel('messages');
       document.getElementById('msg-need-login').style.display='none';
@@ -9759,11 +9820,13 @@ function openRoulette(){
       document.getElementById('conv-list').style.display='none';
       document.getElementById('chat-view').style.display='block';
       var gb=document.getElementById('global-chat-box');if(gb)gb.style.display='none';
-      await loadChat();
+      var ob=document.getElementById('btn-open-ruined');if(ob)ob.style.display='none';
+      await loadChat({force:true});
     }
     window.openChat=openChat;
     async function loadConversations(){
       var box=document.getElementById('conv-list');
+      if(!box)return;
       if(!isRegistered()){
         document.getElementById('msg-need-login').style.display='block';
         document.getElementById('msg-ui').style.display='none';
@@ -9778,11 +9841,13 @@ function openRoulette(){
       }
       document.getElementById('chat-view').style.display='none';
       document.getElementById('conv-list').style.display='block';
+      var ob=document.getElementById('btn-open-ruined');if(ob)ob.style.display='block';
       if(!sb){box.innerHTML='<div class="empty">DB offline</div>';return}
       try{
-        var r1=await sb.from('messages').select('*').eq('from_user',currentUser.name).order('created_at',{ascending:false}).limit(50);
-        var r2=await sb.from('messages').select('*').eq('to_user',currentUser.name).order('created_at',{ascending:false}).limit(50);
-        var rows=(r1.data||[]).concat(r2.data||[]);
+        if(!box.innerHTML || box.querySelector('.empty')) box.innerHTML='<div class="empty">Loading…</div>';
+        var r1=await chatPromiseTimeout(sb.from('messages').select('*').eq('from_user',currentUser.name).order('created_at',{ascending:false}).limit(50),7000,{data:[],error:{message:'timeout'}});
+        var r2=await chatPromiseTimeout(sb.from('messages').select('*').eq('to_user',currentUser.name).order('created_at',{ascending:false}).limit(50),7000,{data:[],error:{message:'timeout'}});
+        var rows=(r1&&r1.data||[]).concat(r2&&r2.data||[]);
         rows.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at)});
         var map={};
         rows.forEach(function(m){
@@ -9795,10 +9860,10 @@ function openRoulette(){
         box.innerHTML=keys.map(function(u){
           var m=map[u];
           var preview=m.body?m.body:'';
-          var safe=String(u).replace(/'/g,'');
+          var safe=String(u).replace(/"/g,'&quot;');
           var ts=new Date(m.created_at).getTime();
           var unread=(m.from_user!==currentUser.name) && ts>(readMap[String(u)]||readMap.__all||0);
-          return '<div class="wa-row" data-user="'+esc(safe)+'" onclick="window.openChat&&window.openChat(this.getAttribute(\'data-user\'))">'
+          return '<div class="wa-row" data-user="'+esc(String(u))+'" onclick="window.openChat&&window.openChat(this.getAttribute(\'data-user\'))">'
             +'<div class="av">'+avatarHtml(u)+'</div>'
             +'<div style="min-width:0;flex:1"><div class="wa-name">@'+esc(u)+'</div><div class="wa-prev">'+esc(preview)+'</div></div>'
             +'<div class="wa-meta"><div class="wa-time">'+ago(ts)+'</div>'+(unread?'<div class="wa-dot"></div>':'')+'</div></div>';
@@ -9809,24 +9874,52 @@ function openRoulette(){
     function dmThreadId(a,b){
       return '__dm_'+[String(a||''),String(b||'')].map(function(x){return x.toLowerCase()}).sort().join('__');
     }
-    async function loadChat(){
+    async function loadChat(opts){
+      opts=opts||{};
       var box=document.getElementById('chat-msgs');
       if(!chatWith||!box)return;
       var who=String(chatWith);
-      var tok=++window.__chatLoadTok;
+      // Soft poll refreshes reuse the open token so they never cancel the first paint.
+      var tok;
+      if(opts.force){
+        tok=++window.__chatLoadTok;
+        window.__chatLoadWho=who;
+      }else if(window.__chatLoadWho===who && window.__chatLoadTok){
+        tok=window.__chatLoadTok;
+      }else{
+        tok=++window.__chatLoadTok;
+        window.__chatLoadWho=who;
+      }
+      var stillMine=function(){return tok===window.__chatLoadTok && String(chatWith)===who && box.getAttribute('data-who')===who};
       box.setAttribute('data-who',who);
-      if(!box.innerHTML || box.getAttribute('data-who')!==who) box.innerHTML='<div class="empty">Loading…</div>';
+      var showingMsgs=!!box.querySelector('.wa-bubble');
+      if(opts.force || !showingMsgs) box.innerHTML='<div class="empty">Loading…</div>';
       var rows=[];
+      var threadKey=dmThreadId(currentUser&&currentUser.name,who);
+      // 1) Instant local cache so the thread never sits on Loading forever.
       try{
-        if(sb){
-          var r1=await sb.from('messages').select('*').eq('from_user',currentUser.name).eq('to_user',who);
-          var r2=await sb.from('messages').select('*').eq('from_user',who).eq('to_user',currentUser.name);
-          rows=(r1.data||[]).concat(r2.data||[]);
+        var loc0=JSON.parse(localStorage.getItem('rs_cmt_'+threadKey)||'[]')||[];
+        loc0.forEach(function(m){rows.push({from_user:m.username,to_user:who,body:m.text||m.body||'',created_at:m.created_at})});
+        if(rows.length && stillMine()) paintChatMsgs(box, rows, who);
+      }catch(e){}
+      // 2) Supabase DMs (bounded — never hang the UI).
+      try{
+        if(sb && currentUser&&currentUser.name){
+          var me=currentUser.name;
+          var pair=await chatPromiseTimeout(Promise.all([
+            sb.from('messages').select('*').eq('from_user',me).eq('to_user',who).order('created_at',{ascending:true}).limit(120),
+            sb.from('messages').select('*').eq('from_user',who).eq('to_user',me).order('created_at',{ascending:true}).limit(120)
+          ]),6500,[{data:[]},{data:[]}]);
+          if(!stillMine())return;
+          var r1=pair&&pair[0], r2=pair&&pair[1];
+          rows=rows.concat(r1&&r1.data||[]).concat(r2&&r2.data||[]);
+          if(stillMine()) paintChatMsgs(box, rows, who);
         }
       }catch(e){}
-      if(tok!==window.__chatLoadTok || String(chatWith)!==who)return;
+      if(!stillMine())return;
+      // 3) CF mirror thread (often flaky — short timeout, never block empty paint).
       try{
-        var cr=await fetch(CF_API+'/posts/'+encodeURIComponent(dmThreadId(currentUser.name,who))+'/comments',{cache:'no-store'});
+        var cr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(threadKey)+'/comments',{cache:'no-store'},4500);
         var cj=await cr.json().catch(function(){return{}});
         var extra=(cj&&(cj.comments||cj.data||cj))||[];
         if(Array.isArray(extra)){
@@ -9835,29 +9928,18 @@ function openRoulette(){
           });
         }
       }catch(e){}
-      if(tok!==window.__chatLoadTok || String(chatWith)!==who)return;
+      if(!stillMine())return;
       try{
-        var loc=JSON.parse(localStorage.getItem('rs_cmt_'+dmThreadId(currentUser.name,who))||'[]')||[];
+        var loc=JSON.parse(localStorage.getItem('rs_cmt_'+threadKey)||'[]')||[];
         loc.forEach(function(m){rows.push({from_user:m.username,to_user:who,body:m.text||m.body||'',created_at:m.created_at})});
       }catch(e){}
-      if(tok!==window.__chatLoadTok || String(chatWith)!==who)return;
+      if(!stillMine())return;
       try{
-        rows.sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at)});
-        var seen={};
-        rows=rows.filter(function(m){
-          var k=(m.from_user||'')+'|'+(m.body||'')+'|'+(m.created_at||'');
-          if(seen[k])return false;seen[k]=1;return true;
-        });
-        if(!rows.length){box.innerHTML='<div class="empty">Say hi</div>';return}
-        box.innerHTML=rows.map(function(m){
-          var mine=m.from_user===currentUser.name;
-          return '<div style="display:flex;justify-content:'+(mine?'flex-end':'flex-start')+';margin:0 6px 8px">'
-            +'<div class="wa-bubble '+(mine?'wa-me':'wa-them')+'">'+linkifyChat(m.body||'')
-            +'<div class="wa-time-in">'+ago(new Date(m.created_at).getTime())+'</div></div></div>';
-        }).join('');
-        box.scrollTop=box.scrollHeight;
-        try{window.__lastChatCount=rows.length}catch(e){}
-      }catch(e){console.error(e);if(tok===window.__chatLoadTok)box.innerHTML='<div class="empty">Error</div>'}
+        paintChatMsgs(box, rows, who);
+      }catch(e){
+        console.error(e);
+        if(stillMine() && !box.querySelector('.wa-bubble')) box.innerHTML='<div class="empty">Could not load chat. Try again.</div>';
+      }
     }
     function showMsgToast(from, text){
       var el=document.getElementById('msg-toast');
@@ -9869,19 +9951,25 @@ function openRoulette(){
       window.__msgToastT=setTimeout(function(){el.style.display='none'},5000);
     }
     async function pollMessagesLive(){
-      if(!sb||!isRegistered()||!currentUser||!currentUser.name)return;
+      if(!isRegistered()||!currentUser||!currentUser.name)return;
       try{await updateMsgBadge()}catch(e){}
       var pan=document.getElementById('panel-messages');
       var open=pan&&pan.classList.contains('active');
       if(open && chatWith){
-        try{await loadChat();markMessagesRead(chatWith)}catch(e){}
+        // Soft refresh — keep visible bubbles while fetching; never reset to Loading.
+        try{await loadChat({force:false});markMessagesRead(chatWith)}catch(e){}
         return;
       }
       if(open && !chatWith){
         try{await loadConversations()}catch(e){}
       }
+      if(!sb)return;
       try{
-        var r=await sb.from('messages').select('from_user,body,created_at').eq('to_user',currentUser.name).order('created_at',{ascending:false}).limit(1);
+        var r=await chatPromiseTimeout(
+          sb.from('messages').select('from_user,body,created_at').eq('to_user',currentUser.name).order('created_at',{ascending:false}).limit(1),
+          5000,
+          {data:[]}
+        );
         var last=(r.data&&r.data[0])||null;
         if(!last)return;
         var ts=new Date(last.created_at).getTime();
@@ -10172,30 +10260,56 @@ function openRoulette(){
       var body=(document.getElementById('msg-text').value||'').trim();
       if(!body){toast('Text only');return}
       if(chatBlocked(body)){toast('That message is not allowed');return;}
+      var who=String(chatWith);
+      var created=new Date().toISOString();
       var ok=false;
+      // Optimistic local + paint first so Send never feels stuck behind CF/Supabase.
       try{
-        if(sb){
-          var ins=await sb.from('messages').insert({from_user:currentUser.name,to_user:chatWith,body:body,image_url:null});
-          if(!ins.error)ok=true;
-        }
-      }catch(e){}
-      try{
-        var cr=await fetch(CF_API+'/posts/'+encodeURIComponent(dmThreadId(currentUser.name,chatWith))+'/comments',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({username:currentUser.name,text:body})
-        });
-        var cj=await cr.json().catch(function(){return{}});
-        if(cj&&cj.ok)ok=true;
-      }catch(e){}
-      try{
-        var key='rs_cmt_'+dmThreadId(currentUser.name,chatWith);
+        var key='rs_cmt_'+dmThreadId(currentUser.name,who);
         var arr=JSON.parse(localStorage.getItem(key)||'[]')||[];
-        arr.push({username:currentUser.name,text:body,created_at:new Date().toISOString()});
+        arr.push({username:currentUser.name,text:body,created_at:created});
         localStorage.setItem(key,JSON.stringify(arr.slice(-80)));
         ok=true;
       }catch(e){}
+      try{
+        var box=document.getElementById('chat-msgs');
+        if(box && box.getAttribute('data-who')===who){
+          var optimistic=[{from_user:currentUser.name,to_user:who,body:body,created_at:created}];
+          try{
+            box.querySelectorAll('.wa-bubble').forEach(function(){});
+            // Append onto currently painted rows by reusing HTML + new bubble
+            if(box.querySelector('.empty')) paintChatMsgs(box, optimistic, who);
+            else{
+              var mine=true;
+              box.insertAdjacentHTML('beforeend',
+                '<div style="display:flex;justify-content:'+(mine?'flex-end':'flex-start')+';margin:0 6px 8px">'
+                +'<div class="wa-bubble wa-me">'+linkifyChat(body)
+                +'<div class="wa-time-in">just now</div></div></div>');
+              box.scrollTop=box.scrollHeight;
+            }
+          }catch(e2){}
+        }
+      }catch(e){}
       document.getElementById('msg-text').value='';
-      await loadChat();
+      try{
+        if(sb){
+          var ins=await chatPromiseTimeout(
+            sb.from('messages').insert({from_user:currentUser.name,to_user:who,body:body,image_url:null}),
+            6000,
+            {error:{message:'timeout'}}
+          );
+          if(ins && !ins.error)ok=true;
+        }
+      }catch(e){}
+      try{
+        var cr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(dmThreadId(currentUser.name,who))+'/comments',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({username:currentUser.name,text:body})
+        },4500);
+        var cj=await cr.json().catch(function(){return{}});
+        if(cj&&(cj.ok||cj.comment||cj.id))ok=true;
+      }catch(e){}
+      try{await loadChat({force:false})}catch(e){}
       if(!ok)toast('Error sending');
     }
     function forceTop(){
