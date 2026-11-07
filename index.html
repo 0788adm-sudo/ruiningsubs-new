@@ -3274,9 +3274,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     };
     var CF_MEDIA='https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
     // Videos live on Cloudflare R2. Worker /media/* often 404s; rewrite to public R2 keys.
+    // Some rows store image_url as a JSON array string — unpack before rewrite.
     function publicMediaUrl(u){
+      if(Array.isArray(u)){
+        for(var ai=0;ai<u.length;ai++){
+          var got=publicMediaUrl(u[ai]);
+          if(got) return got;
+        }
+        return '';
+      }
       u=String(u||'').trim();
       if(!u)return '';
+      if(u.charAt(0)==='['){
+        try{
+          var arr=JSON.parse(u);
+          if(Array.isArray(arr)) return publicMediaUrl(arr);
+        }catch(e){}
+      }
       var m=u.match(/^https?:\/\/ruiningsubs-api\.0788adm\.workers\.dev\/media\/([^?#]+)/i);
       if(m&&m[1]){
         try{return CF_MEDIA+'/'+decodeURIComponent(m[1])}catch(e){return CF_MEDIA+'/'+m[1]}
@@ -9369,6 +9383,8 @@ function openRoulette(){
         chatWith=null;
         window.__chatLoadWho=null;
         window.__chatLoadTok=(window.__chatLoadTok||0)+1;
+        try{clearChatWatchdog()}catch(e){}
+        try{stopDmRealtime()}catch(e){}
         document.getElementById('chat-view').style.display='none';
         document.getElementById('conv-list').style.display='block';
         var gb=document.getElementById('global-chat-box');if(gb)gb.style.display='none';
@@ -9850,14 +9866,22 @@ function openRoulette(){
         });
       });
     }
+    function sameChatUser(a,b){
+      return String(a||'').replace(/^@/,'').toLowerCase()===String(b||'').replace(/^@/,'').toLowerCase();
+    }
     function mergeChatRows(rows){
       rows=(rows||[]).filter(function(m){return m && (m.body||m.text)});
       rows.sort(function(a,b){return new Date(a.created_at||0)-new Date(b.created_at||0)});
       var seen={};
       return rows.filter(function(m){
         var body=String(m.body||m.text||'');
-        var k=String(m.from_user||m.username||'')+'|'+body+'|'+String(m.created_at||'');
-        if(seen[k])return false;seen[k]=1;return true;
+        // Dedup ignoring timestamp jitter between SB ISO and CF ms epoch for same body.
+        var k=String(m.from_user||m.username||'').toLowerCase()+'|'+body;
+        var ts=new Date(m.created_at||0).getTime()||0;
+        var bucket=Math.floor(ts/60000);
+        var k2=k+'|'+bucket;
+        if(seen[k2]||seen[k+'|'+ts])return false;
+        seen[k2]=1;seen[k+'|'+ts]=1;return true;
       });
     }
     function paintChatMsgs(box, rows, who){
@@ -9865,14 +9889,15 @@ function openRoulette(){
       if(who && box.getAttribute('data-who') && box.getAttribute('data-who')!==String(who))return;
       rows=mergeChatRows(rows);
       if(!rows.length){
-        box.innerHTML='<div class="empty">Say hi</div>';
+        box.innerHTML='<div class="empty">Say hi<br><button class="btn btn-secondary btn-sm" style="margin-top:12px" type="button" onclick="loadChat({force:true})">Refresh</button></div>';
         try{window.__lastChatCount=0}catch(e){}
         return;
       }
+      var meName=currentUser&&currentUser.name;
       box.innerHTML=rows.map(function(m){
         var from=m.from_user||m.username||'';
         var body=m.body||m.text||'';
-        var mine=String(from)===String(currentUser&&currentUser.name);
+        var mine=sameChatUser(from, meName);
         return '<div style="display:flex;justify-content:'+(mine?'flex-end':'flex-start')+';margin:0 6px 8px">'
           +'<div class="wa-bubble '+(mine?'wa-me':'wa-them')+'">'+linkifyChat(body)
           +'<div class="wa-time-in">'+ago(new Date(m.created_at||Date.now()).getTime())+'</div></div></div>';
@@ -9880,17 +9905,38 @@ function openRoulette(){
       box.scrollTop=box.scrollHeight;
       try{window.__lastChatCount=rows.length}catch(e){}
     }
+    function chatLoadingHtml(){
+      return '<div class="empty" data-chat-loading="1">Loading…</div>';
+    }
+    function chatFailHtml(){
+      return '<div class="empty">Could not load chat.<br><button class="btn btn-secondary btn-sm" style="margin-top:12px" type="button" onclick="loadChat({force:true})">Try again</button></div>';
+    }
+    function clearChatWatchdog(){
+      try{clearTimeout(window.__chatWatchdog)}catch(e){}
+      window.__chatWatchdog=null;
+    }
+    function armChatWatchdog(box, who, tok){
+      clearChatWatchdog();
+      window.__chatWatchdog=setTimeout(function(){
+        try{
+          if(tok!==window.__chatLoadTok)return;
+          if(!box || box.getAttribute('data-who')!==String(who))return;
+          if(box.querySelector('.wa-bubble'))return;
+          if(box.querySelector('[data-chat-loading]')) box.innerHTML=chatFailHtml();
+        }catch(e){}
+      }, 7000);
+    }
     async function openChat(user){
       user=user||viewingUser;
       if(!isRegistered()){toast('Login to message');return}
       if(!user){toast('No user selected');return}
-      if(String(user).replace(/^@/,'')===String(currentUser.name||'').replace(/^@/,'')){toast('Cannot message yourself');return}
+      if(sameChatUser(user, currentUser.name)){toast('Cannot message yourself');return}
       if(String(user).indexOf('Anon_')===0){toast('Only registered users');return}
       chatWith=String(user).replace(/^@/,'');msgPhoto=null;
       markMessagesRead(chatWith);
       var pn=document.getElementById('msg-photo-name');if(pn)pn.textContent='';
       var box=document.getElementById('chat-msgs');
-      if(box){box.setAttribute('data-who',chatWith);box.innerHTML='<div class="empty">Loading…</div>';}
+      if(box){box.setAttribute('data-who',chatWith);box.innerHTML=chatLoadingHtml();}
       var cw=document.getElementById('chat-with');
       cw.innerHTML='';
       var a=document.createElement('span');
@@ -9907,6 +9953,7 @@ function openRoulette(){
       document.getElementById('chat-view').style.display='block';
       var gb=document.getElementById('global-chat-box');if(gb)gb.style.display='none';
       var ob=document.getElementById('btn-open-ruined');if(ob)ob.style.display='none';
+      try{subscribeDmRealtime(chatWith)}catch(e){}
       await loadChat({force:true});
     }
     window.openChat=openChat;
@@ -9928,37 +9975,88 @@ function openRoulette(){
       document.getElementById('chat-view').style.display='none';
       document.getElementById('conv-list').style.display='block';
       var ob=document.getElementById('btn-open-ruined');if(ob)ob.style.display='block';
-      if(!sb){box.innerHTML='<div class="empty">DB offline</div>';return}
       try{
         if(!box.innerHTML || box.querySelector('.empty')) box.innerHTML='<div class="empty">Loading…</div>';
-        var r1=await chatPromiseTimeout(sb.from('messages').select('*').eq('from_user',currentUser.name).order('created_at',{ascending:false}).limit(50),7000,{data:[],error:{message:'timeout'}});
-        var r2=await chatPromiseTimeout(sb.from('messages').select('*').eq('to_user',currentUser.name).order('created_at',{ascending:false}).limit(50),7000,{data:[],error:{message:'timeout'}});
-        var rows=(r1&&r1.data||[]).concat(r2&&r2.data||[]);
-        rows.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at)});
+        var me=currentUser.name;
         var map={};
-        rows.forEach(function(m){
-          var other=m.from_user===currentUser.name?m.to_user:m.from_user;
-          if(!map[other])map[other]=m;
-        });
+        // 1) Same-origin /api/dm inbox (case-insensitive, bounded).
+        try{
+          var ir=await fetchWithTimeout('/api/dm?me='+encodeURIComponent(me),{cache:'no-store'},6500);
+          var ij=await ir.json().catch(function(){return{}});
+          ((ij&&ij.conversations)||[]).forEach(function(c){
+            if(!c||!c.user||!c.last)return;
+            var row=c.last;
+            if(!row.from_user){
+              row={from_user:me,to_user:c.user,body:row.body,created_at:row.created_at};
+            }
+            map[String(c.user).toLowerCase()]=Object.assign({__other:c.user}, row);
+          });
+        }catch(e){}
+        // 2) Direct Supabase fallback with ilike (case-insensitive).
+        if(!Object.keys(map).length && sb){
+          var r1=await chatPromiseTimeout(sb.from('messages').select('*').ilike('from_user',me).order('created_at',{ascending:false}).limit(50),7000,{data:[],error:{message:'timeout'}});
+          var r2=await chatPromiseTimeout(sb.from('messages').select('*').ilike('to_user',me).order('created_at',{ascending:false}).limit(50),7000,{data:[],error:{message:'timeout'}});
+          var rows=(r1&&r1.data||[]).concat(r2&&r2.data||[]);
+          rows.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at)});
+          rows.forEach(function(m){
+            var other=sameChatUser(m.from_user,me)?m.to_user:m.from_user;
+            var key=String(other||'').toLowerCase();
+            if(key && !map[key]) map[key]=Object.assign({__other:other}, m);
+          });
+        }
         var keys=Object.keys(map);
         if(!keys.length){box.innerHTML='<div class="empty">No chats yet</div>';return}
         var readMap=getMsgReadMap();
-        box.innerHTML=keys.map(function(u){
-          var m=map[u];
+        box.innerHTML=keys.map(function(k){
+          var m=map[k];
+          var u=m.__other||(sameChatUser(m.from_user,me)?m.to_user:m.from_user);
           var preview=m.body?m.body:'';
-          var safe=String(u).replace(/"/g,'&quot;');
           var ts=new Date(m.created_at).getTime();
-          var unread=(m.from_user!==currentUser.name) && ts>(readMap[String(u)]||readMap.__all||0);
+          var unread=!sameChatUser(m.from_user,me) && ts>(readMap[String(u)]||readMap.__all||0);
           return '<div class="wa-row" data-user="'+esc(String(u))+'" onclick="window.openChat&&window.openChat(this.getAttribute(\'data-user\'))">'
             +'<div class="av">'+avatarHtml(u)+'</div>'
             +'<div style="min-width:0;flex:1"><div class="wa-name">@'+esc(u)+'</div><div class="wa-prev">'+esc(preview)+'</div></div>'
             +'<div class="wa-meta"><div class="wa-time">'+ago(ts)+'</div>'+(unread?'<div class="wa-dot"></div>':'')+'</div></div>';
         }).join('');
-        try{prefetchAvatars(keys.map(function(u){return {user:u}})).then(function(){paintAvatarsInDom()})}catch(e){}
-      }catch(e){console.error(e);box.innerHTML='<div class="empty">Error loading messages</div>'}
+        try{prefetchAvatars(keys.map(function(k){var m=map[k];return {user:m.__other||m.from_user}})).then(function(){paintAvatarsInDom()})}catch(e){}
+      }catch(e){console.error(e);box.innerHTML='<div class="empty">Error loading messages<br><button class="btn btn-secondary btn-sm" style="margin-top:12px" type="button" onclick="loadConversations()">Retry</button></div>'}
     }
     function dmThreadId(a,b){
       return '__dm_'+[String(a||''),String(b||'')].map(function(x){return x.toLowerCase()}).sort().join('__');
+    }
+    function stopDmRealtime(){
+      try{
+        if(window.__dmChannel && sb){
+          sb.removeChannel(window.__dmChannel);
+        }
+      }catch(e){}
+      window.__dmChannel=null;
+      window.__dmChannelWho=null;
+    }
+    function subscribeDmRealtime(who){
+      who=String(who||'');
+      if(!sb || !who || !currentUser || !currentUser.name) return;
+      if(window.__dmChannelWho===who && window.__dmChannel) return;
+      stopDmRealtime();
+      window.__dmChannelWho=who;
+      try{
+        var me=currentUser.name;
+        var ch=sb.channel('dm-live-'+dmThreadId(me,who));
+        var bump=function(row){
+          try{
+            if(!row||!chatWith||!sameChatUser(chatWith,who))return;
+            var a=row.from_user,b=row.to_user;
+            var involves=(sameChatUser(a,me)&&sameChatUser(b,who))||(sameChatUser(a,who)&&sameChatUser(b,me));
+            if(!involves)return;
+            loadChat({force:false});
+          }catch(e){}
+        };
+        ch.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},function(payload){
+          bump(payload&&payload.new);
+        });
+        ch.subscribe();
+        window.__dmChannel=ch;
+      }catch(e){window.__dmChannel=null}
     }
     async function loadChat(opts){
       opts=opts||{};
@@ -9979,52 +10077,82 @@ function openRoulette(){
       var stillMine=function(){return tok===window.__chatLoadTok && String(chatWith)===who && box.getAttribute('data-who')===who};
       box.setAttribute('data-who',who);
       var showingMsgs=!!box.querySelector('.wa-bubble');
-      if(opts.force || !showingMsgs) box.innerHTML='<div class="empty">Loading…</div>';
+      if(opts.force || !showingMsgs) box.innerHTML=chatLoadingHtml();
+      armChatWatchdog(box, who, tok);
       var rows=[];
       var threadKey=dmThreadId(currentUser&&currentUser.name,who);
+      var me=currentUser&&currentUser.name;
+      function assimilate(list){
+        (list||[]).forEach(function(m){
+          if(!m)return;
+          rows.push({
+            from_user:m.from_user||m.username,
+            to_user:m.to_user||who,
+            body:m.body||m.text||'',
+            created_at:m.created_at
+          });
+        });
+      }
+      function paintNow(){
+        if(!stillMine())return;
+        try{paintChatMsgs(box, rows, who); if(box.querySelector('.wa-bubble')) clearChatWatchdog()}catch(e){}
+      }
       // 1) Instant local cache so the thread never sits on Loading forever.
       try{
         var loc0=JSON.parse(localStorage.getItem('rs_cmt_'+threadKey)||'[]')||[];
-        loc0.forEach(function(m){rows.push({from_user:m.username,to_user:who,body:m.text||m.body||'',created_at:m.created_at})});
-        if(rows.length && stillMine()) paintChatMsgs(box, rows, who);
+        assimilate(loc0.map(function(m){return {from_user:m.username,to_user:who,body:m.text||m.body||'',created_at:m.created_at}}));
+        if(rows.length) paintNow();
       }catch(e){}
-      // 2) Supabase DMs (bounded — never hang the UI).
+      // 2) Prefer same-origin /api/dm (case-insensitive + CF mirror, hard timeout).
       try{
-        if(sb && currentUser&&currentUser.name){
-          var me=currentUser.name;
-          var pair=await chatPromiseTimeout(Promise.all([
-            sb.from('messages').select('*').eq('from_user',me).eq('to_user',who).order('created_at',{ascending:true}).limit(120),
-            sb.from('messages').select('*').eq('from_user',who).eq('to_user',me).order('created_at',{ascending:true}).limit(120)
-          ]),6500,[{data:[]},{data:[]}]);
+        if(me){
+          var apiP=fetchWithTimeout('/api/dm?me='+encodeURIComponent(me)+'&with='+encodeURIComponent(who),{cache:'no-store'},6500)
+            .then(function(r){return r.json().catch(function(){return{}})})
+            .catch(function(){return{}});
+          var apiJ=await chatPromiseTimeout(apiP, 6500, {});
           if(!stillMine())return;
-          var r1=pair&&pair[0], r2=pair&&pair[1];
-          rows=rows.concat(r1&&r1.data||[]).concat(r2&&r2.data||[]);
-          if(stillMine()) paintChatMsgs(box, rows, who);
+          if(apiJ && Array.isArray(apiJ.messages) && apiJ.messages.length){
+            assimilate(apiJ.messages);
+            paintNow();
+          }
+        }
+      }catch(e){}
+      // 3) Direct Supabase with ilike (survives casing drift between login + stored rows).
+      try{
+        if(sb && me){
+          var pair=await chatPromiseTimeout(Promise.all([
+            sb.from('messages').select('*').ilike('from_user',me).ilike('to_user',who).order('created_at',{ascending:true}).limit(120),
+            sb.from('messages').select('*').ilike('from_user',who).ilike('to_user',me).order('created_at',{ascending:true}).limit(120)
+          ]),5500,[{data:[]},{data:[]}]);
+          if(!stillMine())return;
+          assimilate(pair&&pair[0]&&pair[0].data);
+          assimilate(pair&&pair[1]&&pair[1].data);
+          paintNow();
         }
       }catch(e){}
       if(!stillMine())return;
-      // 3) CF mirror thread (often flaky — short timeout, never block empty paint).
-      try{
-        var cr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(threadKey)+'/comments',{cache:'no-store'},4500);
-        var cj=await cr.json().catch(function(){return{}});
-        var extra=(cj&&(cj.comments||cj.data||cj))||[];
-        if(Array.isArray(extra)){
-          extra.forEach(function(m){
-            rows.push({from_user:m.username,to_user:who,body:m.text||m.body||'',created_at:m.created_at});
-          });
-        }
-      }catch(e){}
+      // 4) CF mirror as last resort (flaky — short timeout).
+      if(!box.querySelector('.wa-bubble')){
+        try{
+          var cr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(threadKey)+'/comments',{cache:'no-store'},3500);
+          var cj=await cr.json().catch(function(){return{}});
+          var extra=(cj&&(cj.comments||cj.data||cj))||[];
+          if(Array.isArray(extra)) assimilate(extra);
+        }catch(e){}
+      }
       if(!stillMine())return;
       try{
         var loc=JSON.parse(localStorage.getItem('rs_cmt_'+threadKey)||'[]')||[];
-        loc.forEach(function(m){rows.push({from_user:m.username,to_user:who,body:m.text||m.body||'',created_at:m.created_at})});
+        assimilate(loc.map(function(m){return {from_user:m.username,to_user:who,body:m.text||m.body||'',created_at:m.created_at}}));
       }catch(e){}
       if(!stillMine())return;
       try{
         paintChatMsgs(box, rows, who);
+        clearChatWatchdog();
       }catch(e){
         console.error(e);
-        if(stillMine() && !box.querySelector('.wa-bubble')) box.innerHTML='<div class="empty">Could not load chat. Try again.</div>';
+        if(stillMine() && !box.querySelector('.wa-bubble')) box.innerHTML=chatFailHtml();
+        clearChatWatchdog();
       }
     }
     function showMsgToast(from, text){
@@ -10362,13 +10490,10 @@ function openRoulette(){
         if(box && box.getAttribute('data-who')===who){
           var optimistic=[{from_user:currentUser.name,to_user:who,body:body,created_at:created}];
           try{
-            box.querySelectorAll('.wa-bubble').forEach(function(){});
-            // Append onto currently painted rows by reusing HTML + new bubble
             if(box.querySelector('.empty')) paintChatMsgs(box, optimistic, who);
             else{
-              var mine=true;
               box.insertAdjacentHTML('beforeend',
-                '<div style="display:flex;justify-content:'+(mine?'flex-end':'flex-start')+';margin:0 6px 8px">'
+                '<div style="display:flex;justify-content:flex-end;margin:0 6px 8px">'
                 +'<div class="wa-bubble wa-me">'+linkifyChat(body)
                 +'<div class="wa-time-in">just now</div></div></div>');
               box.scrollTop=box.scrollHeight;
@@ -10377,24 +10502,38 @@ function openRoulette(){
         }
       }catch(e){}
       document.getElementById('msg-text').value='';
+      // Prefer same-origin /api/dm (writes SB + mirrors CF with timeouts).
       try{
-        if(sb){
-          var ins=await chatPromiseTimeout(
-            sb.from('messages').insert({from_user:currentUser.name,to_user:who,body:body,image_url:null}),
-            6000,
-            {error:{message:'timeout'}}
-          );
-          if(ins && !ins.error)ok=true;
-        }
+        var pr=await fetchWithTimeout('/api/dm',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'send',from:currentUser.name,to:who,body:body})
+        },7000);
+        var pj=await pr.json().catch(function(){return{}});
+        if(pj&&pj.ok) ok=true;
       }catch(e){}
-      try{
-        var cr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(dmThreadId(currentUser.name,who))+'/comments',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({username:currentUser.name,text:body})
-        },4500);
-        var cj=await cr.json().catch(function(){return{}});
-        if(cj&&(cj.ok||cj.comment||cj.id))ok=true;
-      }catch(e){}
+      if(!ok){
+        try{
+          if(sb){
+            var ins=await chatPromiseTimeout(
+              sb.from('messages').insert({from_user:currentUser.name,to_user:who,body:body,image_url:null}),
+              6000,
+              {error:{message:'timeout'}}
+            );
+            if(ins && !ins.error)ok=true;
+          }
+        }catch(e){}
+      }
+      if(!ok){
+        try{
+          var cr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(dmThreadId(currentUser.name,who))+'/comments',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({username:currentUser.name,text:body})
+          },3500);
+          var cj=await cr.json().catch(function(){return{}});
+          if(cj&&(cj.ok||cj.comment||cj.id))ok=true;
+        }catch(e){}
+      }
       try{await loadChat({force:false})}catch(e){}
       if(!ok)toast('Error sending');
     }
@@ -11932,10 +12071,11 @@ function openRoulette(){
     var gtTab='feed';
     var GT_TARGET=80;
     var GT_PAGE=24;
-    var GT_PROBE_MS=4000;
-    var GT_LOAD_TIMEOUT_MS=3800; // drop black/unplayable active slides fast
-    var GT_LOAD_UI_MS=900; // hide Loading… overlay quickly; keep poster under it
+    var GT_PROBE_MS=8000; // warm neighbors patiently on mobile
+    var GT_LOAD_TIMEOUT_MS=12000; // never drop a slow-but-valid clip mid-swipe
+    var GT_LOAD_UI_MS=1400; // brief Loading chip; poster stays underneath
     var GT_BROKEN_TTL=45*60*1000; // retry failed media after 45m (was 6h — starved the feed)
+    var GT_SOFT_RETRY_MS=90*1000; // allow soft-failed slides to retry in-place
     var GT_PREFLIGHT_MS=2800;
     // Verify the media can actually decode — URL existence alone is not enough.
     function probeVideoPlayable(url, ms){
@@ -12154,19 +12294,21 @@ function openRoulette(){
         return s%1000;
       }
       out.sort(function(a,b){
-        // Brand-new first (TikTok), then proven playable, then engagement mix.
+        // Stable ranking — never re-order by live playable health (that caused
+        // "random" clips while swiping as health flipped and slides remounted).
         var newA=(typeof isBrandNewPost==='function'&&isBrandNewPost(a))?1:0;
         var newB=(typeof isBrandNewPost==='function'&&isBrandNewPost(b))?1:0;
         if(newB!==newA) return newB-newA;
         if(newA&&newB) return (Number(b.created||0)||0)-(Number(a.created||0)||0);
-        var ha=videoHealthOf(a.id), hb=videoHealthOf(b.id);
-        var playA=(ha&&ha.status==='playable')?1:0, playB=(hb&&hb.status==='playable')?1:0;
-        if(playB!==playA) return playB-playA;
         var hotA=typeof postHotCount==='function'?postHotCount(a):Number(a.hotCount||0);
         var hotB=typeof postHotCount==='function'?postHotCount(b):Number(b.hotCount||0);
-        var scoreA=hotA*40+(Number(a.likes)||0)*6+(Number(a.views)||0)*0.15+gtRot(a.id)*0.08;
-        var scoreB=hotB*40+(Number(b.likes)||0)*6+(Number(b.views)||0)*0.15+gtRot(b.id)*0.08;
-        if(gtTab==='foryou' || gtTab==='feed'){
+        if(gtTab==='feed'){
+          // Feed = newest first (deterministic).
+          return (Number(b.created)||0)-(Number(a.created)||0);
+        }
+        if(gtTab==='foryou'){
+          var scoreA=hotA*40+(Number(a.likes)||0)*6+(Number(a.views)||0)*0.15+gtRot(a.id)*0.08;
+          var scoreB=hotB*40+(Number(b.likes)||0)*6+(Number(b.views)||0)*0.15+gtRot(b.id)*0.08;
           if(scoreB!==scoreA) return scoreB-scoreA;
         }else if(hotB!==hotA){
           return hotB-hotA;
@@ -12307,7 +12449,7 @@ function openRoulette(){
         +posterHtml
         +'<video playsinline webkit-playsinline loop muted preload="metadata" poster="'+(pst?esc(pst):'')+'" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#000"></video>'
         +'<div class="gt-load" hidden>Loading…</div>'
-        +'<div class="gt-err" hidden>Skipping broken video…</div>'
+        +'<div class="gt-err" hidden><div>Video stalled</div><button type="button" class="btn btn-secondary btn-sm gt-retry" style="margin-top:8px;pointer-events:auto">Retry</button></div>'
         +'</div>';
       var tags=(p.tags||[]).filter(function(t){var s=String(t||'');return s.indexOf('album:')!==0&&s.indexOf('optv:')!==0&&!/^hot:\d+$/i.test(s)}).slice(0,6).map(function(t){return '#'+String(t).replace(/^#/,'')}).join(' ');
       var av=avatarHtml(p.user);
@@ -12402,16 +12544,89 @@ function openRoulette(){
       return [].slice.call(box.querySelectorAll('.gt-slide[data-gid]')).map(function(el){return el.getAttribute('data-gid')});
     }
     function showGoonTokSlideError(id, reason){
-      // Broken media must leave the feed — no empty/black cards or stuck Loading…
-      silentlyDropGoonTokSlide(id, reason||'playback_fail');
+      // Soft stalls keep the slide + Retry. Only hard media errors leave the feed.
+      var why=String(reason||'playback_fail');
+      if(/media_error|no_src|known_broken|origin_missing|empty_blob/.test(why)){
+        silentlyDropGoonTokSlide(id, why);
+        return;
+      }
+      softFailGoonTokSlide(id, why);
     }
+    function softFailGoonTokSlide(id, reason){
+      id=String(id||'');
+      if(!id)return;
+      markVideoNeedsOpt(id, reason||'soft_fail');
+      var box=document.getElementById('gt-scroller');
+      if(!box)return;
+      var slide=box.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"]');
+      if(!slide)return;
+      try{
+        slide.setAttribute('data-gt-error','1');
+        var err=slide.querySelector('.gt-err');
+        var load=slide.querySelector('.gt-load');
+        if(load) load.hidden=true;
+        if(err){
+          err.hidden=false;
+          var btn=err.querySelector('.gt-retry');
+          if(btn && !btn.__bound){
+            btn.__bound=1;
+            btn.addEventListener('click', function(ev){
+              ev.preventDefault();ev.stopPropagation();
+              retryGoonTokSlide(id);
+            });
+          }
+        }
+        slide.querySelectorAll('video[data-gt-vid]').forEach(function(v){
+          try{clearTimeout(v.__gtTimer)}catch(e){}
+          try{clearTimeout(v.__gtLoadGuard)}catch(e){}
+          try{v.pause()}catch(e){}
+          v.__gtFailed=0;
+        });
+      }catch(e){}
+    }
+    function retryGoonTokSlide(id){
+      id=String(id||'');
+      var box=document.getElementById('gt-scroller');
+      if(!box||!id)return;
+      var slide=box.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"]');
+      if(!slide)return;
+      try{
+        // Clear soft health so the clip can arm again.
+        var hm=loadVideoHealth();
+        if(hm&&hm[id]&&(hm[id].soft||hm[id].status==='needs_opt')){ delete hm[id]; saveVideoHealth(hm); }
+        if(window.__gtSoftCooldown) delete window.__gtSoftCooldown[id];
+        slide.removeAttribute('data-gt-error');
+        var err=slide.querySelector('.gt-err'); if(err) err.hidden=true;
+        slide.querySelectorAll('video[data-gt-vid]').forEach(function(v){
+          v.__gtFailed=0;
+          try{v.removeAttribute('src');v.load()}catch(e){}
+          try{
+            if(typeof window.__gtWindowVideos==='function' && typeof window.__gtActiveIndex==='function'){
+              window.__gtWindowVideos(window.__gtActiveIndex());
+            }else{
+              // Force re-arm as active
+              v.setAttribute('src', publicMediaUrl(v.getAttribute('data-src')||''));
+              v.muted=true; v.play().catch(function(){});
+            }
+          }catch(e){}
+        });
+      }catch(e){}
+    }
+    window.retryGoonTokSlide=retryGoonTokSlide;
     function silentlyDropGoonTokSlide(id, reason){
       id=String(id||'');
       if(!id)return;
+      // Soft timeouts / autoplay blocks must NOT remove slides — that made the
+      // feed jump to "random" posts while the user was swiping.
+      var why=String(reason||'playback_fail');
+      if(/load_timeout|warm_|play_reject|autoplay_blocked|probe_timeout|preflight_|play_error/.test(why)){
+        softFailGoonTokSlide(id, why);
+        return;
+      }
       if(window.__gtDropping && window.__gtDropping[id])return;
       window.__gtDropping=window.__gtDropping||{};
       window.__gtDropping[id]=1;
-      markVideoBroken(id, reason||'playback_fail');
+      markVideoBroken(id, why);
       var box=document.getElementById('gt-scroller');
       if(!box){delete window.__gtDropping[id];return}
       var slide=box.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"]');
@@ -12429,11 +12644,8 @@ function openRoulette(){
         });
         slide.remove();
         box.setAttribute('data-gt-sig','');
-        // Soft failures: cooldown so refill does not remount the same clip in a loop.
-        if(/load_timeout|warm_|play_reject|autoplay_blocked|probe_timeout|preflight_/.test(String(reason||''))){
-          window.__gtSoftCooldown=window.__gtSoftCooldown||{};
-          window.__gtSoftCooldown[id]=Date.now()+5*60*1000;
-        }
+        window.__gtSoftCooldown=window.__gtSoftCooldown||{};
+        window.__gtSoftCooldown[id]=Date.now()+GT_SOFT_RETRY_MS;
         var remaining=[].slice.call(box.querySelectorAll('.gt-slide'));
         if(wasActive){
           if(remaining.length){
@@ -12443,7 +12655,7 @@ function openRoulette(){
               box.scrollTop=nextIdx*(box.clientHeight||h);
             }catch(e){}
           }else{
-            box.innerHTML='<div class="gt-empty">Finding playable videos…</div>';
+            box.innerHTML='<div class="gt-empty">Finding playable videos…<br><button class="btn btn-secondary btn-sm" style="margin-top:12px" type="button" onclick="refillGoonTokPlayable(true)">Retry</button></div>';
           }
         }
         try{bindGoonTok({preservePlay:!wasActive})}catch(e){}
@@ -12675,8 +12887,8 @@ function openRoulette(){
         try{clearTimeout(v.__gtLoadGuard)}catch(e){}
         setLoad(v,false);
         showPoster(v);
-        // Skip completely — advance feed to the next playable post.
-        silentlyDropGoonTokSlide(id, reason||'error');
+        // Soft stalls keep the slide (Retry). Hard media errors leave the feed.
+        showGoonTokSlideError(id, reason||'error');
       }
       function ensurePosterFromFrame(v, src){
         try{
@@ -12716,14 +12928,20 @@ function openRoulette(){
         }
         v.playsInline=true;
         v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');
-        v.muted=!window.__gtSound;
-        v.defaultMuted=!window.__gtSound;
+        // First clip of a session starts muted (browser autoplay policy). After the
+        // user unmutes, keep that preference across swipes — never force-reset sound.
+        if(typeof window.__gtSound!=='boolean') window.__gtSound=false;
+        if(play && !window.__gtSoundUnlocked){
+          v.muted=true; v.defaultMuted=true; window.__gtSound=false;
+        }else{
+          v.muted=!window.__gtSound;
+          v.defaultMuted=!window.__gtSound;
+        }
         v.autoplay=!!play;
         v.loop=true;
-        // TikTok-style: poster always under; autoplay muted; Loading chip is brief only.
+        // TikTok-style: poster always under; Loading chip is brief only.
         showPoster(v);
         if(play){
-          try{v.muted=true; v.defaultMuted=true; window.__gtSound=false}catch(e){}
           setLoad(v,true);
         }
         v.onplaying=function(){
@@ -12815,7 +13033,11 @@ function openRoulette(){
         }, GT_LOAD_TIMEOUT_MS);
         var tryPlay=function(){
           if(v.__gtFailed)return;
-          try{v.muted=true; v.defaultMuted=true}catch(e){}
+          // Honor user unmute; fall back to muted only when autoplay rejects.
+          try{
+            if(window.__gtSound && window.__gtSoundUnlocked){ v.muted=false; v.defaultMuted=false; }
+            else { v.muted=true; v.defaultMuted=true; }
+          }catch(e){}
           var p=v.play();
           if(p&&p.then){
             p.then(function(){
@@ -12825,7 +13047,7 @@ function openRoulette(){
               var id=slideIdOf(v);
               if(id) markVideoPlayable(id, s);
             }).catch(function(){
-              v.muted=true; window.__gtSound=false;
+              v.muted=true; v.defaultMuted=true;
               v.play().then(function(){
                 ensurePosterFromFrame(v, s);
                 hidePoster(v);
@@ -12833,13 +13055,12 @@ function openRoulette(){
                 var id=slideIdOf(v);
                 if(id) markVideoPlayable(id, s);
               }).catch(function(){
-                // Never leave a black "playable" shell — drop so next real clip advances.
                 setLoad(v,false);
-                if(v.error || v.readyState<2){
-                  failVideo(v, v.error?'play_error':'play_reject');
+                if(v.error){
+                  failVideo(v, 'media_error');
                   return;
                 }
-                // Decoded but blocked by autoplay policy — keep poster, retry once shortly.
+                // Decoded but blocked / slow — keep slide with Retry, do NOT remove it.
                 ensurePosterFromFrame(v, s);
                 showPoster(v);
                 setTimeout(function(){
@@ -12847,7 +13068,7 @@ function openRoulette(){
                   v.muted=true;
                   var r=v.play();
                   if(r&&r.then) r.catch(function(){ failVideo(v,'autoplay_blocked'); });
-                }, 400);
+                }, 500);
               });
             });
           }else{
@@ -12876,13 +13097,18 @@ function openRoulette(){
           var vids=sl.querySelectorAll('video[data-gt-vid]');
           var dist=Math.abs(n-i);
           if(n===i){
+            // Active: play. Pause every other decode buffer first.
             vids.forEach(function(v){armVideo(v,true)});
-          } else if(dist<=2){
-            // Keep nearby warm with poster visible — never black empty shells.
-            vids.forEach(function(v){armVideo(v,false)});
-          } else if(dist===3){
+          } else if(dist===1){
+            // Precache ONLY the immediate next/prev — TikTok-style, not 3-deep downloads.
+            vids.forEach(function(v){
+              try{v.preload='auto'}catch(e){}
+              armVideo(v,false);
+            });
+          } else if(dist===2){
             vids.forEach(function(v){
               try{v.pause()}catch(e){}
+              try{v.preload='metadata'}catch(e){}
               showPoster(v);
             });
           } else {
@@ -12953,6 +13179,7 @@ function openRoulette(){
                 armVideo(v,true);
               }else{
                 window.__gtSound=!window.__gtSound;
+                window.__gtSoundUnlocked=true;
                 v.muted=!window.__gtSound;
                 v.defaultMuted=v.muted;
                 v.play().catch(function(){});
