@@ -17651,7 +17651,7 @@ function profileStatsHtml(userPosts, extra){
       toast('Defeat Response unlocked — post on Wall, then submit evidence');
     }
     function openRegisteredGame(id){
-      if(!isRegistered()){toast('Login first';showAuth('login');return}
+      if(!isRegistered()){toast('Login first');showAuth('login');return}
       id=String(id||'');
       if(['roulette','dice','tic_tac_toe','word_challenge'].indexOf(id)<0){toast('Game not available');return}
       var g=getGameDef(id);
