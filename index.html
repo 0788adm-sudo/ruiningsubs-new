@@ -1312,12 +1312,13 @@
 
 
     .gender-grid,.gender-filter{display:flex;gap:8px;flex-wrap:wrap}
-    .gender-filter{padding:0 2px 10px;flex-direction:column;align-items:stretch;position:relative;z-index:6;pointer-events:auto}
+    .gender-filter{padding:0 2px 10px;flex-direction:column;align-items:stretch;position:relative;z-index:2;pointer-events:auto}
     #btn-gender-toggle{display:none!important}
     #feed-gender-row{
       display:flex!important;width:100%;gap:8px;flex-wrap:wrap;margin:0;
-      position:relative;z-index:7;pointer-events:auto;-webkit-tap-highlight-color:rgba(124,58,237,.28);
+      position:relative;z-index:2;pointer-events:auto;-webkit-tap-highlight-color:rgba(124,58,237,.28);
     }
+    #posts-container{min-height:120px;position:relative;z-index:1}
     .gender-btn{
       flex:1;min-width:64px;border:1px solid #1c1c24;background:#0a0a0c;color:#a1a1aa;
       border-radius:12px;padding:10px 8px;font-weight:700;font-size:13px;cursor:pointer;
@@ -3826,12 +3827,38 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(!username)return false;
       return !!bannedUsers[String(username).toLowerCase()];
     }
+    function sbQueryTimeout(promise, ms, fallback){
+      ms=Number(ms)||7000;
+      var settled=false;
+      return new Promise(function(resolve){
+        var t=setTimeout(function(){
+          if(settled)return;
+          settled=true;
+          resolve(fallback);
+        }, ms);
+        Promise.resolve(promise).then(function(v){
+          if(settled)return;
+          settled=true;
+          clearTimeout(t);
+          resolve(v);
+        }).catch(function(){
+          if(settled)return;
+          settled=true;
+          clearTimeout(t);
+          resolve(fallback);
+        });
+      });
+    }
     async function loadBannedUsers(){
       if(!sb)return;
       try{
-        var r=await sb.from('profiles').select('username,status,banned,suspended').or('banned.eq.true,status.eq.banned,status.eq.suspended,suspended.eq.true');
+        var r=await sbQueryTimeout(
+          sb.from('profiles').select('username,status,banned,suspended').or('banned.eq.true,status.eq.banned,status.eq.suspended,suspended.eq.true'),
+          5000,
+          {data:[]}
+        );
         var map={};
-        (r.data||[]).forEach(function(u){
+        (r&&r.data||[]).forEach(function(u){
           if(!u||!u.username)return;
           var st=String(u.status||'').toLowerCase();
           if(u.banned===true||u.suspended===true||st==='banned'||st==='suspended'){
@@ -3841,9 +3868,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         bannedUsers=map;
       }catch(e){
         try{
-          var r2=await sb.from('profiles').select('username,banned').eq('banned',true);
+          var r2=await sbQueryTimeout(sb.from('profiles').select('username,banned').eq('banned',true),4000,{data:[]});
           var map2={};
-          (r2.data||[]).forEach(function(u){if(u&&u.username)map2[String(u.username).toLowerCase()]=true});
+          (r2&&r2.data||[]).forEach(function(u){if(u&&u.username)map2[String(u.username).toLowerCase()]=true});
           bannedUsers=map2;
         }catch(e2){console.warn('loadBannedUsers',e2)}
       }
@@ -4458,19 +4485,47 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{openHashPost()}catch(e){}
       // Restore section link immediately so refresh keeps the user on Wall/GoonTok/etc.
       try{applyLocationRoute()}catch(e){}
-      // Never let the optional banned-users request block the initial feed.
-      // If that request is slow/fails, the user should still see posts without
-      // having to manually open the Feed tab to trigger loadPosts().
-      loadBannedUsers().catch(function(e){console.warn('banned users bootstrap',e)}).then(function(){
-        var slug='';
-        try{slug=currentRouteSlug()}catch(e){}
-        if(slug && slug!=='feed' && slug!=='home' && slug!=='extend' && slug!=='spotlight') return;
-        return loadPosts();
-      }).then(function(){applyLocationRoute();openHashPost({force:true}); setTimeout(function(){openHashPost({force:true})},700); checkRecoveryHash();updateProfilePanel();}).catch(function(e){
+      // Kick the feed immediately — never wait on banned-users / auth side quests.
+      try{
+        var slug0='';
+        try{slug0=currentRouteSlug()}catch(e){}
+        if(!slug0 || slug0==='feed' || slug0==='home' || slug0==='extend' || slug0==='spotlight' || slug0===''){
+          Promise.resolve(loadPosts()).catch(function(e){console.warn('boot loadPosts',e)});
+        }
+      }catch(e){try{loadPosts()}catch(e2){}}
+      loadBannedUsers().catch(function(e){console.warn('banned users bootstrap',e)});
+      Promise.resolve().then(function(){
+        applyLocationRoute();
+        openHashPost({force:true});
+        setTimeout(function(){openHashPost({force:true})},700);
+        checkRecoveryHash();
+        updateProfilePanel();
+      }).catch(function(e){
         console.warn('initial feed bootstrap',e);
         try{loadPosts()}catch(e2){}
         try{applyLocationRoute();openHashPost({force:true})}catch(e2){}
       });
+      // Safety net: if the feed is still "Loading..." after network settles, force a paint.
+      setTimeout(function(){
+        try{
+          var box=document.getElementById('posts-container');
+          if(!box)return;
+          var stuck=/Loading/i.test(box.textContent||'') && !box.querySelector('article.post');
+          if(!stuck)return;
+          window.__loadPostsAt=0;window.__loadPostsBusy=null;
+          Promise.resolve(loadPosts()).catch(function(){});
+          setTimeout(function(){
+            try{
+              if(/Loading/i.test(box.textContent||'') && !box.querySelector('article.post')){
+                if(typeof renderPosts==='function') renderPosts();
+                if(/Loading/i.test(box.textContent||'') && !box.querySelector('article.post')){
+                  box.innerHTML='<div class="empty">No active exposures</div>';
+                }
+              }
+            }catch(e){}
+          },2500);
+        }catch(e){}
+      },4500);
       loadNotifs();updateMsgBadge();loadXpFromProfile();updateProfilePanel();setupPullRefresh();
       try{setTimeout(function(){tickDailyRetention();paintProfileRetention()},600)}catch(e){}
       setInterval(function(){try{pollMessagesLive()}catch(e){}},8000);
@@ -15243,19 +15298,85 @@ function openRoulette(){
         }
       }catch(e){console.warn('last published paint',e)}
 
+      function mergeFeedRows(rows){
+        rows=(rows||[]).map(function(r){
+          try{
+            if(!r)return null;
+            // Already feed-shaped
+            if(r._cf || (r.user!=null && (r.expires!=null || r.image!=null) && r.username==null && !r.expires_at && !r.image_url)) return r;
+            return cfRowToFeed(r);
+          }catch(e){return null}
+        }).filter(function(p){return p && !isDeletedId(p.id)});
+        posts=(posts||[]).filter(function(p){return p && !isDeletedId(p.id)});
+        rows.forEach(function(p){
+          if(!p)return;
+          var i=posts.findIndex(function(x){return String(x.id)===String(p.id)});
+          if(i>=0){
+            var cur=posts[i];
+            cur.expires=Math.max(Number(cur.expires)||0, Number(p.expires)||0);
+            cur.featuredUntil=Math.max(Number(cur.featuredUntil)||0, Number(p.featuredUntil)||0);
+            cur.likes=Math.max(Number(cur.likes)||0, Number(p.likes)||0);
+            cur.views=Math.max(Number(cur.views)||0, Number(p.views)||0);
+            cur.extensions=Math.max(Number(cur.extensions)||0, Number(p.extensions)||0);
+            if(p.extendAmount) cur.extendAmount=p.extendAmount;
+            if(p.image) cur.image=p.image;
+            if(p.images&&p.images.length) cur.images=p.images;
+            if(p.created) cur.created=Math.max(Number(cur.created)||0, Number(p.created)||0);
+            if(p.tags&&p.tags.length) cur.tags=p.tags;
+            posts[i]=cur;
+            return;
+          }
+          var dup=posts.some(function(x){return typeof isNearDupPost==='function' && isNearDupPost(x,p)});
+          if(dup)return;
+          if(typeof isBrandNewPost==='function' && isBrandNewPost(p)) posts.unshift(p);
+          else posts.push(p);
+        });
+      }
+      function paintFeedSafe(){
+        try{
+          if(!viewingSaved) renderPosts();
+        }catch(e){console.warn('renderPosts',e)}
+        try{
+          var hold=document.getElementById('posts-container');
+          if(hold && /Loading/i.test(hold.textContent||'') && !hold.querySelector('article.post')){
+            hold.innerHTML='<div class="empty">No active exposures</div>';
+          }
+        }catch(e){}
+      }
       try{
-        // Parallel network: CF feed + featured + Supabase timed/recent
+        // Parallel network with timeouts — never let one hung source freeze Loading forever.
         var nowIso=new Date().toISOString();
-        var jobs=[
-          Promise.resolve(fetchCfFeed('', 60)).catch(function(){return[]}),
-          Promise.resolve(fetchCfFeed('featured', 20)).catch(function(){return[]})
-        ];
+        var SB_FEED_COLS='id,username,title,description,tags,image_url,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions';
+        var cfP=sbQueryTimeout(Promise.resolve(fetchCfFeed('', 60)).catch(function(){return[]}),8000,[]);
+        var featP=sbQueryTimeout(Promise.resolve(fetchCfFeed('featured', 20)).catch(function(){return[]}),8000,[]);
+        var timedP=Promise.resolve([]);
+        var recentP=Promise.resolve([]);
         if(typeof sb!=='undefined' && sb){
-          jobs.push(sb.from('posts').select('*').gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(80).then(function(r){return (r&&r.data)||[]}).catch(function(){return[]}));
-          // Recent-by-created: primary source so brand-new publishes appear for every user.
-          jobs.push(sb.from('posts').select('*').order('created_at',{ascending:false}).limit(60).then(function(r){return (r&&r.data)||[]}).catch(function(){return[]}));
+          timedP=sbQueryTimeout(
+            sb.from('posts').select(SB_FEED_COLS).gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(80).then(function(r){return (r&&r.data)||[]}),
+            7000,
+            []
+          );
+          recentP=sbQueryTimeout(
+            sb.from('posts').select(SB_FEED_COLS).order('created_at',{ascending:false}).limit(60).then(function(r){return (r&&r.data)||[]}),
+            7000,
+            []
+          );
         }
-        var parts=await Promise.all(jobs);
+        // Paint CF as soon as it arrives (don't wait on Supabase).
+        cfP.then(function(rows){
+          try{
+            mergeFeedRows(rows||[]);
+            paintFeedSafe();
+          }catch(e){}
+        });
+        featP.then(function(rows){
+          try{
+            mergeFeedRows(rows||[]);
+            paintFeedSafe();
+          }catch(e){}
+        });
+        var parts=await Promise.all([cfP, featP, timedP, recentP]);
         var cfRows=(parts[0]||[]).slice();
         (parts[1]||[]).forEach(function(r){
           if(!(cfRows||[]).some(function(x){return String(x.id)===String(r.id)})) cfRows.unshift(r);
@@ -15272,36 +15393,9 @@ function openRoulette(){
         if(parts[3]) mergeSb(parts[3], true);
 
         if(cfRows&&cfRows.length){
-          var mapped=cfRows.map(function(r){try{return cfRowToFeed(r)}catch(e){return null}}).filter(function(p){
-            return p && !isDeletedId(p.id);
-          });
-          // Purge locally remembered posts that have already been deleted.
-          posts=(posts||[]).filter(function(p){return p && !isDeletedId(p.id)});
-          mapped.forEach(function(p){
-            if(!p)return;
-            var i=posts.findIndex(function(x){return String(x.id)===String(p.id)});
-            if(i>=0){
-              var cur=posts[i];
-              cur.expires=Math.max(Number(cur.expires)||0, Number(p.expires)||0);
-              cur.featuredUntil=Math.max(Number(cur.featuredUntil)||0, Number(p.featuredUntil)||0);
-              cur.likes=Math.max(Number(cur.likes)||0, Number(p.likes)||0);
-              cur.views=Math.max(Number(cur.views)||0, Number(p.views)||0);
-              cur.extensions=Math.max(Number(cur.extensions)||0, Number(p.extensions)||0);
-              if(p.extendAmount) cur.extendAmount=p.extendAmount;
-              if(p.image) cur.image=p.image;
-              if(p.images&&p.images.length) cur.images=p.images;
-              if(p.created) cur.created=Math.max(Number(cur.created)||0, Number(p.created)||0);
-              posts[i]=cur;
-              return;
-            }
-            var dup=posts.some(function(x){return isNearDupPost(x,p)});
-            if(dup)return;
-            // Brand-new rows go to the front of the in-memory list for every client.
-            if(typeof isBrandNewPost==='function' && isBrandNewPost(p)) posts.unshift(p);
-            else posts.push(p);
-          });
+          mergeFeedRows(cfRows);
           try{writePostCache('rs_home_cache', posts)}catch(e){}
-          if(!viewingSaved)renderPosts();
+          paintFeedSafe();
         }
       }catch(e){console.warn('cf feed',e)}
       try{
@@ -15328,10 +15422,15 @@ function openRoulette(){
           }
         }catch(e){}
         try{posts=pinBrandNewFirst(posts, BRAND_NEW_MS)}catch(e){}
-        if(!viewingSaved)renderPosts();
+        paintFeedSafe();
         try{renderNormalFeed()}catch(e){}
       }catch(e){}
-      if(!(posts&&posts.length) && box) box.innerHTML='<div class="empty">No active exposures</div>';
+      try{
+        var boxEnd=document.getElementById('posts-container');
+        if(boxEnd && /Loading/i.test(boxEnd.textContent||'') && !boxEnd.querySelector('article.post')){
+          boxEnd.innerHTML='<div class="empty">No active exposures</div>';
+        }
+      }catch(e){}
       })();
       window.__loadPostsBusy=run.finally(function(){
         if(window.__loadPostsBusy===run) window.__loadPostsBusy=null;
@@ -19145,7 +19244,15 @@ function postCardHtml(p, compact){
       // Show a dense first page, then infinite-scroll the rest (no artificial tiny cap).
       var initial=Math.min(rest.length, Math.max(24, (window.innerWidth>=1280?40:window.innerWidth>=900?32:24)));
       window.__feedShown=initial;
-      box.innerHTML=rest.slice(0,initial).map(function(p){return postCardHtml(p,true)}).join('');
+      try{
+        box.innerHTML=rest.slice(0,initial).map(function(p){
+          try{return postCardHtml(p,true)}catch(err){console.warn('postCardHtml',p&&p.id,err);return ''}
+        }).join('');
+        if(!box.innerHTML.trim()) box.innerHTML='<div class="empty">No active exposures</div>';
+      }catch(e){
+        console.warn('feed paint',e);
+        box.innerHTML='<div class="empty">No active exposures</div>';
+      }
       try{bindFeedInfinite()}catch(e){}
       try{syncExtendedPanel(rest)}catch(e){}
       updateTimers();
