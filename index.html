@@ -671,6 +671,8 @@
     
     .feat-carousel{display:flex;width:100%;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;scroll-behavior:auto;-webkit-overflow-scrolling:touch;gap:0;padding:0;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
     .feat-slide{min-width:100%;width:100%;flex:0 0 100%;flex-shrink:0;box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:always;padding:0 12px}
+    article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card{-webkit-tap-highlight-color:rgba(245,197,24,.18);touch-action:manipulation}
+    article.post.is-pressing,article.normal-feed-post.is-pressing,article.id-archive-card.is-pressing{opacity:.92;transform:scale(.995);transition:opacity .08s ease,transform .08s ease}
     .feat-dots{display:flex;justify-content:center;gap:8px;margin:8px 0 4px}
     .feat-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25)}
     .feat-dot.on{background:var(--orange)}
@@ -1494,6 +1496,7 @@ body.rc-on #hdr-fc{display:none!important}
 .gt-load{background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.18)}
 .gt-err{background:rgba(80,0,0,.72);color:#fecaca;border:1px solid rgba(248,113,113,.45);pointer-events:auto}
 .gt-act.gt-hot{color:#ffb020}
+.gt-act.gt-hot .gt-hot-n{display:block;font-size:12px;font-weight:900;line-height:1;margin-top:1px;text-shadow:0 1px 4px rgba(0,0,0,.7)}
 .gt-album{display:flex;height:100%;width:100%;overflow-x:hidden;overflow-y:hidden;scroll-snap-type:none;-webkit-overflow-scrolling:touch}
 .gt-album.multi{overflow-x:auto;scroll-snap-type:x mandatory}
 .gt-media{min-width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;background:#000;position:relative}
@@ -3433,9 +3436,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(!Array.isArray(tags))tags=[];
       var imgs=mergePostImages(p.image_url||p.media_url||'', tags, extractAlbumMarker(p.description||p.desc||'').concat(p.media_url?[p.media_url]:[]));
       if(!imgs.length && p.media_url) imgs=[p.media_url];
-      var thumb=p.thumb_url||p.poster||'';
+      var thumb=p.thumb_url||p.poster||(typeof parseVthumbTag==='function'?parseVthumbTag(tags):'')||'';
       if(thumb && (typeof isVideoUrl==='function' && isVideoUrl(thumb) || thumb===p.media_url)) thumb='';
-      if(thumb && imgs.indexOf(thumb)<0) imgs.push(thumb);
+      // Keep thumbs out of the gallery list — poster-only.
       if((p.media_type==='video'||(Array.isArray(tags)&&tags.indexOf('video')>=0)) && p.media_url && imgs.indexOf(p.media_url)<0) imgs.unshift(p.media_url);
       var created=p.created_at?new Date(p.created_at).getTime():Date.now();
       if(!isFinite(created)) created=Number(p.created_at)||Date.now();
@@ -3533,6 +3536,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(tags.indexOf('goontok')<0 && String(row.media_type||'')==='video') tags=tags.concat(['goontok']);
         // Videos: store ONLY the video URL in image_url. thumb_url is preview-only and
         // must never be packed into the media album (that caused video+photo duplicates).
+        // Persist thumb as a vthumb: tag so Safari/Extend can restore poster without a SB column.
         var imageField=row.media_url||row.image_url||'';
         if(String(row.media_type||'')==='video'){
           try{
@@ -3540,6 +3544,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               return u && (typeof isVideoUrl!=='function' || isVideoUrl(u));
             })[0]||imageField;
             imageField=onlyVid;
+          }catch(e){}
+          try{
+            if(row.thumb_url && typeof withVthumbTag==='function'){
+              tags=withVthumbTag(tags, row.thumb_url);
+            }
           }catch(e){}
         }
         var ins={
@@ -3966,6 +3975,28 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       });
       return {videos:videos, posters:posters};
     }
+    function parseVthumbTag(tags){
+      tags=tags||[];
+      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+      if(!Array.isArray(tags))return '';
+      for(var i=0;i<tags.length;i++){
+        var t=String(tags[i]||'');
+        if(t.indexOf('vthumb:')===0){
+          var u=t.slice(7).trim();
+          if(u) return typeof publicMediaUrl==='function'?publicMediaUrl(u):u;
+        }
+      }
+      return '';
+    }
+    function withVthumbTag(tags, url){
+      tags=Array.isArray(tags)?tags.slice():[];
+      tags=tags.filter(function(t){return String(t||'').indexOf('vthumb:')!==0});
+      url=typeof publicMediaUrl==='function'?publicMediaUrl(url):String(url||'');
+      if(url && !(typeof isVideoUrl==='function' && isVideoUrl(url))) tags.push('vthumb:'+url);
+      return tags;
+    }
+    window.parseVthumbTag=parseVthumbTag;
+    window.withVthumbTag=withVthumbTag;
     function sanitizeVideoPostMedia(p){
       if(!p)return p;
       var isVid=false;
@@ -3978,7 +4009,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{if(p.video) pool.push(p.video)}catch(e){}
       var split=splitVideoAndPoster(pool);
       var vsrc=split.videos[0]||'';
-      var poster=publicMediaUrl(p.thumb_url||p.poster||split.posters[0]||'');
+      var tagged=typeof parseVthumbTag==='function'?parseVthumbTag(p.tags):'';
+      var poster=publicMediaUrl(p.thumb_url||p.poster||tagged||split.posters[0]||'');
       if(poster && (typeof isVideoUrl==='function' && isVideoUrl(poster))) poster='';
       if(vsrc){
         p.media_url=vsrc;
@@ -3994,6 +4026,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(poster){
         p.poster=poster;
         p.thumb_url=poster;
+        try{
+          if(typeof withVthumbTag==='function' && !parseVthumbTag(p.tags)){
+            p.tags=withVthumbTag(p.tags||[], poster);
+          }
+        }catch(e){}
+        try{if(vsrc) cacheVideoPosterUrl(vsrc, poster)}catch(e){}
       }
       // Videos are permanent — strip accidental timers from the live object.
       try{
@@ -4042,7 +4080,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         t=String(t||'');
         if(!t)return false;
         if(t.indexOf('album:')===0)return false;
+        if(t.indexOf('optv:')===0)return false;
+        if(t.indexOf('vthumb:')===0)return false;
         if(/^pic\d+:/i.test(t))return false;
+        if(/^hot:\d+$/i.test(t))return false;
         if(t==='profile_gallery'||t==='profile_only'||t==='generated_id'||t==='normal_feed')return false;
         if(/^gender_/.test(t)||/^ext_/.test(t))return false;
         return true;
@@ -4142,58 +4183,166 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function activateLazyVideo(el){
       if(!el)return;
       try{
+        if(el.getAttribute('data-lv-active')==='1'){
+          var existing=el.querySelector('video');
+          if(existing){try{existing.play().catch(function(){})}catch(e){} }
+          return;
+        }
         var src=el.getAttribute('data-video-src')||'';
         if(!src)return;
-        src=src.split('#')[0];
+        src=typeof publicMediaUrl==='function'?publicMediaUrl(src.split('#')[0]):src.split('#')[0];
+        if(!src)return;
         var poster=el.getAttribute('data-video-poster')||'';
-        var wrap=document.createElement('div');
-        wrap.style.cssText='position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;min-height:180px';
-        var v=document.createElement('video');
-        if(poster)v.poster=poster;
+        poster=typeof publicMediaUrl==='function'?publicMediaUrl(poster):poster;
+        if(poster && typeof isVideoUrl==='function' && isVideoUrl(poster)) poster='';
+        el.setAttribute('data-lv-active','1');
+        el.classList.add('lv-playing');
+        var loadEl=el.querySelector('.lv-loading');
+        if(loadEl) loadEl.hidden=false;
+        var playBtn=el.querySelector('.lv-play');
+        if(playBtn) playBtn.style.display='none';
+        var v=el.querySelector('video.lv-player')||el.querySelector('video');
+        if(!v){
+          v=document.createElement('video');
+          v.className='lv-player';
+          el.insertBefore(v, el.firstChild);
+        }
+        // Safari/WebKit: playsInline + Range-friendly progressive src (no fragment).
+        v.classList.add('lv-player');
         v.controls=true;
         v.playsInline=true;
         v.setAttribute('playsinline','');
         v.setAttribute('webkit-playsinline','true');
-        v.preload='metadata';
-        v.muted=true;
-        v.style.cssText='width:100%;max-height:70vh;background:#000;display:block;object-fit:contain';
-        wrap.appendChild(v);
-        el.replaceWith(wrap);
-        v.src=src;
+        v.setAttribute('x-webkit-airplay','allow');
+        v.preload='auto';
+        v.muted=false;
+        v.removeAttribute('loop');
+        v.style.cssText='position:relative;z-index:1;width:100%;max-height:70vh;min-height:180px;background:#000;display:block;object-fit:contain';
+        if(poster){ try{v.setAttribute('poster',poster);v.poster=poster}catch(e){} }
+        // Drop the #t= preview fragment so the original file plays from the start.
+        try{
+          if(v.getAttribute('src')!==src){
+            v.setAttribute('src',src);
+            v.src=src;
+          }
+        }catch(e){ try{v.src=src}catch(e2){} }
         var tries=0;
+        function hideLoad(){ if(loadEl) loadEl.hidden=true; }
         function kick(){
-          try{v.play().then(function(){setTimeout(function(){v.muted=false},400)}).catch(function(){v.muted=true;v.play().catch(function(){})})}catch(e){}
+          try{
+            var p=v.play();
+            if(p&&p.then){
+              p.then(hideLoad).catch(function(){
+                // User-gesture retry: stay unmuted first (tap already happened).
+                try{v.muted=false;v.play().then(hideLoad).catch(function(){v.muted=true;v.play().then(hideLoad).catch(function(){})})}catch(e){}
+              });
+            }else hideLoad();
+          }catch(e){}
         }
-        v.addEventListener('loadeddata', kick);
+        v.addEventListener('loadeddata', function(){ hideLoad(); kick(); }, {once:true});
+        v.addEventListener('playing', hideLoad);
         v.addEventListener('stalled', function(){ if(tries++<2){ try{v.load();kick()}catch(e){} } });
         v.addEventListener('error', function(){
-          if(tries++<1){ try{v.load();kick()}catch(e){} return }
-          if(poster) wrap.innerHTML='<img src="'+poster+'" alt="" style="width:100%;max-height:70vh;object-fit:contain;display:block;background:#000"/>';
+          if(tries++<1){ try{v.removeAttribute('src');v.src=src;v.load();kick()}catch(e){} return; }
+          hideLoad();
+          if(poster){
+            el.innerHTML='<img src="'+esc(poster)+'" alt="" style="width:100%;max-height:70vh;object-fit:contain;display:block;background:#000"/>';
+          }
         });
+        try{v.load()}catch(e){}
         kick();
       }catch(e){}
     }
     function warmVideoThumb(el){
-      // Intentionally no-op for feed performance: downloading full MP4s just to
-      // mint posters blocked the Wall/GoonTok (files are often 20–90MB).
-      // Prefer server thumb_url / rs_vposter cache from publish-time grabs.
-      if(!el)return;
+      // Arm a Safari-safe first-frame preview without downloading the full MP4.
+      // R2 has no CORS → canvas export often fails; #t=0.1 paints a real frame instead.
+      if(!el||el.getAttribute('data-warmed')==='1'||el.getAttribute('data-lv-active')==='1')return;
       el.setAttribute('data-warmed','1');
+      try{
+        var src=el.getAttribute('data-video-src')||'';
+        src=typeof publicMediaUrl==='function'?publicMediaUrl(String(src).split('#')[0]):String(src).split('#')[0];
+        if(!src)return;
+        var poster=el.getAttribute('data-video-poster')||'';
+        var v=el.querySelector('video.lv-player')||el.querySelector('video');
+        if(!v)return;
+        if(poster){
+          try{v.setAttribute('poster',poster);v.poster=poster}catch(e){}
+          return;
+        }
+        // No stored thumb: load a media-fragment preview so Safari never shows a black card.
+        var preview=src+(src.indexOf('#')>=0?'':'#t=0.1');
+        if(!v.getAttribute('src')){
+          v.setAttribute('src',preview);
+          v.preload='metadata';
+          v.muted=true;
+          v.playsInline=true;
+          v.setAttribute('playsinline','');
+          v.setAttribute('webkit-playsinline','true');
+          try{v.load()}catch(e){}
+        }
+        var loadEl=el.querySelector('.lv-loading');
+        function ready(){
+          if(loadEl) loadEl.hidden=true;
+          try{
+            if(v.videoWidth){
+              // Best-effort canvas cache when same-origin / CORS allows it.
+              var data=typeof capturePosterFromVideoEl==='function'?capturePosterFromVideoEl(v,src):'';
+              if(data){
+                el.setAttribute('data-video-poster',data);
+                try{v.setAttribute('poster',data)}catch(e){}
+              }
+            }
+          }catch(e){}
+        }
+        v.addEventListener('loadeddata', ready, {once:true});
+        v.addEventListener('seeked', ready, {once:true});
+        v.addEventListener('error', function(){ if(loadEl) loadEl.hidden=true; }, {once:true});
+      }catch(e){}
+    }
+    function warmVisibleLazyVideos(root){
+      try{
+        root=root||document;
+        var nodes=root.querySelectorAll('.lazy-video');
+        if(!nodes||!nodes.length)return;
+        function warmOne(el){
+          try{if(typeof warmVideoThumb==='function') warmVideoThumb(el)}catch(e){}
+        }
+        if(!window.IntersectionObserver){
+          Array.prototype.forEach.call(nodes, warmOne);
+          return;
+        }
+        if(!window.__lvWarmObs){
+          window.__lvWarmObs=new IntersectionObserver(function(entries){
+            entries.forEach(function(en){
+              if(!en.isIntersecting)return;
+              warmOne(en.target);
+              try{window.__lvWarmObs.unobserve(en.target)}catch(e){}
+            });
+          },{root:null,rootMargin:'180px 0px',threshold:0.05});
+        }
+        Array.prototype.forEach.call(nodes,function(el){
+          if(el.getAttribute('data-warmed')==='1'||el.getAttribute('data-lv-active')==='1')return;
+          try{window.__lvWarmObs.observe(el)}catch(e){warmOne(el)}
+        });
+      }catch(e){}
     }
     window.warmVideoThumb=warmVideoThumb;
     window.activateLazyVideo=activateLazyVideo;
+    window.warmVisibleLazyVideos=warmVisibleLazyVideos;
 
     function lazyVideoHtml(src, poster, i, pid){
-      src=String(src||'');poster=String(poster||'');
-      var clip=src?(src+(src.indexOf('#')>=0?'':'#t=0.1')):'';
-      var bg='';
-      if(poster){
-        bg+='<img src="'+esc(feedThumb(poster,400))+'" alt="" loading="lazy" decoding="async" style="width:100%;min-height:180px;max-height:70vh;object-fit:cover;display:block;background:#111" onerror="this.style.display=\'none\'"/>';
-      }
-      bg+='<video muted playsinline webkit-playsinline preload="none" data-src="'+esc(src)+'" style="'+(poster?'position:absolute;inset:0;opacity:0;pointer-events:none;':'')+'width:100%;height:'+(poster?'100%':'220px')+';object-fit:cover;display:block;background:#111"></video>';
-      return '<div class="lazy-video" data-video-src="'+esc(src)+'" data-video-poster="'+esc(poster)+'" onclick="event.stopPropagation();activateLazyVideo(this)" style="position:relative;width:100%;min-height:180px;background:#111;border-radius:12px;overflow:hidden;cursor:pointer">'+
-        bg+
-        '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:23px;box-shadow:0 6px 25px rgba(0,0,0,.4);z-index:2">▶</div>'+
+      src=typeof publicMediaUrl==='function'?publicMediaUrl(String(src||'').split('#')[0]):String(src||'').split('#')[0];
+      poster=typeof publicMediaUrl==='function'?publicMediaUrl(String(poster||'')):String(poster||'');
+      if(poster && typeof isVideoUrl==='function' && isVideoUrl(poster)) poster='';
+      // Safari iOS paints the first decoded frame from a media fragment when no poster exists.
+      // Do NOT leave preload=none with an empty src — that is the black-rectangle bug.
+      var preview=src?(src+(src.indexOf('#')>=0?'':'#t=0.1')):'';
+      var posterAttr=poster?' poster="'+esc(poster)+'"':'';
+      var vSrc=poster?'':' src="'+esc(preview)+'"';
+      return '<div class="lazy-video" data-video-src="'+esc(src)+'" data-video-poster="'+esc(poster)+'" data-pid="'+esc(String(pid||''))+'" onclick="event.stopPropagation();activateLazyVideo(this)" style="position:relative;width:100%;min-height:180px;background:#0a0a0a;border-radius:12px;overflow:hidden;cursor:pointer">'+
+        '<video class="lv-player" muted playsinline webkit-playsinline preload="metadata"'+posterAttr+vSrc+' data-src="'+esc(src)+'" style="position:relative;z-index:1;width:100%;min-height:180px;max-height:70vh;object-fit:contain;display:block;background:#0a0a0a"></video>'+
+        '<div class="lv-loading" '+(poster?'hidden':'')+' style="position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);color:#ddd;font-size:12px;font-weight:700;letter-spacing:.4px;pointer-events:none">Preparing video…</div>'+
+        '<div class="lv-play" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:23px;box-shadow:0 6px 25px rgba(0,0,0,.4);z-index:3;pointer-events:none">▶</div>'+
       '</div>';
     }
 
@@ -4224,7 +4373,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var first=list[0];
         var heroInner='';
         if(typeof isVideoUrl==='function' && isVideoUrl(first)){
-          heroInner=lazyVideoHtml(first,hint||'',0,pid);
+          var heroPoster=hint||'';
+          if(!heroPoster){
+            try{
+              var heroPost=(posts||[]).concat(window.__videoCache||[]).find(function(x){return String(x.id)===String(pid)});
+              heroPoster=typeof videoPosterOf==='function'?videoPosterOf(heroPost,first):'';
+            }catch(e){}
+          }
+          heroInner=lazyVideoHtml(first,heroPoster||'',0,pid);
         } else {
           heroInner='<img id="dx-hero-img" src="'+esc(feedThumb(first,900))+'" data-orig="'+esc(first)+'" alt="" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="0" data-pid="'+pid+'"/>';
         }
@@ -4268,7 +4424,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var navHtml='';
         keepNav.forEach(function(n){navHtml+=n.outerHTML});
         if(typeof isVideoUrl==='function' && isVideoUrl(src)){
-          box.innerHTML=lazyVideoHtml(src,'',i,pid)+navHtml;
+          var detPoster='';
+          try{
+            var detPost=(posts||[]).find(function(x){return String(x.id)===String(pid)});
+            detPoster=typeof videoPosterOf==='function'?videoPosterOf(detPost,src):(detPost&&(detPost.poster||detPost.thumb_url))||'';
+          }catch(e){}
+          box.innerHTML=lazyVideoHtml(src,detPoster,i,pid)+navHtml;
         } else {
           box.innerHTML='<img id="dx-hero-img" src="'+esc(src)+'" data-orig="'+esc(src)+'" alt="" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="'+i+'" data-pid="'+esc(pid||'')+'"/>'+navHtml;
         }
@@ -9526,6 +9687,10 @@ function openRoulette(){
           history.replaceState({panel:dest==='detail'?'feed':dest},'',path);
         }catch(e){}
         showPanel(dest==='detail'?'feed':dest,{fromDetail:true,keepScroll:true});
+        if(dest==='goontok'){
+          try{setTimeout(function(){restoreGoonTokScroll()}, 30)}catch(e){}
+          try{setTimeout(function(){restoreGoonTokScroll()}, 160)}catch(e){}
+        }
       };
       document.getElementById('btn-user-back').onclick=function(){showPanel('feed')};
       document.getElementById('btn-publish').onclick=createPost;
@@ -11012,9 +11177,16 @@ function openRoulette(){
       }
     }
     function videoPosterOf(p, src){
-      function ok(u){return u && !(typeof isVideoUrl==='function' && isVideoUrl(u)) && !/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(u))}
-      if(p&&ok(p.poster))return p.poster;
-      if(p&&ok(p.thumb_url))return p.thumb_url;
+      function ok(u){
+        u=typeof publicMediaUrl==='function'?publicMediaUrl(u):u;
+        return u && !(typeof isVideoUrl==='function' && isVideoUrl(u)) && !/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(String(u));
+      }
+      if(p&&ok(p.poster))return publicMediaUrl(p.poster);
+      if(p&&ok(p.thumb_url))return publicMediaUrl(p.thumb_url);
+      try{
+        var tagged=typeof parseVthumbTag==='function'?parseVthumbTag(p&&p.tags):'';
+        if(ok(tagged)) return tagged;
+      }catch(e){}
       try{
         var map=loadVideoPosterMap();
         var pub=typeof publicMediaUrl==='function'?publicMediaUrl(src):src;
@@ -11030,7 +11202,7 @@ function openRoulette(){
       }catch(e){}
       var imgs=postMediaList(p||{});
       var shot=imgs.filter(ok)[0];
-      return shot||'';
+      return shot?publicMediaUrl(shot):'';
     }
     function capturePosterFromVideoEl(v, src){
       try{
@@ -11988,6 +12160,9 @@ function openRoulette(){
         try{
           if(window.__vpWasOptimized) tags=withOptTag(tags, imageField);
         }catch(e){}
+        try{
+          if(posterUrl && typeof withVthumbTag==='function') tags=withVthumbTag(tags, posterUrl);
+        }catch(e){}
         var cfVid=await createCfPost({
           username:(currentUser&&currentUser.name)||'anon',
           title:title,
@@ -12079,13 +12254,14 @@ function openRoulette(){
         showPanel('feed');
         return;
       }
-      // Leaving detail / switching sections must never auto-reopen a previous post.
-      // Skip suppress during boot/route restore so shared ?p= / #p= deep-links still work.
+      // Leaving detail / switching sections must never auto-reopen a previous post
+      // via hash/route. Do NOT set __blockFeedTap here — that caused "tap 2–3 times"
+      // right after opening Wall/Extend/GoonTok.
       if(name!=='detail'){
         try{
-          window.__blockFeedTap=Date.now()+450;
           if(!window.__routing && !opts.fromRoute){
-            window.__suppressAutoOpenPost=Date.now()+1400;
+            // Only for automatic hash/route reopen — openCardFromEvent ignores this flag.
+            window.__suppressAutoOpenPost=Date.now()+500;
             if(!opts.keepPostHash){
               window.__openedHashPost=null;
               currentDetailId=null;
@@ -12122,7 +12298,11 @@ function openRoulette(){
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){
         // openGoonTok already fetches + paints; avoid a second remount/re-arm storm.
-        if(!window.__gtOpening){
+        // Returning from detail: preserve scroll + keep armed players (TikTok feel).
+        if(opts&&opts.fromDetail){
+          try{bindGoonTok({preservePlay:true})}catch(e){}
+          try{restoreGoonTokScroll()}catch(e){}
+        }else if(!window.__gtOpening){
           try{
             if(typeof fetchVideoPosts==='function') fetchVideoPosts().then(function(){renderGoonTok({quiet:true})}).catch(function(){renderGoonTok({quiet:true})});
             else renderGoonTok({quiet:true});
@@ -12145,12 +12325,70 @@ function openRoulette(){
     var gtTab='feed';
     var GT_TARGET=80;
     var GT_PAGE=24;
-    var GT_PROBE_MS=8000; // warm neighbors patiently on mobile
-    var GT_LOAD_TIMEOUT_MS=12000; // never drop a slow-but-valid clip mid-swipe
-    var GT_LOAD_UI_MS=1400; // brief Loading chip; poster stays underneath
+    var GT_PROBE_MS=6000; // warm neighbors patiently on mobile
+    var GT_LOAD_TIMEOUT_MS=9000; // soft-fail slow clips; never leave Loading forever
+    var GT_LOAD_UI_MS=900; // brief Loading chip; poster stays underneath
+    var GT_LOAD_MAX_MS=3200; // hard cap: Loading… chip always hides by this time
     var GT_BROKEN_TTL=45*60*1000; // retry failed media after 45m (was 6h — starved the feed)
     var GT_SOFT_RETRY_MS=90*1000; // allow soft-failed slides to retry in-place
     var GT_PREFLIGHT_MS=2800;
+    function isSafariLikeBrowser(){
+      try{
+        var ua=navigator.userAgent||'';
+        var iOS=/iP(hone|ad|od)/i.test(ua);
+        var webkit=/WebKit/i.test(ua);
+        var chrome=/CriOS|Chrome|Chromium|Edg|Firefox|FxiOS|OPR|Opera/i.test(ua);
+        if(iOS && webkit) return true;
+        if(/Safari/i.test(ua) && webkit && !chrome) return true;
+      }catch(e){}
+      return false;
+    }
+    function isSafariIncompatibleVideoUrl(url){
+      // Safari/iOS has no VP8/VP9/Opus WebM decode — fail fast instead of endless Loading…
+      return /\.webm(\?|#|$)/i.test(String(url||''));
+    }
+    function saveGoonTokScroll(){
+      try{
+        var sc=document.getElementById('gt-scroller');
+        if(!sc)return;
+        window.__gtScrollY=sc.scrollTop||0;
+        if(typeof window.__gtActiveIndex==='function') window.__gtSavedIdx=window.__gtActiveIndex();
+        else window.__gtSavedIdx=window.__gtLastIdx||0;
+      }catch(e){}
+    }
+    function restoreGoonTokScroll(){
+      try{
+        var sc=document.getElementById('gt-scroller');
+        if(!sc)return;
+        var y=Number(window.__gtScrollY||0)||0;
+        var idx=Number(window.__gtSavedIdx);
+        function go(){
+          try{
+            if(isFinite(idx) && idx>=0){
+              var h=sc.clientHeight||1;
+              sc.scrollTop=idx*h;
+            }else{
+              sc.scrollTop=y;
+            }
+          }catch(e){}
+        }
+        go();
+        requestAnimationFrame(go);
+        setTimeout(go,40);
+        setTimeout(function(){
+          go();
+          try{
+            if(typeof window.__gtWindowVideos==='function'){
+              var i=typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():(window.__gtLastIdx||0);
+              window.__gtWindowVideos(i);
+            }
+          }catch(e){}
+        },120);
+      }catch(e){}
+    }
+    window.saveGoonTokScroll=saveGoonTokScroll;
+    window.restoreGoonTokScroll=restoreGoonTokScroll;
+    window.isSafariLikeBrowser=isSafariLikeBrowser;
     // Verify the media can actually decode — URL existence alone is not enough.
     function probeVideoPlayable(url, ms){
       return new Promise(function(resolve){
@@ -12285,12 +12523,17 @@ function openRoulette(){
         if(p.images&&p.images.length) candidates=candidates.concat(p.images);
         else if(p.image) candidates=candidates.concat((typeof parseImages==='function')?parseImages(p.image):[p.image]);
       }catch(e){}
-      var src='';
+      var safari=typeof isSafariLikeBrowser==='function'&&isSafariLikeBrowser();
+      var mp4='', webm='', other='';
       for(var i=0;i<candidates.length;i++){
         var u=publicMediaUrl(String(candidates[i]||''));
-        if(!u||isImageUrl(u))continue;
-        if(isVideoUrl(u)){src=u;break}
+        if(!u||isImageUrl(u)||!isVideoUrl(u))continue;
+        if(/\.(mp4|m4v|mov)(\?|#|$)/i.test(u)){ if(!mp4) mp4=u; }
+        else if(/\.webm(\?|#|$)/i.test(u)){ if(!webm) webm=u; }
+        else if(!other) other=u;
       }
+      // Safari cannot decode WebM/VP8 — prefer H.264 MP4. Skip WebM-only rows on Safari.
+      var src=mp4||other||(!safari?webm:'');
       if(!src)return null;
       var poster='';
       try{poster=publicMediaUrl(p.thumb_url||p.poster||videoPosterOf(p, src)||'')}catch(e){poster=publicMediaUrl(p.thumb_url||p.poster||'')}
@@ -12521,7 +12764,7 @@ function openRoulette(){
         +'<div class="gt-load" hidden>Loading…</div>'
         +'<div class="gt-err" hidden><div>Video stalled</div><button type="button" class="btn btn-secondary btn-sm gt-retry" style="margin-top:8px;pointer-events:auto">Retry</button></div>'
         +'</div>';
-      var tags=(p.tags||[]).filter(function(t){var s=String(t||'');return s.indexOf('album:')!==0&&s.indexOf('optv:')!==0&&!/^hot:\d+$/i.test(s)}).slice(0,6).map(function(t){return '#'+String(t).replace(/^#/,'')}).join(' ');
+      var tags=(p.tags||[]).filter(function(t){var s=String(t||'');return s.indexOf('album:')!==0&&s.indexOf('optv:')!==0&&s.indexOf('vthumb:')!==0&&!/^hot:\d+$/i.test(s)}).slice(0,6).map(function(t){return '#'+String(t).replace(/^#/,'')}).join(' ');
       var av=avatarHtml(p.user);
       var likes=Number(p.likes)||0;
       var comments=Number(p.commentCount||p.comments||0);
@@ -12539,7 +12782,7 @@ function openRoulette(){
           '<span class="gt-plus">+</span>'+
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openReact(\''+String(p.id).replace(/'/g,'')+'\',event)"><span class="ico">♥</span>'+likes+'</button>'+
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openDetail(\''+String(p.id).replace(/'/g,'')+'\',true)"><span class="ico">💬</span>'+comments+'</button>'+
-          '<button class="gt-act gt-hot" type="button" onclick="event.stopPropagation();hotBumpGoonTok(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🔥</span><span class="lab">HOT</span> '+hotN+'</button>'+
+          '<button class="gt-act gt-hot" type="button" aria-label="Hot '+hotN+'" onclick="event.stopPropagation();hotBumpGoonTok(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🔥</span><span class="lab">HOT</span><span class="gt-hot-n">'+hotN+'</span></button>'+
           extBtn+
           '<button class="gt-act gt-share" type="button" onclick="event.stopPropagation();sharePost && sharePost(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">↗</span>Share</button>'+
         '</div>'+
@@ -12637,6 +12880,13 @@ function openRoulette(){
         if(load) load.hidden=true;
         if(err){
           err.hidden=false;
+          var label=err.querySelector('div');
+          if(label){
+            var why=String(reason||'');
+            label.textContent=/incompatible_codec|safari_webm/i.test(why)
+              ? 'Format not supported on iPhone'
+              : (/load_timeout|warm_|probe_/i.test(why) ? 'Slow connection' : 'Video stalled');
+          }
           var btn=err.querySelector('.gt-retry');
           if(btn && !btn.__bound){
             btn.__bound=1;
@@ -12899,6 +13149,7 @@ function openRoulette(){
           var sl=slideShell(v); if(!sl)return;
           var el=sl.querySelector('.gt-load'); if(!el)return;
           try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
+          try{clearTimeout(v.__gtLoadMaxTimer)}catch(e){}
           if(!on){ el.hidden=true; return; }
           // Delay chip so fast muted autoplay never flashes Loading… over the poster.
           // Cap visible time so it never sticks forever (Safari / broken CF).
@@ -12912,7 +13163,11 @@ function openRoulette(){
                 try{ if(el) el.hidden=true; }catch(e){}
               }, GT_LOAD_UI_MS);
             }catch(e){}
-          }, 350);
+          }, 280);
+          // Absolute safety: Loading… must never remain visible indefinitely.
+          v.__gtLoadMaxTimer=setTimeout(function(){
+            try{ if(el) el.hidden=true; }catch(e){}
+          }, GT_LOAD_MAX_MS);
         }catch(e){}
       }
       function clearSlideError(v){
@@ -12974,6 +13229,14 @@ function openRoulette(){
         var s=publicMediaUrl(v.getAttribute('data-src')||'');
         if(s && v.getAttribute('data-src')!==s) v.setAttribute('data-src',s);
         if(!s){failVideo(v,'no_src');return}
+        // Safari cannot play WebM — fail fast with Retry (no endless Loading…).
+        if(play && typeof isSafariLikeBrowser==='function' && isSafariLikeBrowser() && isSafariIncompatibleVideoUrl(s)){
+          setLoad(v,false);
+          showPoster(v);
+          failVideo(v,'incompatible_codec');
+          try{enqueueVideoOptimize(slideIdOf(v),'safari_webm')}catch(e){}
+          return;
+        }
         var sid=slideIdOf(v);
         if(sid&&isVideoHiddenFromGoonTok(sid)){failVideo(v,'known_broken');return}
         if(play) clearSlideError(v);
@@ -12983,6 +13246,21 @@ function openRoulette(){
         if(play && !needSet && !v.__gtFailed && !v.paused && v.readyState>=2){
           hidePoster(v);
           setLoad(v,false);
+          return;
+        }
+        // Active slide already buffered while paused — play immediately (TikTok feel).
+        if(play && !needSet && !v.__gtFailed && v.readyState>=2){
+          setLoad(v,false);
+          try{
+            v.muted=!(window.__gtSound && window.__gtSoundUnlocked);
+            var readyPlay=v.play();
+            if(readyPlay&&readyPlay.then){
+              readyPlay.then(function(){hidePoster(v);setLoad(v,false)}).catch(function(){
+                v.muted=true;
+                v.play().then(function(){hidePoster(v)}).catch(function(){showPoster(v)});
+              });
+            }else hidePoster(v);
+          }catch(e){showPoster(v)}
           return;
         }
         // Neighbor already buffered — keep poster, do not restart warm timers.
@@ -13641,12 +13919,28 @@ function openRoulette(){
           b.classList.add('on'); b.disabled=true;
           b.innerHTML='🔥 HOT · '+next;
         });
-        var gt=document.querySelector('.gt-slide[data-gid="'+escId+'"] .gt-hot');
-        if(gt) gt.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span> '+next;
+        document.querySelectorAll('.gt-slide[data-gid="'+escId+'"] .gt-hot').forEach(function(gt){
+          gt.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span><span class="gt-hot-n">'+next+'</span>';
+          gt.setAttribute('aria-label','Hot '+next);
+        });
       }catch(e){}
       try{if(!opts.fromGoonTok) renderNormalFeed()}catch(e){}
       try{if(!opts.fromGoonTok && typeof renderPosts==='function')renderPosts()}catch(e){}
+      // Keep open detail HOT button in sync immediately.
+      try{
+        var dxHot=document.querySelector('#detail-content .btn-hot[data-pid="'+id.replace(/"/g,'')+'"],#panel-detail .btn-hot');
+        if(dxHot && String(currentDetailId)===id){
+          dxHot.classList.add('on'); dxHot.disabled=true;
+          dxHot.innerHTML='🔥 HOT · '+next+'<i>boost wall interaction</i>';
+        }
+      }catch(e){}
       toast('Hot🔥 · boosted');
+      // Persist hot:N on Supabase (public) — CF PATCH requires admin token and often fails for guests.
+      try{
+        if(typeof sb!=='undefined' && sb){
+          await sb.from('posts').update({tags:p.tags}).eq('id', isFinite(Number(id))?Number(id):id);
+        }
+      }catch(e){}
       try{await patchCfPost(id,{tags:p.tags})}catch(e){}
     }
     function hotBumpGoonTok(id){
@@ -13663,12 +13957,11 @@ function openRoulette(){
       var viewLabel=displayViews((viewSrc&&viewSrc.views)||p.views||0);
       var vsrc='';
       if(imgs&&imgs.length){
-        vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
-        var poster=(p.poster||'')||(imgs||[]).filter(function(u){return u&&!(typeof isVideoUrl==='function'&&isVideoUrl(u))})[0]||'';
+        try{if(typeof sanitizeVideoPostMedia==='function'&&typeof isVideoPost==='function'&&isVideoPost(p)) sanitizeVideoPostMedia(p)}catch(e){}
+        vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||p.media_url||p.video||'';
+        vsrc=typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc;
+        var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
         if(vsrc){
-          var cached='';
-          try{cached=(JSON.parse(localStorage.getItem('rs_vposter')||'{}')||{})[vsrc]||''}catch(e){}
-          poster=poster||cached||'';
           media='<div class="normal-feed-post-media" style="position:relative">'
             +'<div class="normal-feed-view-badge"><span class="eye">👁</span>'+esc(String(viewLabel))+' VIEWS</div>'
             +lazyVideoHtml(vsrc,poster,0,p.id)
@@ -14180,6 +14473,7 @@ function openRoulette(){
       try{bindImpressions('wall')}catch(e){}
       try{prefetchAvatars(first).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
       try{bindWallInfiniteScroll()}catch(e){}
+      try{warmVisibleLazyVideos(document.getElementById('normal-feed-posts')||document.getElementById('panel-wall'))}catch(e){}
     }
     function bindWallInfiniteScroll(){
       var sent=document.getElementById('wall-more-sentinel');
@@ -15070,7 +15364,11 @@ function openRoulette(){
           if(r&&r.id){
             var mapped=cfRowToFeed(r);
             if(mapped){
-              if(!mapped.expires || mapped.expires<Date.now()) mapped.expires=Date.now()+24*3600000;
+              // Never invent a timer for videos / permanent posts — pinning must not create expiry.
+              try{
+                var isVid=!!(mapped._kind==='video'||mapped.media_type==='video'||(typeof isVideoPost==='function'&&isVideoPost(mapped)));
+                if(isVid){ mapped.expires=0; }
+              }catch(e){}
               return rememberFeedPost(mapped);
             }
           }
@@ -15082,7 +15380,10 @@ function openRoulette(){
           if(q&&q.data&&q.data.id){
             var mapped2=cfRowToFeed(q.data);
             if(mapped2){
-              if(!mapped2.expires || mapped2.expires<Date.now()) mapped2.expires=Date.now()+24*3600000;
+              try{
+                var isVid2=!!(mapped2._kind==='video'||mapped2.media_type==='video'||(typeof isVideoPost==='function'&&isVideoPost(mapped2)));
+                if(isVid2){ mapped2.expires=0; }
+              }catch(e){}
               return rememberFeedPost(mapped2);
             }
           }
@@ -15092,26 +15393,47 @@ function openRoulette(){
     }
     if(!window.__fastTapBound){
       window.__fastTapBound=true;
-      var sx=0,sy=0,st=0;
+      var sx=0,sy=0,st=0,pressCard=null;
       function tapPoint(e){
         if(e.changedTouches&&e.changedTouches[0]) return e.changedTouches[0];
         return e;
       }
+      function clearPress(){
+        try{if(pressCard){pressCard.classList.remove('is-pressing');pressCard=null}}catch(e){}
+      }
       function openCardFromEvent(e){
+        // Only a short debounce after a successful open / carousel swipe.
+        // __suppressAutoOpenPost is for automatic hash reopening — never block real taps.
         if(window.__blockFeedTap && Date.now()<window.__blockFeedTap) return false;
-        if(window.__suppressAutoOpenPost && Date.now()<window.__suppressAutoOpenPost) return false;
-        if(st && Date.now()-st>500)return false;
+        // iOS long-press / slow lifts used to exceed 500ms and silently drop the open.
+        if(st && Date.now()-st>1100)return false;
         var t=tapPoint(e);
         if(!t)return false;
-        if(Math.abs((t.clientX||0)-sx)>28||Math.abs((t.clientY||0)-sy)>28)return false;
+        if(Math.abs((t.clientX||0)-sx)>40||Math.abs((t.clientY||0)-sy)>40)return false;
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
-        // Never treat Spotlight carousel / GoonTok swipe / nav chrome as an accidental open.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-carousel,#feat-carousel,.feat-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        // Video player shell owns the tap (Play) — do not steal it for openDetail.
+        if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
+        // Never treat GoonTok swipe / nav chrome as an accidental open.
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        // Spotlight: open on tap, but ignore right after a horizontal swipe.
+        if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
+        // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).
+        var nfOpen=el.closest('[data-nf-act="open"],[data-nf-act="comment"]');
+        if(nfOpen){
+          var nfId=nfOpen.getAttribute('data-nf-id');
+          if(nfId){
+            try{e.preventDefault();e.stopPropagation()}catch(err){}
+            clearPress();
+            window.__blockFeedTap=Date.now()+280;
+            openDetail(nfId, nfOpen.getAttribute('data-nf-act')==='comment');
+            return true;
+          }
+        }
         var homeStrip=el.closest('#home-random-strip [data-pid],#home-post-strip [data-pid],.home-strip-card');
         if(homeStrip){
           var hid=homeStrip.getAttribute('data-pid')||(homeStrip.closest('[data-pid]')&&homeStrip.closest('[data-pid]').getAttribute('data-pid'));
-          if(hid){try{e.preventDefault();e.stopPropagation()}catch(err){} openDetail(hid); return true;}
+          if(hid){try{e.preventDefault();e.stopPropagation()}catch(err){} clearPress(); openDetail(hid); return true;}
         }
         var like=el.closest('.btn-like,[data-nf-act="picker"],[data-nf-act="react"]');
         if(like){
@@ -15119,6 +15441,7 @@ function openRoulette(){
           var idL=artL&&(artL.getAttribute('data-pid')||artL.getAttribute('data-normal-post-id')||artL.getAttribute('data-gid'));
           if(idL){
             e.preventDefault();e.stopPropagation();
+            clearPress();
             var em=like.getAttribute('data-nf-emoji');
             if(em && typeof setReaction==='function') setReaction(idL,em);
             else quickLike(idL,e);
@@ -15131,6 +15454,7 @@ function openRoulette(){
           var idH=hotHit.getAttribute('data-nf-id')||(artH&&(artH.getAttribute('data-pid')||artH.getAttribute('data-normal-post-id')||artH.getAttribute('data-gid')));
           if(idH){
             e.preventDefault();e.stopPropagation();
+            clearPress();
             if(hotHit.classList.contains('gt-hot')||hotHit.closest('.gt-slide')) hotBumpGoonTok(idH);
             else hotBumpWall(idH,{allowAnon:true});
             return true;
@@ -15140,22 +15464,29 @@ function openRoulette(){
         if(ext && !ext.disabled && !ext.classList.contains('is-cooling')){
           var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
           var id=art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid'));
-          if(id){e.preventDefault();openExtend(id);return true;}
+          if(id){e.preventDefault();clearPress();openExtend(id);return true;}
         }
         if(el.closest('.post-actions button,.normal-feed-post-actions button,.normal-feed-reacts,.react-bar,.cmt-in,.id-archive-actions'))return false;
         if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost,button.gt-act'))return false;
         // Only real post cards — never bare [data-pid] (chips / counters / nested wrappers).
         var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card,.normal-feed-post');
         if(!card)return false;
-        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide')) return false;
         var id2=card.getAttribute('data-pid')||card.getAttribute('data-normal-post-id')||card.getAttribute('data-gid');
         if(!id2)return false;
         try{e.preventDefault();e.stopPropagation();}catch(err){}
+        clearPress();
+        window.__blockFeedTap=Date.now()+280;
         openDetail(id2);
         return true;
       }
       document.addEventListener('pointerdown',function(e){
         sx=e.clientX||0;sy=e.clientY||0;st=Date.now();
+        try{
+          clearPress();
+          var el=e.target;
+          pressCard=el&&el.closest&&el.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card');
+          if(pressCard) pressCard.classList.add('is-pressing');
+        }catch(err){}
       },{passive:true,capture:true});
       document.addEventListener('touchstart',function(e){
         var t=e.changedTouches&&e.changedTouches[0];
@@ -15165,17 +15496,19 @@ function openRoulette(){
       document.addEventListener('pointerup',function(e){
         if(e.pointerType==='mouse' && e.button!==0)return;
         openCardFromEvent(e);
+        clearPress();
       },{passive:false,capture:true});
+      document.addEventListener('pointercancel',function(){clearPress()},{passive:true});
       document.addEventListener('click',function(e){
         var el=e.target;
         if(!el||!el.closest)return;
-        if(el.closest('button,.btn,.react-bar,.post-actions,.dx-actions,input,textarea,a,.feat-carousel,#feat-carousel,.bottom-nav,.nav-row'))return;
+        if(el.closest('button,.btn,.react-bar,.post-actions,.dx-actions,input,textarea,a,.bottom-nav,.nav-row'))return;
         var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card');
         if(!card)return;
-        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide')) return;
+        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return;
         var id2=card.getAttribute('data-pid')||card.getAttribute('data-normal-post-id');
         if(!id2)return;
-        if(window.__openDetailLock && window.__openDetailLock.id===String(id2) && Date.now()-window.__openDetailLock.t<700){
+        if(window.__openDetailLock && window.__openDetailLock.id===String(id2) && Date.now()-window.__openDetailLock.t<900){
           e.preventDefault();
           e.stopPropagation();
         }
@@ -15650,6 +15983,13 @@ function openRoulette(){
             if(p.images&&p.images.length) cur.images=p.images;
             if(p.created) cur.created=Math.max(Number(cur.created)||0, Number(p.created)||0);
             if(p.tags&&p.tags.length) cur.tags=p.tags;
+            if(p.media_url) cur.media_url=p.media_url;
+            if(p.video) cur.video=p.video;
+            if(p.media_type) cur.media_type=p.media_type;
+            if(p._kind) cur._kind=p._kind;
+            if(p.poster) cur.poster=p.poster;
+            if(p.thumb_url) cur.thumb_url=p.thumb_url;
+            try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(cur)}catch(e){}
             posts[i]=cur;
             return;
           }
@@ -15842,6 +16182,13 @@ function openRoulette(){
           row._needImg=false;
           row._imgFail=false;
         }
+        try{
+          var vthumb=typeof parseVthumbTag==='function'?parseVthumbTag(rowTags):'';
+          if(vthumb){ row.poster=vthumb; row.thumb_url=vthumb; }
+          if(typeof isVideoPost==='function' && isVideoPost(row) && typeof sanitizeVideoPostMedia==='function'){
+            sanitizeVideoPostMedia(row);
+          }
+        }catch(e){}
         return row;
       }
       function paintStrip(){
@@ -19116,9 +19463,11 @@ function postCardHtml(p, compact){
       var liked=(p.likedBy||[]).indexOf((currentUser&&currentUser.name)||'')>=0;
       var imgs=(p.images&&p.images.length>1)?p.images:mergePostImages(p.image, p.tags, (p.images||[]).concat(extractAlbumMarker(p.desc)));var media;
       if(typeof isVideoPost==='function' && isVideoPost(p)){
-        var poster=typeof videoPosterOf==='function'?videoPosterOf(p,p.media_url||imgs[0]):(p.poster||p.thumb_url||'');
-        if(poster && !isVideoUrl(poster)) media='<img src="'+esc(poster)+'" alt="" style="width:100%;height:100%;object-fit:cover"/><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;text-shadow:0 2px 8px #000">▶</div>';
-        else if(imgs.length) media=mediaHtml(imgs,p.id,false);
+        try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(p)}catch(e){}
+        var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||p.media_url||p.video||imgs[0]||'';
+        vsrc=typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc;
+        var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
+        if(vsrc) media=typeof lazyVideoHtml==='function'?lazyVideoHtml(vsrc,poster,0,p.id):mediaHtml([vsrc],p.id,false,poster);
         else media='<div style="min-height:180px;display:flex;align-items:center;justify-content:center;color:#fff;background:#111">▶ Video</div>';
       } else if(imgs.length){media=mediaHtml(imgs,p.id,false)}
       else if(p._needImg){media='<div class="photo-grid g1" style="min-height:150px;background:#141414;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px">Loading photo…</div>'}
@@ -19190,14 +19539,18 @@ function postCardHtml(p, compact){
           var dx=x-sx;
           var cur=idx();
           if(moved || Math.abs(dx)>12){
-            try{window.__blockFeedTap=Date.now()+500;window.__suppressAutoOpenPost=Date.now()+500}catch(err){}
+            try{
+              window.__blockFeedTap=Date.now()+350;
+              window.__suppressAutoOpenPost=Date.now()+350;
+              window.__featSwipeUntil=Date.now()+450;
+            }catch(err){}
           }
           if(dx<-35) go(cur+1,true);
           else if(dx>35) go(cur-1,true);
           else go(cur,true);
         },{passive:true});
         box.addEventListener('click',function(e){
-          if(moved || (window.__blockFeedTap && Date.now()<window.__blockFeedTap)){
+          if(moved || (window.__featSwipeUntil && Date.now()<window.__featSwipeUntil)){
             e.stopPropagation();e.preventDefault();moved=false;
             return;
           }
@@ -19507,12 +19860,15 @@ function postCardHtml(p, compact){
       if(featBox){
         if(featuredList.length){
           // Include timer/extend state so a stub→hydrated pin re-renders Hot→Extend.
-          var featSig=featuredList.map(function(item){
+          // lv3 forces a one-time remount after Safari video-player rewrite.
+          var featSig='lv3|'+featuredList.map(function(item){
             var hp=item.p||{};
             var hasT=(typeof postHasActiveTimer==='function')?postHasActiveTimer(hp):(Number(hp.expires||0)>Date.now());
-            return String(hp.id)+':'+(Number(hp.expires)||0)+':'+(Number(hp.extensions)||0)+':'+(hasT?1:0);
+            var pst='';
+            try{pst=typeof videoPosterOf==='function'?videoPosterOf(hp, hp.media_url||hp.video||hp.image): (hp.poster||hp.thumb_url||'')}catch(e){}
+            return String(hp.id)+':'+(Number(hp.expires)||0)+':'+(Number(hp.extensions)||0)+':'+(hasT?1:0)+':'+(pst?1:0);
           }).join(',');
-          if(featBox.getAttribute('data-feat-sig')===featSig && featBox.querySelector('#feat-carousel')){
+          if(featBox.getAttribute('data-feat-sig')===featSig && featBox.querySelector('#feat-carousel') && featBox.querySelector('.lazy-video .lv-player, .lazy-video video')){
             featuredList.forEach(function(item,i){
               var lab=featBox.querySelector('.feat-slide[data-fi="'+i+'"] .featured-label');
               if(lab){
@@ -19541,6 +19897,7 @@ function postCardHtml(p, compact){
               }catch(e){}
             });
             setupFeatCarousel();
+            try{warmVisibleLazyVideos(featBox)}catch(e){}
           } else {
             featBox.setAttribute('data-feat-sig',featSig);
             var slides=featuredList.map(function(item,i){
@@ -19551,6 +19908,7 @@ function postCardHtml(p, compact){
             var dots=featuredList.length>1?('<div class="feat-dots">'+featuredList.map(function(_,i){return '<span class="feat-dot'+(i===0?' on':'')+'" data-fi="'+i+'"></span>'}).join('')+'</div>'):'';
             featBox.innerHTML='<div style="width:100%;padding:0 12px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-sizing:border-box"><span style="font-size:13px;font-weight:900;letter-spacing:1.4px">SPOTLIGHT</span><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();copySectionLink(\'spotlight\')">Share</button></div><div class="feat-carousel" id="feat-carousel">'+slides+'</div>'+dots;
             setupFeatCarousel();
+            try{warmVisibleLazyVideos(featBox)}catch(e){}
           }
         } else featBox.innerHTML='';
       }
@@ -19582,6 +19940,7 @@ function postCardHtml(p, compact){
       }
       try{bindFeedInfinite()}catch(e){}
       try{syncExtendedPanel(rest)}catch(e){}
+      try{warmVisibleLazyVideos()}catch(e){}
       updateTimers();
       try{refreshExtendCooldownButtons()}catch(e){}
       try{bindImpressions('feed')}catch(e){}
@@ -19621,6 +19980,9 @@ function postCardHtml(p, compact){
 
       if(isDeletedId(id)){toast('This post was deleted');showPanel('feed');return;}
       try{saveFeedScroll()}catch(e){}
+      try{
+        if(document.body.classList.contains('gt-on') || (window.__detailFrom==='goontok')) saveGoonTokScroll();
+      }catch(e){}
       var box0=document.getElementById('detail-content');
       if(box0) box0.innerHTML='<div class="empty">Opening…</div>';
       showPanel('detail');
@@ -19659,9 +20021,11 @@ function postCardHtml(p, compact){
           var rank2=getRank(post.id);
           mediaWrap.className='dx-media-wrap';
           mediaWrap.setAttribute('style','margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative');
-          mediaWrap.innerHTML=(featDetail2?'<div class="pinned-badge">Pinned</div>':(rank2?'<div class="rank-badge">#'+rank2+'</div>':''))+mediaHtml(all, post.id, true, post.poster||post.thumb_url||'');
+          var rp='';
+          try{rp=typeof videoPosterOf==='function'?videoPosterOf(post, all[0]||post.media_url):(post.poster||post.thumb_url||'')}catch(e){rp=post.poster||post.thumb_url||''}
+          mediaWrap.innerHTML=(featDetail2?'<div class="pinned-badge">Pinned</div>':(rank2?'<div class="rank-badge">#'+rank2+'</div>':''))+mediaHtml(all, post.id, true, rp);
           try{bindDetailGallery()}catch(e){}
-          try{hold.querySelectorAll('.lazy-video').forEach(function(el){warmVideoThumb(el)})}catch(e){}
+          try{warmVisibleLazyVideos(hold)}catch(e){}
         }catch(e){}
       }
       if(post._needImg || !(post.images&&post.images.length) || (post._allImgs&&post.images&&post.images.length<post._allImgs.length)){
@@ -19721,7 +20085,9 @@ function postCardHtml(p, compact){
         rem=0;
         already=false;
       }
-      var media='<div class="dx-media-wrap" style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, post.poster||post.thumb_url||'')+'</div>';
+      var detailPoster='';
+      try{detailPoster=typeof videoPosterOf==='function'?videoPosterOf(post, imgs[0]||post.media_url||post.video):(post.poster||post.thumb_url||'')}catch(e){detailPoster=post.poster||post.thumb_url||''}
+      var media='<div class="dx-media-wrap" style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, detailPoster)+'</div>';
       var extL=fmtMin(post.extendAmount||360);
       var uCls=userClickable(post.user)?'post-user clickable':'post-user';
       var uClick=userClickable(post.user)?'data-user="'+String(post.user).replace(/"/g,'')+'" onclick="openUser(this.getAttribute(\'data-user\'))"':'';
