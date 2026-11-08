@@ -1728,7 +1728,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   #explore-normal-posts .normal-feed-post-media{aspect-ratio:3/4}
 }
 
-/* ID cards / generated pics gallery */
+/* ID cards / generated pics gallery — full card visible, never cropped */
 #id-archive-list{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
 }
@@ -1737,10 +1737,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   display:flex;flex-direction:column;min-width:0;
 }
 #id-archive-list .id-archive-card .id-arch-media{
-  aspect-ratio:3/4;background:#0a0a0a;overflow:hidden;
+  aspect-ratio:auto;background:#0a0a0a;overflow:hidden;min-height:140px;display:flex;align-items:center;justify-content:center;
 }
 #id-archive-list .id-archive-card .id-arch-media img{
-  width:100%;height:100%;object-fit:cover;display:block;
+  width:100%;height:auto;max-height:70vh;object-fit:contain;object-position:center;display:block;
+}
+/* Wall IDs / PEA tab: show full ID image (contain), not cover-cropped */
+#explore-normal-posts.wall-ids-mode .normal-feed-post-media{
+  aspect-ratio:auto!important;max-height:none!important;overflow:hidden;background:#000;
+  display:flex;align-items:center;justify-content:center;min-height:180px;
+}
+#explore-normal-posts.wall-ids-mode .normal-feed-post-media img,
+#explore-normal-posts.wall-ids-mode .normal-feed-post-media video{
+  width:100%!important;height:auto!important;max-height:78vh!important;object-fit:contain!important;object-position:center center;display:block;
 }
 #id-archive-list .id-archive-card .id-arch-meta{
   padding:8px 9px 6px;min-width:0;
@@ -2239,7 +2248,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" style="width:min(320px,92%);padding:14px 18px;font-weight:900;font-size:16px;border-radius:16px;box-shadow:0 0 22px rgba(124,58,237,.45)">＋ Post</button>
             </div>
             <div id="wall-permanence-notice" style="margin:0 10px 12px;padding:10px 12px;border-radius:14px;background:rgba(255,106,0,.08);border:1px solid rgba(255,106,0,.32);color:#ffd7b0;font-size:12px;line-height:1.45;text-align:left">
-              <b style="color:#ff6a00">Wall posts are permanent.</b> They never expire and cannot be removed for free. Only the author can delete their own post. Use <b>⏱ Timed</b> for temporary exposures.
+              <b style="color:#ff6a00">Wall posts are permanent.</b> They never expire and cannot be removed for free. Only the author can delete their own post. Use <b>Extend Post</b> for temporary exposures.
             </div>
             <div class="wall-quick-actions">
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
@@ -2248,12 +2257,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div style="text-align:center;font-size:12px;color:#9a9aa3;margin:0 8px 10px;line-height:1.4">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
               <button type="button" class="wall-filter-chip on" data-wall-filter="moment" role="tab" aria-selected="true">⚡ Moment</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Normal</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="trending" role="tab" aria-selected="false">🔥 Trending</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="following" role="tab" aria-selected="false">👤 Following</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="new" role="tab" aria-selected="false">🆕 New</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="foryou" role="tab" aria-selected="false">❤️ For You</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">⏱ Timed</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Post</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">Extend Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
             </div>
@@ -2464,7 +2469,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
         </div>
         <label class="consent-box"><input type="checkbox" id="vp-consent"/><span>I made this or I have the right to post it. I want it public.</span></label>
-        <p style="font-size:12px;color:var(--muted);text-align:center;margin:8px 0 10px">Anyone can watch. Delete later · $5 / 50 FC.</p>
+        <p style="font-size:12px;color:var(--muted);text-align:center;margin:8px 0 10px">Permanent on GoonTok — no timer. Anyone can watch. Delete later · $5 / 50 FC.</p>
         <div id="vp-inline-progress" style="display:none;margin:0 0 12px">
           <div style="font-size:12px;font-weight:800;color:#fff" id="vp-inline-title">Uploading…</div>
           <div style="font-size:11px;color:var(--muted);margin:3px 0 8px" id="vp-inline-status">Please wait</div>
@@ -3526,9 +3531,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(!Array.isArray(tags)) tags=[];
         if(String(row.media_type||'')==='video' && tags.indexOf('video')<0) tags=tags.concat(['video']);
         if(tags.indexOf('goontok')<0 && String(row.media_type||'')==='video') tags=tags.concat(['goontok']);
+        // Videos: store ONLY the video URL in image_url. thumb_url is preview-only and
+        // must never be packed into the media album (that caused video+photo duplicates).
         var imageField=row.media_url||row.image_url||'';
-        if(row.thumb_url && imageField && String(row.media_type||'')==='video'){
-          try{imageField=JSON.stringify([imageField,row.thumb_url])}catch(e){}
+        if(String(row.media_type||'')==='video'){
+          try{
+            var onlyVid=(typeof parseImages==='function'?parseImages(imageField):[imageField]).filter(function(u){
+              return u && (typeof isVideoUrl!=='function' || isVideoUrl(u));
+            })[0]||imageField;
+            imageField=onlyVid;
+          }catch(e){}
         }
         var ins={
           username:row.username||'anon',
@@ -3536,8 +3548,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           description:row.description||'',
           tags:tags,
           image_url:imageField,
-          expires_at:row.expires_at||null,
-          extend_amount:Number(row.extend_amount||row.extend_mins||360)||360
+          expires_at:String(row.media_type||'')==='video'?null:(row.expires_at||null),
+          extend_amount:String(row.media_type||'')==='video'?0:(Number(row.extend_amount||row.extend_mins||360)||360)
         };
         var up=await sb.from('posts').insert(ins).select('*').limit(1);
         if(up&&up.error) throw new Error(up.error.message||errMsg);
@@ -3940,6 +3952,60 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(raw.charAt(0)==='['){try{var a=JSON.parse(raw);return Array.isArray(a)?a.filter(Boolean).map(String):[]}catch(e){return[]}}
       return [raw];
     }
+    // For video posts: gallery = video file(s) only. Image URLs become poster/thumb, never a 2nd photo.
+    function splitVideoAndPoster(urls){
+      urls=(urls||[]).filter(Boolean).map(function(u){return typeof publicMediaUrl==='function'?publicMediaUrl(u):String(u)});
+      var videos=[], posters=[];
+      urls.forEach(function(u){
+        if(!u)return;
+        if(typeof isVideoUrl==='function' && isVideoUrl(u)) videos.push(u);
+        else if(typeof isImageUrl==='function' && isImageUrl(u)) posters.push(u);
+        else if(/\.(jpe?g|png|gif|webp|avif)(\?|#|$)/i.test(u)) posters.push(u);
+        else if(/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(u)) videos.push(u);
+        else posters.push(u);
+      });
+      return {videos:videos, posters:posters};
+    }
+    function sanitizeVideoPostMedia(p){
+      if(!p)return p;
+      var isVid=false;
+      try{isVid=!!(p._kind==='video' || p.media_type==='video' || (typeof isVideoPost==='function' && isVideoPost(p)))}catch(e){isVid=false}
+      if(!isVid)return p;
+      var pool=[];
+      try{pool=pool.concat(parseImages(p.image||p.image_url||''))}catch(e){}
+      try{if(Array.isArray(p.images)) pool=pool.concat(p.images)}catch(e){}
+      try{if(p.media_url) pool.push(p.media_url)}catch(e){}
+      try{if(p.video) pool.push(p.video)}catch(e){}
+      var split=splitVideoAndPoster(pool);
+      var vsrc=split.videos[0]||'';
+      var poster=publicMediaUrl(p.thumb_url||p.poster||split.posters[0]||'');
+      if(poster && (typeof isVideoUrl==='function' && isVideoUrl(poster))) poster='';
+      if(vsrc){
+        p.media_url=vsrc;
+        p.video=vsrc;
+        p.image=vsrc;
+        p.images=[vsrc];
+        p.media_type='video';
+        p._kind='video';
+      }else if(split.posters.length && !p.media_url){
+        // Legacy bad row: only a thumb was stored — keep as non-gallery image, not a fake album.
+        p.images=[];
+      }
+      if(poster){
+        p.poster=poster;
+        p.thumb_url=poster;
+      }
+      // Videos are permanent — strip accidental timers from the live object.
+      try{
+        var exp=Number(p.expires||0);
+        if(exp && exp<Date.now()+60*24*3600*1000){
+          p.expires=0;
+        }
+      }catch(e){}
+      return p;
+    }
+    window.sanitizeVideoPostMedia=sanitizeVideoPostMedia;
+    window.splitVideoAndPoster=splitVideoAndPoster;
     function packAlbumTag(urls){
       urls=(urls||[]).filter(Boolean).map(String).slice(0,5);
       if(urls.length<2)return null;
@@ -11190,20 +11256,27 @@ function openRoulette(){
       imgs=(imgs||[]).map(function(u){return publicMediaUrl(u)}).filter(Boolean);
       vsrc=publicMediaUrl(vsrc);
       poster=publicMediaUrl(poster);
-      var post=mapped||{id:row.id,user:row.username||row.user||'anon',title:row.title||'',desc:row.description||row.desc||'',tags:tags,created:row.created_at?new Date(row.created_at).getTime():Date.now(),expires:rowExp,views:row.views||0,likes:row.likes_count||row.likes||0,image:vsrc,images:imgs,poster:poster,video:vsrc,media_url:vsrc||publicMediaUrl(row.media_url)||'',thumb_url:poster,media_type:'video',featuredUntil:0,_kind:'video',_cf:true};
+      // Gallery must be video-only; thumbnails stay in poster/thumb_url.
+      var splitM=typeof splitVideoAndPoster==='function'?splitVideoAndPoster(imgs.concat(vsrc?[vsrc]:[])):{videos:vsrc?[vsrc]:[],posters:poster?[poster]:[]};
+      vsrc=publicMediaUrl(splitM.videos[0]||vsrc||'');
+      poster=publicMediaUrl(poster||splitM.posters[0]||'');
+      var post=mapped||{id:row.id,user:row.username||row.user||'anon',title:row.title||'',desc:row.description||row.desc||'',tags:tags,created:row.created_at?new Date(row.created_at).getTime():Date.now(),expires:0,views:row.views||0,likes:row.likes_count||row.likes||0,image:vsrc,images:vsrc?[vsrc]:[],poster:poster,video:vsrc,media_url:vsrc||publicMediaUrl(row.media_url)||'',thumb_url:poster,media_type:'video',featuredUntil:0,_kind:'video',_cf:true};
       post._kind='video';
       post.media_type=post.media_type||'video';
       post.media_url=publicMediaUrl(post.media_url||row.media_url||vsrc);
       post.video=publicMediaUrl(post.video||vsrc);
       post.image=publicMediaUrl(post.image||vsrc);
-      post.images=(post.images||imgs||[]).map(function(u){return publicMediaUrl(u)}).filter(Boolean);
+      post.images=post.media_url?[post.media_url]:[];
       post.thumb_url=publicMediaUrl(post.thumb_url||poster);
       post.poster=publicMediaUrl(post.poster||poster);
+      post.expires=0;
+      try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(post)}catch(e){}
       try{
         var opt=row.optimized_url||parseOptTag(post.tags)||'';
         if(opt) post.optimized_url=opt;
       }catch(e){}
-      if(rowExp) post.expires=Math.max(Number(post.expires)||0,rowExp);
+      // Videos stay permanent even if a legacy expires_at was stored.
+      post.expires=0;
       function upsert(arr){
         arr=arr||[];
         var i=-1;
@@ -11218,9 +11291,11 @@ function openRoulette(){
           cur.video=cur.video||post.video;
           cur.poster=cur.poster||post.poster;
           cur.images=(post.images&&post.images.length)?post.images:cur.images;
+          // Keep gallery video-only if a legacy thumb snuck into images[].
+          try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(cur)}catch(e){}
           cur.tags=post.tags||cur.tags;
           cur._kind='video';
-          if(Number(post.expires||0)>Number(cur.expires||0)) cur.expires=post.expires;
+          cur.expires=0;
         }
         return arr;
       }
@@ -11246,20 +11321,21 @@ function openRoulette(){
       if(!vsrc && row.media_url && isVideoUrl(publicMediaUrl(row.media_url))) vsrc=publicMediaUrl(row.media_url);
       if(!vsrc) return null;
       if(tags.indexOf('video')<0) tags=tags.concat(['video']);
-      var poster=(imgs||[]).filter(function(u){return u&&!isVideoUrl(u)})[0]||row.thumb_url||'';
+      var poster=publicMediaUrl((imgs||[]).filter(function(u){return u&&!isVideoUrl(u)})[0]||row.thumb_url||'');
+      // Never echo the packed [video,thumb] JSON back into image_url — video URL only.
       return {
         id:row.id,
         username:row.username||row.user||'anon',
         title:row.title||'',
         description:row.description||row.desc||'',
         tags:tags,
-        image_url:row.image_url||vsrc,
+        image_url:vsrc,
         media_url:vsrc,
         thumb_url:poster,
         optimized_url:row.optimized_url||'',
         media_type:'video',
         created_at:row.created_at||Date.now(),
-        expires_at:row.expires_at||null,
+        expires_at:null,
         views:row.views||0,
         likes_count:row.likes_count||row.likes||0
       };
@@ -11907,9 +11983,7 @@ function openRoulette(){
           }
         }catch(e){}
         updateVideoProgress('Almost done','Publishing so everyone can see it…',94);
-        var storeField=posterUrl?JSON.stringify([imageField,posterUrl]):imageField;
-        var videoMins=Math.max(15, Number(selectedCreateMin||1440)||1440);
-        var videoExpires=Date.now()+videoMins*60000;
+        // Videos are permanent — no auto-expiry / no Extend timer. Thumb is preview-only.
         // If upload was already mobile-optimized, stamp optv so GoonTok prefers it
         try{
           if(window.__vpWasOptimized) tags=withOptTag(tags, imageField);
@@ -11922,9 +11996,9 @@ function openRoulette(){
           media_url:imageField,
           thumb_url:posterUrl||'',
           media_type:'video',
-          expires_at:new Date(videoExpires).toISOString(),
-          extend_amount:360,
-          extend_mins:360
+          expires_at:null,
+          extend_amount:0,
+          extend_mins:0
         });
         var saved=cfVid&&cfVid.post;
         if(!saved||!saved.id) throw new Error('Video did not save');
@@ -11939,12 +12013,12 @@ function openRoulette(){
           thumb_url:posterUrl||saved.thumb_url||'',
           optimized_url:parseOptTag(tags)||'',
           created_at:saved.created_at||Date.now(),
-          expires_at:saved.expires_at||new Date(videoExpires).toISOString(),
-          expires:videoExpires,
+          expires_at:null,
+          expires:0,
           views:0,likes_count:0
         });
         try{
-          (posts||[]).forEach(function(p){if(String(p.id)===String(saved.id)){p.expires=videoExpires;p.extendAmount=p.extendAmount||360;p.optimized_url=parseOptTag(tags)||p.optimized_url||'';}});
+          (posts||[]).forEach(function(p){if(String(p.id)===String(saved.id)){p.expires=0;p.extendAmount=0;p.optimized_url=parseOptTag(tags)||p.optimized_url||'';p.poster=posterUrl||p.poster;p.thumb_url=posterUrl||p.thumb_url;p.images=[imageField];p.image=imageField;p.media_url=imageField;p.video=imageField;p.media_type='video';p._kind='video'}});
         }catch(e){}
         try{markVideoPlayable(saved.id, imageField); if(parseOptTag(tags)) markVideoHealth(saved.id,'playable',{optimized:imageField,src:imageField})}catch(e){}
         rememberVideos((posts||[]).filter(function(p){return String(p.id)===String(saved.id)}));
@@ -11952,7 +12026,7 @@ function openRoulette(){
         try{
           var just={
             id:saved.id,user:saved.username||((currentUser&&currentUser.name)||'anon'),title:title,desc:desc,tags:tags,
-            created:Date.now(),expires:videoExpires,views:0,likes:0,image:imageField,images:[imageField].concat(posterUrl?[posterUrl]:[]),
+            created:Date.now(),expires:0,views:0,likes:0,image:imageField,images:[imageField],
             media_url:imageField,video:imageField,thumb_url:posterUrl||'',poster:posterUrl||'',media_type:'video',_kind:'video'
           };
           window.__videoCache=(window.__videoCache||[]).filter(function(x){return String(x.id)!==String(saved.id)});
@@ -12410,12 +12484,8 @@ function openRoulette(){
     window.goontokShareUrl=goontokShareUrl;
     window.setGoonTokTab=setGoonTokTab;
     function goontokTimed(p){
-      // Timed video posts keep Extend available on GoonTok; permanent clips stay Hot-only.
-      try{
-        if(typeof postHasActiveTimer==='function') return postHasActiveTimer(p);
-        var exp=Number(p&&p.expires||0);
-        return !!(exp && isFinite(exp) && exp>Date.now() && exp<=Date.now()+60*24*3600*1000);
-      }catch(e){return false}
+      // Videos are permanent on GoonTok — never show Extend / countdown chrome.
+      return false;
     }
     function goontokSlideHtml(p){
       var m=goontokPrimaryVideo(p);
@@ -13396,6 +13466,17 @@ function openRoulette(){
     // Far-future / permanent expiry is Wall territory (Hot), not Extend.
     function postHasActiveTimer(p){
       if(!p)return false;
+      // GoonTok / catalog videos are permanent — never treat as timed exposures.
+      try{
+        if(p._kind==='video' || p.media_type==='video') return false;
+        if(typeof isVideoPost==='function' && isVideoPost(p)) return false;
+        var tg=p.tags||[];
+        if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+        if(Array.isArray(tg)){
+          tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+          if(tg.indexOf('video')>=0||tg.indexOf('goontok')>=0) return false;
+        }
+      }catch(e){}
       var exp=Number(p.expires||0);
       if(!exp||!isFinite(exp))return false;
       var now=Date.now();
@@ -13815,21 +13896,34 @@ function openRoulette(){
     }
     var wallFilter=(function(){
       try{
-        // One-time: open Moment so normal posts lead, then the rest as before
-        if(!localStorage.getItem('rs_wall_normal_first_v1')){
-          localStorage.setItem('rs_wall_normal_first_v1','1');
-          localStorage.setItem('rs_wall_filter','moment');
-          return 'moment';
-        }
-        return localStorage.getItem('rs_wall_filter')||'moment';
+        var f=localStorage.getItem('rs_wall_filter')||'moment';
+        if(f==='post') f='normal';
+        if(f==='extend'||f==='extend_post') f='timed';
+        // Drop retired Wall tabs (Trending / Following / New / For You).
+        if(['trending','following','new','foryou'].indexOf(f)>=0) f='moment';
+        if(['moment','normal','timed','generated','text'].indexOf(f)<0) f='moment';
+        localStorage.setItem('rs_wall_filter',f);
+        return f;
       }catch(e){return'moment'}
     })();
     function setWallFilter(f){
       f=String(f||'moment');
-      if(['trending','following','new','foryou','moment','normal','timed','generated','text'].indexOf(f)<0) f='moment';
+      // Only five Wall sections. Map legacy filters onto Moment.
+      var allowed=['moment','normal','timed','generated','text'];
+      if(f==='post') f='normal';
+      if(f==='extend' || f==='extend_post') f='timed';
+      if(['trending','following','new','foryou'].indexOf(f)>=0) f='moment';
+      if(allowed.indexOf(f)<0) f='moment';
       wallFilter=f;
       try{localStorage.setItem('rs_wall_filter',f)}catch(e){}
       syncWallFilterChips();
+      try{
+        var box=document.getElementById('explore-normal-posts');
+        if(box){
+          box.classList.toggle('wall-ids-mode', f==='generated');
+          box.classList.toggle('wall-text-mode', f==='text');
+        }
+      }catch(e){}
       // Instant client filter — no full refetch
       window.__wallVisible=12;
       renderNormalFeed();
@@ -13846,6 +13940,13 @@ function openRoulette(){
         b.classList.toggle('on',on);
         b.setAttribute('aria-selected',on?'true':'false');
       });
+      try{
+        var box=document.getElementById('explore-normal-posts');
+        if(box){
+          box.classList.toggle('wall-ids-mode', wallFilter==='generated');
+          box.classList.toggle('wall-text-mode', wallFilter==='text');
+        }
+      }catch(e){}
     }
     function setupWallFilters(){
       var bar=document.getElementById('wall-filter-bar');
@@ -14057,10 +14158,9 @@ function openRoulette(){
         trending:'Nothing trending yet. Interact and check back soon.',
         following:'Follow creators to fill this feed.',
         new:'No new posts in the last 72h.',
-        foryou:'Keep liking and following — For You learns from you.',
         moment:'Nothing on the wall yet. Post something.',
-        normal:'No normal posts yet. Post without a timer — Hot🔥 boosts them.',
-        timed:'No timed posts live right now.',
+        normal:'No posts yet. Publish without a timer — Hot🔥 boosts them.',
+        timed:'No Extend posts live right now.',
         generated:'No generated IDs / PEAs yet.',
         text:'No text posts yet.'
       };
@@ -19534,15 +19634,23 @@ function postCardHtml(p, compact){
       }
       if(!post){toast('Could not open post');return;}
       try{if(typeof hydratePinnedPost==='function') post=hydratePinnedPost(post)}catch(e){}
+      try{if(typeof sanitizeVideoPostMedia==='function') post=sanitizeVideoPostMedia(post)||post}catch(e){}
       currentDetailId=post.id;
       try{sessionStorage.removeItem('rs_open_post')}catch(e){}
       try{history.replaceState(null,'',location.pathname+(location.search||'')+'#p='+encodeURIComponent(String(post.id)));}catch(e){}
       function refreshDetailGalleryMedia(){
         try{
           if(String(currentDetailId)!==String(post.id))return;
+          try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(post)}catch(e){}
           if(post._allImgs&&post._allImgs.length){post.images=post._allImgs.slice();post.image=post._allImgs[0]}
           var all=(post.images&&post.images.length>1)?post.images:mergePostImages(post.image, post.tags, (post.images||[]).concat(extractAlbumMarker(post.desc)));
           if(post._allImgs&&post._allImgs.length>all.length) all=post._allImgs.slice();
+          var isVid=!!(post._kind==='video'||post.media_type==='video'||(typeof isVideoPost==='function'&&isVideoPost(post)));
+          if(isVid){
+            var sp=typeof splitVideoAndPoster==='function'?splitVideoAndPoster(all.concat([post.media_url,post.video])):{videos:[],posters:[]};
+            all=sp.videos.length?sp.videos:(post.media_url||post.video?[post.media_url||post.video]:[]);
+            if(!post.poster && sp.posters[0]) post.poster=sp.posters[0];
+          }
           var hold=document.getElementById('detail-content');
           if(!hold)return;
           var mediaWrap=hold.querySelector('.dx-media-wrap')||(hold.querySelector('.dx-gallery')&&hold.querySelector('.dx-gallery').parentNode);
@@ -19551,7 +19659,7 @@ function postCardHtml(p, compact){
           var rank2=getRank(post.id);
           mediaWrap.className='dx-media-wrap';
           mediaWrap.setAttribute('style','margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative');
-          mediaWrap.innerHTML=(featDetail2?'<div class="pinned-badge">Pinned</div>':(rank2?'<div class="rank-badge">#'+rank2+'</div>':''))+mediaHtml(all, post.id, true, post.poster||'');
+          mediaWrap.innerHTML=(featDetail2?'<div class="pinned-badge">Pinned</div>':(rank2?'<div class="rank-badge">#'+rank2+'</div>':''))+mediaHtml(all, post.id, true, post.poster||post.thumb_url||'');
           try{bindDetailGallery()}catch(e){}
           try{hold.querySelectorAll('.lazy-video').forEach(function(el){warmVideoThumb(el)})}catch(e){}
         }catch(e){}
@@ -19598,9 +19706,22 @@ function postCardHtml(p, compact){
       var rem=permanent?0:post.expires-Date.now(),alreadyCd=(typeof getLocalExtendCooldown==='function'?getLocalExtendCooldown(id):0),already=alreadyCd>0;
       var rank=getRank(post.id);var featDetail=isFeatured(post);
       var liked=(post.likedBy||[]).indexOf((currentUser&&currentUser.name)||'')>=0,isOwner=currentUser&&post.user===currentUser.name;
+      var detailIsVideo=false;
+      try{detailIsVideo=!!(post._kind==='video' || post.media_type==='video' || (typeof isVideoPost==='function' && isVideoPost(post)))}catch(e){detailIsVideo=false}
       var imgs=(post.images&&post.images.length>1)?post.images:mergePostImages(post.image, post.tags, (post.images||[]).concat(extractAlbumMarker(post.desc)));
       if(post._allImgs&&post._allImgs.length>imgs.length) imgs=post._allImgs.slice();
-      var media='<div class="dx-media-wrap" style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, post.poster||'')+'</div>';
+      // Video posts: only the original clip in the gallery; thumb is poster, never a 2nd photo.
+      if(detailIsVideo){
+        var splitD=typeof splitVideoAndPoster==='function'?splitVideoAndPoster(imgs.concat([post.media_url,post.video,post.image])):{videos:[],posters:[]};
+        imgs=splitD.videos.length?splitD.videos:(post.media_url||post.video?[post.media_url||post.video]:[]);
+        if(!post.poster && splitD.posters[0]) post.poster=splitD.posters[0];
+        if(!post.thumb_url && post.poster) post.thumb_url=post.poster;
+        permanent=true;
+        timedLive=false;
+        rem=0;
+        already=false;
+      }
+      var media='<div class="dx-media-wrap" style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, post.poster||post.thumb_url||'')+'</div>';
       var extL=fmtMin(post.extendAmount||360);
       var uCls=userClickable(post.user)?'post-user clickable':'post-user';
       var uClick=userClickable(post.user)?'data-user="'+String(post.user).replace(/"/g,'')+'" onclick="openUser(this.getAttribute(\'data-user\'))"':'';
@@ -19613,16 +19734,11 @@ function postCardHtml(p, compact){
       var mineR=getMyReaction(post);
       var hotNDetail=(typeof postHotCount==='function'?postHotCount(post):0)||0;
       var alreadyHotDetail=(typeof iAlreadyHotted==='function'&&iAlreadyHotted(post.id));
-      // Active timer → Extend. No timer / permanent → Hot only.
-      // Timed videos also keep Hot (timer must not block video Hot).
-      var showExtendBtn=(typeof postHasActiveTimer==='function')?postHasActiveTimer(post):(!!(timedLive && !timeless));
-      var detailIsVideo=false;
-      try{detailIsVideo=!!(post._kind==='video' || (typeof isVideoPost==='function' && isVideoPost(post)))}catch(e){detailIsVideo=false}
+      // Active timer → Extend. No timer / permanent / videos → Hot only.
+      var showExtendBtn=!detailIsVideo && ((typeof postHasActiveTimer==='function')?postHasActiveTimer(post):(!!(timedLive && !timeless)));
       var hotLed='<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+',{allowAnon:true,skipTimer:true})"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>';
       var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
-      var extLed=showExtendBtn
-        ? (detailIsVideo ? (extendLed + hotLed) : extendLed)
-        : hotLed;
+      var extLed=showExtendBtn ? extendLed : hotLed;
       // Normal / timeless posts: NEVER charge Remove 100 FC. Only the publisher deletes free.
       // Timed exposures keep paid Remove for anyone.
       var removeBtn='';

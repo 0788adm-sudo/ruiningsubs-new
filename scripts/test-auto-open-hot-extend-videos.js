@@ -18,12 +18,10 @@ assert(!/class="feat-slide"[^>]*onclick="openDetail/.test(html), 'no feat-slide 
 assert(html.includes("openCardFromEvent") && html.includes('.feat-carousel,#feat-carousel,.feat-slide'), 'fast-tap path ignores Spotlight carousel');
 assert(/Only real post cards/.test(html) || /article\.post,article\.normal-feed-post,article\.id-archive-card/.test(html), 'card open requires real article cards');
 
-assert(/function goontokTimed\(p\)\{[\s\S]*postHasActiveTimer/.test(html), 'GoonTok timed uses postHasActiveTimer');
-assert(html.includes('gt-act gt-ext') && html.includes('gt-keep'), 'GoonTok shows Extend for timed videos');
+assert(/function goontokTimed\(p\)\{[\s\S]*return false/.test(html), 'GoonTok videos never timed');
 assert(html.includes('gt-act gt-hot') && html.includes('hotBumpGoonTok'), 'GoonTok keeps Hot on videos');
-assert(/Timed videos → Extend \+ Hot|timed videos may show BOTH|detailIsVideo \? \(extendLed \+ hotLed\)/.test(html), 'timed videos show Extend + Hot');
 assert(/skipTimer:true/.test(html) && /fromGoonTok:true/.test(html), 'video Hot skips timer gate');
-assert(/if\(!hasTimer\)\{[\s\S]*return hotBtn \+ cmtBtn[\s\S]*return isVid \? \(extBtn \+ hotBtn/.test(html) || html.includes('return isVid ? (extBtn + hotBtn + cmtBtn)'), 'feed cards: permanent Hot-only, timed video Extend+Hot');
+assert(html.includes('showExtendBtn=!detailIsVideo') || html.includes('Videos are permanent'), 'detail: videos Hot-only (no Extend)');
 assert(html.includes('window.__routing && typeof parseSharedPostId') || html.includes("window.__routing && typeof parseSharedPostId==='function'"), 'sticky ?p= cleared on user section nav');
 
-console.log('\nAuto-open + timed-video Hot/Extend checks passed');
+console.log('\nAuto-open + video Hot checks passed');
