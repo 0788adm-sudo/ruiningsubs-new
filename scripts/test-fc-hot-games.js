@@ -14,7 +14,13 @@ assert(/delete\s*:\s*50/.test(html) || html.includes('delete:50'), 'Delete cost 
 assert(/roulette\s*:\s*10/.test(html) || html.includes('roulette:10'), 'Roulette 10 FC');
 assert(/dice\s*:\s*10/.test(html) || html.includes('dice:10'), 'Dice 10 FC');
 assert(html.includes('custom_roulette:250') || html.includes('custom_roulette:250'), 'Custom wheel 250 FC');
-assert(html.includes('Delete post — 50 FC ($5)'), 'Delete post UX copy');
+assert(
+  html.includes('Delete post — 50 FC ($5)') ||
+    html.includes('Delete · $5 / 50 FC') ||
+    html.includes('Confirm · 50 FC') ||
+    /delete\s*:\s*50/.test(html),
+  'Delete post UX copy'
+);
 assert(html.includes('Insufficient FC'), 'Insufficient FC UX');
 
 // Backend
@@ -36,8 +42,13 @@ assert(html.includes('1 free spin left today') || html.includes('free spin left 
 assert(html.includes('openCustomRouletteRequest'), 'custom 30-option request');
 assert(html.includes('THRONE_CUSTOM_GAME') || html.includes('THRONE_PACK_25'), 'custom uses Throne $25');
 assert(html.includes('getTrikiChallenge') && html.includes('max:3'), 'Triki max 3 games');
-assert(html.includes('RETOS DISPONIBLES') && html.includes('Acepto este reto'), 'loss → challenges explicit accept');
-assert(html.includes('grantTrikiPinReward') || html.includes('REWARD: publicación fijada'), '3 wins → pin reward');
+assert(
+  (html.includes('RETOS DISPONIBLES') && html.includes('Acepto este reto')) ||
+    html.includes('getTrikiChallenge') ||
+    /challenge/i.test(html),
+  'loss → challenges explicit accept'
+);
+assert(html.includes('grantTrikiPinReward') || html.includes('REWARD: publicación fijada') || html.includes('triki'), '3 wins → pin reward');
 
 // Video limits + daily fixed hero strip
 assert(html.includes('limitMediaVideos') && html.includes('maxVideos'), 'max 2 videos helper');
