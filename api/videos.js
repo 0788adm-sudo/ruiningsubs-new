@@ -103,6 +103,18 @@ function normalizeTags(tags) {
   return Array.isArray(tags) ? tags : [];
 }
 
+function parseVthumbTag(tags) {
+  tags = normalizeTags(tags);
+  for (var i = 0; i < tags.length; i++) {
+    var t = String(tags[i] || '');
+    if (t.indexOf('vthumb:') === 0) {
+      var u = t.slice(7).trim();
+      if (u) return publicMediaUrl(u);
+    }
+  }
+  return '';
+}
+
 function rowToVideo(row) {
   if (!row || row.id == null) return null;
   var tags = normalizeTags(row.tags);
@@ -115,17 +127,21 @@ function rowToVideo(row) {
   if (!vsrc) return null;
   if (tags.indexOf('video') < 0) tags = tags.concat(['video']);
   if (tags.indexOf('goontok') < 0) tags = tags.concat(['goontok']);
-  var poster = imgs.filter(function (u) {
-    return u && !isVideoUrl(u);
-  })[0] || '';
+  var poster =
+    parseVthumbTag(tags) ||
+    imgs.filter(function (u) {
+      return u && !isVideoUrl(u);
+    })[0] ||
+    '';
   return {
     id: row.id,
     username: row.username || row.user || 'anon',
     title: row.title || '',
     tags: tags,
-    image_url: row.image_url || vsrc,
+    image_url: vsrc,
     media_url: vsrc,
     thumb_url: publicMediaUrl(poster),
+    poster: publicMediaUrl(poster),
     optimized_url: publicMediaUrl(row.optimized_url || ''),
     media_type: 'video',
     created_at: row.created_at || null,
