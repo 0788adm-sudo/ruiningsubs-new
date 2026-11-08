@@ -671,6 +671,8 @@
     
     .feat-carousel{display:flex;width:100%;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;scroll-behavior:auto;-webkit-overflow-scrolling:touch;gap:0;padding:0;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
     .feat-slide{min-width:100%;width:100%;flex:0 0 100%;flex-shrink:0;box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:always;padding:0 12px}
+    article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card{-webkit-tap-highlight-color:rgba(245,197,24,.18);touch-action:manipulation}
+    article.post.is-pressing,article.normal-feed-post.is-pressing,article.id-archive-card.is-pressing{opacity:.92;transform:scale(.995);transition:opacity .08s ease,transform .08s ease}
     .feat-dots{display:flex;justify-content:center;gap:8px;margin:8px 0 4px}
     .feat-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25)}
     .feat-dot.on{background:var(--orange)}
@@ -1494,6 +1496,7 @@ body.rc-on #hdr-fc{display:none!important}
 .gt-load{background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.18)}
 .gt-err{background:rgba(80,0,0,.72);color:#fecaca;border:1px solid rgba(248,113,113,.45);pointer-events:auto}
 .gt-act.gt-hot{color:#ffb020}
+.gt-act.gt-hot .gt-hot-n{display:block;font-size:12px;font-weight:900;line-height:1;margin-top:1px;text-shadow:0 1px 4px rgba(0,0,0,.7)}
 .gt-album{display:flex;height:100%;width:100%;overflow-x:hidden;overflow-y:hidden;scroll-snap-type:none;-webkit-overflow-scrolling:touch}
 .gt-album.multi{overflow-x:auto;scroll-snap-type:x mandatory}
 .gt-media{min-width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;background:#000;position:relative}
@@ -9684,6 +9687,10 @@ function openRoulette(){
           history.replaceState({panel:dest==='detail'?'feed':dest},'',path);
         }catch(e){}
         showPanel(dest==='detail'?'feed':dest,{fromDetail:true,keepScroll:true});
+        if(dest==='goontok'){
+          try{setTimeout(function(){restoreGoonTokScroll()}, 30)}catch(e){}
+          try{setTimeout(function(){restoreGoonTokScroll()}, 160)}catch(e){}
+        }
       };
       document.getElementById('btn-user-back').onclick=function(){showPanel('feed')};
       document.getElementById('btn-publish').onclick=createPost;
@@ -12247,13 +12254,14 @@ function openRoulette(){
         showPanel('feed');
         return;
       }
-      // Leaving detail / switching sections must never auto-reopen a previous post.
-      // Skip suppress during boot/route restore so shared ?p= / #p= deep-links still work.
+      // Leaving detail / switching sections must never auto-reopen a previous post
+      // via hash/route. Do NOT set __blockFeedTap here — that caused "tap 2–3 times"
+      // right after opening Wall/Extend/GoonTok.
       if(name!=='detail'){
         try{
-          window.__blockFeedTap=Date.now()+450;
           if(!window.__routing && !opts.fromRoute){
-            window.__suppressAutoOpenPost=Date.now()+1400;
+            // Only for automatic hash/route reopen — openCardFromEvent ignores this flag.
+            window.__suppressAutoOpenPost=Date.now()+500;
             if(!opts.keepPostHash){
               window.__openedHashPost=null;
               currentDetailId=null;
@@ -12290,7 +12298,11 @@ function openRoulette(){
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){
         // openGoonTok already fetches + paints; avoid a second remount/re-arm storm.
-        if(!window.__gtOpening){
+        // Returning from detail: preserve scroll + keep armed players (TikTok feel).
+        if(opts&&opts.fromDetail){
+          try{bindGoonTok({preservePlay:true})}catch(e){}
+          try{restoreGoonTokScroll()}catch(e){}
+        }else if(!window.__gtOpening){
           try{
             if(typeof fetchVideoPosts==='function') fetchVideoPosts().then(function(){renderGoonTok({quiet:true})}).catch(function(){renderGoonTok({quiet:true})});
             else renderGoonTok({quiet:true});
@@ -12313,12 +12325,70 @@ function openRoulette(){
     var gtTab='feed';
     var GT_TARGET=80;
     var GT_PAGE=24;
-    var GT_PROBE_MS=8000; // warm neighbors patiently on mobile
-    var GT_LOAD_TIMEOUT_MS=12000; // never drop a slow-but-valid clip mid-swipe
-    var GT_LOAD_UI_MS=1400; // brief Loading chip; poster stays underneath
+    var GT_PROBE_MS=6000; // warm neighbors patiently on mobile
+    var GT_LOAD_TIMEOUT_MS=9000; // soft-fail slow clips; never leave Loading forever
+    var GT_LOAD_UI_MS=900; // brief Loading chip; poster stays underneath
+    var GT_LOAD_MAX_MS=3200; // hard cap: Loading… chip always hides by this time
     var GT_BROKEN_TTL=45*60*1000; // retry failed media after 45m (was 6h — starved the feed)
     var GT_SOFT_RETRY_MS=90*1000; // allow soft-failed slides to retry in-place
     var GT_PREFLIGHT_MS=2800;
+    function isSafariLikeBrowser(){
+      try{
+        var ua=navigator.userAgent||'';
+        var iOS=/iP(hone|ad|od)/i.test(ua);
+        var webkit=/WebKit/i.test(ua);
+        var chrome=/CriOS|Chrome|Chromium|Edg|Firefox|FxiOS|OPR|Opera/i.test(ua);
+        if(iOS && webkit) return true;
+        if(/Safari/i.test(ua) && webkit && !chrome) return true;
+      }catch(e){}
+      return false;
+    }
+    function isSafariIncompatibleVideoUrl(url){
+      // Safari/iOS has no VP8/VP9/Opus WebM decode — fail fast instead of endless Loading…
+      return /\.webm(\?|#|$)/i.test(String(url||''));
+    }
+    function saveGoonTokScroll(){
+      try{
+        var sc=document.getElementById('gt-scroller');
+        if(!sc)return;
+        window.__gtScrollY=sc.scrollTop||0;
+        if(typeof window.__gtActiveIndex==='function') window.__gtSavedIdx=window.__gtActiveIndex();
+        else window.__gtSavedIdx=window.__gtLastIdx||0;
+      }catch(e){}
+    }
+    function restoreGoonTokScroll(){
+      try{
+        var sc=document.getElementById('gt-scroller');
+        if(!sc)return;
+        var y=Number(window.__gtScrollY||0)||0;
+        var idx=Number(window.__gtSavedIdx);
+        function go(){
+          try{
+            if(isFinite(idx) && idx>=0){
+              var h=sc.clientHeight||1;
+              sc.scrollTop=idx*h;
+            }else{
+              sc.scrollTop=y;
+            }
+          }catch(e){}
+        }
+        go();
+        requestAnimationFrame(go);
+        setTimeout(go,40);
+        setTimeout(function(){
+          go();
+          try{
+            if(typeof window.__gtWindowVideos==='function'){
+              var i=typeof window.__gtActiveIndex==='function'?window.__gtActiveIndex():(window.__gtLastIdx||0);
+              window.__gtWindowVideos(i);
+            }
+          }catch(e){}
+        },120);
+      }catch(e){}
+    }
+    window.saveGoonTokScroll=saveGoonTokScroll;
+    window.restoreGoonTokScroll=restoreGoonTokScroll;
+    window.isSafariLikeBrowser=isSafariLikeBrowser;
     // Verify the media can actually decode — URL existence alone is not enough.
     function probeVideoPlayable(url, ms){
       return new Promise(function(resolve){
@@ -12453,12 +12523,17 @@ function openRoulette(){
         if(p.images&&p.images.length) candidates=candidates.concat(p.images);
         else if(p.image) candidates=candidates.concat((typeof parseImages==='function')?parseImages(p.image):[p.image]);
       }catch(e){}
-      var src='';
+      var safari=typeof isSafariLikeBrowser==='function'&&isSafariLikeBrowser();
+      var mp4='', webm='', other='';
       for(var i=0;i<candidates.length;i++){
         var u=publicMediaUrl(String(candidates[i]||''));
-        if(!u||isImageUrl(u))continue;
-        if(isVideoUrl(u)){src=u;break}
+        if(!u||isImageUrl(u)||!isVideoUrl(u))continue;
+        if(/\.(mp4|m4v|mov)(\?|#|$)/i.test(u)){ if(!mp4) mp4=u; }
+        else if(/\.webm(\?|#|$)/i.test(u)){ if(!webm) webm=u; }
+        else if(!other) other=u;
       }
+      // Safari cannot decode WebM/VP8 — prefer H.264 MP4. Skip WebM-only rows on Safari.
+      var src=mp4||other||(!safari?webm:'');
       if(!src)return null;
       var poster='';
       try{poster=publicMediaUrl(p.thumb_url||p.poster||videoPosterOf(p, src)||'')}catch(e){poster=publicMediaUrl(p.thumb_url||p.poster||'')}
@@ -12707,7 +12782,7 @@ function openRoulette(){
           '<span class="gt-plus">+</span>'+
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openReact(\''+String(p.id).replace(/'/g,'')+'\',event)"><span class="ico">♥</span>'+likes+'</button>'+
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openDetail(\''+String(p.id).replace(/'/g,'')+'\',true)"><span class="ico">💬</span>'+comments+'</button>'+
-          '<button class="gt-act gt-hot" type="button" onclick="event.stopPropagation();hotBumpGoonTok(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🔥</span><span class="lab">HOT</span> '+hotN+'</button>'+
+          '<button class="gt-act gt-hot" type="button" aria-label="Hot '+hotN+'" onclick="event.stopPropagation();hotBumpGoonTok(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🔥</span><span class="lab">HOT</span><span class="gt-hot-n">'+hotN+'</span></button>'+
           extBtn+
           '<button class="gt-act gt-share" type="button" onclick="event.stopPropagation();sharePost && sharePost(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">↗</span>Share</button>'+
         '</div>'+
@@ -12805,6 +12880,13 @@ function openRoulette(){
         if(load) load.hidden=true;
         if(err){
           err.hidden=false;
+          var label=err.querySelector('div');
+          if(label){
+            var why=String(reason||'');
+            label.textContent=/incompatible_codec|safari_webm/i.test(why)
+              ? 'Format not supported on iPhone'
+              : (/load_timeout|warm_|probe_/i.test(why) ? 'Slow connection' : 'Video stalled');
+          }
           var btn=err.querySelector('.gt-retry');
           if(btn && !btn.__bound){
             btn.__bound=1;
@@ -13067,6 +13149,7 @@ function openRoulette(){
           var sl=slideShell(v); if(!sl)return;
           var el=sl.querySelector('.gt-load'); if(!el)return;
           try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
+          try{clearTimeout(v.__gtLoadMaxTimer)}catch(e){}
           if(!on){ el.hidden=true; return; }
           // Delay chip so fast muted autoplay never flashes Loading… over the poster.
           // Cap visible time so it never sticks forever (Safari / broken CF).
@@ -13080,7 +13163,11 @@ function openRoulette(){
                 try{ if(el) el.hidden=true; }catch(e){}
               }, GT_LOAD_UI_MS);
             }catch(e){}
-          }, 350);
+          }, 280);
+          // Absolute safety: Loading… must never remain visible indefinitely.
+          v.__gtLoadMaxTimer=setTimeout(function(){
+            try{ if(el) el.hidden=true; }catch(e){}
+          }, GT_LOAD_MAX_MS);
         }catch(e){}
       }
       function clearSlideError(v){
@@ -13142,6 +13229,14 @@ function openRoulette(){
         var s=publicMediaUrl(v.getAttribute('data-src')||'');
         if(s && v.getAttribute('data-src')!==s) v.setAttribute('data-src',s);
         if(!s){failVideo(v,'no_src');return}
+        // Safari cannot play WebM — fail fast with Retry (no endless Loading…).
+        if(play && typeof isSafariLikeBrowser==='function' && isSafariLikeBrowser() && isSafariIncompatibleVideoUrl(s)){
+          setLoad(v,false);
+          showPoster(v);
+          failVideo(v,'incompatible_codec');
+          try{enqueueVideoOptimize(slideIdOf(v),'safari_webm')}catch(e){}
+          return;
+        }
         var sid=slideIdOf(v);
         if(sid&&isVideoHiddenFromGoonTok(sid)){failVideo(v,'known_broken');return}
         if(play) clearSlideError(v);
@@ -13151,6 +13246,21 @@ function openRoulette(){
         if(play && !needSet && !v.__gtFailed && !v.paused && v.readyState>=2){
           hidePoster(v);
           setLoad(v,false);
+          return;
+        }
+        // Active slide already buffered while paused — play immediately (TikTok feel).
+        if(play && !needSet && !v.__gtFailed && v.readyState>=2){
+          setLoad(v,false);
+          try{
+            v.muted=!(window.__gtSound && window.__gtSoundUnlocked);
+            var readyPlay=v.play();
+            if(readyPlay&&readyPlay.then){
+              readyPlay.then(function(){hidePoster(v);setLoad(v,false)}).catch(function(){
+                v.muted=true;
+                v.play().then(function(){hidePoster(v)}).catch(function(){showPoster(v)});
+              });
+            }else hidePoster(v);
+          }catch(e){showPoster(v)}
           return;
         }
         // Neighbor already buffered — keep poster, do not restart warm timers.
@@ -13809,12 +13919,28 @@ function openRoulette(){
           b.classList.add('on'); b.disabled=true;
           b.innerHTML='🔥 HOT · '+next;
         });
-        var gt=document.querySelector('.gt-slide[data-gid="'+escId+'"] .gt-hot');
-        if(gt) gt.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span> '+next;
+        document.querySelectorAll('.gt-slide[data-gid="'+escId+'"] .gt-hot').forEach(function(gt){
+          gt.innerHTML='<span class="ico">🔥</span><span class="lab">HOT</span><span class="gt-hot-n">'+next+'</span>';
+          gt.setAttribute('aria-label','Hot '+next);
+        });
       }catch(e){}
       try{if(!opts.fromGoonTok) renderNormalFeed()}catch(e){}
       try{if(!opts.fromGoonTok && typeof renderPosts==='function')renderPosts()}catch(e){}
+      // Keep open detail HOT button in sync immediately.
+      try{
+        var dxHot=document.querySelector('#detail-content .btn-hot[data-pid="'+id.replace(/"/g,'')+'"],#panel-detail .btn-hot');
+        if(dxHot && String(currentDetailId)===id){
+          dxHot.classList.add('on'); dxHot.disabled=true;
+          dxHot.innerHTML='🔥 HOT · '+next+'<i>boost wall interaction</i>';
+        }
+      }catch(e){}
       toast('Hot🔥 · boosted');
+      // Persist hot:N on Supabase (public) — CF PATCH requires admin token and often fails for guests.
+      try{
+        if(typeof sb!=='undefined' && sb){
+          await sb.from('posts').update({tags:p.tags}).eq('id', isFinite(Number(id))?Number(id):id);
+        }
+      }catch(e){}
       try{await patchCfPost(id,{tags:p.tags})}catch(e){}
     }
     function hotBumpGoonTok(id){
@@ -15238,7 +15364,11 @@ function openRoulette(){
           if(r&&r.id){
             var mapped=cfRowToFeed(r);
             if(mapped){
-              if(!mapped.expires || mapped.expires<Date.now()) mapped.expires=Date.now()+24*3600000;
+              // Never invent a timer for videos / permanent posts — pinning must not create expiry.
+              try{
+                var isVid=!!(mapped._kind==='video'||mapped.media_type==='video'||(typeof isVideoPost==='function'&&isVideoPost(mapped)));
+                if(isVid){ mapped.expires=0; }
+              }catch(e){}
               return rememberFeedPost(mapped);
             }
           }
@@ -15250,7 +15380,10 @@ function openRoulette(){
           if(q&&q.data&&q.data.id){
             var mapped2=cfRowToFeed(q.data);
             if(mapped2){
-              if(!mapped2.expires || mapped2.expires<Date.now()) mapped2.expires=Date.now()+24*3600000;
+              try{
+                var isVid2=!!(mapped2._kind==='video'||mapped2.media_type==='video'||(typeof isVideoPost==='function'&&isVideoPost(mapped2)));
+                if(isVid2){ mapped2.expires=0; }
+              }catch(e){}
               return rememberFeedPost(mapped2);
             }
           }
@@ -15260,26 +15393,47 @@ function openRoulette(){
     }
     if(!window.__fastTapBound){
       window.__fastTapBound=true;
-      var sx=0,sy=0,st=0;
+      var sx=0,sy=0,st=0,pressCard=null;
       function tapPoint(e){
         if(e.changedTouches&&e.changedTouches[0]) return e.changedTouches[0];
         return e;
       }
+      function clearPress(){
+        try{if(pressCard){pressCard.classList.remove('is-pressing');pressCard=null}}catch(e){}
+      }
       function openCardFromEvent(e){
+        // Only a short debounce after a successful open / carousel swipe.
+        // __suppressAutoOpenPost is for automatic hash reopening — never block real taps.
         if(window.__blockFeedTap && Date.now()<window.__blockFeedTap) return false;
-        if(window.__suppressAutoOpenPost && Date.now()<window.__suppressAutoOpenPost) return false;
-        if(st && Date.now()-st>500)return false;
+        // iOS long-press / slow lifts used to exceed 500ms and silently drop the open.
+        if(st && Date.now()-st>1100)return false;
         var t=tapPoint(e);
         if(!t)return false;
-        if(Math.abs((t.clientX||0)-sx)>28||Math.abs((t.clientY||0)-sy)>28)return false;
+        if(Math.abs((t.clientX||0)-sx)>40||Math.abs((t.clientY||0)-sy)>40)return false;
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
-        // Never treat Spotlight carousel / GoonTok swipe / nav chrome as an accidental open.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-carousel,#feat-carousel,.feat-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        // Video player shell owns the tap (Play) — do not steal it for openDetail.
+        if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
+        // Never treat GoonTok swipe / nav chrome as an accidental open.
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        // Spotlight: open on tap, but ignore right after a horizontal swipe.
+        if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
+        // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).
+        var nfOpen=el.closest('[data-nf-act="open"],[data-nf-act="comment"]');
+        if(nfOpen){
+          var nfId=nfOpen.getAttribute('data-nf-id');
+          if(nfId){
+            try{e.preventDefault();e.stopPropagation()}catch(err){}
+            clearPress();
+            window.__blockFeedTap=Date.now()+280;
+            openDetail(nfId, nfOpen.getAttribute('data-nf-act')==='comment');
+            return true;
+          }
+        }
         var homeStrip=el.closest('#home-random-strip [data-pid],#home-post-strip [data-pid],.home-strip-card');
         if(homeStrip){
           var hid=homeStrip.getAttribute('data-pid')||(homeStrip.closest('[data-pid]')&&homeStrip.closest('[data-pid]').getAttribute('data-pid'));
-          if(hid){try{e.preventDefault();e.stopPropagation()}catch(err){} openDetail(hid); return true;}
+          if(hid){try{e.preventDefault();e.stopPropagation()}catch(err){} clearPress(); openDetail(hid); return true;}
         }
         var like=el.closest('.btn-like,[data-nf-act="picker"],[data-nf-act="react"]');
         if(like){
@@ -15287,6 +15441,7 @@ function openRoulette(){
           var idL=artL&&(artL.getAttribute('data-pid')||artL.getAttribute('data-normal-post-id')||artL.getAttribute('data-gid'));
           if(idL){
             e.preventDefault();e.stopPropagation();
+            clearPress();
             var em=like.getAttribute('data-nf-emoji');
             if(em && typeof setReaction==='function') setReaction(idL,em);
             else quickLike(idL,e);
@@ -15299,6 +15454,7 @@ function openRoulette(){
           var idH=hotHit.getAttribute('data-nf-id')||(artH&&(artH.getAttribute('data-pid')||artH.getAttribute('data-normal-post-id')||artH.getAttribute('data-gid')));
           if(idH){
             e.preventDefault();e.stopPropagation();
+            clearPress();
             if(hotHit.classList.contains('gt-hot')||hotHit.closest('.gt-slide')) hotBumpGoonTok(idH);
             else hotBumpWall(idH,{allowAnon:true});
             return true;
@@ -15308,22 +15464,29 @@ function openRoulette(){
         if(ext && !ext.disabled && !ext.classList.contains('is-cooling')){
           var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
           var id=art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid'));
-          if(id){e.preventDefault();openExtend(id);return true;}
+          if(id){e.preventDefault();clearPress();openExtend(id);return true;}
         }
         if(el.closest('.post-actions button,.normal-feed-post-actions button,.normal-feed-reacts,.react-bar,.cmt-in,.id-archive-actions'))return false;
         if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost,button.gt-act'))return false;
         // Only real post cards — never bare [data-pid] (chips / counters / nested wrappers).
         var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card,.normal-feed-post');
         if(!card)return false;
-        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide')) return false;
         var id2=card.getAttribute('data-pid')||card.getAttribute('data-normal-post-id')||card.getAttribute('data-gid');
         if(!id2)return false;
         try{e.preventDefault();e.stopPropagation();}catch(err){}
+        clearPress();
+        window.__blockFeedTap=Date.now()+280;
         openDetail(id2);
         return true;
       }
       document.addEventListener('pointerdown',function(e){
         sx=e.clientX||0;sy=e.clientY||0;st=Date.now();
+        try{
+          clearPress();
+          var el=e.target;
+          pressCard=el&&el.closest&&el.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card');
+          if(pressCard) pressCard.classList.add('is-pressing');
+        }catch(err){}
       },{passive:true,capture:true});
       document.addEventListener('touchstart',function(e){
         var t=e.changedTouches&&e.changedTouches[0];
@@ -15333,17 +15496,19 @@ function openRoulette(){
       document.addEventListener('pointerup',function(e){
         if(e.pointerType==='mouse' && e.button!==0)return;
         openCardFromEvent(e);
+        clearPress();
       },{passive:false,capture:true});
+      document.addEventListener('pointercancel',function(){clearPress()},{passive:true});
       document.addEventListener('click',function(e){
         var el=e.target;
         if(!el||!el.closest)return;
-        if(el.closest('button,.btn,.react-bar,.post-actions,.dx-actions,input,textarea,a,.feat-carousel,#feat-carousel,.bottom-nav,.nav-row'))return;
+        if(el.closest('button,.btn,.react-bar,.post-actions,.dx-actions,input,textarea,a,.bottom-nav,.nav-row'))return;
         var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card');
         if(!card)return;
-        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide')) return;
+        if(card.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return;
         var id2=card.getAttribute('data-pid')||card.getAttribute('data-normal-post-id');
         if(!id2)return;
-        if(window.__openDetailLock && window.__openDetailLock.id===String(id2) && Date.now()-window.__openDetailLock.t<700){
+        if(window.__openDetailLock && window.__openDetailLock.id===String(id2) && Date.now()-window.__openDetailLock.t<900){
           e.preventDefault();
           e.stopPropagation();
         }
@@ -19374,14 +19539,18 @@ function postCardHtml(p, compact){
           var dx=x-sx;
           var cur=idx();
           if(moved || Math.abs(dx)>12){
-            try{window.__blockFeedTap=Date.now()+500;window.__suppressAutoOpenPost=Date.now()+500}catch(err){}
+            try{
+              window.__blockFeedTap=Date.now()+350;
+              window.__suppressAutoOpenPost=Date.now()+350;
+              window.__featSwipeUntil=Date.now()+450;
+            }catch(err){}
           }
           if(dx<-35) go(cur+1,true);
           else if(dx>35) go(cur-1,true);
           else go(cur,true);
         },{passive:true});
         box.addEventListener('click',function(e){
-          if(moved || (window.__blockFeedTap && Date.now()<window.__blockFeedTap)){
+          if(moved || (window.__featSwipeUntil && Date.now()<window.__featSwipeUntil)){
             e.stopPropagation();e.preventDefault();moved=false;
             return;
           }
@@ -19811,6 +19980,9 @@ function postCardHtml(p, compact){
 
       if(isDeletedId(id)){toast('This post was deleted');showPanel('feed');return;}
       try{saveFeedScroll()}catch(e){}
+      try{
+        if(document.body.classList.contains('gt-on') || (window.__detailFrom==='goontok')) saveGoonTokScroll();
+      }catch(e){}
       var box0=document.getElementById('detail-content');
       if(box0) box0.innerHTML='<div class="empty">Opening…</div>';
       showPanel('detail');
