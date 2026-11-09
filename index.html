@@ -96,6 +96,12 @@
     }
     .verified-badge svg{width:11px;height:11px;display:block}
     .name-with-verified{display:inline-flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap}
+    .featured-profile-badge{
+      display:inline-flex;align-items:center;margin-left:6px;vertical-align:middle;
+      font-size:10px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;
+      color:#000;background:linear-gradient(90deg,var(--orange),#4c1d95);
+      border-radius:999px;padding:3px 8px;flex-shrink:0;
+    }
 
     .hdr-btns{display:flex;gap:8px;align-items:center}
     .icon-btn{width:40px;height:40px;border-radius:12px;background:var(--elev);border:1px solid var(--border);color:var(--text);font-size:18px;cursor:pointer;position:relative}
@@ -5129,16 +5135,29 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }
       }catch(e){}
     }
-    var VERIFIED_USERS = ['mastersan','mastersan01','master_san'];
+    var VERIFIED_USERS = ['mastersan','mastersan01','master_san','loserfagg'];
+    // Spotlight-priority profiles — their active posts stay pinned / featured.
+    var FEATURED_PROFILES = ['loserfagg'];
+    var FEATURED_PROFILE_PIN_MS = 30 * 24 * 3600 * 1000;
     function displayViews(n){
       n = Number(n)||0;
       return n * 2; // same doubled number on the card and inside the post
     }
+    function normProfileName(name){
+      return String(name||'').replace(/^@/,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
+    }
     function isVerifiedUser(name){
       if(!name) return false;
-      var n = String(name).replace(/^@/,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
-      return VERIFIED_USERS.indexOf(n) >= 0;
+      return VERIFIED_USERS.indexOf(normProfileName(name)) >= 0;
     }
+    function isFeaturedProfile(name){
+      if(!name) return false;
+      return FEATURED_PROFILES.indexOf(normProfileName(name)) >= 0;
+    }
+    function featuredProfileBadgeHtml(){
+      return '<span class="featured-profile-badge" title="Featured profile" aria-label="Featured">Featured</span>';
+    }
+    window.isFeaturedProfile=isFeaturedProfile;
     function verifiedBadgeHtml(){
       return '<span class="verified-badge" title="Verified" aria-label="Verified"><svg viewBox="0 0 24 24" fill="none"><path d="M9.2 16.6 4.8 12.2l1.4-1.4 3 3 8-8 1.4 1.4-9.4 9.4z" fill="#fff"/></svg></span>';
     }
@@ -5175,10 +5194,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:8px 0 0">'+bits.map(function(b){return '<span style="font-size:11px;font-weight:700;color:#ffd7b0;background:rgba(255,122,24,.12);border:1px solid rgba(255,122,24,.35);border-radius:999px;padding:4px 9px">'+b+'</span>'}).join('')+'</div>';
     }
     function refreshProfileUI(){
-      var pn=document.getElementById('profile-name'); if(pn){ if(isVerifiedUser(currentUser.name)) pn.innerHTML=nameWithVerified(currentUser.name); else pn.textContent='@'+currentUser.name; }
+      var pn=document.getElementById('profile-name');
+      if(pn){
+        if(isVerifiedUser(currentUser.name)){
+          pn.innerHTML=nameWithVerified(currentUser.name)+(isFeaturedProfile(currentUser.name)?featuredProfileBadgeHtml():'');
+        }else if(isFeaturedProfile(currentUser.name)){
+          pn.innerHTML='@'+esc(currentUser.name)+featuredProfileBadgeHtml();
+        }else pn.textContent='@'+currentUser.name;
+      }
       var pr=document.getElementById('profile-role');
       if(pr){
-        if(isVerifiedUser(currentUser.name)) pr.innerHTML='<span style="color:#1d9bf0;font-weight:700">Verified</span> · Creator';
+        if(isVerifiedUser(currentUser.name) && isFeaturedProfile(currentUser.name)) pr.innerHTML='<span style="color:#1d9bf0;font-weight:700">Verified</span> · Featured';
+        else if(isVerifiedUser(currentUser.name)) pr.innerHTML='<span style="color:#1d9bf0;font-weight:700">Verified</span> · Creator';
+        else if(isFeaturedProfile(currentUser.name)) pr.innerHTML='<span style="color:var(--orange);font-weight:700">Featured</span>';
         else pr.textContent=isRegistered()?'Registered':'Guest';
       }
       var av=document.getElementById('profile-avatar');
@@ -16798,6 +16826,14 @@ function openRoulette(){
           var isCard=tg.indexOf('generated_id')>=0||tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('idcard')>=0;
           return (isCard || !profileViewIsNormal(p)) && (typeof profileMediaOk!=="function" || profileMediaOk(p));
         });
+        try{
+          extended.sort(function(a,b){
+            var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
+            var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
+            if(bf!==af) return bf-af;
+            return (Number(b.created)||0)-(Number(a.created)||0);
+          });
+        }catch(e){}
         box.innerHTML=extended.length
           ? '<div class="user-posts-grid">'+extended.map(function(p){return postCardHtml(p,true)}).join('')+'</div>'
           : '<div class="gallery-empty">No extended posts yet</div>';
@@ -19376,6 +19412,11 @@ function profileStatsHtml(userPosts, extra){
       else id=String(pOrId||'');
       if(!id || (typeof isDeletedId==='function' && isDeletedId(id))) return 0;
       if(p && typeof isBlockedPinContent==='function' && isBlockedPinContent(p)) return 0;
+      if(!p){
+        try{p=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+        try{if(!p)p=(posts||[]).find(function(x){return String(x.id)===id})||null}catch(e){}
+        try{if(!p)p=(normalFeedPosts||[]).find(function(x){return String(x.id)===id})||null}catch(e){}
+      }
       var until=0;
       try{until=Math.max(until, Number(p&&p.featuredUntil)||0)}catch(e){}
       try{until=Math.max(until, Number(getLocalFeatured()[id])||0)}catch(e){}
@@ -19387,6 +19428,26 @@ function profileStatsHtml(userPosts, extra){
         (window.__pinBoard||[]).forEach(function(row){
           if(row && String(row.id)===id) until=Math.max(until, Number(row.featuredUntil)||0);
         });
+      }catch(e){}
+      // Featured profiles keep active posts in Spotlight without a separate admin pin.
+      try{
+        var who=(p&&(p.user||p.username))||'';
+        if(!who){
+          try{
+            var s2=getFeaturedSnaps()[id];
+            if(s2) who=s2.user||s2.username||'';
+          }catch(e){}
+        }
+        if(!who){
+          try{
+            (window.__pinBoard||[]).forEach(function(row){
+              if(row && String(row.id)===id) who=row.user||row.username||who;
+            });
+          }catch(e){}
+        }
+        if(who && typeof isFeaturedProfile==='function' && isFeaturedProfile(who)){
+          until=Math.max(until, Date.now()+FEATURED_PROFILE_PIN_MS);
+        }
       }catch(e){}
       return until>Date.now()?until:0;
     }
@@ -19581,7 +19642,8 @@ function postCardHtml(p, compact){
       var uClick=userClickable(p.user)?'data-user="'+String(p.user).replace(/"/g,'')+'" onclick="event.stopPropagation();openUser(this.getAttribute(\'data-user\'))"':'';
       var feat=isFeatured(p)||isPin;
       var rank=getRank(p.id);
-      var rankHtml=feat?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':'');
+      var pinLabel=(feat && typeof isFeaturedProfile==='function' && isFeaturedProfile(p.user))?'Featured':'Pinned';
+      var rankHtml=feat?'<div class="pinned-badge">'+pinLabel+'</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':'');
       var cls='post'+(compact?' post-compact':'')+(feat?' featured-card':'');
       var saved=isSaved(p.id);
       var displayName=isVerifiedUser(p.user)?nameWithVerified(p.user):('@'+esc(p.user));
@@ -19977,7 +20039,8 @@ function postCardHtml(p, compact){
               var lab=featBox.querySelector('.feat-slide[data-fi="'+i+'"] .featured-label');
               if(lab){
                 var left=item.fu-Date.now();
-                lab.textContent='Pinned · '+fmt(left)+' left'+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'');
+                var featProf=typeof isFeaturedProfile==='function'&&isFeaturedProfile((item.p&&item.p.user)||'');
+                lab.textContent=(featProf?'Featured profile':'Pinned · '+fmt(left)+' left')+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'');
                 lab.setAttribute('data-pin-exp', String(item.fu));
               }
               // Keep exposure hourglass + Extend count in sync while the carousel DOM is reused.
@@ -20006,8 +20069,10 @@ function postCardHtml(p, compact){
             featBox.setAttribute('data-feat-sig',featSig);
             var slides=featuredList.map(function(item,i){
               var left=item.fu-Date.now();
+              var featProf=typeof isFeaturedProfile==='function'&&isFeaturedProfile((item.p&&item.p.user)||'');
+              var featLab=featProf?'Featured profile':('Pinned · '+fmt(left)+' left');
               // No outer onclick — open only from the inner card (user tap). Carousel swipes must not open.
-              return '<div class="feat-slide" data-fi="'+i+'" data-pid="'+String(item.p.id).replace(/"/g,'')+'"><div class="featured-label" data-pin-exp="'+item.fu+'">Pinned · '+fmt(left)+' left'+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'')+'</div><div class="featured-wrap">'+postCardHtml(item.p,true)+'</div></div>';
+              return '<div class="feat-slide" data-fi="'+i+'" data-pid="'+String(item.p.id).replace(/"/g,'')+'"><div class="featured-label" data-pin-exp="'+item.fu+'">'+featLab+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'')+'</div><div class="featured-wrap">'+postCardHtml(item.p,true)+'</div></div>';
             }).join('');
             var dots=featuredList.length>1?('<div class="feat-dots">'+featuredList.map(function(_,i){return '<span class="feat-dot'+(i===0?' on':'')+'" data-fi="'+i+'"></span>'}).join('')+'</div>'):'';
             featBox.innerHTML='<div style="width:100%;padding:0 12px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-sizing:border-box"><span style="font-size:13px;font-weight:900;letter-spacing:1.4px">SPOTLIGHT</span><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();copySectionLink(\'spotlight\')">Share</button></div><div class="feat-carousel" id="feat-carousel">'+slides+'</div>'+dots;
@@ -20299,8 +20364,19 @@ function postCardHtml(p, compact){
       }
       viewingUser=username;
       loadFollowCounts(username,'user-follow-stats');
-      var ut=document.getElementById('user-title'); if(ut){ if(isVerifiedUser(username)) ut.innerHTML=nameWithVerified(username); else ut.textContent='@'+username; }
-      var un=document.getElementById('user-name'); if(un){ if(isVerifiedUser(username)) un.innerHTML=nameWithVerified(username); else un.textContent='@'+username; }
+      var featBadge=isFeaturedProfile(username)?featuredProfileBadgeHtml():'';
+      var ut=document.getElementById('user-title');
+      if(ut){
+        if(isVerifiedUser(username)) ut.innerHTML=nameWithVerified(username)+featBadge;
+        else if(featBadge) ut.innerHTML='@'+esc(username)+featBadge;
+        else ut.textContent='@'+username;
+      }
+      var un=document.getElementById('user-name');
+      if(un){
+        if(isVerifiedUser(username)) un.innerHTML=nameWithVerified(username)+featBadge;
+        else if(featBadge) un.innerHTML='@'+esc(username)+featBadge;
+        else un.textContent='@'+username;
+      }
       var av=document.getElementById('user-avatar');
       av.textContent=username.charAt(0).toUpperCase();
       delete profileCache[username];
@@ -20393,9 +20469,20 @@ function postCardHtml(p, compact){
             }
             var feedG=gallery.filter(function(p){return !isProfileGal(p)});
             var profG=gallery.filter(isProfileGal);
+            // Featured / pinned posts first on highlighted profiles.
+            try{
+              feedG.sort(function(a,b){
+                var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
+                var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
+                if(bf!==af) return bf-af;
+                return (Number(b.created)||0)-(Number(a.created)||0);
+              });
+            }catch(e){}
             var html='';
             if(feedG.length){
-              html+='<div style="font-size:12px;color:var(--muted);margin:0 0 8px;font-weight:700">ACTIVE EXPOSURES</div>';
+              var pinnedN=0;
+              try{feedG.forEach(function(p){if(typeof isFeatured==='function'&&isFeatured(p))pinnedN++})}catch(e){}
+              html+='<div style="font-size:12px;color:var(--muted);margin:0 0 8px;font-weight:700">'+(pinnedN?'PINNED · ':'')+'ACTIVE EXPOSURES</div>';
               html+='<div class="user-posts-grid">'+feedG.map(function(p){return postCardHtml(p,true)}).join('')+'</div>';
             }
             if(profG.length){
