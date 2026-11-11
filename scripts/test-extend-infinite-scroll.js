@@ -26,6 +26,10 @@ assert(!/window\.__feedShown=initial;\s*try\{\s*box\.innerHTML=rest\.slice\(0,in
 assert(html.includes('__feedInfAt'), 'appendFeedPage has re-entry cooldown (protects nav)');
 assert(html.includes('isExtendFeedActive'), 'infinite scroll gated to Extend feed panel');
 assert(/setTimeout\(function\(\)\{try\{observeFeedSentinel/.test(html), 'IO re-armed asynchronously to avoid sync recursion');
+assert(html.includes('__feedPaintSig'), 'soft paint signature skips remount on live refresh');
+assert(html.includes('Soft paint: same filter'), 'soft paint documents no-remount path');
+assert(html.includes('__feedScrollTrackBound'), 'Extend scroll position tracked continuously');
+assert(html.includes('restoreFeedScroll(keepY'), 'hard paint restores scroll after remount');
 
 // Behavioral model of the preserve-shown contract (no DOM).
 (function () {
