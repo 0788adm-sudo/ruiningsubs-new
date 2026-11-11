@@ -16028,7 +16028,7 @@ function openRoulette(){
     }
     function writePostCache(key,list){
       try{
-        var slim=(list||[]).slice(0,60).map(function(p){
+        var slim=(list||[]).slice(0,120).map(function(p){
           var tags=(p.tags||[]).filter(function(t){return String(t||'').indexOf('album:')!==0 && String(t||'').length<80}).slice(0,14);
           var imgs=(p.images||[]).slice(0,3);
           return {
@@ -16145,18 +16145,21 @@ function openRoulette(){
         // Parallel network with timeouts — never let one hung source freeze Loading forever.
         var nowIso=new Date().toISOString();
         var SB_FEED_COLS='id,username,title,description,tags,image_url,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions';
-        var cfP=sbQueryTimeout(Promise.resolve(fetchCfFeed('', 60)).catch(function(){return[]}),8000,[]);
+        // Fetch a wide first page so Extend can scroll well past 100 live exposures
+        // without an artificial 60-post ceiling. Client windowing still paints in chunks.
+        window.__feedNetDone=false;
+        var cfP=sbQueryTimeout(Promise.resolve(fetchCfFeed('', 160)).catch(function(){return[]}),8000,[]);
         var featP=sbQueryTimeout(Promise.resolve(fetchCfFeed('featured', 20)).catch(function(){return[]}),8000,[]);
         var timedP=Promise.resolve([]);
         var recentP=Promise.resolve([]);
         if(typeof sb!=='undefined' && sb){
           timedP=sbQueryTimeout(
-            sb.from('posts').select(SB_FEED_COLS).gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(80).then(function(r){return (r&&r.data)||[]}),
+            sb.from('posts').select(SB_FEED_COLS).gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(160).then(function(r){return (r&&r.data)||[]}),
             7000,
             []
           );
           recentP=sbQueryTimeout(
-            sb.from('posts').select(SB_FEED_COLS).order('created_at',{ascending:false}).limit(60).then(function(r){return (r&&r.data)||[]}),
+            sb.from('posts').select(SB_FEED_COLS).order('created_at',{ascending:false}).limit(120).then(function(r){return (r&&r.data)||[]}),
             7000,
             []
           );
@@ -16195,6 +16198,11 @@ function openRoulette(){
           try{writePostCache('rs_home_cache', posts)}catch(e){}
           paintFeedSafe();
         }
+        // If the wide first page came back short, there is nothing more to page from the network.
+        try{
+          var got=Math.max((parts[0]||[]).length,(parts[2]||[]).length,(cfRows||[]).length);
+          if(got>0 && got<150) window.__feedNetDone=true;
+        }catch(e){}
       }catch(e){console.warn('cf feed',e)}
       try{
         posts=(posts||[]).filter(function(p){return p && !isDeletedId(p.id) && (isCfPost(p) || /^\d+$/.test(String(p.id)));});
@@ -19731,32 +19739,135 @@ function postCardHtml(p, compact){
       go(Math.min(window.__featIndex||0, Math.max(0,n-1)), false);
     }
 
+    function feedNearEnd(){
+      var y=window.pageYOffset||document.documentElement.scrollTop||document.body.scrollTop||0;
+      var h=window.innerHeight||800;
+      var doc=Math.max(
+        document.documentElement.scrollHeight||0,
+        document.body.scrollHeight||0,
+        (document.scrollingElement&&document.scrollingElement.scrollHeight)||0
+      );
+      return y+h>=doc-900;
+    }
+    function appendFeedPage(){
+      if(window.__feedInfBusy)return;
+      var rest=window.__feedRest||[];
+      var shown=Number(window.__feedShown)||0;
+      if(shown>=rest.length){
+        try{if(typeof loadMoreExtendFeed==='function') loadMoreExtendFeed()}catch(e){}
+        return;
+      }
+      window.__feedInfBusy=true;
+      try{
+        var next=Math.min(rest.length, shown+36);
+        window.__feedShown=next;
+        var box=document.getElementById('posts-container');
+        if(!box)return;
+        var old=document.getElementById('feed-more-sentinel');
+        if(old){try{old.remove()}catch(e){try{old.parentNode&&old.parentNode.removeChild(old)}catch(e2){}}}
+        var extra=rest.slice(shown, next).map(function(p){
+          try{return postCardHtml(p,true)}catch(err){return ''}
+        }).join('');
+        if(extra) box.insertAdjacentHTML('beforeend', extra);
+        if(next<rest.length || !window.__feedNetDone){
+          box.insertAdjacentHTML('beforeend', '<div id="feed-more-sentinel" style="grid-column:1/-1;padding:16px 0 28px;text-align:center;color:var(--muted);font-size:12px">Loading more…</div>');
+        }
+        try{updateTimers()}catch(e){}
+        try{warmVisibleLazyVideos(box)}catch(e){}
+        try{observeFeedSentinel()}catch(e){}
+        try{bindImpressions('feed', box)}catch(e){}
+      }finally{
+        window.__feedInfBusy=false;
+      }
+    }
+    function observeFeedSentinel(){
+      var sent=document.getElementById('feed-more-sentinel');
+      if(!sent)return;
+      if(window.__feedIO){try{window.__feedIO.disconnect()}catch(e){}}
+      if(!window.IntersectionObserver){
+        sent.onclick=function(){appendFeedPage()};
+        return;
+      }
+      // root:null = viewport (document scroll). Do not bind to a nested overflow box.
+      window.__feedIO=new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          if(en.isIntersecting) appendFeedPage();
+        });
+      },{root:null,rootMargin:'900px 0px',threshold:0.01});
+      window.__feedIO.observe(sent);
+    }
     function bindFeedInfinite(){
-      if(window.__feedInfBound)return;
-      window.__feedInfBound=true;
-      var ticking=false;
-      function more(){
-        if(ticking)return;
-        ticking=true;
+      function onScrollMore(){
+        if(window.__feedScrollTick)return;
+        window.__feedScrollTick=true;
         requestAnimationFrame(function(){
-          ticking=false;
-          var rest=window.__feedRest||[];
-          var shown=window.__feedShown||0;
-          if(shown>=rest.length)return;
-          var y=window.pageYOffset||document.documentElement.scrollTop||0;
-          var h=window.innerHeight||800;
-          var doc=document.documentElement.scrollHeight||0;
-          if(y+h<doc-600)return;
-          window.__feedShown=Math.min(rest.length,shown+36);
-          var box=document.getElementById('posts-container');
-          if(!box)return;
-          var extra=rest.slice(shown,window.__feedShown).map(function(p){return postCardHtml(p,true)}).join('');
-          box.insertAdjacentHTML('beforeend',extra);
-          try{updateTimers()}catch(e){}
+          window.__feedScrollTick=false;
+          if(feedNearEnd()) appendFeedPage();
         });
       }
-      window.addEventListener('scroll',more,{passive:true});
+      if(!window.__feedInfBound){
+        window.__feedInfBound=true;
+        window.addEventListener('scroll',onScrollMore,{passive:true});
+        // iOS Safari sometimes stalls window scroll callbacks during rubber-banding;
+        // touchmove near the end is a cheap backup that still does not call preventDefault.
+        document.addEventListener('touchmove',function(){
+          if(feedNearEnd()) onScrollMore();
+        },{passive:true});
+      }
+      try{observeFeedSentinel()}catch(e){}
+      // If the first page already fills the viewport, kick another page immediately.
+      try{
+        if(feedNearEnd()) setTimeout(function(){try{appendFeedPage()}catch(e){}},0);
+      }catch(e){}
     }
+    async function loadMoreExtendFeed(){
+      if(window.__feedNetBusy || window.__feedNetDone)return;
+      var have=(posts||[]).length;
+      if(have>=240){window.__feedNetDone=true;return}
+      window.__feedNetBusy=true;
+      var sent=document.getElementById('feed-more-sentinel');
+      if(sent) sent.textContent='Loading more…';
+      try{
+        var want=Math.min(240, Math.max(160, have+80));
+        var rows=await Promise.resolve(fetchCfFeed('', want)).catch(function(){return[]});
+        rows=rows||[];
+        var before=have;
+        var seen={};
+        (posts||[]).forEach(function(p){if(p&&p.id!=null)seen[String(p.id)]=1});
+        var added=0;
+        rows.forEach(function(r){
+          if(!r||r.id==null||seen[String(r.id)]||(typeof isDeletedId==='function'&&isDeletedId(r.id)))return;
+          seen[String(r.id)]=1;
+          posts.push(r);
+          added++;
+        });
+        if(added<=0 || (posts||[]).length<=before){
+          window.__feedNetDone=true;
+          if(sent){
+            if((window.__feedShown||0)>=(window.__feedRest||[]).length){
+              try{sent.remove()}catch(e){}
+            }else sent.textContent='Loading more…';
+          }
+          return;
+        }
+        // Keep already-painted cards; only expand the windowed list.
+        try{renderPosts()}catch(e){}
+        try{
+          if((Number(window.__feedShown)||0)<(window.__feedRest||[]).length) appendFeedPage();
+        }catch(e){}
+      }catch(e){
+        console.warn('loadMoreExtendFeed',e);
+        if(sent){
+          sent.innerHTML='Could not load more. <button class="btn btn-secondary btn-sm" type="button" id="feed-retry-more">Retry</button>';
+          var btn=document.getElementById('feed-retry-more');
+          if(btn) btn.onclick=function(){window.__feedNetDone=false;loadMoreExtendFeed()};
+        }
+      }finally{
+        window.__feedNetBusy=false;
+      }
+    }
+    window.loadMoreExtendFeed=loadMoreExtendFeed;
+    window.appendFeedPage=appendFeedPage;
     function isAdminHot(p){
       if(!p)return false;
       if(p.adminHot===true||p.admin_hot===true||p.isHot===true) return true;
@@ -20095,19 +20206,47 @@ function postCardHtml(p, compact){
       if(!rest.length && !featured){box.innerHTML='<div class="empty">No active exposures</div>';updateTimers();return}
       if(!rest.length){box.innerHTML='';updateTimers();return}
       window.__feedRest=rest;
-      // Show a dense first page, then infinite-scroll the rest (no artificial tiny cap).
-      var initial=Math.min(rest.length, Math.max(24, (window.innerWidth>=1280?40:window.innerWidth>=900?32:24)));
+      // CRITICAL: never wipe already-scrolled cards on progressive loadPosts / timer refreshes.
+      // Only reset the window when the user changes filter, search, or gender.
+      var feedSig=[String(currentFilter||'new'), String(typeof feedSearchQuery!=='undefined'?feedSearchQuery:''), String(feedGenderFilter||'all')].join('|');
+      var prevShown=Number(window.__feedShown)||0;
+      if(window.__feedSig!==feedSig){
+        window.__feedSig=feedSig;
+        prevShown=0;
+      }
+      var baseInitial=Math.max(24, (window.innerWidth>=1280?40:window.innerWidth>=900?32:24));
+      var initial=Math.min(rest.length, Math.max(baseInitial, prevShown||0));
       window.__feedShown=initial;
+      var keepY=0;
+      try{keepY=window.pageYOffset||document.documentElement.scrollTop||document.body.scrollTop||0}catch(e){keepY=0}
+      var keepScroll=prevShown>=baseInitial && keepY>60;
       try{
-        box.innerHTML=rest.slice(0,initial).map(function(p){
+        var cards=rest.slice(0,initial).map(function(p){
           try{return postCardHtml(p,true)}catch(err){console.warn('postCardHtml',p&&p.id,err);return ''}
         }).join('');
-        if(!box.innerHTML.trim()) box.innerHTML='<div class="empty">No active exposures</div>';
+        var moreHtml=(initial<rest.length || !window.__feedNetDone)
+          ? '<div id="feed-more-sentinel" style="grid-column:1/-1;padding:16px 0 28px;text-align:center;color:var(--muted);font-size:12px">Loading more…</div>'
+          : '';
+        box.innerHTML=cards+moreHtml;
+        if(!box.querySelector('article.post') && !String(cards||'').trim()) box.innerHTML='<div class="empty">No active exposures</div>';
       }catch(e){
         console.warn('feed paint',e);
         box.innerHTML='<div class="empty">No active exposures</div>';
       }
       try{bindFeedInfinite()}catch(e){}
+      if(keepScroll){
+        try{
+          var restoreY=function(){
+            try{window.scrollTo(0,keepY)}catch(e){}
+            try{document.documentElement.scrollTop=keepY}catch(e){}
+            try{document.body.scrollTop=keepY}catch(e){}
+            try{if(document.scrollingElement)document.scrollingElement.scrollTop=keepY}catch(e){}
+          };
+          restoreY();
+          requestAnimationFrame(restoreY);
+          setTimeout(restoreY,40);
+        }catch(e){}
+      }
       try{syncExtendedPanel(rest)}catch(e){}
       try{warmVisibleLazyVideos()}catch(e){}
       updateTimers();
