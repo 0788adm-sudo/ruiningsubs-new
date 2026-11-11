@@ -9712,12 +9712,62 @@ function openRoulette(){
       }catch(e){toast('Copy the profile URL from the browser')}
     }
 
+    function bindBottomNav(){
+      function applyNav(target){
+        if(!target)return;
+        var now=Date.now();
+        if(window.__navStamp && now-window.__navStamp<280 && window.__navLast===target)return;
+        window.__navStamp=now;
+        window.__navLast=target;
+        try{
+          if(target==='post'){
+            if(document.body.classList.contains('gt-on') || (typeof currentRouteSlug==='function' && currentRouteSlug()==='goontok')){
+              if(typeof openVideoComposer==='function') openVideoComposer();
+              return;
+            }
+            try{setExposurePostMode()}catch(e){}
+          }
+          if(target==='goontok'){openGoonTok();return;}
+          showPanel(target);
+        }catch(err){console.warn(err)}
+      }
+      window.applyNav=applyNav;
+      if(window.__bottomNavBound)return;
+      window.__bottomNavBound=true;
+      document.querySelectorAll('.nav-row [data-p]').forEach(function(btn){
+        btn.addEventListener('pointerup',function(e){
+          if(e.pointerType==='mouse' && e.button!==0)return;
+          e.preventDefault();
+          e.stopPropagation();
+          applyNav(btn.getAttribute('data-p'));
+        },true);
+        btn.addEventListener('click',function(e){
+          e.preventDefault();
+          applyNav(btn.getAttribute('data-p'));
+        },true);
+      });
+      if(!window.__fastNavBound){
+        window.__fastNavBound=true;
+        document.addEventListener('touchend',function(e){
+          var t=e.changedTouches&&e.changedTouches[0];
+          var el=(t&&document.elementFromPoint(t.clientX,t.clientY))||e.target;
+          if(!el||!el.closest)return;
+          var btn=el.closest('.nav-row [data-p]');
+          if(!btn)return;
+          e.preventDefault();
+          applyNav(btn.getAttribute('data-p'));
+        },true);
+      }
+    }
+    window.bindBottomNav=bindBottomNav;
     function setupUI(){
+      // Bind bottom nav first so a later setup error cannot leave the app unnavigable.
+      try{bindBottomNav()}catch(e){console.warn('bindBottomNav',e)}
       try{setupTelegramPopup()}catch(e){}
       try{setupTaskUI()}catch(e){console.warn(e)}
       var bshare=document.getElementById('btn-share-profile');if(bshare)bshare.onclick=shareProfile;
       var bp=document.getElementById('btn-open-premium');if(bp)bp.remove();
-      document.getElementById('btn-go-public').onclick=function(){setExposurePostMode();showPanel('post')};
+      var bgp=document.getElementById('btn-go-public');if(bgp)bgp.onclick=function(){setExposurePostMode();showPanel('post')};
       
       var bf=document.getElementById('btn-follow');if(bf)bf.onclick=toggleFollow;
       var bm=document.getElementById('btn-msg-user');if(bm)bm.onclick=function(){openChat(viewingUser||null)};
@@ -9917,10 +9967,10 @@ function openRoulette(){
       document.getElementById('btn-back-login').onclick=function(){showAuth('login')};
       document.getElementById('btn-login').onclick=doLogin;
       document.getElementById('btn-register').onclick=doRegister;
-      document.getElementById('btn-reset').onclick=doForgot;
+      var brs=document.getElementById('btn-reset'); if(brs) brs.onclick=doForgot;
       var bsp=document.getElementById('btn-save-pass'); if(bsp)bsp.onclick=doSaveNewPassword;
       var bcp=document.getElementById('btn-cancel-pass'); if(bcp)bcp.onclick=function(){showAuth('login')};
-      document.getElementById('btn-edit-profile').onclick=function(){
+      var bep=document.getElementById('btn-edit-profile'); if(bep) bep.onclick=function(){
         if(!isRegistered()){toast('Register to edit profile');return}
         var box=document.getElementById('edit-profile-box');
         var show=box.style.display==='none';
@@ -9962,51 +10012,9 @@ function openRoulette(){
         };
         r.readAsDataURL(f);
       };
-      document.getElementById('btn-save-profile').onclick=saveProfile;
-      document.getElementById('btn-mark-read').onclick=markNotifsRead;
-      function applyNav(target){
-        if(!target)return;
-        var now=Date.now();
-        if(window.__navStamp && now-window.__navStamp<280 && window.__navLast===target)return;
-        window.__navStamp=now;
-        window.__navLast=target;
-        try{
-          if(target==='post'){
-            if(document.body.classList.contains('gt-on') || (typeof currentRouteSlug==='function' && currentRouteSlug()==='goontok')){
-              if(typeof openVideoComposer==='function') openVideoComposer();
-              return;
-            }
-            try{setExposurePostMode()}catch(e){}
-          }
-          if(target==='goontok'){openGoonTok();return;}
-          showPanel(target);
-        }catch(err){console.warn(err)}
-      }
-      window.applyNav=applyNav;
-      document.querySelectorAll('.nav-row [data-p]').forEach(function(btn){
-        btn.addEventListener('pointerup',function(e){
-          if(e.pointerType==='mouse' && e.button!==0)return;
-          e.preventDefault();
-          e.stopPropagation();
-          applyNav(btn.getAttribute('data-p'));
-        },true);
-        btn.addEventListener('click',function(e){
-          e.preventDefault();
-          applyNav(btn.getAttribute('data-p'));
-        },true);
-      });
-      if(!window.__fastNavBound){
-        window.__fastNavBound=true;
-        document.addEventListener('touchend',function(e){
-          var t=e.changedTouches&&e.changedTouches[0];
-          var el=(t&&document.elementFromPoint(t.clientX,t.clientY))||e.target;
-          if(!el||!el.closest)return;
-          var btn=el.closest('.nav-row [data-p]');
-          if(!btn)return;
-          e.preventDefault();
-          applyNav(btn.getAttribute('data-p'));
-        },true);
-      }
+      var bspProf=document.getElementById('btn-save-profile'); if(bspProf) bspProf.onclick=saveProfile;
+      var bmr=document.getElementById('btn-mark-read'); if(bmr) bmr.onclick=markNotifsRead;
+      try{bindBottomNav()}catch(e){}
       function setFeedFilter(f, tabEl){
         f=String(f||'new');
         if(f==='ending'||f==='soon')f='ending';
@@ -19740,6 +19748,13 @@ function postCardHtml(p, compact){
       go(Math.min(window.__featIndex||0, Math.max(0,n-1)), false);
     }
 
+    function isExtendFeedActive(){
+      try{
+        var act=document.querySelector('.panel.active');
+        var pid=act&&act.id||'';
+        return pid==='panel-feed'||pid==='panel-extended'||pid==='';
+      }catch(e){return true}
+    }
     function feedNearEnd(){
       var y=window.pageYOffset||document.documentElement.scrollTop||document.body.scrollTop||0;
       var h=window.innerHeight||800;
@@ -19752,6 +19767,11 @@ function postCardHtml(p, compact){
     }
     function appendFeedPage(){
       if(window.__feedInfBusy)return;
+      // Cooldown prevents IntersectionObserver re-entry from painting dozens of
+      // pages in one turn (freezes Safari / blocks bottom-nav taps).
+      var now=Date.now();
+      if(window.__feedInfAt && now-window.__feedInfAt<180)return;
+      if(!isExtendFeedActive())return;
       var rest=window.__feedRest||[];
       var shown=Number(window.__feedShown)||0;
       if(shown>=rest.length){
@@ -19759,7 +19779,9 @@ function postCardHtml(p, compact){
         return;
       }
       window.__feedInfBusy=true;
+      window.__feedInfAt=now;
       try{
+        if(window.__feedIO){try{window.__feedIO.disconnect()}catch(e){}}
         var next=Math.min(rest.length, shown+36);
         window.__feedShown=next;
         var box=document.getElementById('posts-container');
@@ -19775,8 +19797,9 @@ function postCardHtml(p, compact){
         }
         try{updateTimers()}catch(e){}
         try{warmVisibleLazyVideos(box)}catch(e){}
-        try{observeFeedSentinel()}catch(e){}
         try{bindImpressions('feed', box)}catch(e){}
+        // Re-arm observer on the next tick so Safari cannot recurse synchronously.
+        setTimeout(function(){try{observeFeedSentinel()}catch(e){}},120);
       }finally{
         window.__feedInfBusy=false;
       }
@@ -19794,11 +19817,12 @@ function postCardHtml(p, compact){
         entries.forEach(function(en){
           if(en.isIntersecting) appendFeedPage();
         });
-      },{root:null,rootMargin:'900px 0px',threshold:0.01});
+      },{root:null,rootMargin:'700px 0px',threshold:0.01});
       window.__feedIO.observe(sent);
     }
     function bindFeedInfinite(){
       function onScrollMore(){
+        if(!isExtendFeedActive())return;
         if(window.__feedScrollTick)return;
         window.__feedScrollTick=true;
         requestAnimationFrame(function(){
@@ -19812,13 +19836,20 @@ function postCardHtml(p, compact){
         // iOS Safari sometimes stalls window scroll callbacks during rubber-banding;
         // touchmove near the end is a cheap backup that still does not call preventDefault.
         document.addEventListener('touchmove',function(){
+          if(!isExtendFeedActive())return;
           if(feedNearEnd()) onScrollMore();
         },{passive:true});
       }
       try{observeFeedSentinel()}catch(e){}
-      // If the first page already fills the viewport, kick another page immediately.
+      // One deferred top-up only — never a tight 0ms loop that paints the whole feed at once.
       try{
-        if(feedNearEnd()) setTimeout(function(){try{appendFeedPage()}catch(e){}},0);
+        if(feedNearEnd() && !window.__feedKickAt){
+          window.__feedKickAt=Date.now();
+          setTimeout(function(){
+            window.__feedKickAt=0;
+            try{if(isExtendFeedActive() && feedNearEnd()) appendFeedPage()}catch(e){}
+          },200);
+        }
       }catch(e){}
     }
     async function loadMoreExtendFeed(){
