@@ -108,9 +108,12 @@ function legacyRequiresFc(row) {
 
 function ownerDeleteCost(row) {
   const tier = resolveTier(row);
-  if (tier === 'deletable') return 0;
   if (tier === 'locked' || tier === 'permanent') return DELETE_COST_FC;
-  return legacyRequiresFc(row) ? DELETE_COST_FC : 0;
+  // deletable was backfilled onto timed Extend rows. Keep Wall/normal free, but
+  // charge 50 FC when legacy timed-remove rules match (active expires_at / extend).
+  if (legacyRequiresFc(row)) return DELETE_COST_FC;
+  if (tier === 'deletable') return 0;
+  return 0;
 }
 
 function isAdminUser(username) {
