@@ -10929,9 +10929,12 @@ function openRoulette(){
         if(app&&app.scrollTop) window.__feedAppY=app.scrollTop;
       }catch(e){}
     }
-    function restoreFeedScroll(){
-      var y=Number(window.__feedY||0)||0;
+    function restoreFeedScroll(yOverride){
+      var y=yOverride!=null?Number(yOverride)||0:(Number(window.__feedY||0)||0);
+      window.__feedRestoreGen=(Number(window.__feedRestoreGen)||0)+1;
+      var gen=window.__feedRestoreGen;
       function go(){
+        if(gen!==window.__feedRestoreGen)return;
         try{window.scrollTo(0,y)}catch(e){}
         try{document.documentElement.scrollTop=y}catch(e){}
         try{document.body.scrollTop=y}catch(e){}
@@ -10942,6 +10945,20 @@ function openRoulette(){
       requestAnimationFrame(go);
       setTimeout(go,40);
       setTimeout(go,120);
+      setTimeout(go,280);
+    }
+    function cancelFeedScrollRestore(){
+      window.__feedRestoreGen=(Number(window.__feedRestoreGen)||0)+1;
+    }
+    // Continuously remember Extend scroll so live refreshes / remounts can restore it.
+    if(!window.__feedScrollTrackBound){
+      window.__feedScrollTrackBound=true;
+      window.addEventListener('scroll',function(){
+        try{
+          if(!isExtendFeedActive || !isExtendFeedActive()) return;
+          saveFeedScroll();
+        }catch(e){}
+      },{passive:true});
     }
     var PANEL_ROUTE={
       'feed':'extend',
@@ -19868,6 +19885,13 @@ function postCardHtml(p, compact){
         if(next<rest.length || !window.__feedNetDone){
           box.insertAdjacentHTML('beforeend', '<div id="feed-more-sentinel" style="grid-column:1/-1;padding:16px 0 28px;text-align:center;color:var(--muted);font-size:12px">Loading more…</div>');
         }
+        // Keep soft-paint signature in sync so the next loadPosts poll does not remount.
+        try{
+          var feedSig=[String(currentFilter||'new'), String(typeof feedSearchQuery!=='undefined'?feedSearchQuery:''), String(feedGenderFilter||'all')].join('|');
+          var paintIds=rest.slice(0,next).map(function(p){return String(p&&p.id)}).join(',');
+          window.__feedPaintIds=paintIds;
+          window.__feedPaintSig=feedSig+'#'+paintIds+'#'+next;
+        }catch(e){}
         try{updateTimers()}catch(e){}
         try{warmVisibleLazyVideos(box)}catch(e){}
         try{bindImpressions('feed', box)}catch(e){}
@@ -19955,11 +19979,13 @@ function postCardHtml(p, compact){
           }
           return;
         }
-        // Keep already-painted cards; only expand the windowed list.
+        // Expand in-memory rest without wiping scrolled cards (soft paint + append).
+        try{saveFeedScroll()}catch(e){}
         try{renderPosts()}catch(e){}
         try{
           if((Number(window.__feedShown)||0)<(window.__feedRest||[]).length) appendFeedPage();
         }catch(e){}
+        try{restoreFeedScroll()}catch(e){}
       }catch(e){
         console.warn('loadMoreExtendFeed',e);
         if(sent){
@@ -20082,7 +20108,9 @@ function postCardHtml(p, compact){
       });
       return out;
     }
-    function renderPosts(){
+    function renderPosts(opts){
+      opts=opts||{};
+      var forcePaint=!!opts.force;
       try{
         var now=Date.now();
         (posts||[]).forEach(function(p){
@@ -20319,16 +20347,82 @@ function postCardHtml(p, compact){
       // Only reset the window when the user changes filter, search, or gender.
       var feedSig=[String(currentFilter||'new'), String(typeof feedSearchQuery!=='undefined'?feedSearchQuery:''), String(feedGenderFilter||'all')].join('|');
       var prevShown=Number(window.__feedShown)||0;
-      if(window.__feedSig!==feedSig){
+      var sigChanged=window.__feedSig!==feedSig;
+      if(sigChanged){
         window.__feedSig=feedSig;
         prevShown=0;
+        window.__feedPaintSig='';
+        window.__feedPaintIds='';
       }
       var baseInitial=Math.max(24, (window.innerWidth>=1280?40:window.innerWidth>=900?32:24));
       var initial=Math.min(rest.length, Math.max(baseInitial, prevShown||0));
       window.__feedShown=initial;
+      var paintIds=rest.slice(0,initial).map(function(p){return String(p&&p.id)}).join(',');
+      var paintSig=feedSig+'#'+paintIds+'#'+initial;
       var keepY=0;
       try{keepY=window.pageYOffset||document.documentElement.scrollTop||document.body.scrollTop||0}catch(e){keepY=0}
-      var keepScroll=prevShown>=baseInitial && keepY>60;
+      if(keepY>0) window.__feedY=keepY;
+      var hasCards=!!(box&&box.querySelector('article.post'));
+      // Soft paint: same filter + same painted ids → do NOT remount the feed.
+      // Likes/views/live loadPosts polls must not kick the user back to the top.
+      if(!forcePaint && !sigChanged && hasCards && window.__feedPaintSig===paintSig){
+        try{
+          rest.slice(0,initial).forEach(function(p){
+            if(!p||p.id==null)return;
+            var art=box.querySelector('article.post[data-pid="'+String(p.id).replace(/"/g,'')+'"]');
+            if(!art)return;
+            var v=art.querySelector('[data-views-id="'+String(p.id).replace(/"/g,'')+'"]');
+            if(v) v.textContent=typeof displayViews==='function'?displayViews(p.views):String(p.views||0);
+            var likeChip=art.querySelector('.st-likes');
+            if(likeChip){
+              var ico=likeChip.querySelector('.neon-ico');
+              likeChip.innerHTML=(ico?ico.outerHTML:'')+String(p.likes||0);
+            }
+            var extChip=art.querySelector('.st-extends');
+            if(extChip){
+              var ico2=extChip.querySelector('.neon-ico');
+              extChip.innerHTML=(ico2?ico2.outerHTML:'')+String(p.extensions||0);
+            }
+            art.querySelectorAll('.timer[data-exp]').forEach(function(t){
+              if(Number(p.expires||0)>0) t.setAttribute('data-exp', String(p.expires));
+            });
+          });
+        }catch(e){}
+        try{bindFeedInfinite()}catch(e){}
+        try{syncExtendedPanel(rest)}catch(e){}
+        updateTimers();
+        try{refreshExtendCooldownButtons()}catch(e){}
+        try{paintAvatarsInDom()}catch(e){}
+        // Featured soft/hard updates above can shift layout — pin scroll back.
+        if(keepY>40){try{restoreFeedScroll(keepY)}catch(e){}}
+        return;
+      }
+      // Prefix-stable growth: rest grew / shown grew but existing cards stay — append only.
+      if(!forcePaint && !sigChanged && hasCards && window.__feedPaintIds && paintIds.indexOf(window.__feedPaintIds)===0 && paintIds.length>=window.__feedPaintIds.length){
+        var paintedCount=String(window.__feedPaintIds).split(',').filter(Boolean).length;
+        var domCount=0;
+        try{domCount=box.querySelectorAll('article.post').length}catch(e){domCount=0}
+        window.__feedShown=Math.max(paintedCount, domCount, Number(window.__feedShown)||0);
+        try{
+          window.__feedInfAt=0; // allow catch-up appends in this turn
+          while((Number(window.__feedShown)||0)<initial){
+            if(typeof appendFeedPage!=='function')break;
+            var before=Number(window.__feedShown)||0;
+            appendFeedPage();
+            if((Number(window.__feedShown)||0)<=before)break;
+          }
+        }catch(e){}
+        window.__feedPaintIds=paintIds;
+        window.__feedPaintSig=paintSig;
+        window.__feedShown=Math.max(Number(window.__feedShown)||0, initial);
+        try{bindFeedInfinite()}catch(e){}
+        try{syncExtendedPanel(rest)}catch(e){}
+        updateTimers();
+        try{refreshExtendCooldownButtons()}catch(e){}
+        try{restoreFeedScroll(keepY||window.__feedY)}catch(e){}
+        return;
+      }
+      var keepScroll=!sigChanged && keepY>40;
       try{
         var cards=rest.slice(0,initial).map(function(p){
           try{return postCardHtml(p,true)}catch(err){console.warn('postCardHtml',p&&p.id,err);return ''}
@@ -20342,19 +20436,17 @@ function postCardHtml(p, compact){
         console.warn('feed paint',e);
         box.innerHTML='<div class="empty">No active exposures</div>';
       }
+      window.__feedPaintIds=paintIds;
+      window.__feedPaintSig=paintSig;
       try{bindFeedInfinite()}catch(e){}
-      if(keepScroll){
-        try{
-          var restoreY=function(){
-            try{window.scrollTo(0,keepY)}catch(e){}
-            try{document.documentElement.scrollTop=keepY}catch(e){}
-            try{document.body.scrollTop=keepY}catch(e){}
-            try{if(document.scrollingElement)document.scrollingElement.scrollTop=keepY}catch(e){}
-          };
-          restoreY();
-          requestAnimationFrame(restoreY);
-          setTimeout(restoreY,40);
-        }catch(e){}
+      if(sigChanged){
+        try{cancelFeedScrollRestore()}catch(e){}
+        window.__feedY=0;
+        try{window.scrollTo(0,0)}catch(e){}
+        try{document.documentElement.scrollTop=0}catch(e){}
+        try{document.body.scrollTop=0}catch(e){}
+      }else if(keepScroll){
+        try{restoreFeedScroll(keepY)}catch(e){}
       }
       try{syncExtendedPanel(rest)}catch(e){}
       try{warmVisibleLazyVideos()}catch(e){}
