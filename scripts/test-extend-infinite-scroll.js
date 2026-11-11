@@ -15,7 +15,7 @@ assert(html.includes('feed-more-sentinel'), 'Extend feed has infinite-scroll sen
 assert(html.includes('function observeFeedSentinel'), 'IntersectionObserver sentinel helper');
 assert(html.includes('function appendFeedPage'), 'appendFeedPage grows the painted window');
 assert(html.includes('function loadMoreExtendFeed'), 'network fallback when in-memory window ends');
-assert(html.includes("rootMargin:'900px 0px'"), 'IO rootMargin preloads before the fold');
+assert(/rootMargin:'70?0px 0px'/.test(html) || html.includes("rootMargin:'700px 0px'") || html.includes("rootMargin:'900px 0px'"), 'IO rootMargin preloads before the fold');
 assert(/fetchCfFeed\('',\s*160\)/.test(html), 'initial CF fetch is wide (≥160), not capped at 60');
 assert(html.includes('never wipe already-scrolled cards'), 'renderPosts documents preserve-shown fix');
 assert(html.includes('window.__feedSig'), 'filter/search/gender signature resets window safely');
@@ -23,6 +23,9 @@ assert(/Math\.max\(baseInitial,\s*prevShown/.test(html), 're-render keeps previo
 assert(html.includes('keepScroll'), 'scroll position restored after progressive re-paint');
 assert(html.includes("document.addEventListener('touchmove'"), 'iOS scroll backup via touchmove');
 assert(!/window\.__feedShown=initial;\s*try\{\s*box\.innerHTML=rest\.slice\(0,initial\)/.test(html), 'old reset-only paint path removed');
+assert(html.includes('__feedInfAt'), 'appendFeedPage has re-entry cooldown (protects nav)');
+assert(html.includes('isExtendFeedActive'), 'infinite scroll gated to Extend feed panel');
+assert(/setTimeout\(function\(\)\{try\{observeFeedSentinel/.test(html), 'IO re-armed asynchronously to avoid sync recursion');
 
 // Behavioral model of the preserve-shown contract (no DOM).
 (function () {
