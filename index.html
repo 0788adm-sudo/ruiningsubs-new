@@ -4166,7 +4166,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function deletionRequiresFc(p){
       var tier=postDeletionTier(p);
       if(tier==='locked'||tier==='permanent')return true;
-      if(tier==='deletable')return false;
+      // deletable + active Extend/timed still costs FC (matches Delete · 50 FC UI).
+      // deletable + normal/timeless Wall stays free via isPaidRemovePost → false.
       try{return typeof isPaidRemovePost==='function'&&isPaidRemovePost(p)}catch(e){return false}
     }
     function deletionTierLabel(tier){
@@ -23448,15 +23449,32 @@ async function onIdFace(e){
       var exp=Number(p.expires||0);
       return !exp || exp<=0 || exp>Date.now()+20*24*3600*1000;
     }
+    function samePostOwner(post, user){
+      if(!post||!user)return false;
+      var a=String(post.user||post.username||'').replace(/^@/,'').trim().toLowerCase();
+      var b=String(user||'').replace(/^@/,'').trim().toLowerCase();
+      return !!a && !!b && a===b;
+    }
     function isPaidRemovePost(p){
       if(!p)return false;
-      // Explicit Deletion Tier overrides legacy timed rules.
+      // locked / permanent always require FC. deletable must NOT wipe legacy timed-paid:
+      // migration backfilled deletion_tier='deletable' onto active Extend rows, and the
+      // detail UI still shows "Delete · 50 FC" while a countdown is live.
       try{
         var tier=typeof postDeletionTier==='function'?postDeletionTier(p):'legacy';
         if(tier==='locked'||tier==='permanent') return true;
-        if(tier==='deletable') return false;
       }catch(e){}
       try{if(typeof isTimelessWallPost==='function' && isTimelessWallPost(p)) return false}catch(e){}
+      try{
+        var tg=p.tags||[];
+        if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(err){tg=[]}}
+        if(Array.isArray(tg)){
+          tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+          if(tg.indexOf('normal_feed')>=0||tg.indexOf('profile_gallery')>=0||tg.indexOf('profile_only')>=0) return false;
+          if(tg.indexOf('remove:free')>=0||tg.indexOf('delete:free')>=0||tg.indexOf('free-remove')>=0) return false;
+        }
+      }catch(e){}
+      try{if(typeof postHasActiveTimer==='function' && postHasActiveTimer(p)) return true}catch(e){}
       try{if(typeof isWallTimedPost==='function' && isWallTimedPost(p)) return true}catch(e){}
       try{if(typeof isFeedTimerPost==='function' && isFeedTimerPost(p)) return true}catch(e){}
       var exp=Number(p.expires||0);
@@ -23481,7 +23499,9 @@ async function onIdFace(e){
       var wall=isWallPost(post);
       var timeless=false;
       try{timeless=typeof isTimelessWallPost==='function'?isTimelessWallPost(post):false}catch(e){}
-      var owner=post && currentUser && String(post.user||'')===String(currentUser.name||'');
+      var owner=typeof samePostOwner==='function'
+        ? samePostOwner(post, currentUser&&currentUser.name)
+        : !!(post && currentUser && String(post.user||'')===String(currentUser.name||''));
       var tier=typeof postDeletionTier==='function'?postDeletionTier(post):'legacy';
       var needsFc=typeof deletionRequiresFc==='function'?deletionRequiresFc(post):isPaidRemovePost(post);
       var lab=document.getElementById('remove-post-id-label');
@@ -23592,13 +23612,15 @@ async function onIdFace(e){
       if(!id){toast('Open the post first');return}
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
-      var owner=post && currentUser && String(post.user||'')===String(currentUser.name||'');
+      var owner=typeof samePostOwner==='function'
+        ? samePostOwner(post, currentUser&&currentUser.name)
+        : !!(post && currentUser && String(post.user||'')===String(currentUser.name||''));
       if(post && !(owner || (typeof isAdmin==='function' && isAdmin()))){
         toast('Only the publisher can delete this post');
         return;
       }
       if(post && typeof deletionRequiresFc==='function' && deletionRequiresFc(post) && !(typeof isAdmin==='function' && isAdmin())){
-        // Redirect paid tiers to confirm modal instead of free path
+        // Redirect paid tiers / active Extend to confirm · 50 FC instead of free path
         return openRemove(id);
       }
       closeModals();
@@ -23635,10 +23657,12 @@ async function onIdFace(e){
       if(!id){toast('Open the post first');return}
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):((posts||[]).find(function(p){return String(p.id)===String(id)}))}catch(e){}
-      var owner=post && currentUser && String(post.user||'')===String(currentUser.name||'');
+      var owner=samePostOwner(post, currentUser&&currentUser.name);
       var tier=typeof postDeletionTier==='function'?postDeletionTier(post):'legacy';
-      // Hard block: never charge Remove on free deletable / legacy-free posts for owner
-      if(post && !deletionRequiresFc(post)){
+      var needsFc=typeof deletionRequiresFc==='function'?deletionRequiresFc(post):false;
+      var paidRemove=typeof isPaidRemovePost==='function'?isPaidRemovePost(post):needsFc;
+      // Hard block only true Wall/normal free posts — never active Extend timers.
+      if(post && !needsFc && !paidRemove){
         if(owner || (typeof isAdmin==='function' && isAdmin())){
           return deleteWallFree();
         }
@@ -23646,8 +23670,8 @@ async function onIdFace(e){
         closeModals();
         return;
       }
-      // Owner Locked/Permanent → secure API (server charges exactly 50 FC)
-      if(owner && (tier==='locked'||tier==='permanent'||deletionRequiresFc(post))){
+      // Owner paid delete (locked / permanent / active Extend) → secure API charges 50 FC then deletes.
+      if(owner && (tier==='locked'||tier==='permanent'||needsFc||paidRemove)){
         toast('Deleting…');
         var okSecure=await secureDeletePost(id,{reason:'owner'});
         closeModals();
@@ -23656,30 +23680,25 @@ async function onIdFace(e){
         }
         return;
       }
-      // Legacy timed: anyone may still pay via spend + delete (existing flow)
+      // Non-owner paid remove of an active Extend / timed post: charge then delete only after spend ok.
+      if(!(paidRemove||needsFc)){
+        toast('Normal posts cannot be removed with coins');
+        closeModals();
+        return;
+      }
       toast('Deleting…');
       var ok=await spendFagCoins('delete', String(id));
       if(!ok){try{closeModals();openNeedCoins({cost:50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}return}
-      try{
-        var post2=(posts||[]).find(function(p){return String(p.id)===String(id)});
-        await notifyAdminPayment({
-          kind:'remove_request',
-          postId:id,
-          user:(post2&&post2.user)||((currentUser&&currentUser.name)||'user'),
-          amount:'50 FC',
-          label:'DELETE',
-          message:'🗑 DELETE · $5 / 50 FC — post #'+id
-        });
-      }catch(e){}
-      try{await cfCreateRequest({kind:'remove_request',postId:id,user:(currentUser&&currentUser.name)||'user',amount:'$5 / 50 FC',coins:50,provider:'fc',label:'DELETE'})}catch(e){}
-      try{await deletePost(id)}catch(e){}
+      var deleted=false;
+      try{deleted=!!(await deletePost(id))}catch(e){deleted=false}
       try{await deleteCfPost(id)}catch(e){}
       try{markDeleted(id)}catch(e){}
       try{posts=(posts||[]).filter(function(p){return String(p.id)!==String(id)})}catch(e){}
       try{localStorage.setItem('rs_videos',JSON.stringify((JSON.parse(localStorage.getItem('rs_videos')||'[]')||[]).filter(function(p){return String(p.id)!==String(id)})))}catch(e){}
       closeModals();
       try{showPanel('feed');renderPosts()}catch(e){}
-      toast('Deleted');
+      if(deleted) toast('Deleted');
+      else toast('Payment received — delete may need a refresh');
     }
     window.removeWithCoins=removeWithCoins;
     window.secureDeletePost=secureDeletePost;
