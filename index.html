@@ -681,14 +681,21 @@
     .nav-item{position:relative}
     .nav-item .badge{top:2px;right:calc(50% - 28px);min-width:16px;height:16px;font-size:9px}
     
-    .feat-carousel{display:flex;width:100%;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;scroll-behavior:auto;-webkit-overflow-scrolling:touch;gap:0;padding:0;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
-    .feat-slide{min-width:100%;width:100%;flex:0 0 100%;flex-shrink:0;box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:always;padding:0 12px}
+    /* Spotlight: transform carousel + arrows. Never use overflow-x scroll-snap —
+       on iPhone Safari that steals vertical scroll and makes pinned photos "jump". */
+    .feat-carousel{position:relative;width:100%;overflow:hidden;touch-action:pan-y;-webkit-user-select:none;user-select:none}
+    .feat-track{display:flex;width:100%;transition:transform .28s ease;will-change:transform}
+    .feat-slide{min-width:100%;width:100%;flex:0 0 100%;flex-shrink:0;box-sizing:border-box;padding:0 12px}
+    .feat-nav{position:absolute;top:42%;transform:translateY(-50%);z-index:6;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.72);color:#fff;font-size:28px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 18px rgba(0,0,0,.45)}
+    .feat-nav:active{transform:translateY(-50%) scale(.92);background:rgba(255,255,255,.22)}
+    .feat-prev{left:2px}.feat-next{right:2px}
+    .feat-nav[hidden],.feat-nav[aria-hidden="true"]{display:none!important}
     article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card{-webkit-tap-highlight-color:rgba(245,197,24,.18);touch-action:manipulation}
     article.post.is-pressing,article.normal-feed-post.is-pressing,article.id-archive-card.is-pressing{opacity:.92;transform:scale(.995);transition:opacity .08s ease,transform .08s ease}
     .feat-dots{display:flex;justify-content:center;gap:8px;margin:8px 0 4px}
-    .feat-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25)}
+    .feat-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);border:0;padding:0;cursor:pointer}
     .feat-dot.on{background:var(--orange)}
-    #featured-slot{overflow:visible;width:100%}
+    #featured-slot{overflow:visible;width:100%;position:relative}
     #featured-slot .post-desc,#featured-slot .tags{display:none}
     #featured-slot .post-media{max-height:280px;overflow:hidden}
     
@@ -4589,7 +4596,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           tracking=false;
           var dx=e.changedTouches[0].clientX-sx;
           var dy=e.changedTouches[0].clientY-sy;
-          if(Math.abs(dx)<48||Math.abs(dx)<Math.abs(dy))return;
+          // Vertical page scroll must not flip gallery photos on iPhone.
+          if(Math.abs(dx)<48||Math.abs(dx)<Math.abs(dy)*1.6)return;
           detailGalleryStep(dx<0?1:-1);
         },{passive:true});
         hero.addEventListener('mousedown',function(e){
@@ -4601,7 +4609,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           tracking=false;
           var dx=e.clientX-sx;
           var dy=e.clientY-sy;
-          if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy))return;
+          if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.6)return;
           detailGalleryStep(dx<0?1:-1);
         });
       }
@@ -15554,7 +15562,7 @@ function openRoulette(){
         // Video player shell owns the tap (Play) — do not steal it for openDetail.
         if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
         // Never treat GoonTok swipe / nav chrome as an accidental open.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
         // Spotlight: open on tap, but ignore right after a horizontal swipe.
         if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
         // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).
@@ -19585,9 +19593,18 @@ function profileStatsHtml(userPosts, extra){
     function setupProfileGallerySwipe(card,id){
       if(!card||card._pgSwipe)return; card._pgSwipe=1;
       var carousel=card.querySelector('.pg-carousel'); if(!carousel)return;
-      var startX=0;
-      carousel.addEventListener('touchstart',function(e){if(e.touches&&e.touches[0])startX=e.touches[0].clientX},{passive:true});
-      carousel.addEventListener('touchend',function(e){if(!e.changedTouches||!e.changedTouches[0])return;var dx=e.changedTouches[0].clientX-startX;if(Math.abs(dx)>45)profileGalleryStep(id,dx<0?1:-1)},{passive:true});
+      var startX=0,startY=0;
+      // Require a clearly horizontal gesture so vertical scroll never flips photos.
+      carousel.addEventListener('touchstart',function(e){
+        if(e.touches&&e.touches[0]){startX=e.touches[0].clientX;startY=e.touches[0].clientY}
+      },{passive:true});
+      carousel.addEventListener('touchend',function(e){
+        if(!e.changedTouches||!e.changedTouches[0])return;
+        var dx=e.changedTouches[0].clientX-startX;
+        var dy=e.changedTouches[0].clientY-startY;
+        if(Math.abs(dx)<48 || Math.abs(dx)<Math.abs(dy)*1.6)return;
+        profileGalleryStep(id,dx<0?1:-1);
+      },{passive:true});
     }
     function setupProfileGallerySwipes(){document.querySelectorAll('.profile-gallery-post').forEach(function(card){setupProfileGallerySwipe(card,card.id.replace('pg-post-',''))})}
 
@@ -19676,63 +19693,119 @@ function postCardHtml(p, compact){
       return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
     }
     
+    function featCarouselGo(to, smooth){
+      var box=document.getElementById('feat-carousel');
+      if(!box)return;
+      var track=box.querySelector('.feat-track')||box;
+      var slides=box.querySelectorAll('.feat-slide');
+      var n=slides.length;
+      if(!n)return;
+      var i=Math.max(0,Math.min(n-1, to|0));
+      window.__featIndex=i;
+      if(track && track.classList && track.classList.contains('feat-track')){
+        if(!smooth) track.style.transition='none';
+        track.style.transform='translate3d('+(-i*100)+'%,0,0)';
+        if(!smooth){
+          // Force reflow then restore transition so later arrow taps still animate.
+          try{void track.offsetWidth}catch(e){}
+          track.style.transition='';
+        }
+      }
+      document.querySelectorAll('#featured-slot .feat-dot').forEach(function(d,j){d.classList.toggle('on',j===i)});
+      var prev=document.getElementById('feat-prev');
+      var next=document.getElementById('feat-next');
+      if(prev){ prev.hidden=n<2; prev.setAttribute('aria-hidden', n<2?'true':'false'); prev.disabled=i<=0; prev.style.opacity=i<=0?.35:1; }
+      if(next){ next.hidden=n<2; next.setAttribute('aria-hidden', n<2?'true':'false'); next.disabled=i>=n-1; next.style.opacity=i>=n-1?.35:1; }
+      try{
+        var lab=slides[i]&&slides[i].querySelector('.featured-label');
+        if(lab && n>1){
+          var base=String(lab.textContent||'').replace(/\s·\s\d+\/\d+\s*$/,'');
+          lab.textContent=base+' · '+(i+1)+'/'+n;
+        }
+      }catch(e){}
+    }
+    function featCarouselStep(dir, ev){
+      if(ev){try{ev.preventDefault();ev.stopPropagation()}catch(e){}}
+      var cur=Number(window.__featIndex)||0;
+      featCarouselGo(cur+(dir|0), true);
+      // Block only accidental post opens — do NOT set __featSwipeUntil here,
+      // or the next arrow tap gets swallowed by the carousel click guard.
+      try{
+        window.__blockFeedTap=Date.now()+350;
+        window.__suppressAutoOpenPost=Date.now()+350;
+      }catch(e){}
+    }
+    window.featCarouselGo=featCarouselGo;
+    window.featCarouselStep=featCarouselStep;
     function setupFeatCarousel(){
       var box=document.getElementById('feat-carousel');
       if(!box)return;
-      var slides=box.querySelectorAll('.feat-slide');
+      // Migrate legacy scroll-snap markup → transform track + arrows.
+      var slides=[].slice.call(box.querySelectorAll('.feat-slide'));
       var n=slides.length;
-      function idx(){
-        var w=box.clientWidth||1;
-        var i=Math.round(box.scrollLeft/w);
-        if(i<0)i=0; if(i>=n)i=n-1;
-        return i;
+      var track=box.querySelector('.feat-track');
+      if(!track){
+        track=document.createElement('div');
+        track.className='feat-track';
+        slides.forEach(function(s){track.appendChild(s)});
+        box.appendChild(track);
       }
-      function go(to, smooth){
-        var i=Math.max(0,Math.min(n-1,to));
-        window.__featIndex=i;
-        var w=box.clientWidth||1;
-        box.scrollTo({left:i*w,behavior:smooth?'smooth':'auto'});
-        document.querySelectorAll('#featured-slot .feat-dot').forEach(function(d,j){d.classList.toggle('on',j===i)});
+      if(!document.getElementById('feat-prev') && n>1){
+        var prev=document.createElement('button');
+        prev.type='button'; prev.id='feat-prev'; prev.className='feat-nav feat-prev';
+        prev.setAttribute('aria-label','Previous pinned post');
+        prev.textContent='‹';
+        prev.onclick=function(e){featCarouselStep(-1,e)};
+        var next=document.createElement('button');
+        next.type='button'; next.id='feat-next'; next.className='feat-nav feat-next';
+        next.setAttribute('aria-label','Next pinned post');
+        next.textContent='›';
+        next.onclick=function(e){featCarouselStep(1,e)};
+        box.appendChild(prev); box.appendChild(next);
       }
+      // Kill leftover native scroll so iOS cannot jump slides while the page scrolls.
+      try{box.scrollLeft=0}catch(e){}
+      box.style.overflowX='hidden';
       if(!box._feat){
         box._feat=1;
-        var sx=0,sy=0,sl=0,axis='',moved=false;
-        box.addEventListener('scroll',function(){
-          var i=idx();
-          window.__featIndex=i;
-          document.querySelectorAll('#featured-slot .feat-dot').forEach(function(d,j){d.classList.toggle('on',j===i)});
-        },{passive:true});
+        var sx=0,sy=0,axis='',moved=false;
+        // Optional intentional swipe — only when horizontal clearly dominates.
+        // Vertical page scroll never advances slides.
         box.addEventListener('touchstart',function(e){
           if(!e.touches||!e.touches[0])return;
-          sx=e.touches[0].clientX;sy=e.touches[0].clientY;sl=box.scrollLeft;axis='';moved=false;
+          sx=e.touches[0].clientX;sy=e.touches[0].clientY;axis='';moved=false;
         },{passive:true});
         box.addEventListener('touchmove',function(e){
-          if(!e.touches||!e.touches[0])return;
+          if(!e.touches||!e.touches[0]||n<2)return;
           var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
-          if(!axis && (Math.abs(dx)>8||Math.abs(dy)>8)) axis=Math.abs(dx)>Math.abs(dy)?'x':'y';
-          if(axis==='x' && Math.abs(dx)>Math.abs(dy)*1.15){
-            moved=true;
-            try{e.preventDefault()}catch(err){}
-            box.scrollLeft=sl-dx;
+          if(!axis && (Math.abs(dx)>12||Math.abs(dy)>12)){
+            axis=Math.abs(dx)>Math.abs(dy)*1.6?'x':'y';
           }
-        },{passive:false});
+          if(axis==='x'){
+            moved=true;
+            // Do not call preventDefault — keep scroll free; we only step on touchend.
+          }
+        },{passive:true});
         box.addEventListener('touchend',function(e){
-          if(axis!=='x')return;
+          if(axis!=='x'||n<2)return;
           var x=(e.changedTouches&&e.changedTouches[0])?e.changedTouches[0].clientX:sx;
-          var dx=x-sx;
-          var cur=idx();
-          if(moved || Math.abs(dx)>12){
+          var y=(e.changedTouches&&e.changedTouches[0])?e.changedTouches[0].clientY:sy;
+          var dx=x-sx, dy=y-sy;
+          if(Math.abs(dx)<48 || Math.abs(dx)<Math.abs(dy)*1.6)return;
+          if(moved){
             try{
               window.__blockFeedTap=Date.now()+350;
               window.__suppressAutoOpenPost=Date.now()+350;
               window.__featSwipeUntil=Date.now()+450;
             }catch(err){}
           }
-          if(dx<-35) go(cur+1,true);
-          else if(dx>35) go(cur-1,true);
-          else go(cur,true);
+          if(dx<-48) featCarouselGo((Number(window.__featIndex)||0)+1,true);
+          else if(dx>48) featCarouselGo((Number(window.__featIndex)||0)-1,true);
         },{passive:true});
         box.addEventListener('click',function(e){
+          // Never block arrow / dot navigation — only accidental card opens after a swipe.
+          var t=e.target;
+          if(t && t.closest && t.closest('.feat-nav,.feat-prev,.feat-next,.feat-dot,.feat-dots')) return;
           if(moved || (window.__featSwipeUntil && Date.now()<window.__featSwipeUntil)){
             e.stopPropagation();e.preventDefault();moved=false;
             return;
@@ -19742,10 +19815,10 @@ function postCardHtml(p, compact){
       document.querySelectorAll('#featured-slot .feat-dot').forEach(function(d){
         d.onclick=function(ev){
           ev.stopPropagation();
-          go(parseInt(d.getAttribute('data-fi')||'0',10)||0,true);
+          featCarouselGo(parseInt(d.getAttribute('data-fi')||'0',10)||0,true);
         };
       });
-      go(Math.min(window.__featIndex||0, Math.max(0,n-1)), false);
+      featCarouselGo(Math.min(window.__featIndex||0, Math.max(0,n-1)), false);
     }
 
     function isExtendFeedActive(){
@@ -20217,8 +20290,12 @@ function postCardHtml(p, compact){
               // No outer onclick — open only from the inner card (user tap). Carousel swipes must not open.
               return '<div class="feat-slide" data-fi="'+i+'" data-pid="'+String(item.p.id).replace(/"/g,'')+'"><div class="featured-label" data-pin-exp="'+item.fu+'">'+featLab+(featuredList.length>1?(' · '+(i+1)+'/'+featuredList.length):'')+'</div><div class="featured-wrap">'+postCardHtml(item.p,true)+'</div></div>';
             }).join('');
-            var dots=featuredList.length>1?('<div class="feat-dots">'+featuredList.map(function(_,i){return '<span class="feat-dot'+(i===0?' on':'')+'" data-fi="'+i+'"></span>'}).join('')+'</div>'):'';
-            featBox.innerHTML='<div style="width:100%;padding:0 12px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-sizing:border-box"><span style="font-size:13px;font-weight:900;letter-spacing:1.4px">SPOTLIGHT</span><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();copySectionLink(\'spotlight\')">Share</button></div><div class="feat-carousel" id="feat-carousel">'+slides+'</div>'+dots;
+            var dots=featuredList.length>1?('<div class="feat-dots">'+featuredList.map(function(_,i){return '<button type="button" class="feat-dot'+(i===0?' on':'')+'" data-fi="'+i+'" aria-label="Pinned post '+(i+1)+'"></button>'}).join('')+'</div>'):'';
+            var arrows=featuredList.length>1
+              ?('<button type="button" class="feat-nav feat-prev" id="feat-prev" aria-label="Previous pinned post" onclick="event.stopPropagation();featCarouselStep(-1,event)">‹</button>'
+                +'<button type="button" class="feat-nav feat-next" id="feat-next" aria-label="Next pinned post" onclick="event.stopPropagation();featCarouselStep(1,event)">›</button>')
+              :'';
+            featBox.innerHTML='<div style="width:100%;padding:0 12px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-sizing:border-box"><span style="font-size:13px;font-weight:900;letter-spacing:1.4px">SPOTLIGHT</span><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();copySectionLink(\'spotlight\')">Share</button></div><div class="feat-carousel" id="feat-carousel"><div class="feat-track">'+slides+'</div>'+arrows+'</div>'+dots;
             setupFeatCarousel();
             try{warmVisibleLazyVideos(featBox)}catch(e){}
           }
