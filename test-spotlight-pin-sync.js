@@ -122,5 +122,22 @@ assert(html.indexOf('data-pin-exp') >= 0, 'Spotlight labels need data-pin-exp');
 assert(html.indexOf('__pinExpiryRefreshing') >= 0, 'updateTimers must re-render on pin expiry');
 assert(/featIds\[String\(item\.p\.id\)\]/.test(html), 'featIds must use String(id)');
 assert(html.indexOf('var snapExp=Number(snap.expires)') >= 0, 'adminPin must include expires in pin-board payload');
+assert(html.indexOf('Stale exposure timers must not poison Spotlight') >= 0, 'loadPublicPins must zero dead expires');
+assert(html.indexOf('Only persist a live exposure timer') >= 0, 'adminPin must zero dead expires on pin board');
+assert(!/if\(Number\(p\.expires\|\|0\)>0 && Number\(p\.expires\)<=Date\.now\(\)\)return;/.test(html), 'addFeat must not drop active pins when exposure expired');
+
+// Regression: paid pin with dead exposure timer must still count as Spotlight-worthy.
+var deadExp = now - 3 * 24 * 3600 * 1000;
+var paidPin = hydratePinnedPost({
+  id: '2440',
+  user: 'MasterSan',
+  title: 'Pinned video',
+  featuredUntil: pinUntil,
+  expires: deadExp,
+  tags: ['video', 'goontok']
+});
+assert(getPinUntil(paidPin) === pinUntil, 'active pin until must win over dead exposure');
+assert(Number(paidPin.expires) === deadExp || Number(paidPin.expires) === 0 || Number(paidPin.expires) < now, 'dead exposure stays non-live');
+assert(getPinUntil(paidPin) > Date.now(), 'paid pin remains featured after exposure ends');
 
 console.log('test-spotlight-pin-sync: OK');

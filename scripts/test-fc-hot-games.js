@@ -27,7 +27,9 @@ assert(html.includes('Insufficient FC'), 'Insufficient FC UX');
 // Backend
 assert(spend.includes('FC_COSTS') && spend.includes('delete'), 'fc-spend API costs');
 assert(spend.includes('idem') || spend.includes('idemKey') || spend.includes('reused'), 'fc-spend idempotency');
+assert(spend.includes('reuseMs') && /30\s*\*\s*60\s*\*\s*1000/.test(spend), 'ledger reuse limited to ~30 minutes');
 assert(spend.includes('roulette_pack') && /roulette_pack:\s*Number\(process\.env\.FC_COST_ROULETTE_PACK\s*\|\|\s*50\)/.test(spend), 'fc-spend roulette_pack 50');
+assert(html.includes('Already paid') && html.includes('no extra charge'), 'client distinguishes reused spend toast');
 assert(game.includes('FC_ROULETTE') && game.includes('FC_DICE'), 'game-play costs');
 assert(game.includes('FREE_ROULETTE_PER_DAY') && game.includes('FREE_ROULETTE_PER_DAY || 3'), '3 free roulette / day');
 assert(game.includes('FC_ROULETTE_PACK') && game.includes('ROULETTE_PACK_SPINS'), '50 FC → 10 pack spins');

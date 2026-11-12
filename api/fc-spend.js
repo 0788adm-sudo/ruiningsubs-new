@@ -90,12 +90,19 @@ async function cfFetch(path, opts) {
 async function findLedgerSpend(user, action, ref, minCoins) {
   var res = await cfFetch('/wallet/ledger?user=' + encodeURIComponent(user));
   var rows = (res.json && res.json.ledger) || [];
+  // Only short-window reuse (double-click / flaky network). A prior pin/delete days
+  // ago for the same post id must NOT count as already paid — renewals charge again.
+  var reuseMs = 30 * 60 * 1000;
+  var now = Date.now();
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i] || {};
     if (String(row.kind || '') !== 'spend') continue;
     if (String(row.action || '') !== String(action)) continue;
     if (String(row.ref_id || row.ref || '') !== String(ref || '')) continue;
     if (Number(row.coins || 0) < Number(minCoins || 0)) continue;
+    var at = Number(row.created_at || row.at || 0) || 0;
+    if (at && at < 1e12) at = at * 1000;
+    if (at && now - at > reuseMs) continue;
     return row;
   }
   return null;
