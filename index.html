@@ -41,7 +41,9 @@
   <style>
     :root{--bg:#050506;--card:#0a0a0c;--elev:#101014;--orange:#ff6a00;--purple:#ff6a00;--red:#9f1239;--text:#ececef;--muted:#7a7a86;--border:#1c1c22}
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:auto}
+    /* Single document scroller (html). Dual html+body overflow-y fights iOS Safari. */
+    html{height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:auto;touch-action:pan-y pinch-zoom}
+    body{height:auto;min-height:100%;overflow-x:hidden;overflow-y:visible}
     button,a,.btn,.tab,.dur-btn,.nav-item,.nav-center,.icon-btn,.contact-chip{touch-action:manipulation}
     input,textarea,select{font-size:16px!important}
     body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100%;padding-bottom:calc(120px + env(safe-area-inset-bottom,0px));overscroll-behavior-y:auto;-webkit-overflow-scrolling:touch}
@@ -394,17 +396,17 @@
     .tab{flex-shrink:0}
 
   
-    /* Mobile scroll — natural on Android + Chrome */
+    /* Mobile scroll — preserve native vertical pan on the document */
     html{-webkit-text-size-adjust:100%}
-    body,html{touch-action:manipulation}
-    #app{min-height:100%}
+    #app{min-height:100%;overflow:visible}
     .panel.active{min-height:50vh}
 
   
     .tasks-entry{margin:7px 0;padding:13px 14px;border-radius:14px;background:#0a0a0c;border:1px solid #1c1c24;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;touch-action:pan-y;-webkit-user-select:none;user-select:none}
     .tasks-entry strong{font-size:15px}
     .tasks-entry span{font-size:12px;color:var(--muted)}
-    .wall-filter-bar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 4px 8px;margin:0 0 2px;touch-action:pan-x}
+    /* Allow vertical page scroll even when the gesture starts on the chip bar */
+    .wall-filter-bar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 4px 8px;margin:0 0 2px;touch-action:pan-x pan-y}
     .wall-filter-bar::-webkit-scrollbar{display:none}
     .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
@@ -1661,7 +1663,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 </style>
 <style id="rs-v2-polish">
 /* Home strip + feed clickability */
-#home-random-strip{gap:8px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+#home-random-strip{gap:8px;padding-bottom:4px;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
 #home-random-strip .home-strip-card{
   flex:0 0 calc(20% - 6px);min-width:68px;max-width:96px;padding:0;border:0;background:transparent;
   border-radius:12px;overflow:hidden;cursor:pointer;color:inherit;display:block;opacity:1;
@@ -4931,7 +4933,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           loadPosts();
         }
         if(pid==='panel-wall'||pid==='panel-explore'){
-          loadNormalFeed();
+          // Quiet refresh: merge data without resetting __wallVisible / remounting the feed.
+          loadNormalFeed(false,{quiet:true});
         }
         if(pid==='panel-goontok'||pid==='panel-videos'){
           // Do NOT clear the fetch lock — let the 15s coalescer prevent API spam.
@@ -11053,51 +11056,91 @@ function openRoulette(){
       if(!ok)toast('Error sending');
     }
     function forceTop(){
-      try{window.scrollTo(0,0)}catch(e){}
-      try{window.scrollTo({top:0,left:0,behavior:'instant'})}catch(e){}
-      try{document.documentElement.scrollTop=0}catch(e){}
-      try{document.body.scrollTop=0}catch(e){}
-      try{if(document.scrollingElement)document.scrollingElement.scrollTop=0}catch(e){}
-      try{document.getElementById('app').scrollTop=0}catch(e){}
-      try{document.querySelector('main').scrollTop=0}catch(e){}
+      try{cancelFeedScrollRestore()}catch(e){}
+      window.__forceTopGen=(Number(window.__forceTopGen)||0)+1;
+      var gen=window.__forceTopGen;
+      function go(){
+        if(gen!==window.__forceTopGen)return;
+        try{
+          var se=document.scrollingElement||document.documentElement;
+          if(se) se.scrollTop=0;
+        }catch(e){}
+        try{window.scrollTo(0,0)}catch(e){}
+      }
+      go();
+      requestAnimationFrame(go);
+    }
+    function currentScrollY(){
+      try{
+        var se=document.scrollingElement||document.documentElement;
+        return Number((se&&se.scrollTop)||window.pageYOffset||document.documentElement.scrollTop||document.body.scrollTop||0)||0;
+      }catch(e){return 0}
     }
     function saveFeedScroll(){
       try{
-        window.__feedY=window.pageYOffset||document.documentElement.scrollTop||document.body.scrollTop||0;
-        var app=document.getElementById('app');
-        if(app&&app.scrollTop) window.__feedAppY=app.scrollTop;
+        window.__feedY=currentScrollY();
       }catch(e){}
     }
     function restoreFeedScroll(yOverride){
       var y=yOverride!=null?Number(yOverride)||0:(Number(window.__feedY||0)||0);
+      // Skip no-op restores — they fight native momentum on iPhone.
+      try{
+        if(Math.abs(currentScrollY()-y)<8) return;
+      }catch(e){}
       window.__feedRestoreGen=(Number(window.__feedRestoreGen)||0)+1;
       var gen=window.__feedRestoreGen;
+      window.__feedRestoreTarget=y;
+      window.__feedRestoreActive=true;
       function go(){
         if(gen!==window.__feedRestoreGen)return;
+        try{
+          var se=document.scrollingElement||document.documentElement;
+          if(se) se.scrollTop=y;
+        }catch(e){}
         try{window.scrollTo(0,y)}catch(e){}
-        try{document.documentElement.scrollTop=y}catch(e){}
-        try{document.body.scrollTop=y}catch(e){}
-        try{if(document.scrollingElement)document.scrollingElement.scrollTop=y}catch(e){}
-        try{var app=document.getElementById('app');if(app)app.scrollTop=window.__feedAppY||y}catch(e){}
       }
       go();
       requestAnimationFrame(go);
-      setTimeout(go,40);
-      setTimeout(go,120);
-      setTimeout(go,280);
+      // One deferred settle only — multi-shot 40/120/280ms yanks the finger mid-scroll.
+      setTimeout(function(){
+        if(gen!==window.__feedRestoreGen)return;
+        window.__feedRestoreActive=false;
+        go();
+      },48);
     }
     function cancelFeedScrollRestore(){
       window.__feedRestoreGen=(Number(window.__feedRestoreGen)||0)+1;
+      window.__feedRestoreActive=false;
+      window.__forceTopGen=(Number(window.__forceTopGen)||0)+1;
     }
-    // Continuously remember Extend scroll so live refreshes / remounts can restore it.
+    // Continuously remember Extend scroll; cancel delayed restores when the user scrolls.
     if(!window.__feedScrollTrackBound){
       window.__feedScrollTrackBound=true;
       window.addEventListener('scroll',function(){
         try{
-          if(!isExtendFeedActive || !isExtendFeedActive()) return;
-          saveFeedScroll();
+          var y=currentScrollY();
+          if(window.__feedRestoreActive){
+            var target=Number(window.__feedRestoreTarget||0)||0;
+            if(Math.abs(y-target)>72) cancelFeedScrollRestore();
+          }
+          if(isExtendFeedActive && isExtendFeedActive()) saveFeedScroll();
+          if(typeof isWallFeedActive==='function' && isWallFeedActive()){
+            window.__wallY=y;
+          }
         }catch(e){}
       },{passive:true});
+      document.addEventListener('touchstart',function(){
+        try{
+          if(window.__feedRestoreActive) cancelFeedScrollRestore();
+        }catch(e){}
+      },{passive:true});
+    }
+    function isWallFeedActive(){
+      try{
+        var act=document.querySelector('.panel.active');
+        var id=act&&act.id||'';
+        return id==='panel-wall'||id==='panel-explore';
+      }catch(e){return false}
     }
     var PANEL_ROUTE={
       'feed':'extend',
@@ -14523,7 +14566,10 @@ function openRoulette(){
       try{localStorage.setItem('rs_wall_sort_'+wallFilter, mode)}catch(e){}
       syncWallSortChips();
       window.__wallVisible=12;
-      renderNormalFeed();
+      window.__wallPaintSig='';
+      window.__wallPaintIds='';
+      try{cancelFeedScrollRestore()}catch(e){}
+      renderNormalFeed({force:true});
     }
     window.setWallSort=setWallSort;
     function syncWallSortChips(){
@@ -14558,9 +14604,12 @@ function openRoulette(){
         var cta=document.getElementById('wall-roulette-cta');
         if(cta) cta.style.display=f==='roulette'?'block':'none';
       }catch(e){}
-      // Instant client filter — no full refetch
+      // Instant client filter — remount this category only (do not keep previous tab cards).
       window.__wallVisible=12;
-      renderNormalFeed();
+      window.__wallPaintSig='';
+      window.__wallPaintIds='';
+      try{cancelFeedScrollRestore()}catch(e){}
+      renderNormalFeed({force:true});
       // Soft top-up in background if this slice looks thin
       try{
         var n=(window.__lastWallListLen||0);
@@ -14760,15 +14809,13 @@ function openRoulette(){
       if(na) return withinNormal(a,b);
       return withinRest(a,b);
     }
-    function renderNormalFeed(){
-      try{setupWallFilters()}catch(e){}
+    function buildWallFilteredList(){
       var q=(normalFeedQuery||'').trim().toLowerCase();
       var mixed=(normalFeedPosts||[]).concat(posts||[]).concat(window.__videoCache||[]);
       var list=dedupePostList(mixed.slice()).filter(function(p){
         if(!p||p.id==null)return false;
         if(typeof isDeletedId==='function'&&isDeletedId(p.id))return false;
         var exp=Number(p.expires||0);
-        // Drop only truly expired timer posts (keep permanent / far-future)
         if(exp>0 && exp<=Date.now() && exp<Date.now()+60*24*3600*1000) return false;
         var media=String((p.image||p.media_url||'')+(p.images||[]).join(' '));
         if(media.indexOf('1792566465151')>=0) return false;
@@ -14787,12 +14834,8 @@ function openRoulette(){
         if(ib!==ia) return ib-ia;
         return sortByCreated(a,b);
       };
-      // Every category: Most Recent (created_at DESC, default) or Most Interaction — independent per tab.
-      if(wallSortMode==='interaction'){
-        list.sort(sortByInteraction);
-      }else{
-        list.sort(sortByCreated);
-      }
+      if(wallSortMode==='interaction') list.sort(sortByInteraction);
+      else list.sort(sortByCreated);
       if(q){
         list=list.filter(function(p){
           var u=String(p.user||'').toLowerCase();
@@ -14804,10 +14847,141 @@ function openRoulette(){
           return u.indexOf(q)>=0||d.indexOf(q)>=0||t.indexOf(q)>=0||tags.indexOf(q)>=0;
         });
       }
+      return list;
+    }
+    function wallMoreHtml(vis, listLen){
+      if(vis<listLen){
+        return '<div id="wall-more-sentinel" style="padding:16px 0 28px;text-align:center;color:var(--muted);font-size:12px">Loading more…</div>';
+      }
+      if(!window.__wallDone){
+        return '<div style="padding:12px 0 20px;text-align:center"><button class="btn btn-primary" type="button" onclick="loadNormalFeed(true)">Load more</button></div>';
+      }
+      return '';
+    }
+    function wallActiveBox(){
+      var explore=document.getElementById('explore-normal-posts');
+      var normal=document.getElementById('normal-feed-posts');
+      try{
+        var act=document.querySelector('.panel.active');
+        if(act&&act.id==='panel-explore'&&explore) return explore;
+        if(act&&act.id==='panel-wall'&&explore) return explore;
+      }catch(e){}
+      return explore||normal;
+    }
+    function softPatchWallCards(box, list){
+      if(!list)return;
+      var boxes=box?[box]:['explore-normal-posts','normal-feed-posts'].map(function(id){return document.getElementById(id)}).filter(Boolean);
+      boxes.forEach(function(el){
+        list.forEach(function(p){
+          if(!p||p.id==null)return;
+          var art=el.querySelector('article.normal-feed-post[data-pid="'+String(p.id).replace(/"/g,'')+'"],article.normal-feed-post[data-normal-post-id="'+String(p.id).replace(/"/g,'')+'"]');
+          if(!art)return;
+          try{
+            var likeBtn=art.querySelector('[data-nf-act="picker"]');
+            if(likeBtn){
+              var mine=typeof getMyReaction==='function'?getMyReaction(p):'';
+              likeBtn.classList.toggle('liked',!!mine);
+              likeBtn.innerHTML='<span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · '+(p.likes||0);
+            }
+            var viewBadge=art.querySelector('.normal-feed-view-badge');
+            if(viewBadge){
+              var label=typeof displayViews==='function'?displayViews(p.views||0):String(p.views||0);
+              viewBadge.innerHTML='<span class="eye">👁</span>'+esc(String(label))+' VIEWS';
+            }
+          }catch(e){}
+        });
+      });
+    }
+    function appendWallPage(){
+      if(window.__wallInfBusy)return;
+      var now=Date.now();
+      if(window.__wallInfAt && now-window.__wallInfAt<220)return;
+      if(!isWallFeedActive())return;
+      var list=window.__wallRest||buildWallFilteredList();
+      window.__wallRest=list;
+      var shown=Number(window.__wallVisible)||12;
+      if(shown>=list.length){
+        if(!window.__wallDone && !window.__wallLoading) loadNormalFeed(true);
+        return;
+      }
+      window.__wallInfBusy=true;
+      window.__wallInfAt=now;
+      try{
+        if(window.__wallIO){try{window.__wallIO.disconnect()}catch(e){}}
+        var next=Math.min(list.length, shown+8);
+        var boxes=['explore-normal-posts','normal-feed-posts'].map(function(id){return document.getElementById(id)}).filter(Boolean);
+        if(!boxes.length)return;
+        document.querySelectorAll('#wall-more-sentinel').forEach(function(old){try{old.remove()}catch(e){}});
+        var extra=list.slice(shown, next).map(function(p){
+          try{return normalFeedPostHtml(p)}catch(err){return ''}
+        }).filter(Boolean).join('');
+        var more=wallMoreHtml(next, list.length);
+        boxes.forEach(function(box){
+          if(extra) box.insertAdjacentHTML('beforeend', extra);
+          if(more) box.insertAdjacentHTML('beforeend', more);
+        });
+        window.__wallVisible=next;
+        try{
+          var wallSig=[String(wallFilter||'normal'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
+          var paintIds=list.slice(0,next).map(function(p){return String(p&&p.id)}).join(',');
+          window.__wallPaintIds=paintIds;
+          window.__wallPaintSig=wallSig+'#'+paintIds+'#'+next;
+          window.__wallSig=wallSig;
+        }catch(e){}
+        try{bindImpressions('wall')}catch(e){}
+        try{warmVisibleLazyVideos(wallActiveBox())}catch(e){}
+        setTimeout(function(){try{observeWallSentinel()}catch(e){}},120);
+      }finally{
+        window.__wallInfBusy=false;
+      }
+    }
+    function observeWallSentinel(){
+      var sent=document.getElementById('wall-more-sentinel');
+      if(!sent)return;
+      if(window.__wallIO){try{window.__wallIO.disconnect()}catch(e){}}
+      if(!window.IntersectionObserver){
+        sent.onclick=function(){appendWallPage()};
+        return;
+      }
+      window.__wallIO=new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          if(en.isIntersecting) appendWallPage();
+        });
+      },{root:null,rootMargin:'420px 0px',threshold:0.01});
+      window.__wallIO.observe(sent);
+    }
+    function bindWallInfiniteScroll(){
+      try{observeWallSentinel()}catch(e){}
+    }
+    function renderNormalFeed(opts){
+      opts=opts||{};
+      var forcePaint=!!opts.force;
+      try{setupWallFilters()}catch(e){}
+      var list=buildWallFilteredList();
+      window.__wallRest=list;
       window.__lastWallListLen=list.length;
+      var wallSig=[String(wallFilter||'normal'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
+      var sigChanged=window.__wallSig!==wallSig;
+      if(sigChanged){
+        window.__wallSig=wallSig;
+        window.__wallPaintSig='';
+        window.__wallPaintIds='';
+        if(!opts.keepVisible) window.__wallVisible=12;
+      }
       var vis=Math.max(8, Number(window.__wallVisible)||12);
+      if(!list.length){
+        vis=0;
+      }else{
+        // Keep scrolled depth on quiet refreshes; never exceed list length.
+        if(!forcePaint && !sigChanged){
+          vis=Math.max(vis, Number(window.__wallVisible)||12);
+        }
+        vis=Math.min(vis, list.length);
+      }
+      window.__wallVisible=vis;
       var first=list.slice(0,vis);
-      var html=first.map(function(p){try{return normalFeedPostHtml(p)}catch(e){return ''}}).filter(Boolean).join('');
+      var paintIds=first.map(function(p){return String(p&&p.id)}).join(',');
+      var paintSig=wallSig+'#'+paintIds+'#'+vis;
       var emptyLabels={
         trending:'Nothing trending yet. Interact and check back soon.',
         following:'Follow creators to fill this feed.',
@@ -14820,51 +14994,53 @@ function openRoulette(){
         text:'No text posts yet.'
       };
       var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing on the wall yet.')+'</div>';
-      var more='';
-      if(vis<list.length){
-        more='<div id="wall-more-sentinel" style="padding:16px 0 28px;text-align:center;color:var(--muted);font-size:12px">Loading more…</div>';
-      }else if(!window.__wallDone){
-        more='<div style="padding:12px 0 20px;text-align:center"><button class="btn btn-primary" type="button" onclick="loadNormalFeed(true)">Load more</button></div>';
+      var box=wallActiveBox();
+      var hasCards=!!(box&&box.querySelector('article.normal-feed-post'));
+      // Soft paint: same filter/sort + same painted ids → patch in place, never remount.
+      if(!forcePaint && !sigChanged && hasCards && window.__wallPaintSig===paintSig){
+        try{softPatchWallCards(box, first)}catch(e){}
+        try{bindWallInfiniteScroll()}catch(e){}
+        return;
       }
+      // Prefix-stable growth: append new cards only (infinite scroll / quiet merge).
+      if(!forcePaint && !sigChanged && hasCards && window.__wallPaintIds && paintIds.indexOf(window.__wallPaintIds)===0 && paintIds.length>=String(window.__wallPaintIds).length){
+        var paintedCount=String(window.__wallPaintIds).split(',').filter(Boolean).length;
+        window.__wallVisible=Math.max(paintedCount, Number(window.__wallVisible)||0);
+        try{
+          window.__wallInfAt=0;
+          var guard=0;
+          while((Number(window.__wallVisible)||0)<vis && guard++<3){
+            var before=Number(window.__wallVisible)||0;
+            appendWallPage();
+            if((Number(window.__wallVisible)||0)<=before) break;
+          }
+        }catch(e){}
+        window.__wallPaintIds=paintIds;
+        window.__wallPaintSig=paintSig;
+        try{softPatchWallCards(box, first)}catch(e){}
+        try{bindWallInfiniteScroll()}catch(e){}
+        return;
+      }
+      var html=first.map(function(p){try{return normalFeedPostHtml(p)}catch(e){return ''}}).filter(Boolean).join('');
+      var more=wallMoreHtml(vis, list.length);
       ['normal-feed-posts','explore-normal-posts'].forEach(function(id){
-        var box=document.getElementById(id);
-        if(box) box.innerHTML=(html||empty)+more;
+        var el=document.getElementById(id);
+        if(el) el.innerHTML=(html||empty)+more;
       });
+      window.__wallPaintIds=paintIds;
+      window.__wallPaintSig=paintSig;
+      if(sigChanged){
+        try{cancelFeedScrollRestore()}catch(e){}
+      }
       try{renderWallHot()}catch(e){}
       try{renderWallStories()}catch(e){}
       try{bindImpressions('wall')}catch(e){}
       try{prefetchAvatars(first).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
       try{bindWallInfiniteScroll()}catch(e){}
-      try{warmVisibleLazyVideos(document.getElementById('normal-feed-posts')||document.getElementById('panel-wall'))}catch(e){}
+      try{warmVisibleLazyVideos(document.getElementById('explore-normal-posts')||document.getElementById('normal-feed-posts')||document.getElementById('panel-wall'))}catch(e){}
     }
-    function bindWallInfiniteScroll(){
-      var sent=document.getElementById('wall-more-sentinel');
-      if(!sent)return;
-      if(window.__wallIO){try{window.__wallIO.disconnect()}catch(e){}}
-      if(!window.IntersectionObserver){
-        sent.onclick=function(){window.__wallVisible=(window.__wallVisible||12)+12;renderNormalFeed()};
-        return;
-      }
-      window.__wallIO=new IntersectionObserver(function(entries){
-        entries.forEach(function(en){
-          if(!en.isIntersecting)return;
-          var listLen=(function(){
-            try{
-              var mixed=(normalFeedPosts||[]).concat(posts||[]).concat(window.__videoCache||[]);
-              return dedupePostList(mixed.slice()).length;
-            }catch(e){return (normalFeedPosts||[]).length}
-          })();
-          var vis=Number(window.__wallVisible)||12;
-          if(vis>=listLen){
-            if(!window.__wallDone && !window.__wallLoading) loadNormalFeed(true);
-            return;
-          }
-          window.__wallVisible=vis+8;
-          renderNormalFeed();
-        });
-      },{root:null,rootMargin:'600px 0px',threshold:0.01});
-      window.__wallIO.observe(sent);
-    }
+    window.appendWallPage=appendWallPage;
+    window.renderNormalFeed=renderNormalFeed;
 
     /* —— Stories (24h) —— */
     function loadStoriesLocal(){
@@ -16109,10 +16285,14 @@ function openRoulette(){
       }catch(e){}
       return list;
     }
-    async function loadNormalFeed(more){
+    async function loadNormalFeed(more, opts){
+      opts=opts||{};
+      var quiet=!!opts.quiet;
       if(window.__wallLoading && more)return;
+      if(window.__wallLoading && quiet)return;
       var boxes=['normal-feed-posts','explore-normal-posts'];
-      if(!more){
+      var keepVisible=quiet || more;
+      if(!more && !quiet){
         window.__wallPage=0;
         window.__wallDone=false;
         window.__wallVisible=12;
@@ -16120,10 +16300,9 @@ function openRoulette(){
         try{
           var cached=readPostCache('rs_wall_cache');
           if(cached&&cached.length){
-            // Restore hot counts onto cached rows
             cached.forEach(function(p){try{p.hotCount=postHotCount(p)}catch(e){}});
             normalFeedPosts=wallFilterMapped(cached);
-            renderNormalFeed();
+            renderNormalFeed({force:true});
           }else{
             boxes.forEach(function(id){var b=document.getElementById(id);if(b)b.innerHTML=wallSkeletonHtml(5);});
           }
@@ -16133,7 +16312,6 @@ function openRoulette(){
       }
       window.__wallLoading=true;
       try{
-        // Wider primary fetch so timed + timeless publications both land on The Wall
         var pageSize=more?60:48;
         var rows=await fetchCfFeed(null, pageSize);
         var list=wallFilterMapped((rows||[]).map(function(r){
@@ -16141,7 +16319,6 @@ function openRoulette(){
           if(mapped) mapped.hotCount=postHotCount(mapped);
           return mapped;
         }).filter(Boolean));
-        // Supabase recent rows fill CF lag so brand-new publishes appear for everyone.
         if(!more && typeof sb!=='undefined' && sb){
           try{
             var sbRecent=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
@@ -16155,25 +16332,40 @@ function openRoulette(){
           }catch(eSb){}
         }
         list=wallMergeLocalExtras(list).sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
-        // Brand-new by created_at first — same experience for every user (not just publisher).
         try{list=pinBrandNewFirst(list, BRAND_NEW_MS)}catch(e){}
-        if(more){
-          // Append new ids only
+        if(more || quiet){
+          // Merge new ids without collapsing the scrolled window.
           var seen={};(normalFeedPosts||[]).forEach(function(p){seen[String(p.id)]=1});
-          list.forEach(function(p){if(!seen[String(p.id)]) normalFeedPosts.push(p)});
-          normalFeedPosts=pinBrandNewFirst(normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
+          var added=0;
+          list.forEach(function(p){
+            if(!seen[String(p.id)]){ normalFeedPosts.push(p); seen[String(p.id)]=1; added++; }
+            else{
+              // Refresh lightweight fields in place
+              try{
+                var hit=(normalFeedPosts||[]).find(function(x){return String(x.id)===String(p.id)});
+                if(hit){
+                  hit.likes=p.likes; hit.views=p.views; hit.hotCount=p.hotCount;
+                  hit.commentCount=p.commentCount||hit.commentCount;
+                  hit.reactions=p.reactions||hit.reactions;
+                }
+              }catch(e){}
+            }
+          });
+          if(!quiet || added){
+            normalFeedPosts=pinBrandNewFirst(normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
+          }
         }else{
           normalFeedPosts=list;
         }
         window.__wallFetchedAt=Date.now();
         window.__wallDone=list.length<pageSize;
         if(more) window.__wallVisible=Math.min(normalFeedPosts.length, (window.__wallVisible||12)+12);
+        else if(quiet) window.__wallVisible=Math.min(normalFeedPosts.length, Math.max(Number(window.__wallVisible)||12, 12));
         else window.__wallVisible=Math.min(Math.max(12, 16), normalFeedPosts.length);
         try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
-        renderNormalFeed();
+        renderNormalFeed({keepVisible:keepVisible});
         try{prefetchAvatars(normalFeedPosts.slice(0,window.__wallVisible||12)).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
-        // Background enrichment from a second wider pull (videos + anything missed)
-        if(!more && !window.__wallEnriching){
+        if(!more && !quiet && !window.__wallEnriching){
           window.__wallEnriching=true;
           Promise.resolve(fetchCfFeed(null, 80)).then(function(wide){
             var changed=false;
@@ -16188,7 +16380,7 @@ function openRoulette(){
             if(changed){
               normalFeedPosts=pinBrandNewFirst(normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
               try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
-              renderNormalFeed();
+              renderNormalFeed({keepVisible:true});
             }
           }).catch(function(){}).finally(function(){window.__wallEnriching=false});
         }
@@ -20058,7 +20250,7 @@ function postCardHtml(p, compact){
       // Cooldown prevents IntersectionObserver re-entry from painting dozens of
       // pages in one turn (freezes Safari / blocks bottom-nav taps).
       var now=Date.now();
-      if(window.__feedInfAt && now-window.__feedInfAt<180)return;
+      if(window.__feedInfAt && now-window.__feedInfAt<240)return;
       if(!isExtendFeedActive())return;
       var rest=window.__feedRest||[];
       var shown=Number(window.__feedShown)||0;
@@ -20112,7 +20304,7 @@ function postCardHtml(p, compact){
         entries.forEach(function(en){
           if(en.isIntersecting) appendFeedPage();
         });
-      },{root:null,rootMargin:'700px 0px',threshold:0.01});
+      },{root:null,rootMargin:'480px 0px',threshold:0.01});
       window.__feedIO.observe(sent);
     }
     function bindFeedInfinite(){
@@ -20591,8 +20783,7 @@ function postCardHtml(p, compact){
         updateTimers();
         try{refreshExtendCooldownButtons()}catch(e){}
         try{paintAvatarsInDom()}catch(e){}
-        // Featured soft/hard updates above can shift layout — pin scroll back.
-        if(keepY>40){try{restoreFeedScroll(keepY)}catch(e){}}
+        // Soft path did not remount cards — do not fight native scroll with restoreFeedScroll.
         return;
       }
       // Prefix-stable growth: rest grew / shown grew but existing cards stay — append only.
@@ -20603,7 +20794,8 @@ function postCardHtml(p, compact){
         window.__feedShown=Math.max(paintedCount, domCount, Number(window.__feedShown)||0);
         try{
           window.__feedInfAt=0; // allow catch-up appends in this turn
-          while((Number(window.__feedShown)||0)<initial){
+          var guard=0;
+          while((Number(window.__feedShown)||0)<initial && guard++<2){
             if(typeof appendFeedPage!=='function')break;
             var before=Number(window.__feedShown)||0;
             appendFeedPage();
@@ -20617,7 +20809,7 @@ function postCardHtml(p, compact){
         try{syncExtendedPanel(rest)}catch(e){}
         updateTimers();
         try{refreshExtendCooldownButtons()}catch(e){}
-        try{restoreFeedScroll(keepY||window.__feedY)}catch(e){}
+        // Append-only: scroll position is naturally preserved — no restore yank.
         return;
       }
       var keepScroll=!sigChanged && keepY>40;
