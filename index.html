@@ -411,12 +411,24 @@
     .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
     .wall-filter-chip[data-wall-filter="roulette"].on{background:linear-gradient(90deg,#ff8a00,#ff3b1f);box-shadow:0 0 14px rgba(255,106,0,.4)}
-    .wall-sort-bar{display:flex;gap:6px;padding:0 4px 10px;margin:0}
-    .wall-sort-chip{flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;cursor:pointer;touch-action:manipulation}
+    .wall-sort-bar{display:flex;gap:6px;padding:0 4px 8px;margin:0 0 6px}
+    .wall-sort-chip{flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;cursor:pointer;touch-action:manipulation;min-height:36px}
     .wall-sort-chip.on{border-color:rgba(124,58,237,.55);color:#fff;background:rgba(124,58,237,.18)}
     .roulette-wall-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.45);color:#ffb35c;font-size:10px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;padding:3px 8px;border-radius:999px}
-    .wall-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 2px 12px}
-    .wall-quick-actions .btn{padding:12px 10px;font-weight:900;border-radius:14px;touch-action:manipulation}
+    .wall-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 2px 6px}
+    .wall-quick-actions .btn{padding:10px 8px;font-weight:900;border-radius:12px;touch-action:manipulation;min-height:42px;font-size:13px}
+    /* Compact Wall header — reclaim vertical space on mobile */
+    #explore-normal-wrap{margin:0 0 8px!important}
+    .wall-head{text-align:center;margin:0 0 6px;padding:0 4px}
+    .wall-head-row{display:flex;align-items:center;justify-content:center;gap:6px;margin:0 0 6px}
+    .wall-head-row strong{font-size:18px;letter-spacing:-.3px;line-height:1.1}
+    .wall-head-row .wall-live{font-size:10px;color:#ff6a00;font-weight:800;text-shadow:0 0 10px rgba(255,106,0,.45)}
+    .wall-head-row .btn{padding:6px 10px;min-height:32px;font-size:12px}
+    #btn-create-normal-post-explore{width:min(320px,92%);padding:11px 16px!important;font-weight:900;font-size:15px!important;border-radius:14px;box-shadow:0 0 18px rgba(124,58,237,.4);min-height:44px;margin:0 auto}
+    .wall-tagline{text-align:center;font-size:11px;color:#9a9aa3;margin:0 8px 6px;line-height:1.35}
+    .wall-filter-bar{padding:2px 4px 6px;margin:0 0 2px}
+    .wall-stories{margin:0 0 6px!important;padding:2px 2px 4px}
+    #wall-hot-slot{margin:0 0 2px}
     .rs-level-title{font-size:15px;font-weight:900;letter-spacing:.3px;margin-bottom:4px}
     .rs-level-meta{font-size:12px;color:#cfcfd6;margin-bottom:8px}
     .rs-xp-bar{height:8px;border-radius:999px;background:#1b1b22;overflow:hidden;border:1px solid #2a2a32}
@@ -2282,24 +2294,21 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
       <div id="panel-wall" class="panel">
         <div id="wall-home">
-          <div id="explore-normal-wrap" style="margin:4px 0 12px">
-            <div id="pig-of-day" style="margin:0 0 14px"></div>
-            <div style="text-align:center;margin:0 0 12px">
-              <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 10px">
-                <strong style="font-size:20px;letter-spacing:-.4px">The Wall</strong>
-                <span style="font-size:11px;color:#ff6a00;font-weight:800;text-shadow:0 0 10px rgba(255,106,0,.45)">LIVE</span>
+          <div id="explore-normal-wrap">
+            <div id="pig-of-day" style="margin:0 0 8px"></div>
+            <div class="wall-head">
+              <div class="wall-head-row">
+                <strong>The Wall</strong>
+                <span class="wall-live">LIVE</span>
                 <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('wall','Wall')">Share</button>
               </div>
-              <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" style="width:min(320px,92%);padding:14px 18px;font-weight:900;font-size:16px;border-radius:16px;box-shadow:0 0 22px rgba(124,58,237,.45)">＋ Post</button>
-            </div>
-            <div id="wall-permanence-notice" style="margin:0 10px 12px;padding:10px 12px;border-radius:14px;background:rgba(255,106,0,.08);border:1px solid rgba(255,106,0,.32);color:#ffd7b0;font-size:12px;line-height:1.45;text-align:left">
-              <b style="color:#ff6a00">Wall posts are permanent.</b> They never expire and cannot be removed for free. Only the author can delete their own post. Use <b>Extend Post</b> for temporary exposures.
+              <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" onclick="openNormalPostComposer();return false">＋ Post</button>
             </div>
             <div class="wall-quick-actions">
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
             </div>
-            <div style="text-align:center;font-size:12px;color:#9a9aa3;margin:0 8px 10px;line-height:1.4">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
+            <div class="wall-tagline">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
               <button type="button" class="wall-filter-chip on" data-wall-filter="normal" role="tab" aria-selected="true">Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">Extend Post</button>
@@ -2307,16 +2316,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <button type="button" class="wall-filter-chip" data-wall-filter="roulette" role="tab" aria-selected="false">Roulette</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
             </div>
+            <div id="wall-roulette-cta" style="display:none;margin:0 8px 8px">
+              <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="width:100%;padding:12px 16px;font-weight:900;font-size:14px;border-radius:14px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);border:0;box-shadow:0 0 18px rgba(255,106,0,.4)" onclick="openRoulette()">SPIN ROULETTE</button>
+              <div style="font-size:11px;color:#9a9aa3;text-align:center;margin-top:6px;line-height:1.35">Challenge proofs from Ruin Roulette · newest first</div>
+            </div>
+            <div id="wall-stories" class="wall-stories"></div>
+            <div id="wall-hot-slot"></div>
             <div id="wall-sort-bar" class="wall-sort-bar" role="group" aria-label="Wall sorting">
               <button type="button" class="wall-sort-chip on" data-wall-sort="recent" aria-pressed="true">Most Recent</button>
               <button type="button" class="wall-sort-chip" data-wall-sort="interaction" aria-pressed="false">Most Interaction</button>
             </div>
-            <div id="wall-roulette-cta" style="display:none;margin:0 8px 12px">
-              <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="width:100%;padding:14px 16px;font-weight:900;font-size:15px;border-radius:14px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);border:0;box-shadow:0 0 18px rgba(255,106,0,.4)" onclick="openRoulette()">SPIN ROULETTE</button>
-              <div style="font-size:12px;color:#9a9aa3;text-align:center;margin-top:8px;line-height:1.4">Challenge proofs from Ruin Roulette · newest first</div>
-            </div>
-            <div id="wall-stories" class="wall-stories" style="margin:0 0 12px"></div>
-            <div id="wall-hot-slot"></div>
             <div id="explore-normal-posts"><div class="normal-feed-empty">Loading the wall…</div></div>
           </div>
         </div>
@@ -9124,7 +9133,7 @@ function openRoulette(){
         btn.onclick=function(){
           var a=btn.getAttribute('data-sm');
           closeSideMenu();
-          if(a==='post'){try{setExposurePostMode()}catch(e){}showPanel('post')}
+          if(a==='post'){try{openExtendPostComposer()}catch(e){try{setExposurePostMode()}catch(e2){}showPanel('post')}}
           else if(a==='premium'){try{openPremium()}catch(e){}}
           else if(a==='coins'){try{openCoinShop()}catch(e){}}
           else if(a==='roulette'){try{openRoulette()}catch(e){}}
@@ -9875,7 +9884,15 @@ function openRoulette(){
               if(typeof openVideoComposer==='function') openVideoComposer();
               return;
             }
-            try{setExposurePostMode()}catch(e){}
+            // Context-aware: Wall → permanent composer; Extend/elsewhere → timed exposure.
+            try{
+              var act=document.querySelector('.panel.active');
+              var pid=act&&act.id||'';
+              if(pid==='panel-wall'||pid==='panel-explore'){
+                if(typeof openNormalPostComposer==='function'){ openNormalPostComposer(); return; }
+              }
+            }catch(e){}
+            try{openExtendPostComposer()}catch(e){try{setExposurePostMode()}catch(e2){}}
           }
           if(target==='goontok'){openGoonTok();return;}
           showPanel(target);
@@ -9917,7 +9934,7 @@ function openRoulette(){
       try{setupTaskUI()}catch(e){console.warn(e)}
       var bshare=document.getElementById('btn-share-profile');if(bshare)bshare.onclick=shareProfile;
       var bp=document.getElementById('btn-open-premium');if(bp)bp.remove();
-      var bgp=document.getElementById('btn-go-public');if(bgp)bgp.onclick=function(){setExposurePostMode();showPanel('post')};
+      var bgp=document.getElementById('btn-go-public');if(bgp)bgp.onclick=function(){try{openExtendPostComposer()}catch(e){setExposurePostMode();showPanel('post')}};
       
       var bf=document.getElementById('btn-follow');if(bf)bf.onclick=toggleFollow;
       var bm=document.getElementById('btn-msg-user');if(bm)bm.onclick=function(){openChat(viewingUser||null)};
@@ -14528,14 +14545,14 @@ function openRoulette(){
       }catch(e){pool=normalFeedPosts||[]}
       var rand=pickWallRandom(pool, [], 3);
       if(!rand.length){box.innerHTML='';return}
-      box.innerHTML='<div style="width:100%;padding:0 4px 6px;font-size:13px;font-weight:900;letter-spacing:1.2px">RANDOM 3 · changes daily</div>'
-        +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 2px 8px">'
+      box.innerHTML='<div style="width:100%;padding:0 4px 4px;font-size:12px;font-weight:900;letter-spacing:1.1px">RANDOM 3 · changes daily</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 2px 4px">'
         +rand.map(function(p){
           var imgs=p.images&&p.images.length?p.images:parseImages(p.image||'');
           var src=imgs[0]||'';
-          return '<button type="button" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')" style="border:1px solid rgba(96,165,250,.35);border-radius:14px;overflow:hidden;padding:0;background:#121218;color:#fff;text-align:left">'
-            +(src?'<img src="'+esc(feedThumb(src,220))+'" alt="" style="width:100%;height:96px;object-fit:cover;display:block"/>':'<div style="height:96px;background:#1a1a22"></div>')
-            +'<div style="padding:6px 7px;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@'+esc(p.user||'')+'</div>'
+          return '<button type="button" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')" style="border:1px solid rgba(96,165,250,.35);border-radius:12px;overflow:hidden;padding:0;background:#121218;color:#fff;text-align:left">'
+            +(src?'<img src="'+esc(feedThumb(src,220))+'" alt="" style="width:100%;height:84px;object-fit:cover;display:block"/>':'<div style="height:84px;background:#1a1a22"></div>')
+            +'<div style="padding:5px 6px;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@'+esc(p.user||'')+'</div>'
             +'</button>';
         }).join('')
         +'</div>';
@@ -15953,7 +15970,7 @@ function openRoulette(){
         // Video player shell owns the tap (Play) — do not steal it for openDetail.
         if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
         // Never treat GoonTok swipe / nav chrome as an accidental open.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,.wall-head,#btn-create-normal-post-explore,.entry-ico,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
         // Spotlight: open on tap, but ignore right after a horizontal swipe.
         if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
         // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).
@@ -16397,15 +16414,17 @@ function openRoulette(){
 
 
     function openNormalPostComposer(){
-      if(!isRegistered()){toast('Register to create a normal post');return}
+      if(!isRegistered()){toast('Register to create a normal post');try{showAuth('login')}catch(e){}return}
       window.__fromNormalFeed=true;
-      setProfilePostMode();
+      window.__wallComposer=true;
+      // Permanent Wall composer — never the timed Extend exposure form.
+      try{setProfilePostMode()}catch(e){}
       var title=document.getElementById('post-panel-title');
       if(title)title.textContent='Wall post';
       var note=document.getElementById('profile-post-note');
       if(note){
         note.style.display='block';
-        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Post a <strong>status</strong>, <strong>photos</strong>, or both. Removal is not free for others; only you can delete your own post.';
+        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Post a <strong>status</strong>, <strong>photos</strong>, or both.';
       }
       var desc=document.getElementById('new-desc');
       if(desc){desc.placeholder="What's on your mind? Write a status..."; desc.maxLength=500;}
@@ -16413,8 +16432,35 @@ function openRoulette(){
       if(btn)btn.textContent='Post on the wall';
       var up=document.getElementById('media-upload'); if(up)up.textContent='📸 Optional — tap to add photos (max 5)';
       var pl=document.getElementById('post-photos-label'); if(pl)pl.textContent='Photos (optional)';
+      // Hide Extend-only fields again after panel paint (defensive against route races).
+      showPanel('post');
+      setTimeout(function(){
+        try{
+          if(!window.__wallComposer) return;
+          window.__profilePostMode=true;
+          window.__fromNormalFeed=true;
+          var hide=['post-title-group','post-gender-group','post-duration-group','post-extend-group'];
+          hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
+          var t=document.getElementById('post-panel-title');
+          if(t)t.textContent='Wall post';
+          var b=document.getElementById('btn-publish');
+          if(b)b.textContent='Post on the wall';
+          var note=document.getElementById('profile-post-note');
+          if(note){
+            note.style.display='block';
+            note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
+          }
+        }catch(e){}
+      },0);
+    }
+    function openExtendPostComposer(){
+      window.__fromNormalFeed=false;
+      window.__wallComposer=false;
+      try{setExposurePostMode()}catch(e){}
       showPanel('post');
     }
+    window.openNormalPostComposer=openNormalPostComposer;
+    window.openExtendPostComposer=openExtendPostComposer;
 
     function setGlobalFeedMode(mode){
       if(mode==='normal'){
@@ -22303,6 +22349,7 @@ async function onIdFace(e){
     
     function setProfilePostMode(){
       window.__profilePostMode=true;
+      window.__wallComposer=true;
       var title=document.getElementById('post-panel-title'); if(title)title.textContent='Wall post';
       var tg=document.getElementById('post-title-group'); if(tg)tg.style.display='none';
       var gg=document.getElementById('post-gender-group'); if(gg)gg.style.display='none';
@@ -22313,7 +22360,7 @@ async function onIdFace(e){
       var note=document.getElementById('profile-post-note');
       if(note){
         note.style.display='block';
-        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Removal is not free for others; only you can delete your own post. Text, photos, or both.';
+        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
       }
       var btn=document.getElementById('btn-publish'); if(btn)btn.textContent='Post on the wall';
       var up=document.getElementById('media-upload'); if(up)up.textContent='📸 Optional — tap to add photos (max 5)';
@@ -22331,6 +22378,7 @@ async function onIdFace(e){
     function setExposurePostMode(){
       window.__profilePostMode=false;
       window.__fromNormalFeed=false;
+      window.__wallComposer=false;
       var title=document.getElementById('post-panel-title'); if(title)title.textContent='New Exposure';
       var tg=document.getElementById('post-title-group'); if(tg)tg.style.display='block';
       var gg=document.getElementById('post-gender-group'); if(gg)gg.style.display='block';
@@ -22346,6 +22394,10 @@ async function onIdFace(e){
       var tags=document.getElementById('new-tags'); if(tags)tags.placeholder='faggot, exposed';
       var desc=document.getElementById('new-desc'); if(desc){desc.placeholder=''; desc.maxLength=500;}
     }
+    window.setProfilePostMode=setProfilePostMode;
+    window.setExposurePostMode=setExposurePostMode;
+    window.openNormalPostComposer=openNormalPostComposer;
+    window.openExtendPostComposer=openExtendPostComposer;
 
 
 
