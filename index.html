@@ -7538,7 +7538,11 @@ async function claimPayPalPack(p){
           var apiJ=await apiR.json().catch(function(){return{}});
           if(apiJ&&apiJ.ok){
             if(apiJ.balance!=null) window.__fcLast=Number(apiJ.balance)||window.__fcLast;
-            toast((apiJ.label)||('-'+cost+' FC · '+action));
+            if(apiJ.reused){
+              toast('Already paid · '+action+' (no extra charge)');
+            }else{
+              toast((apiJ.label)||('-'+cost+' FC · '+action));
+            }
             try{await loadFagBalance()}catch(e){}
             return true;
           }
@@ -15658,6 +15662,8 @@ function openRoulette(){
             var snapE=getFeaturedSnaps()[String(id)];
             if(snapE) exp=Math.max(exp, Number(snapE.expires)||0);
           }catch(e){}
+          // Stale exposure timers must not poison Spotlight — treat past expires as pin-only (0).
+          if(exp && exp<=Date.now()) exp=0;
           var row={
             id:id,user:data.user||(live&&live.user)||n.from_username||'anon',title:data.title||(live&&live.title)||'Pinned',
             desc:data.desc||(live&&live.desc)||'',image:data.image||(live&&live.image)||'',
@@ -20665,8 +20671,8 @@ function postCardHtml(p, compact){
           if(snap&&isBlockedPinContent(snap)){ clearFeaturedForPost(p.id); return; }
         }catch(e){}
         if(fu<=Date.now())return;
-        // Drop only when exposure truly expired (not pin stubs with expires=0).
-        if(Number(p.expires||0)>0 && Number(p.expires)<=Date.now())return;
+        // Keep paid Spotlight pins for the full pin window even after the
+        // exposure hourglass hits zero. A dead expires must not hide an active pin.
         var k=String(p.id);
         if(featSeen[k])return;
         // Prefer a richer live copy already queued.
@@ -25958,7 +25964,7 @@ async function onIdFace(e){
       try{
         if(window.sb){
           var iso=until?new Date(until).toISOString():null;
-          var up=await sb.from('posts').update({featured_until:iso}).eq('id',id);
+          var up=await sb.from('posts').update({featured_until:iso, featured:!!pin}).eq('id',id);
           if(up&&!up.error) ok=true;
           else if(up&&up.error) err=up.error.message||err;
         }
@@ -25996,6 +26002,9 @@ async function onIdFace(e){
         if(pin){
           var snap=src||{};
           var snapExp=Number(snap.expires)||0;
+          // Only persist a live exposure timer. Expired hourglasses become pin-only stubs (0)
+          // so Spotlight keeps showing the paid pin for the full 48h window.
+          if(snapExp && snapExp<=Date.now()) snapExp=0;
           await fetch(CF_API+'/notifs',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
