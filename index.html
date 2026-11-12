@@ -404,10 +404,15 @@
     .tasks-entry{margin:7px 0;padding:13px 14px;border-radius:14px;background:#0a0a0c;border:1px solid #1c1c24;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;touch-action:pan-y;-webkit-user-select:none;user-select:none}
     .tasks-entry strong{font-size:15px}
     .tasks-entry span{font-size:12px;color:var(--muted)}
-    .wall-filter-bar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 4px 10px;margin:0 0 4px;touch-action:pan-x}
+    .wall-filter-bar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 4px 8px;margin:0 0 2px;touch-action:pan-x}
     .wall-filter-bar::-webkit-scrollbar{display:none}
     .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
+    .wall-filter-chip[data-wall-filter="roulette"].on{background:linear-gradient(90deg,#ff8a00,#ff3b1f);box-shadow:0 0 14px rgba(255,106,0,.4)}
+    .wall-sort-bar{display:flex;gap:6px;padding:0 4px 10px;margin:0}
+    .wall-sort-chip{flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;cursor:pointer;touch-action:manipulation}
+    .wall-sort-chip.on{border-color:rgba(124,58,237,.55);color:#fff;background:rgba(124,58,237,.18)}
+    .roulette-wall-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,106,0,.16);border:1px solid rgba(255,106,0,.45);color:#ffb35c;font-size:10px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;padding:3px 8px;border-radius:999px}
     .wall-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 2px 12px}
     .wall-quick-actions .btn{padding:12px 10px;font-weight:900;border-radius:14px;touch-action:manipulation}
     .rs-level-title{font-size:15px;font-weight:900;letter-spacing:.3px;margin-bottom:4px}
@@ -2294,11 +2299,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             </div>
             <div style="text-align:center;font-size:12px;color:#9a9aa3;margin:0 8px 10px;line-height:1.4">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
-              <button type="button" class="wall-filter-chip on" data-wall-filter="moment" role="tab" aria-selected="true">⚡ Moment</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Post</button>
+              <button type="button" class="wall-filter-chip on" data-wall-filter="normal" role="tab" aria-selected="true">Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">Extend Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="roulette" role="tab" aria-selected="false">Roulette</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
+            </div>
+            <div id="wall-sort-bar" class="wall-sort-bar" role="group" aria-label="Wall sorting">
+              <button type="button" class="wall-sort-chip on" data-wall-sort="recent" aria-pressed="true">Most Recent</button>
+              <button type="button" class="wall-sort-chip" data-wall-sort="interaction" aria-pressed="false">Most Interaction</button>
+            </div>
+            <div id="wall-roulette-cta" style="display:none;margin:0 8px 12px">
+              <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="width:100%;padding:14px 16px;font-weight:900;font-size:15px;border-radius:14px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);border:0;box-shadow:0 0 18px rgba(255,106,0,.4)" onclick="openRoulette()">SPIN ROULETTE</button>
+              <div style="font-size:12px;color:#9a9aa3;text-align:center;margin-top:8px;line-height:1.4">Challenge proofs from Ruin Roulette · newest first</div>
             </div>
             <div id="wall-stories" class="wall-stories" style="margin:0 0 12px"></div>
             <div id="wall-hot-slot"></div>
@@ -2713,22 +2726,20 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <button type="button" class="roulette-center" id="btn-spin-roulette" onclick="spinRoulette()">SPIN</button>
           </div>
           <button type="button" class="btn btn-primary" style="width:100%;max-width:280px;margin:12px auto 0;font-weight:900" onclick="spinRoulette()">SPIN</button>
-          <div class="roulette-spins" id="roulette-spins-left">1 free spin left today · paid spin 10 FC</div>
+          <div class="roulette-spins" id="roulette-spins-left">3 free spins left today · then 50 FC for 10 spins</div>
           <div id="roulette-fc-balance" style="font-size:13px;font-weight:800;color:#f5c518;margin:4px 0 8px;text-align:center">— FC</div>
           <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;max-width:280px;margin:6px auto 0">Check for approved unlock</button>
 
           <div id="roulette-unlock-box" style="display:none;width:100%;max-width:360px;background:var(--card);border:1px solid var(--orange);border-radius:16px;padding:16px;margin-top:14px;text-align:center;box-shadow:0 0 18px rgba(217,70,239,.12)">
-            <div style="font-size:18px;font-weight:900;color:var(--orange);margin-bottom:6px">Today’s 3 spins used</div>
+            <div style="font-size:18px;font-weight:900;color:var(--orange);margin-bottom:6px">Today’s free spins used</div>
             <div style="font-size:14px;line-height:1.45;color:var(--muted);margin-bottom:12px">
-              Come back tomorrow for 3 more — or pay <strong style="color:#fff">50 FC</strong> for <strong style="color:#fff">15 extra spins</strong>.
+              You have used today’s free spins. Get <strong style="color:#fff">10 additional spins</strong> for <strong style="color:#f5c518">50 FC ($5)</strong>.
             </div>
-            <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:800" onclick="unlockRouletteWithCoins()">15 spins — 50 FC</button>
-            <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px" onclick="openCoinShop()">Buy Fag Coins</button>
-            <a class="btn btn-primary" href="https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:900" onclick="openCoinShop();return false">
-              Buy $10 → 110 FC on Throne
-            </a>
+            <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:800" onclick="buyRoulettePack()">GET 10 SPINS — 50 FC</button>
+            <a class="btn btn-secondary" id="btn-roulette-paypal-pack" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800" onclick="requestRoulettePackPayPal();return true">PayPal $5 · MartinJimenez205</a>
+            <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin-bottom:8px" onclick="openCoinShop()">Buy Fag Coins first</button>
             <div style="font-size:11px;color:var(--muted);margin-top:9px;line-height:1.35">
-              Extra spins cost <strong style="color:#fff">50 FC</strong> (15 spins). Coins only.
+              Opening PayPal or tapping “I paid” does <strong style="color:#fff">not</strong> auto-credit. FC pack deducts 50 FC only after a successful server charge; PayPal needs admin approval.
             </div>
           </div>
 
@@ -2741,9 +2752,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <a class="btn btn-primary" id="roulette-pay-link" href="https://throne.com/mastersan/item/8808A465-B36A-4530-8D16-828F9C694C8A" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800">Buy Fag Coins for extra spins</a>
               <div style="background:rgba(124,58,237,.08);border:1px solid rgba(217,70,239,.32);border-radius:10px;padding:10px;margin-bottom:8px;text-align:center">
                 <strong style="color:var(--orange)">After your 3 free spins:</strong>
-                <div style="font-size:12px;color:var(--muted);margin-top:4px">Buy Fag Coins, then pay 50 FC per extra pack.</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:4px">50 FC ($5) unlocks exactly 10 additional spins.</div>
               </div>
-              <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="unlockRouletteWithCoins()" style="width:100%;margin-bottom:8px;font-weight:800">Spin now — 10 FC ($1)</button>
+              <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="unlockRouletteWithCoins()" style="width:100%;margin-bottom:8px;font-weight:800">GET 10 SPINS — 50 FC</button>
               <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-custom" onclick="openCustomRouletteRequest()" style="width:100%;margin-bottom:8px;font-weight:800">Custom 30 options — 250 FC / $25</button>
               <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;font-weight:800" onclick="openCoinShop()">Buy Fag Coins</button>
               <div id="roulette-btc" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:8px">
@@ -3104,13 +3115,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <div class="modal">
       <h3 style="margin-bottom:6px">Delete post</h3>
       <p style="font-size:14px;line-height:1.45;margin-bottom:10px">
-        Delete · <strong style="color:#f5c518">$5 / 50 FC</strong>. Or pay outside and tap <strong>I paid</strong>.
+        Paid delete · <strong style="color:#f5c518">$5 USD</strong> (or 50 FC). PayPal does not auto-delete — admin verifies first.
       </p>
       <p id="remove-post-id-label" style="display:none"></p>
-      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete · $5 / 50 FC</button>
-      <a class="btn btn-primary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95">Pay $5 on Throne</a>
-      <a class="btn btn-secondary" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:12px;font-weight:800">Pay $5 on PayPal</a>
-      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid — send to admin</button>
+      <a class="btn btn-primary" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5'})}catch(e){}">PayPal $5 · MartinJimenez205</a>
+      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete now · 50 FC</button>
+      <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95">Pay $5 on Throne</a>
+      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verify</button>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" onclick="closeModals();openCoinShop()">Buy Fag Coins</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-rm" type="button">Keep it public</button>
     </div>
@@ -7007,6 +7018,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     var rouletteAngle=0;
     var rouletteSpinning=false;
     var lastRouletteOpt=null;
+    var lastRoulettePlayId=null;
     var PAY10_URL=(typeof THRONE_PACK_10!=='undefined'?THRONE_PACK_10:'https://throne.com/mastersan/item/13E99487-F711-43D2-9845-BEF75A3F8CCB');
     var ROULETTE_OPTIONS = [
       {title:'Confession video', desc:'Film 20s at home. Say your name and “I pay to be exposed.” Face on camera. Post the video.', pay:true, color:'#5b21b6'},
@@ -7048,7 +7060,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       {usd:50, coins:600, url:THRONE_PACK_50, paypal:PAYPAL_ME+'/50'},
       {usd:99, coins:1200, url:THRONE_PACK_99, paypal:PAYPAL_ME+'/99'}
     ];
-    var FC_COSTS = {pin:50, pin7:150, pin30:400, print:350, roulette:10, roulette_spin:10, delete:50, vanish:200, page:1000, dice:10, dice_roll:10, custom_roulette:250, custom_dice:250};
+    var FC_COSTS = {pin:50, pin7:150, pin30:400, print:350, roulette:10, roulette_spin:10, roulette_pack:50, delete:50, vanish:200, page:1000, dice:10, dice_roll:10, custom_roulette:250, custom_dice:250};
+    var ROULETTE_FREE_PER_DAY=3;
+    var ROULETTE_PACK_SPINS=10;
+    var ROULETTE_PACK_FC=50;
     window.__fcLast=0;
     window.__fcSpendLocks=window.__fcSpendLocks||{};
     function openNeedCoins(opts){
@@ -7909,18 +7924,69 @@ async function claimPayPalPack(p){
       payProgress(false);
     }
     async function unlockRouletteWithCoins(){
-      // Charge 10 FC per spin at spin time — this button just triggers a paid spin path.
+      // Legacy alias — buy the 50 FC / 10-spin pack instead of a single 10 FC spin.
+      return buyRoulettePack();
+    }
+    async function buyRoulettePack(){
+      if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
       var bal=Number(window.__fcLast||0);
       try{bal=await loadFagBalance()}catch(e){}
-      if(bal<10){
-        toast('Insufficient FC — need 10 FC');
-        try{openNeedCoins({cost:10,why:'roulette'})}catch(e){try{openCoinShop()}catch(err){}}
+      if(bal<ROULETTE_PACK_FC){
+        toast('Insufficient FC — need '+ROULETTE_PACK_FC+' FC ($5)');
+        try{openNeedCoins({cost:ROULETTE_PACK_FC,why:'roulette_pack'})}catch(e){try{openCoinShop()}catch(err){}}
         return;
       }
-      toast('Ready — tap SPIN (10 FC)');
+      var playId='roulette_pack_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+      var charged=null;
+      try{
+        charged=await apiGamePlay({
+          game:'roulette',
+          action:'buy_pack',
+          play_id:playId,
+          user:coinUserId()
+        });
+      }catch(e){charged={ok:false}}
+      if(!charged||!charged.ok){
+        if(charged&&charged.error==='insufficient'){
+          toast('Insufficient FC — need '+ROULETTE_PACK_FC+' FC');
+          try{openNeedCoins({cost:ROULETTE_PACK_FC,why:'roulette_pack'})}catch(e){}
+          return;
+        }
+        // Do not deduct/credit locally — pack must be atomic on the server.
+        toast('Pack purchase failed — no FC deducted. Try again.');
+        return;
+      }
+      var d2=getRouletteSpins();
+      var granted=Number(charged.spins_granted);
+      if(!isFinite(granted)||granted<0) granted=0;
+      if(charged.reused || granted===0){
+        toast('Pack already credited');
+      }else{
+        d2.paidSpins=(Number(d2.paidSpins)||0)+granted;
+        saveRouletteSpins(d2);
+        toast('✓ '+granted+' spins for '+ROULETTE_PACK_FC+' FC');
+      }
+      if(charged.pack_spins!=null) window.__roulettePackSpins=Number(charged.pack_spins)||0;
+      if(charged.balance!=null) window.__fcLast=Number(charged.balance)||window.__fcLast;
+      try{await loadFagBalance()}catch(e){}
       try{updateRouletteSpinsUI()}catch(e){}
-      try{spinRoulette({forcePaid:true})}catch(e){}
     }
+    async function requestRoulettePackPayPal(){
+      if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
+      try{
+        await notifyAdminPayment({
+          kind:'roulette_pack_request',
+          postId:null,
+          user:(currentUser&&currentUser.name)||'guest',
+          amount:'$5 / 50 FC',
+          label:'ROULETTE 10 SPINS',
+          message:'🎰 ROULETTE PACK · @'+((currentUser&&currentUser.name)||'guest')+' · PayPal $5 (MartinJimenez205) · grant 10 spins after verified payment'
+        });
+        toast('PayPal opened · request sent — spins unlock after admin verifies payment');
+      }catch(e){toast('PayPal opened · message Master after paying $5')}
+    }
+    window.buyRoulettePack=buyRoulettePack;
+    window.requestRoulettePackPayPal=requestRoulettePackPayPal;
     async function openCustomRouletteRequest(kind){
       kind=kind==='dice'?'custom_dice':'custom_roulette';
       if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
@@ -7995,25 +8061,54 @@ async function claimPayPalPack(p){
     }
     function updateRouletteSpinsUI(){
       var d = getRouletteSpins();
-      var freeLeft = Math.max(0, 1 - Number(d.used||0));
+      var serverFree = window.__rouletteFreeLeft;
+      var freeLeft = (serverFree!=null && isFinite(Number(serverFree)))
+        ? Math.max(0, Number(serverFree))
+        : Math.max(0, ROULETTE_FREE_PER_DAY - Number(d.used||0));
       var paidLeft = Math.max(0, d.paidSpins||0);
+      if(window.__roulettePackSpins!=null && isFinite(Number(window.__roulettePackSpins))){
+        paidLeft = Math.max(paidLeft, Number(window.__roulettePackSpins)||0);
+      }
       var bal = Number(window.__fcLast||0);
       var el = document.getElementById('roulette-spins-left');
       if(el){
-        if(freeLeft>0) el.textContent = freeLeft+' free spin left today · then 10 FC / spin';
-        else if(bal>=10 || paidLeft>0) el.textContent = bal+' FC · each spin 10 FC ($1)';
-        else el.textContent = 'Insufficient FC — need 10 FC · or come back tomorrow for 1 free';
+        if(freeLeft>0) el.textContent = freeLeft+' free spin'+(freeLeft===1?'':'s')+' left today · then 50 FC for 10 spins';
+        else if(paidLeft>0) el.textContent = paidLeft+' pack spin'+(paidLeft===1?'':'s')+' left · '+bal+' FC';
+        else if(bal>=ROULETTE_PACK_FC) el.textContent = bal+' FC · get 10 spins for '+ROULETTE_PACK_FC+' FC ($5)';
+        else el.textContent = 'No free spins left · get 10 spins for '+ROULETTE_PACK_FC+' FC ($5)';
       }
       var balEl=document.getElementById('roulette-fc-balance');
       if(balEl) balEl.textContent = bal+' FC';
       var btn = document.getElementById('btn-spin-roulette');
-      if(btn) btn.textContent = rouletteSpinning ? '...' : (freeLeft>0?'SPIN · free':'SPIN · 10 FC');
-      var showPay = freeLeft<=0 && bal<10 && paidLeft<=0;
+      if(btn) btn.textContent = rouletteSpinning ? '...' : (freeLeft>0?'SPIN · free':(paidLeft>0?'SPIN · pack':'SPIN'));
+      var showPay = freeLeft<=0 && paidLeft<=0;
       var unlockBox = document.getElementById('roulette-unlock-box');
       if(unlockBox) unlockBox.style.display = showPay ? 'block' : 'none';
       var payBox = document.getElementById('roulette-pay-box');
-      if(payBox) payBox.style.display = showPay ? 'block' : 'none';
+      if(payBox) payBox.style.display = 'none';
       return {freeLeft:freeLeft, paidLeft:paidLeft, bal:bal};
+    }
+    async function syncRouletteServerState(){
+      try{
+        if(!isRegistered()) return;
+        var u=coinUserId();
+        if(!u) return;
+        var r=await fetch('/api/game-play?user='+encodeURIComponent(u)+'&game=roulette',{cache:'no-store'});
+        var j=await r.json().catch(function(){return{}});
+        if(!j||!j.ok) return;
+        if(j.free_left&&j.free_left.roulette!=null) window.__rouletteFreeLeft=Number(j.free_left.roulette)||0;
+        else if(j.free_used&&j.free_used.roulette!=null) window.__rouletteFreeLeft=Math.max(0,ROULETTE_FREE_PER_DAY-Number(j.free_used.roulette)||0);
+        if(j.pack_spins!=null){
+          window.__roulettePackSpins=Number(j.pack_spins)||0;
+          var d=getRouletteSpins();
+          // Never lower a higher local pack credit mid-session; raise to server truth.
+          if((Number(d.paidSpins)||0)<window.__roulettePackSpins){
+            d.paidSpins=window.__roulettePackSpins;
+            saveRouletteSpins(d);
+          }
+        }
+        try{updateRouletteSpinsUI()}catch(e){}
+      }catch(e){}
     }
     function shadeColor(hex, percent){
       try{
@@ -8107,8 +8202,8 @@ async function claimPayPalPack(p){
         var added=0;
         for(var i=0;i<rows.length;i++){
           var row=rows[i];
-          d.paidSpins=(d.paidSpins||0)+15;
-          added+=15;
+          d.paidSpins=(d.paidSpins||0)+ROULETTE_PACK_SPINS;
+          added+=ROULETTE_PACK_SPINS;
           claimed[String(row.id)]=Date.now();
           try{await sb.from('notifications').delete().eq('id',row.id)}catch(e){}
         }
@@ -8123,11 +8218,11 @@ async function claimPayPalPack(p){
 
     function approveRoulettePack(id, username){
       if(!username){toast('No user');return}
-      pushNotif(username,'admin','roulette_unlock',null,'🎰 50 FC verified — 15 roulette spins unlocked. Open Roulette to claim.');
+      pushNotif(username,'admin','roulette_unlock',null,'🎰 Payment verified — 10 roulette spins unlocked. Open Roulette to claim.');
       if(sb && id){
         sb.from('notifications').delete().eq('id',id).then(function(){});
       }
-      toast('15 spins unlocked for @'+username+' — they claim when opening Roulette');
+      toast('10 spins unlocked for @'+username+' — they claim when opening Roulette');
       try{renderAdmin()}catch(e){}
     }
 
@@ -8685,7 +8780,11 @@ async function claimPayPalPack(p){
 function openRoulette(){
       showPanel('roulette');
       buildRouletteWheel();
-      try{loadFagBalance().then(function(){updateRouletteSpinsUI()})}catch(e){updateRouletteSpinsUI()}
+      try{
+        loadFagBalance().then(function(){
+          return syncRouletteServerState();
+        }).then(function(){updateRouletteSpinsUI()}).catch(function(){updateRouletteSpinsUI()});
+      }catch(e){updateRouletteSpinsUI()}
       renderRouletteHistory();
       var res = document.getElementById('roulette-result');
       if(res) res.classList.remove('show');
@@ -8718,17 +8817,18 @@ function openRoulette(){
       if(window.__spinLock && Date.now()-window.__spinLock<800) return;
       window.__spinLock=Date.now();
       try{await loadFagBalance()}catch(e){}
-      var state = {freeLeft:1,paidLeft:0,bal:0};
+      try{await syncRouletteServerState()}catch(e){}
+      var state = {freeLeft:ROULETTE_FREE_PER_DAY,paidLeft:0,bal:0};
       try{state = updateRouletteSpinsUI()||state}catch(e){}
       var freeLeft = Number(state.freeLeft)||0;
       var paidLeft = Number(state.paidLeft)||0;
       var bal = Number(state.bal||window.__fcLast||0);
       var forcePaid=!!opts.forcePaid;
       var useFree=freeLeft>0 && !forcePaid;
-      if(!useFree && paidLeft<=0 && bal<10){
+      if(!useFree && paidLeft<=0){
         try{openRoulettePayment()}catch(e){}
-        toast('Insufficient FC — need 10 FC');
-        try{openNeedCoins({cost:10,why:'roulette'})}catch(e){}
+        toast('You have used today’s free spins. Get 10 additional spins for 50 FC ($5).');
+        try{if(bal<ROULETTE_PACK_FC) openNeedCoins({cost:ROULETTE_PACK_FC,why:'roulette_pack'})}catch(e){}
         return;
       }
       var playId='roulette_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
@@ -8744,17 +8844,21 @@ function openRoulette(){
       }catch(e){charged={ok:false}}
       if(!charged||!charged.ok){
         if(charged&&charged.error==='insufficient'){
-          toast('Insufficient FC — need 10 FC');
-          try{openNeedCoins({cost:10,why:'roulette'})}catch(e){}
+          toast('You have used today’s free spins. Get 10 additional spins for 50 FC ($5).');
+          try{openRoulettePayment()}catch(e){}
           return;
         }
-        if(!useFree && paidLeft<=0){
-          var okSpend=await spendFagCoins('roulette', playId);
-          if(!okSpend) return;
-        }
-      }else if(charged.label){
-        // balance already refreshed by apiGamePlay
+        // Every spin must be recorded server-side — do not spin on client-only state.
+        try{openRoulettePayment()}catch(e){}
+        toast('Could not record spin on server — try again');
+        try{updateRouletteSpinsUI()}catch(e){}
+        return;
       }
+      if(charged.free_left!=null) window.__rouletteFreeLeft=Number(charged.free_left)||0;
+      if(charged.pack_spins!=null) window.__roulettePackSpins=Number(charged.pack_spins)||0;
+      // Prefer server free/pack accounting over localStorage.
+      if(charged.free===true) useFree=true;
+      else if(charged.pack===true || charged.paid===true) useFree=false;
       if(!isFinite(rouletteAngle)) rouletteAngle=0;
       rouletteSpinning = true;
       try{updateRouletteSpinsUI()}catch(e){}
@@ -8802,6 +8906,8 @@ function openRoulette(){
         try{loadFagBalance()}catch(e){}
 
         lastRouletteOpt = opt;
+        lastRoulettePlayId = playId;
+        try{localStorage.setItem('rs_roulette_last_challenge', JSON.stringify({playId:playId, title:opt.title, desc:opt.desc||'', idx:idx, at:Date.now(), user:(currentUser&&currentUser.name)||''}))}catch(e){}
         var titleEl = document.getElementById('roulette-result-title');
         var descEl = document.getElementById('roulette-result-desc');
         var payBox = document.getElementById('roulette-pay-box');
@@ -9076,7 +9182,15 @@ function openRoulette(){
       document.querySelectorAll('#panel-roulette button').forEach(function(b){if(/SPIN/i.test(b.textContent||''))bindSpin(b)});
       var accept = document.getElementById('btn-roulette-accept');
       if(accept) accept.onclick = function(){
-        toast('Good pig. Now go do it. No excuses.');
+        try{
+          if(!lastRouletteOpt || !lastRoulettePlayId){
+            toast('Spin first to get a task');
+            return;
+          }
+          window.__rouletteAccepted={playId:lastRoulettePlayId, title:lastRouletteOpt.title, at:Date.now()};
+          localStorage.setItem('rs_roulette_accepted', JSON.stringify(window.__rouletteAccepted));
+        }catch(e){}
+        toast('Challenge accepted — upload proof and publish to Roulette');
         try{ publishRouletteToFeed(); }catch(e){}
       };
       var pub = document.getElementById('btn-roulette-publish');
@@ -9085,13 +9199,37 @@ function openRoulette(){
 
     function publishRouletteToFeed(){
       var opt = lastRouletteOpt;
+      var playId = lastRoulettePlayId || '';
+      try{
+        if(!opt){
+          var saved=JSON.parse(localStorage.getItem('rs_roulette_last_challenge')||'null');
+          if(saved&&saved.title){ opt={title:saved.title,desc:saved.desc||''}; playId=saved.playId||playId; }
+        }
+      }catch(e){}
       if(!opt){
         var t = (document.getElementById('roulette-result-title')||{}).textContent||'';
         var d = (document.getElementById('roulette-result-desc')||{}).textContent||'';
-        if(!t || t==='—'){ toast('Spin first'); return; }
+        if(!t || t==='—'){ toast('Spin and accept a challenge first'); return; }
         opt = {title:t, desc:d};
       }
-      // Roulette proofs go on The Wall as normal posts (author can delete anytime)
+      // Must accept the obtained challenge before publishing.
+      try{
+        var acc=window.__rouletteAccepted||JSON.parse(localStorage.getItem('rs_roulette_accepted')||'null');
+        if(!acc || (playId && String(acc.playId)!==String(playId))){
+          toast('Accept the challenge first');
+          return;
+        }
+      }catch(e){ toast('Accept the challenge first'); return; }
+      // Prevent publishing a different task than the accepted spin.
+      try{
+        var claimed=JSON.parse(localStorage.getItem('rs_roulette_published')||'{}')||{};
+        if(playId && claimed[String(playId)]){
+          toast('This spin was already published');
+          return;
+        }
+        window.__pendingRoulettePublish={playId:playId, title:opt.title, at:Date.now()};
+      }catch(e){}
+      // Roulette proofs go on The Wall under the Roulette category (existing Wall publisher)
       try{ openNormalPostComposer(); }catch(e){
         try{ setProfilePostMode(); }catch(e2){}
         showPanel('post');
@@ -9109,17 +9247,18 @@ function openRoulette(){
         descEl.value = caption;
       }
       if(tagsEl){
-        tagsEl.value = 'roulette, roulette_task, normal_feed, exposed';
+        var spinTag=playId?('spin:'+String(playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
+        tagsEl.value = 'roulette, roulette_task, normal_feed, exposed'+(spinTag?', '+spinTag:'');
       }
       var note=document.getElementById('profile-post-note');
       if(note){
         note.style.display='block';
-        note.innerHTML='Roulette proof · posts on <strong>The Wall</strong> · you can delete it anytime.';
+        note.innerHTML='Roulette proof · appears in Wall → <strong>Roulette</strong> · keep the challenge title.';
       }
       var btn=document.getElementById('btn-publish');
-      if(btn)btn.textContent='Post roulette on The Wall';
+      if(btn)btn.textContent='Post roulette challenge';
       try{ window.scrollTo(0,0); }catch(e){}
-      toast('Add your photo · publishes on The Wall');
+      toast('Add your photo/video proof · publishes under Roulette');
     }
 
 
@@ -14135,10 +14274,17 @@ function openRoulette(){
             +'</div>';
         }
       }
+      var isRouletteCard=false;
+      try{isRouletteCard=typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)}catch(e){}
+      var challengeLine='';
+      if(isRouletteCard && p.title){
+        challengeLine='<div class="normal-feed-post-text" style="font-weight:800;color:#ffb35c;cursor:pointer;margin-bottom:4px" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.title)+'</div>';
+      }
       var body=p.desc?'<div class="normal-feed-post-text" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.desc)+'</div>':'';
-      if(!body && !media){
+      if(!body && !media && !challengeLine){
         body='<div class="normal-feed-post-text" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.title||'Post')+'</div>';
       }
+      if(challengeLine) body=challengeLine+(body||'');
       var clickable=userClickable(p.user);
       var userName=clickable
         ? '<span class="normal-feed-post-user" style="cursor:pointer" onclick="openUser(\''+String(p.user).replace(/'/g,'')+'\')">@'+esc(p.user)+'</span>'
@@ -14155,7 +14301,7 @@ function openRoulette(){
             ?'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#34d399;border-radius:999px;padding:2px 7px;margin-left:6px">PEA</span>'
             :'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#60a5fa;border-radius:999px;padding:2px 7px;margin-left:6px">ID</span>';
         }else if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)){
-          kindBadge='<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#fff;background:#5b21b6;border-radius:999px;padding:2px 7px;margin-left:6px">ROULETTE</span>';
+          kindBadge='<span class="roulette-wall-badge" style="margin-left:6px">🎲 Roulette</span>';
         }else if(vsrc||(typeof isVideoPost==='function'&&isVideoPost(p))){
           kindBadge='<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#fbbf24;border-radius:999px;padding:2px 7px;margin-left:6px">VIDEO</span>';
         }
@@ -14353,33 +14499,64 @@ function openRoulette(){
     }
     var wallFilter=(function(){
       try{
-        var f=localStorage.getItem('rs_wall_filter')||'moment';
+        var f=localStorage.getItem('rs_wall_filter')||'normal';
         if(f==='post') f='normal';
         if(f==='extend'||f==='extend_post') f='timed';
-        // Drop retired Wall tabs (Trending / Following / New / For You).
-        if(['trending','following','new','foryou'].indexOf(f)>=0) f='moment';
-        if(['moment','normal','timed','generated','text'].indexOf(f)<0) f='moment';
+        // Drop retired Wall tabs (Moment / Trending / Following / New / For You).
+        if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
+        if(['normal','timed','generated','roulette','text'].indexOf(f)<0) f='normal';
         localStorage.setItem('rs_wall_filter',f);
         return f;
-      }catch(e){return'moment'}
+      }catch(e){return'normal'}
     })();
+    var wallSortMode=(function(){
+      try{
+        var m=localStorage.getItem('rs_wall_sort_'+wallFilter)||'recent';
+        if(m!=='recent'&&m!=='interaction') m='recent';
+        return m;
+      }catch(e){return'recent'}
+    })();
+    function setWallSort(mode){
+      mode=String(mode||'recent');
+      if(mode!=='interaction') mode='recent';
+      wallSortMode=mode;
+      try{localStorage.setItem('rs_wall_sort_'+wallFilter, mode)}catch(e){}
+      syncWallSortChips();
+      window.__wallVisible=12;
+      renderNormalFeed();
+    }
+    window.setWallSort=setWallSort;
+    function syncWallSortChips(){
+      document.querySelectorAll('#wall-sort-bar .wall-sort-chip').forEach(function(b){
+        var on=b.getAttribute('data-wall-sort')===wallSortMode;
+        b.classList.toggle('on',on);
+        b.setAttribute('aria-pressed',on?'true':'false');
+      });
+    }
     function setWallFilter(f){
-      f=String(f||'moment');
-      // Only five Wall sections. Map legacy filters onto Moment.
-      var allowed=['moment','normal','timed','generated','text'];
+      f=String(f||'normal');
+      // Five Wall sections: Post / Extend / IDs·PEA / Roulette / Text
+      var allowed=['normal','timed','generated','roulette','text'];
       if(f==='post') f='normal';
       if(f==='extend' || f==='extend_post') f='timed';
-      if(['trending','following','new','foryou'].indexOf(f)>=0) f='moment';
-      if(allowed.indexOf(f)<0) f='moment';
+      if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
+      if(allowed.indexOf(f)<0) f='normal';
       wallFilter=f;
+      // Spec: every category defaults to Most Recent when opened; user can switch after.
+      wallSortMode='recent';
+      try{localStorage.setItem('rs_wall_sort_'+f,'recent')}catch(e){}
       try{localStorage.setItem('rs_wall_filter',f)}catch(e){}
       syncWallFilterChips();
+      syncWallSortChips();
       try{
         var box=document.getElementById('explore-normal-posts');
         if(box){
           box.classList.toggle('wall-ids-mode', f==='generated');
           box.classList.toggle('wall-text-mode', f==='text');
+          box.classList.toggle('wall-roulette-mode', f==='roulette');
         }
+        var cta=document.getElementById('wall-roulette-cta');
+        if(cta) cta.style.display=f==='roulette'?'block':'none';
       }catch(e){}
       // Instant client filter — no full refetch
       window.__wallVisible=12;
@@ -14402,7 +14579,10 @@ function openRoulette(){
         if(box){
           box.classList.toggle('wall-ids-mode', wallFilter==='generated');
           box.classList.toggle('wall-text-mode', wallFilter==='text');
+          box.classList.toggle('wall-roulette-mode', wallFilter==='roulette');
         }
+        var cta=document.getElementById('wall-roulette-cta');
+        if(cta) cta.style.display=wallFilter==='roulette'?'block':'none';
       }catch(e){}
     }
     function setupWallFilters(){
@@ -14416,7 +14596,18 @@ function openRoulette(){
           setWallFilter(b.getAttribute('data-wall-filter'));
         });
       }
+      var sbar=document.getElementById('wall-sort-bar');
+      if(sbar&&!sbar.__wired){
+        sbar.__wired=1;
+        sbar.addEventListener('click',function(ev){
+          var b=ev.target&&ev.target.closest?ev.target.closest('[data-wall-sort]'):null;
+          if(!b)return;
+          ev.preventDefault();
+          setWallSort(b.getAttribute('data-wall-sort'));
+        });
+      }
       syncWallFilterChips();
+      syncWallSortChips();
     }
     function wallPostHasMedia(p){
       if(!p)return false;
@@ -14453,6 +14644,7 @@ function openRoulette(){
       // Timeless posts without timer — Hot🔥 eligible (photos/video/status, not generated cards)
       if(!p)return false;
       if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))return false;
+      if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p))return false;
       if(isWallTimedPost(p))return false;
       return isTimelessWallPost(p);
     }
@@ -14526,21 +14718,40 @@ function openRoulette(){
       return true;
     }
     function matchesWallFilter(p, filter){
-      filter=filter||wallFilter||'moment';
+      filter=filter||wallFilter||'normal';
       // Timed exposures belong in Timed (and Extend) — never duplicate into other Wall tabs.
       if(filter==='timed') return isWallTimedPost(p);
       if(isWallTimedPost(p)) return false;
       if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
+      if(filter==='roulette') return !!(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p));
+      // Roulette proofs stay in the Roulette tab only.
+      if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p) && filter!=='roulette') return false;
       // Keep GoonTok catalog clips out of permanent Wall tabs.
       if(!isWallNativePost(p) && filter!=='generated') return false;
-      if(filter==='text') return isWallTextPost(p);
+      if(filter==='text') return isWallTextPost(p) && !(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p));
       if(filter==='normal') return isWallNormalPost(p);
       if(filter==='following') return isWallFollowingPost(p);
       if(filter==='new') return isWallNewPost(p);
       if(filter==='foryou') return isWallForYouPost(p);
       if(filter==='trending') return isWallTrendingPost(p);
-      // moment = permanent Wall board (normals / IDs / text) — no active timers
-      return true;
+      // Legacy moment → permanent Wall board without roulette / timers
+      return isWallNormalPost(p) || (!!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))) || isWallTextPost(p);
+    }
+    function wallInteractionScore(p){
+      // Recent engagement window (~7d) for Most Interaction sort.
+      var ageH=Math.max(0.25,(Date.now()-Number(p&&p.created||0))/3600000);
+      var hot=(typeof postHotCount==='function'?postHotCount(p):0)||0;
+      var likes=Number(p&&p.likes||0)||0;
+      var comments=Number(p&&(p.commentCount||p.comments)||0)||0;
+      var views=Number(p&&p.views||0)||0;
+      var reacts=0;
+      try{
+        var r=p&&p.reactions;
+        if(r&&typeof r==='object') Object.keys(r).forEach(function(k){reacts+=Number(r[k])||0});
+      }catch(e){}
+      var raw=likes*10 + comments*12 + reacts*8 + hot*18 + views*0.35;
+      // Prefer recent activity — decay older posts.
+      return raw / Math.pow(Math.max(1, ageH/12), 0.85);
     }
     function wallSortNormalFirst(a,b,withinNormal,withinRest){
       var na=isWallNormalPost(a)?1:0;
@@ -14570,31 +14781,17 @@ function openRoulette(){
         }catch(e){}
         return matchesWallFilter(p, wallFilter);
       });
-      var sortNormalByHot=function(a,b){
-        // Prefer balanced wallRankScore (fresh + Hot + engagement) over raw Hot count
-        var rb=wallRankScore(b), ra=wallRankScore(a);
-        if(rb!==ra) return rb-ra;
-        var hb=typeof postHotCount==='function'?postHotCount(b):0;
-        var ha=typeof postHotCount==='function'?postHotCount(a):0;
-        if(hb!==ha) return hb-ha;
-        return (Number(b.created)||0)-(Number(a.created)||0);
-      };
-      var sortByRank=function(a,b){return wallRankScore(b)-wallRankScore(a)};
-      var sortByTrending=function(a,b){return wallTrendingScore(b)-wallTrendingScore(a) || wallRankScore(b)-wallRankScore(a)};
       var sortByCreated=function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)};
-      if(wallFilter==='normal'){
-        list.sort(sortNormalByHot);
-      }else if(wallFilter==='timed'){
-        list.sort(function(a,b){return (Number(a.expires)||0)-(Number(b.expires)||0)});
-      }else if(wallFilter==='moment'){
-        // Normals first (Hot + rank), then timed / IDs / rest as before
-        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortNormalByHot,sortByRank)});
-      }else if(wallFilter==='trending'||wallFilter==='foryou'){
-        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortByTrending,sortByTrending)});
-      }else if(wallFilter==='new'||wallFilter==='following'){
-        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortByCreated,sortByCreated)});
+      var sortByInteraction=function(a,b){
+        var ib=wallInteractionScore(b), ia=wallInteractionScore(a);
+        if(ib!==ia) return ib-ia;
+        return sortByCreated(a,b);
+      };
+      // Every category: Most Recent (created_at DESC, default) or Most Interaction — independent per tab.
+      if(wallSortMode==='interaction'){
+        list.sort(sortByInteraction);
       }else{
-        list.sort(function(a,b){return wallSortNormalFirst(a,b,sortByRank,sortByRank)});
+        list.sort(sortByCreated);
       }
       if(q){
         list=list.filter(function(p){
@@ -14619,6 +14816,7 @@ function openRoulette(){
         normal:'No posts yet. Publish without a timer — Hot🔥 boosts them.',
         timed:'No Extend posts live right now.',
         generated:'No generated IDs / PEAs yet.',
+        roulette:'No Roulette challenges yet. Spin, accept, and publish your proof.',
         text:'No text posts yet.'
       };
       var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing on the wall yet.')+'</div>';
@@ -15579,7 +15777,7 @@ function openRoulette(){
         // Video player shell owns the tap (Play) — do not steal it for openDetail.
         if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
         // Never treat GoonTok swipe / nav chrome as an accidental open.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-quick-actions,.wall-filter-chip,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,.entry-ico,#wall-permanence-notice,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
         // Spotlight: open on tap, but ignore right after a horizontal swipe.
         if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
         // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).
@@ -22157,7 +22355,25 @@ async function onIdFace(e){
             localStorage.setItem('rs_last_pub',JSON.stringify({id:row.id,t:Date.now(),title:row.title,desc:row.description||'',tags:row.tags||[],user:row.username,expires:row.expires_at,image:row.image_url,extendAmount:row.extend_amount||payload.extend_amount||360}));
           }catch(e){}
         }
-        if(!profileMode)toast('Published in Extended · ID '+(row&&row.id?row.id:'')+' · visible to everyone while the timer runs');
+        var isRoulettePub=false;
+        try{
+          isRoulettePub=(tags||[]).some(function(t){return String(t).toLowerCase().replace(/^#/,'')==='roulette'||String(t).toLowerCase().replace(/^#/,'')==='roulette_task'});
+          if(!isRoulettePub && window.__pendingRoulettePublish) isRoulettePub=true;
+        }catch(e){}
+        if(isRoulettePub){
+          try{
+            var claimed=JSON.parse(localStorage.getItem('rs_roulette_published')||'{}')||{};
+            var spinKey=(window.__pendingRoulettePublish&&window.__pendingRoulettePublish.playId)||('pub_'+(row&&row.id));
+            if(spinKey) claimed[String(spinKey)]=Date.now();
+            localStorage.setItem('rs_roulette_published',JSON.stringify(claimed));
+            window.__pendingRoulettePublish=null;
+          }catch(e){}
+        }
+        if(!profileMode){
+          toast(isRoulettePub
+            ? ('Published to Wall → Roulette · ID '+(row&&row.id?row.id:''))
+            : ('Published in Extended · ID '+(row&&row.id?row.id:'')+' · visible to everyone while the timer runs'));
+        }
         try{
           var pubId=(row&&row.id)||(saved&&saved.id)||('pub:'+Date.now());
           grantXp(profileMode?'profile_gallery':'publish', String(pubId), false);
@@ -22174,6 +22390,11 @@ async function onIdFace(e){
           document.getElementById('new-desc').value='';
           document.getElementById('new-tags').value='';
         }catch(e){}
+        if(isRoulettePub){
+          try{setExposurePostMode()}catch(e){}
+          try{showPanel('wall');setWallFilter('roulette');loadNormalFeed()}catch(e){}
+          return;
+        }
         if(profileMode){
           var fromNormal=window.__fromNormalFeed===true;
           window.__fromNormalFeed=false;
@@ -24406,10 +24627,12 @@ async function onIdFace(e){
         +'<div style="font-size:18px;font-weight:800;margin-bottom:8px">Premium Pin</div>'
         +'<p style="color:var(--text);font-size:14px;line-height:1.5;margin-bottom:8px;font-weight:600">Pin this exposure at the <span style="color:var(--orange)">top of the feed</span> for 48 hours.</p>'
         +'<p style="color:var(--muted);font-size:13px;line-height:1.45;margin-bottom:10px">Everyone sees you first. More views. More attention. More ruin.</p>'
-        +'<p style="margin-bottom:14px">Price: <strong style="color:#f5c518;font-size:16px">50 FC · 48 hours</strong> <span style="color:var(--muted);font-size:12px">(coins only)</span></p>'
-        +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" onclick="pinWithCoins('+jsId(id)+')">Pin — 50 FC</button>'
-        +'<div id="pin-request-status" style="font-size:12px;color:var(--muted);text-align:center;margin:2px 0 10px"></div>'
-        +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" onclick="document.getElementById(\'feature-modal\').style.display=\'none\';openCoinShop()">Buy Fag Coins</button>'
+        +'<p style="margin-bottom:10px">Price: <strong style="color:#f5c518;font-size:16px">$5 USD</strong> <span style="color:var(--muted);font-size:12px">· or 50 FC</span></p>'
+        +'<a class="btn btn-primary" href="'+PAYPAL_ME+'/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;width:100%;margin-bottom:8px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{remindPinPayment('+jsId(id)+')}catch(e){};try{startPayTicket({kind:\'pin\',label:\'Premium Pin\',amount:\'$5\',postId:'+jsId(id)+'})}catch(e){}">PayPal $5 · MartinJimenez205</a>'
+        +'<button class="btn btn-secondary" type="button" id="btn-feature-paid" style="width:100%;margin-bottom:8px;font-weight:800">I paid $5 — request pin</button>'
+        +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" onclick="pinWithCoins('+jsId(id)+')">Pin now — 50 FC</button>'
+        +'<div id="pin-request-status" style="font-size:12px;color:var(--muted);text-align:center;margin:2px 0 10px">PayPal does not auto-pin. Admin verifies payment before Spotlight.</div>'
+        +'<button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin-bottom:8px" onclick="document.getElementById(\'feature-modal\').style.display=\'none\';openCoinShop()">Buy Fag Coins</button>'
         +'<button class="btn btn-ghost" style="width:100%" type="button" id="btn-feature-cancel">Cancel</button>'
         +'</div>';
       // reuse a simple modal via toast-like overlay
@@ -24431,19 +24654,20 @@ async function onIdFace(e){
           var req=JSON.parse(localStorage.getItem('rs_feature_req')||'[]');
           var th='';
           try{var im=post.images&&post.images.length?post.images:parseImages(post.image);th=(im&&im[0])||post.image||''}catch(e){}
-          req.unshift({id:id,title:post.title,user:post.user,at:Date.now(),thumb:th});
+          req.unshift({id:id,title:post.title,user:post.user,at:Date.now(),thumb:th,amount:'$5',pending:true});
           localStorage.setItem('rs_feature_req',JSON.stringify(req.slice(0,30)));
         }catch(e){}
+        try{startPayTicket({kind:'pin',label:'Premium Pin',amount:'$5',postId:id})}catch(e){}
         await notifyAdminPayment({
           kind:'feature_request',
           postId:id,
           user:(currentUser&&currentUser.name)||(post&&post.user)||'guest',
-          amount:'$10',
+          amount:'$5',
           label:'PREMIUM PIN',
-          message:'⭐ PIN $10 — post #'+id+' by @'+((post&&post.user)||'user')+' · '+String((post&&post.title)||'').slice(0,40)
+          message:'⭐ PIN $5 — post #'+id+' by @'+((post&&post.user)||'user')+' · '+String((post&&post.title)||'').slice(0,40)+' · PayPal MartinJimenez205 · PENDING VERIFY'
         });
         ov.style.display='none';
-        toast('Pin request sent — admin will verify $10');
+        toast('Pin pending — admin verifies $5 PayPal before Spotlight');
       };
     }
 
@@ -25049,7 +25273,7 @@ async function onIdFace(e){
       if(!rrq.length){box.innerHTML='<div class="empty">No roulette requests</div>';return}
       box.innerHTML='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px"><strong style="color:var(--orange)">🎰 Roulette ('+rrq.length+')</strong>'+rrq.map(function(r){
         var u=r.from_username||'?';
-        return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong> <span style="color:var(--muted);font-size:11px">'+(r.created_at?ago(new Date(r.created_at).getTime()):'')+'</span><div style="font-size:11px;color:var(--muted);margin:4px 0">'+esc(r.message||'')+'</div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">Unlock 15</button><button class="btn btn-secondary btn-sm" type="button" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">Remind</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕</button></div></div>';
+        return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong> <span style="color:var(--muted);font-size:11px">'+(r.created_at?ago(new Date(r.created_at).getTime()):'')+'</span><div style="font-size:11px;color:var(--muted);margin:4px 0">'+esc(r.message||'')+'</div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">Unlock 10</button><button class="btn btn-secondary btn-sm" type="button" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">Remind</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕</button></div></div>';
       }).join('')+'</div>';
     }
     async function renderAdminPrints(box){
@@ -25236,7 +25460,7 @@ async function onIdFace(e){
             return '<div style="font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong>'+(age?' <span style="color:var(--muted);font-size:10px">'+age+'</span>':'')
               +'<div style="font-size:11px;color:var(--muted);margin:4px 0">'+esc(r.message||'Roulette $10 request')+'</div>'
               +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
-              +'<button class="btn btn-primary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">✓ Unlock 15</button>'
+              +'<button class="btn btn-primary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">✓ Unlock 10</button>'
               +'<button class="btn btn-secondary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">📩 Remind</button>'
               +'<button class="btn btn-ghost btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕ Dismiss</button>'
               +'</div></div>';

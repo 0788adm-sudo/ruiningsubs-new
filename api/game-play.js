@@ -5,11 +5,15 @@
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 const FC_ROULETTE = Number(process.env.FC_COST_ROULETTE || 10);
+const FC_ROULETTE_PACK = Number(process.env.FC_COST_ROULETTE_PACK || 50);
+const ROULETTE_PACK_SPINS = Number(process.env.ROULETTE_PACK_SPINS || 10);
+const FREE_ROULETTE_PER_DAY = Number(process.env.FREE_ROULETTE_PER_DAY || 3);
 const FC_DICE = Number(process.env.FC_COST_DICE || 10);
 const FC_CUSTOM = Number(process.env.FC_COST_CUSTOM_ROULETTE || 250);
 const TRIKI_PIN_HOURS = Number(process.env.TRIKI_PIN_HOURS || 48);
 const BOARD_PLAYS = '__GAME_PLAYS__';
 const BOARD_FREE = '__GAME_FREE_DAY__';
+const BOARD_PACKS = '__ROULETTE_PACKS__';
 const BOARD_TRIKI = '__TRIKI_SESSIONS__';
 const BOARD_PIN_REWARDS = '__PIN_REWARDS__';
 
@@ -126,6 +130,20 @@ function countFreeToday(notifs, user, game) {
   return n;
 }
 
+function roulettePackBalance(notifs, user) {
+  var granted = 0;
+  var used = 0;
+  for (var i = 0; i < notifs.length; i++) {
+    var msg = parseMsg(notifs[i] && notifs[i].message);
+    if (!msg) continue;
+    if (normUser(msg.user || notifs[i].from_username) !== user) continue;
+    if (String(msg.game || '') !== 'roulette') continue;
+    if (msg.kind === 'pack_purchase') granted += Number(msg.spins || ROULETTE_PACK_SPINS) || 0;
+    if (msg.kind === 'pack_spin') used += 1;
+  }
+  return Math.max(0, granted - used);
+}
+
 async function patchFeatured(postId, until) {
   var res = await cfFetch('/posts/' + encodeURIComponent(String(postId)), {
     method: 'PATCH',
@@ -144,19 +162,31 @@ module.exports = async function handler(req, res) {
     try {
       var plays = await fetchBoard(BOARD_PLAYS);
       var free = await fetchBoard(BOARD_FREE);
+      var packs = await fetchBoard(BOARD_PACKS);
       var out = {
         ok: true,
-        costs: { roulette: FC_ROULETTE, dice: FC_DICE, custom: FC_CUSTOM },
-        free_per_day: 1,
+        costs: {
+          roulette: FC_ROULETTE,
+          dice: FC_DICE,
+          custom: FC_CUSTOM,
+          roulette_pack: FC_ROULETTE_PACK
+        },
+        free_per_day: FREE_ROULETTE_PER_DAY,
+        roulette_pack_spins: ROULETTE_PACK_SPINS,
         triki_max_games: 3,
         triki_wins_for_pin: 3,
         triki_pin_hours: TRIKI_PIN_HOURS
       };
       if (qUser) {
+        var freeUsedR = countFreeToday(free, qUser, 'roulette');
         out.free_used = {
-          roulette: countFreeToday(free, qUser, 'roulette'),
+          roulette: freeUsedR,
           dice: countFreeToday(free, qUser, 'dice')
         };
+        out.free_left = {
+          roulette: Math.max(0, FREE_ROULETTE_PER_DAY - freeUsedR)
+        };
+        out.pack_spins = roulettePackBalance(packs, qUser);
         out.plays = plays
           .map(function (n) { return parseMsg(n.message); })
           .filter(function (m) {
@@ -251,16 +281,80 @@ module.exports = async function handler(req, res) {
       return json(res, 200, outCustom);
     }
 
+    // —— Roulette pack: 50 FC → exactly 10 prepaid spins (atomic) ——
+    var action = String(body.action || '').toLowerCase();
+    if (game === 'roulette' && (action === 'buy_pack' || action === 'roulette_pack')) {
+      var packSpend = await spendViaWallet(user, FC_ROULETTE_PACK, 'roulette_pack', playId);
+      if (!packSpend.ok) {
+        if (packSpend.error === 'insufficient') {
+          return json(res, 402, {
+            ok: false,
+            error: 'insufficient',
+            message: 'Insufficient FC',
+            need: FC_ROULETTE_PACK,
+            balance: packSpend.balance || 0
+          });
+        }
+        return json(res, 502, { ok: false, error: packSpend.error || 'spend_failed', need: FC_ROULETTE_PACK });
+      }
+      // Only credit pack spins once — reused wallet spend must not post another grant.
+      if (!packSpend.reused) {
+        await postBoard(BOARD_PACKS, user, 'roulette_pack', playId, {
+          user: user, game: 'roulette', kind: 'pack_purchase',
+          spins: ROULETTE_PACK_SPINS, coins: FC_ROULETTE_PACK,
+          play_id: playId, at: Date.now(), usd: 5
+        });
+        await postBoard(BOARD_PLAYS, user, 'roulette_pack', playId, {
+          id: playId, user: user, game: 'roulette', kind: 'pack_purchase',
+          spins: ROULETTE_PACK_SPINS, coins: FC_ROULETTE_PACK, at: Date.now()
+        });
+      }
+      var packsAfter = await fetchBoard(BOARD_PACKS);
+      var outPack = {
+        ok: true,
+        reused: !!packSpend.reused,
+        game: 'roulette',
+        action: 'buy_pack',
+        play_id: playId,
+        coins: FC_ROULETTE_PACK,
+        spins_granted: packSpend.reused ? 0 : ROULETTE_PACK_SPINS,
+        pack_spins: roulettePackBalance(packsAfter, user),
+        balance: packSpend.balance,
+        label: packSpend.reused
+          ? 'Already credited'
+          : ('-' + FC_ROULETTE_PACK + ' FC — ' + ROULETTE_PACK_SPINS + ' roulette spins')
+      };
+      recent.set(lockKey, { at: Date.now(), body: outPack });
+      return json(res, 200, outPack);
+    }
+
     // —— Roulette / Dice spin ——
     if (game === 'roulette' || game === 'dice') {
       var freeBoard = await fetchBoard(BOARD_FREE);
+      var freeCap = game === 'roulette' ? FREE_ROULETTE_PER_DAY : 1;
       var freeUsed = countFreeToday(freeBoard, user, game);
-      var useFree = !forcePaid && freeUsed < 1;
+      var freeLeftNow = Math.max(0, freeCap - freeUsed);
+      var packBoard = game === 'roulette' ? await fetchBoard(BOARD_PACKS) : [];
+      var packLeft = game === 'roulette' ? roulettePackBalance(packBoard, user) : 0;
+      var useFree = !forcePaid && freeLeftNow > 0;
+      var usePack = !useFree && game === 'roulette' && packLeft > 0;
       var cost = game === 'roulette' ? FC_ROULETTE : FC_DICE;
       var balance = null;
       var reused = false;
+      var coinsCharged = 0;
 
-      if (!useFree) {
+      if (useFree) {
+        paid = false;
+        await postBoard(BOARD_FREE, user, 'free_play', playId, {
+          user: user, game: game, day: dayKey(), play_id: playId, at: Date.now(), paid: false
+        });
+      } else if (usePack) {
+        paid = true;
+        coinsCharged = 0;
+        await postBoard(BOARD_PACKS, user, 'roulette_pack_spin', playId, {
+          user: user, game: 'roulette', kind: 'pack_spin', play_id: playId, at: Date.now()
+        });
+      } else {
         paid = true;
         var spend = await spendViaWallet(user, cost, game, playId);
         if (!spend.ok) {
@@ -271,18 +365,15 @@ module.exports = async function handler(req, res) {
               message: 'Insufficient FC',
               need: cost,
               balance: spend.balance || 0,
-              free_left: Math.max(0, 1 - freeUsed)
+              free_left: freeLeftNow,
+              pack_spins: packLeft
             });
           }
           return json(res, 502, { ok: false, error: spend.error || 'spend_failed', need: cost });
         }
         balance = spend.balance;
         reused = !!spend.reused;
-      } else {
-        paid = false;
-        await postBoard(BOARD_FREE, user, 'free_play', playId, {
-          user: user, game: game, day: dayKey(), play_id: playId, at: Date.now(), paid: false
-        });
+        coinsCharged = cost;
       }
 
       await postBoard(BOARD_PLAYS, user, game + '_play', playId, {
@@ -290,22 +381,34 @@ module.exports = async function handler(req, res) {
         user: user,
         game: game,
         paid: paid,
-        coins: paid ? cost : 0,
+        free: !!useFree,
+        pack: !!usePack,
+        coins: coinsCharged,
         result: result || null,
         at: Date.now()
       });
 
+      var packsLeftAfter = game === 'roulette'
+        ? roulettePackBalance(await fetchBoard(BOARD_PACKS), user)
+        : 0;
+      var freeLeftAfter = useFree ? Math.max(0, freeLeftNow - 1) : freeLeftNow;
       var outSpin = {
         ok: true,
         reused: reused,
         game: game,
         play_id: playId,
         paid: paid,
-        free: !paid,
-        coins: paid ? cost : 0,
+        free: !!useFree,
+        pack: !!usePack,
+        coins: coinsCharged,
         balance: balance,
-        free_left: paid ? Math.max(0, 1 - freeUsed) : 0,
-        label: paid ? ('-' + cost + ' FC — ' + game) : ('Free ' + game + ' spin')
+        free_left: freeLeftAfter,
+        pack_spins: packsLeftAfter,
+        label: useFree
+          ? ('Free ' + game + ' spin')
+          : (usePack
+            ? ('Pack spin · ' + packsLeftAfter + ' left')
+            : ('-' + coinsCharged + ' FC — ' + game))
       };
       recent.set(lockKey, { at: Date.now(), body: outSpin });
       return json(res, 200, outSpin);
@@ -313,7 +416,7 @@ module.exports = async function handler(req, res) {
 
     // —— Triki session / pin reward ——
     if (game === 'triki' || game === 'tic_tac_toe') {
-      var action = String(body.action || 'play').toLowerCase();
+      action = String(body.action || 'play').toLowerCase();
       if (!sessionId) sessionId = 'ttt_' + user + '_' + dayKey();
 
       if (action === 'play' || action === 'result') {
