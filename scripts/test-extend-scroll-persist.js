@@ -13,6 +13,8 @@ assert(html.includes('Prefix-stable growth'), 'prefix growth appends without wip
 assert(/window\.__feedPaintSig=feedSig\+'#'\+paintIds/.test(html) || html.includes("window.__feedPaintSig=feedSig+'#'+paintIds"), 'appendFeedPage updates paint signature');
 assert(html.includes('data-views-id'), 'soft path can patch views in place');
 assert(html.includes("renderPosts(opts)") || html.includes('function renderPosts(opts)'), 'renderPosts accepts opts.force');
+assert(html.includes('do not fight native scroll') || html.includes('Soft path did not remount'), 'soft paint no longer restores scroll');
+assert(html.includes('__feedRestoreActive'), 'user scroll can cancel restore');
 
 // Behavioral model
 (function(){

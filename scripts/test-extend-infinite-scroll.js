@@ -15,7 +15,7 @@ assert(html.includes('feed-more-sentinel'), 'Extend feed has infinite-scroll sen
 assert(html.includes('function observeFeedSentinel'), 'IntersectionObserver sentinel helper');
 assert(html.includes('function appendFeedPage'), 'appendFeedPage grows the painted window');
 assert(html.includes('function loadMoreExtendFeed'), 'network fallback when in-memory window ends');
-assert(/rootMargin:'70?0px 0px'/.test(html) || html.includes("rootMargin:'700px 0px'") || html.includes("rootMargin:'900px 0px'"), 'IO rootMargin preloads before the fold');
+assert(/rootMargin:'(480|700|900)px 0px'/.test(html) || html.includes("rootMargin:'480px 0px'") || html.includes("rootMargin:'700px 0px'"), 'IO rootMargin preloads before the fold');
 assert(/fetchCfFeed\('',\s*160\)/.test(html), 'initial CF fetch is wide (≥160), not capped at 60');
 assert(html.includes('never wipe already-scrolled cards'), 'renderPosts documents preserve-shown fix');
 assert(html.includes('window.__feedSig'), 'filter/search/gender signature resets window safely');
