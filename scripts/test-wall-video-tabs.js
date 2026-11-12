@@ -24,20 +24,32 @@ assert(html.includes('Videos are permanent on GoonTok — never show Extend'), '
 assert(/function postHasActiveTimer\(p\)\{[\s\S]{0,400}isVideoPost/.test(html), 'postHasActiveTimer excludes videos');
 assert(html.includes('Permanent on GoonTok — no timer'), 'composer copy says permanent');
 
-// 3) Exactly five Wall tabs
-var chips = html.match(/data-wall-filter="[^"]+"/g) || [];
+// 3) Exactly five Wall tabs — Post / Extend / IDs·PEA / Roulette / Text
 var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1200);
-assert(wallBar.includes('data-wall-filter="moment"'), 'Moment tab');
 assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>Post<'), 'Post tab');
 assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('Extend Post'), 'Extend Post tab');
 assert(wallBar.includes('data-wall-filter="generated"') && wallBar.includes('IDs / PEA'), 'IDs/PEA tab');
+assert(wallBar.includes('data-wall-filter="roulette"') && wallBar.includes('>Roulette<'), 'Roulette tab');
 assert(wallBar.includes('data-wall-filter="text"'), 'Text tab');
+assert(!wallBar.includes('data-wall-filter="moment"'), 'no Moment tab');
 assert(!wallBar.includes('data-wall-filter="trending"'), 'no Trending tab');
 assert(!wallBar.includes('data-wall-filter="following"'), 'no Following tab');
 assert(!wallBar.includes('data-wall-filter="foryou"'), 'no For You tab');
 assert(!wallBar.includes('data-wall-filter="new"'), 'no New tab');
 assert((wallBar.match(/data-wall-filter="/g) || []).length === 5, 'exactly 5 wall filter chips');
-assert(html.includes("allowed=['moment','normal','timed','generated','text']"), 'setWallFilter allowlist is five');
+assert(html.includes("allowed=['normal','timed','generated','roulette','text']"), 'setWallFilter allowlist is five');
+
+// Category order: Post → Extend → IDs → Roulette → Text
+var orderIdx = ['normal', 'timed', 'generated', 'roulette', 'text'].map(function (f) {
+  return wallBar.indexOf('data-wall-filter="' + f + '"');
+});
+assert(orderIdx.every(function (n) { return n >= 0; }) && orderIdx.join(',') === orderIdx.slice().sort(function (a, b) { return a - b; }).join(','), 'Wall category order Post→Extend→IDs→Roulette→Text');
+
+// Sort controls + Roulette CTA
+assert(html.includes('id="wall-sort-bar"') && html.includes('data-wall-sort="recent"') && html.includes('data-wall-sort="interaction"'), 'per-category Most Recent / Most Interaction');
+assert(html.includes('wallInteractionScore') && html.includes("wallSortMode==='interaction'"), 'interaction sort uses dynamic score');
+assert(html.includes('id="wall-roulette-cta"') && html.includes('SPIN ROULETTE') && html.includes('openRoulette()'), 'Roulette feed spin CTA');
+assert(html.includes('function isRouletteWallPost') && html.includes("filter==='roulette'"), 'Roulette posts isolated by category');
 
 // 4) IDs / PEA contain (not cover-crop)
 assert(/#id-archive-list \.id-archive-card \.id-arch-media img\{[^}]*object-fit:\s*contain/.test(html), 'id-archive object-fit contain');

@@ -17,6 +17,7 @@ assert(html.includes('custom_roulette:250') || html.includes('custom_roulette:25
 assert(
   html.includes('Delete post — 50 FC ($5)') ||
     html.includes('Delete · $5 / 50 FC') ||
+    html.includes('Delete now · 50 FC') ||
     html.includes('Confirm · 50 FC') ||
     /delete\s*:\s*50/.test(html),
   'Delete post UX copy'
@@ -26,8 +27,12 @@ assert(html.includes('Insufficient FC'), 'Insufficient FC UX');
 // Backend
 assert(spend.includes('FC_COSTS') && spend.includes('delete'), 'fc-spend API costs');
 assert(spend.includes('idem') || spend.includes('idemKey') || spend.includes('reused'), 'fc-spend idempotency');
+assert(spend.includes('roulette_pack') && /roulette_pack:\s*Number\(process\.env\.FC_COST_ROULETTE_PACK\s*\|\|\s*50\)/.test(spend), 'fc-spend roulette_pack 50');
 assert(game.includes('FC_ROULETTE') && game.includes('FC_DICE'), 'game-play costs');
-assert(game.includes('free_per_day') || game.includes('BOARD_FREE'), '1 free/day tracking');
+assert(game.includes('FREE_ROULETTE_PER_DAY') && game.includes('FREE_ROULETTE_PER_DAY || 3'), '3 free roulette / day');
+assert(game.includes('FC_ROULETTE_PACK') && game.includes('ROULETTE_PACK_SPINS'), '50 FC → 10 pack spins');
+assert(game.includes('buy_pack') && game.includes('__ROULETTE_PACKS__'), 'roulette pack board + buy_pack');
+assert(game.includes('free_per_day') || game.includes('BOARD_FREE'), 'free/day tracking');
 assert(game.includes('triki') || game.includes('tic_tac_toe'), 'triki session API');
 assert(game.includes('__PIN_REWARDS__'), 'pin rewards board');
 assert(fs.existsSync(path.join(root,'migrations','20261101_fc_games_hot.sql')), 'migration present');
@@ -37,8 +42,12 @@ assert(html.includes('isAdminHot') && html.includes('adminToggleHot'), 'Admin HO
 assert(html.includes('feedPrioritySort') || html.includes('adminHotBoost'), 'HOT feed priority');
 assert(html.includes('postEngagementScore'), 'engagement ranking');
 
-// Games UX
-assert(html.includes('1 free spin left today') || html.includes('free spin left today'), 'roulette 1 free/day UI');
+// Games UX — 3 free/day + 50 FC pack
+assert(html.includes('ROULETTE_FREE_PER_DAY=3') || html.includes('3 free spins'), 'roulette 3 free/day');
+assert(html.includes('GET 10 SPINS — 50 FC'), 'pack purchase CTA');
+assert(html.includes('You have used today’s free spins. Get 10 additional spins for 50 FC ($5).'), 'exhausted free spins copy');
+assert(html.includes('buyRoulettePack') && html.includes('ROULETTE_PACK_FC=50') && html.includes('ROULETTE_PACK_SPINS=10'), 'client pack purchase');
+assert(html.includes('Could not record spin on server'), 'spins require server record');
 assert(html.includes('openCustomRouletteRequest'), 'custom 30-option request');
 assert(html.includes('THRONE_CUSTOM_GAME') || html.includes('THRONE_PACK_25'), 'custom uses Throne $25');
 assert(html.includes('getTrikiChallenge') && html.includes('max:3'), 'Triki max 3 games');
@@ -49,6 +58,12 @@ assert(
   'loss → challenges explicit accept'
 );
 assert(html.includes('grantTrikiPinReward') || html.includes('REWARD: publicación fijada') || html.includes('triki'), '3 wins → pin reward');
+
+// PayPal Jimenez for pin / delete / roulette
+assert(html.includes('https://www.paypal.me/MartinJimenez205'), 'official PayPal Jimenez link');
+assert(html.includes('PayPal $5 · MartinJimenez205'), 'PayPal visible on payment CTAs');
+assert(html.includes('Price: <strong style="color:#f5c518;font-size:16px">$5 USD</strong>') || html.includes('$5 USD'), 'Pin $5 price');
+assert(html.includes('PayPal does not auto-pin') || html.includes('admin verifies'), 'no auto-credit from PayPal click');
 
 // Video limits + daily fixed hero strip
 assert(html.includes('limitMediaVideos') && html.includes('maxVideos'), 'max 2 videos helper');

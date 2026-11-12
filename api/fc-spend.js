@@ -9,6 +9,7 @@ var FC_COSTS = {
   delete: Number(process.env.FC_COST_DELETE || 50),
   roulette: Number(process.env.FC_COST_ROULETTE || 10),
   roulette_spin: Number(process.env.FC_COST_ROULETTE || 10),
+  roulette_pack: Number(process.env.FC_COST_ROULETTE_PACK || 50),
   dice: Number(process.env.FC_COST_DICE || 10),
   dice_roll: Number(process.env.FC_COST_DICE || 10),
   custom_roulette: Number(process.env.FC_COST_CUSTOM_ROULETTE || 250),
@@ -23,6 +24,8 @@ var FC_COSTS = {
 
 var ACTION_ALIASES = {
   roulette_spin: 'roulette',
+  buy_roulette_pack: 'roulette_pack',
+  roulette_spins_pack: 'roulette_pack',
   dice_roll: 'dice',
   remove: 'delete',
   custom_wheel: 'custom_roulette',
