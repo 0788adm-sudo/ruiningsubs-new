@@ -1719,6 +1719,53 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 .btn-extend .ext-cd{display:block;font-size:10px;font-weight:800;opacity:.9;margin-top:2px;letter-spacing:.2px}
 
+/* Admin panel — mobile-first compact ops */
+#panel-admin .panel-h{padding:8px 10px;gap:6px}
+#panel-admin .panel-h h2{font-size:16px;margin:0}
+#admin-body{padding:0 2px 28px}
+.admin-tabs{
+  display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:0 2px 10px;margin:0 0 8px;scrollbar-width:none;
+}
+.admin-tabs::-webkit-scrollbar{display:none}
+.admin-tabs .tab{
+  flex:0 0 auto;white-space:nowrap;padding:9px 12px;border-radius:999px;
+  font-size:12px;font-weight:800;border:1px solid var(--border);background:var(--elev);color:var(--text);
+}
+.admin-tabs .tab.active{background:var(--orange);color:#111;border-color:transparent}
+.admin-badge{
+  display:inline-flex;min-width:18px;height:18px;padding:0 5px;margin-left:4px;
+  align-items:center;justify-content:center;border-radius:999px;
+  background:#111;color:#f5c518;font-size:10px;font-weight:900;
+}
+.admin-tabs .tab.active .admin-badge{background:rgba(0,0,0,.28);color:#111}
+.admin-sec{margin:0}
+.admin-card{
+  background:var(--elev);border:1px solid var(--border);border-radius:14px;
+  padding:12px;margin:0 0 10px;
+}
+.admin-card-row{display:flex;gap:10px;align-items:flex-start}
+.admin-thumb{
+  width:72px;height:72px;border-radius:10px;overflow:hidden;flex-shrink:0;
+  background:#1a1a1f;border:1px solid var(--border);
+}
+.admin-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.admin-status{
+  display:inline-block;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:900;
+  letter-spacing:.3px;margin-top:4px;
+}
+.admin-status.paid{background:rgba(34,197,94,.15);color:#22c55e}
+.admin-status.pending{background:rgba(245,197,24,.14);color:#f5c518}
+.admin-status.sent{background:rgba(59,130,246,.15);color:#60a5fa}
+.admin-status.rejected{background:rgba(239,68,68,.14);color:#f87171}
+.admin-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.admin-actions .btn{flex:1 1 auto;min-width:110px;padding:11px 10px;font-weight:800}
+.admin-more-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:420px){
+  .admin-thumb{width:64px;height:64px}
+  .admin-actions .btn{min-width:46%}
+}
+
 /* GoonTok vertical 9:16 presentation */
 #panel-goontok{background:#050507}
 .gt-scroller{scrollbar-width:none}
@@ -2937,7 +2984,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
 
       <div id="panel-admin" class="panel">
-        <div class="panel-h"><h2>Admin</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" type="button" id="btn-admin-refresh" onclick="renderAdmin();toast('Panel updated')">↻ Refresh</button><button class="btn btn-ghost btn-sm" type="button" id="btn-admin-logout" style="display:none">Log out</button><button class="btn btn-ghost btn-sm" id="btn-admin-back" type="button">← Feed</button></div></div>
+        <div class="panel-h"><h2>Admin</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" type="button" id="btn-admin-refresh" onclick="renderAdmin();toast('Panel updated')">↻</button><button class="btn btn-ghost btn-sm" type="button" id="btn-admin-logout" style="display:none">Log out</button><button class="btn btn-ghost btn-sm" id="btn-admin-back" type="button">←</button></div></div>
         <div id="admin-lock" style="max-width:360px;margin:20px auto;padding:16px">
           <p style="color:var(--muted);font-size:14px;margin-bottom:12px;text-align:center">Admin login</p>
           <div class="form-group"><label>Password</label><input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="current-password"/></div>
@@ -2945,69 +2992,62 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <p style="color:var(--muted);font-size:11px;margin-top:10px;line-height:1.4;text-align:center">Password is checked by the Cloudflare Worker. It is never stored in this page’s source.</p>
         </div>
         <div id="admin-body" style="display:none">
-          <p style="color:var(--muted);font-size:13px;margin-bottom:10px">Admin · open only the section you need</p>
-          <div class="admin-tabs" id="admin-tabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-            <button type="button" class="tab active" data-asec="requests">Requests</button>
-            <button type="button" class="tab" data-asec="posts">Posts</button>
-            <button type="button" class="tab" data-asec="tasks">Tasks</button>
-            <button type="button" class="tab" data-asec="tools">Tools</button>
+          <div class="admin-tabs" id="admin-tabs">
+            <button type="button" class="tab active" data-asec="pinned">Pins<span class="admin-badge" id="ab-pinned" hidden>0</span></button>
+            <button type="button" class="tab" data-asec="pinreq">Pin req<span class="admin-badge" id="ab-pinreq" hidden>0</span></button>
+            <button type="button" class="tab" data-asec="removereq">Delete<span class="admin-badge" id="ab-removereq" hidden>0</span></button>
+            <button type="button" class="tab" data-asec="print">Print<span class="admin-badge" id="ab-print" hidden>0</span></button>
+            <button type="button" class="tab" data-asec="coins">Reloads<span class="admin-badge" id="ab-coins" hidden>0</span></button>
             <button type="button" class="tab" data-asec="users">Users</button>
-            <button type="button" class="tab" data-asec="coins">Coins</button>
-            <button type="button" class="tab" data-asec="games">Games</button>
-            <button type="button" class="tab" data-asec="inbox">Inbox</button>
-            <button type="button" class="tab" data-asec="challenges">Challenges</button>
+            <button type="button" class="tab" data-asec="more">More</button>
           </div>
 
-          <div class="admin-sec" id="asec-requests">
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px" id="admin-req-tabs">
-              <button type="button" class="tab active" data-req="pin">Pin</button>
-              <button type="button" class="tab" data-req="remove">Remove</button>
-              <button type="button" class="tab" data-req="roulette">Roulette</button>
-              <button type="button" class="tab" data-req="taskpack">Task packs</button>
-              <button type="button" class="tab" data-req="print">Print</button>
-              <button type="button" class="tab" data-req="pays">Who paid</button>
+          <div class="admin-sec" id="asec-pinned">
+            <div class="admin-card" style="margin-bottom:10px">
+              <strong>Pinned posts</strong>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 8px">Active Spotlight pins. Unpin updates immediately.</p>
+              <button class="btn btn-danger btn-sm" type="button" id="btn-admin-clear-pins" onclick="clearAllFeaturedPins()">Clear all pins</button>
             </div>
-            <div id="admin-req-pin"></div>
-            <div id="admin-req-remove" style="display:none"></div>
-            <div id="admin-req-roulette" style="display:none"></div>
-            <div id="admin-req-taskpack" style="display:none"></div>
-            <div id="admin-req-print" style="display:none"></div>
-            <div id="admin-req-pays" style="display:none"></div>
+            <div id="admin-pinned-list"><div class="empty">Open to load…</div></div>
+            <div id="admin-list" style="display:none"></div>
+          </div>
+
+          <div class="admin-sec" id="asec-pinreq" style="display:none">
+            <div id="admin-req-pin"><div class="empty">Open to load…</div></div>
+          </div>
+
+          <div class="admin-sec" id="asec-removereq" style="display:none">
+            <div id="admin-req-remove"><div class="empty">Open to load…</div></div>
+          </div>
+
+          <div class="admin-sec" id="asec-print" style="display:none">
+            <div class="admin-card" style="margin-bottom:10px">
+              <strong>Print queue</strong>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Statuses: pending payment · paid · sent · rejected. Rejected unpaid items leave this tray and stay rejected.</p>
+            </div>
+            <div id="admin-req-print"><div class="empty">Open to load…</div></div>
             <div id="admin-feature-req" style="display:none"></div>
           </div>
 
-          <div class="admin-sec" id="asec-tasks" style="display:none">
-            <div style="margin-bottom:16px;padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
-              <strong style="color:var(--orange)">Tasks admin</strong>
-              <input id="admin-task-title" placeholder="Task title" style="width:100%;margin:8px 0 6px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
-              <textarea id="admin-task-body" placeholder="Task description / instructions" style="width:100%;min-height:60px;margin-bottom:6px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>
-              <input type="file" id="admin-task-img" accept="image/*" style="font-size:12px;margin-bottom:8px"/>
-              <button class="btn btn-primary btn-sm" type="button" id="btn-admin-create-task">Publish task</button>
-              <div id="admin-task-pending" style="margin-top:12px"></div>
+          <div class="admin-sec" id="asec-coins" style="display:none">
+            <div class="admin-card">
+              <strong>Reloads / FC</strong>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Balances, recharges, spends. Existing payment logic unchanged.</p>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+                <input id="admin-give-user" placeholder="@user" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
+                <input id="admin-give-coins" placeholder="FC" type="number" style="width:90px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
+                <button class="btn btn-primary btn-sm" type="button" onclick="adminAcceptCoins((document.getElementById('admin-give-user')||{}).value,Number((document.getElementById('admin-give-coins')||{}).value||0),'')">Give FC</button>
+              </div>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminCoins();loadAdminInbox()">Refresh</button>
+              <div id="admin-req-pays" style="margin-top:10px"></div>
+              <div id="admin-inbox" style="margin-top:10px;font-size:13px"></div>
+              <div id="admin-coins-table" style="margin-top:10px;overflow:auto;font-size:12px">Loading…</div>
             </div>
-          </div>
-
-          <div class="admin-sec" id="asec-tools" style="display:none">
-            <div style="margin-bottom:14px;padding:12px;background:var(--elev);border:1px solid var(--border);border-radius:12px">
-              <strong style="color:var(--orange)">Compress old photos</strong>
-              <p style="font-size:12px;color:var(--muted);margin:6px 0 10px;line-height:1.4">Recompress base64 posts → Storage URLs. Run once. Keep this tab open.</p>
-              <button class="btn btn-primary" type="button" id="btn-compress-old" style="width:100%">Start compression</button>
-              <div id="compress-status" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
-            </div>
-          </div>
-
-          <div class="admin-sec" id="asec-posts" style="display:none">
-            <div style="margin:0 0 12px;padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
-              <strong style="color:var(--orange)">Pinned / featured</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Clears orphan pins that stay after a post was deleted (local + pin board).</p>
-              <button class="btn btn-danger btn-sm" type="button" id="btn-admin-clear-pins" onclick="clearAllFeaturedPins()">Clear all pins</button>
-            </div>
-            <div id="admin-list"></div>
           </div>
 
           <div class="admin-sec" id="asec-users" style="display:none">
-            <div style="margin:0 0 16px;padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
-              <strong style="color:var(--orange)">Registered users</strong>
+            <div class="admin-card">
+              <strong>Users</strong>
               <div id="admin-users-count" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
               <div id="admin-users-panel" style="display:block;margin-top:12px">
                 <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -3018,44 +3058,39 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               </div>
             </div>
           </div>
-          <div class="admin-sec" id="asec-coins" style="display:none">
-            <div style="padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
-              <strong style="color:var(--orange)">Coin ledger / FC</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Balances, recharges, spends. $5 → 60 FC · Delete 50 · Roulette/Dice 10.</p>
-              <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminCoins()">Refresh</button>
-              <div id="admin-coins-table" style="margin-top:10px;overflow:auto;font-size:12px">Loading…</div>
+
+          <div class="admin-sec" id="asec-more" style="display:none">
+            <div class="admin-more-grid" style="margin-bottom:12px">
+              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-tasks').style.display='block';loadAdminTaskPending()">Tasks</button>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-games').style.display='block';loadAdminGames()">Games</button>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-challenges').style.display='block';renderAdminChallenges()">Challenges</button>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-tools').style.display='block'">Tools</button>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-roulette').style.display='block';renderAdminReqTab('roulette')">Roulette</button>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-taskpack').style.display='block';renderAdminReqTab('taskpack')">Task packs</button>
             </div>
-          </div>
-          <div class="admin-sec" id="asec-games" style="display:none">
-            <div style="padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border);margin-bottom:12px">
-              <strong style="color:var(--orange)">Game plays</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Roulette, dice, Tic-Tac-Toe. Pinned-post rewards.</p>
+            <div id="more-tasks" style="display:none" class="admin-card">
+              <strong>Tasks admin</strong>
+              <input id="admin-task-title" placeholder="Task title" style="width:100%;margin:8px 0 6px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
+              <textarea id="admin-task-body" placeholder="Task description / instructions" style="width:100%;min-height:60px;margin-bottom:6px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>
+              <input type="file" id="admin-task-img" accept="image/*" style="font-size:12px;margin-bottom:8px"/>
+              <button class="btn btn-primary btn-sm" type="button" id="btn-admin-create-task">Publish task</button>
+              <div id="admin-task-pending" style="margin-top:12px"></div>
+            </div>
+            <div id="more-tools" style="display:none" class="admin-card">
+              <strong>Compress old photos</strong>
+              <p style="font-size:12px;color:var(--muted);margin:6px 0 10px;line-height:1.4">Recompress base64 posts → Storage URLs.</p>
+              <button class="btn btn-primary" type="button" id="btn-compress-old" style="width:100%">Start compression</button>
+              <div id="compress-status" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+            </div>
+            <div id="more-games" style="display:none" class="admin-card">
+              <strong>Game plays</strong>
               <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminGames()">Refresh</button>
               <div id="admin-games-table" style="margin-top:10px;overflow:auto;font-size:12px">Loading…</div>
+              <div id="admin-triki-pins" style="margin-top:10px;font-size:12px"></div>
             </div>
-            <div style="padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
-              <strong style="color:var(--orange)">Triki pin rewards</strong>
-              <div id="admin-triki-pins" style="margin-top:10px;font-size:12px">Loading…</div>
-            </div>
-          </div>
-          <div class="admin-sec" id="asec-inbox" style="display:none">
-            <div style="padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
-              <strong style="color:var(--orange)">Latest requests</strong>
-              <button class="btn btn-secondary btn-sm" type="button" style="margin-left:8px" onclick="loadAdminInbox()">Refresh</button>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-                <input id="admin-give-user" placeholder="@user" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
-                <input id="admin-give-coins" placeholder="FC" type="number" style="width:90px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
-                <button class="btn btn-primary btn-sm" type="button" onclick="adminAcceptCoins((document.getElementById('admin-give-user')||{}).value,Number((document.getElementById('admin-give-coins')||{}).value||0),'')">Give FC</button>
-              </div>
-              <div id="admin-inbox" style="margin-top:10px;font-size:13px">Loading…</div>
-            </div>
-          </div>
-
-          <div class="admin-sec" id="asec-challenges" style="display:none">
-            <div style="padding:12px;background:var(--elev);border-radius:12px;border:1px solid var(--border)">
-              <strong style="color:var(--orange)">Challenge Progress</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">User progress, evidence queue, pool controls. Local device store + synced evidence board.</p>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+            <div id="more-challenges" style="display:none" class="admin-card">
+              <strong>Challenge Progress</strong>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">
                 <input id="adm-ch-user-q" placeholder="Search @username" style="flex:1;min-width:140px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
                 <button class="btn btn-primary btn-sm" type="button" onclick="renderAdminUserProgress()">View user</button>
                 <button class="btn btn-secondary btn-sm" type="button" onclick="renderAdminChallenges()">Refresh</button>
@@ -3063,9 +3098,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <div id="admin-ch-progress" style="margin-bottom:12px"></div>
               <div id="admin-challenges-box" style="margin-top:10px">Loading…</div>
             </div>
-          </div>
-        
-            </div>
+            <div id="more-roulette" style="display:none"><div id="admin-req-roulette"></div></div>
+            <div id="more-taskpack" style="display:none"><div id="admin-req-taskpack"></div></div>
+            <!-- legacy hooks kept for older callers -->
+            <div id="admin-req-tabs" style="display:none"></div>
+            <div id="asec-requests" style="display:none"></div>
+            <div id="asec-posts" style="display:none"></div>
+            <div id="asec-tasks" style="display:none"></div>
+            <div id="asec-tools" style="display:none"></div>
+            <div id="asec-games" style="display:none"></div>
+            <div id="asec-inbox" style="display:none"></div>
+            <div id="asec-challenges" style="display:none"></div>
           </div>
         </div>
       </div>
@@ -9088,43 +9131,79 @@ function openRoulette(){
     }
     function setupAdminSections(){
       bindAdminClicks();
-      document.querySelectorAll('#admin-req-tabs .tab').forEach(function(btn){
-        btn.onclick=function(){
-          document.querySelectorAll('#admin-req-tabs .tab').forEach(function(b){b.classList.remove('active')});
-          btn.classList.add('active');
-          var k=btn.getAttribute('data-req')||'pin';
-          window.__adminReqTab=k;
-          ['pin','remove','roulette','print'].forEach(function(id){
-            var el=document.getElementById('admin-req-'+id);
-            if(el)el.style.display=(id===k)?'block':'none';
-          });
-          try{renderAdminReqTab(k)}catch(e){}
-        };
-      });
       var tabs=document.querySelectorAll('#admin-tabs .tab');
       if(!tabs.length) return;
       tabs.forEach(function(btn){
         btn.onclick=function(){
-          tabs.forEach(function(t){t.classList.remove('active')});
-          btn.classList.add('active');
-          var sec=btn.getAttribute('data-asec');
-          ['requests','posts','tasks','tools','users','coins','inbox','challenges'].forEach(function(id){
-            var el=document.getElementById('asec-'+id);
-            if(el) el.style.display = (id===sec) ? 'block' : 'none';
-          });
-          // lazy-load heavy sections only when opened
-          try{
-            if(sec==='users') renderAdminUsers();
-            if(sec==='coins') loadAdminCoins();
-            if(sec==='games') loadAdminGames();
-            if(sec==='inbox') loadAdminInbox();
-            if(sec==='posts') renderAdminPostsOnly();
-            if(sec==='requests') renderAdminReqTab(window.__adminReqTab||'pin');
-            if(sec==='challenges') renderAdminChallenges();
-          }catch(e){}
+          var sec=btn.getAttribute('data-asec')||'pinned';
+          openAdminSection(sec);
         };
       });
     }
+    async function openAdminSection(sec){
+      sec=String(sec||window.__adminSec||'pinned');
+      window.__adminSec=sec;
+      var tabs=document.querySelectorAll('#admin-tabs .tab');
+      tabs.forEach(function(t){t.classList.toggle('active', t.getAttribute('data-asec')===sec)});
+      ['pinned','pinreq','removereq','print','coins','users','more'].forEach(function(id){
+        var el=document.getElementById('asec-'+id);
+        if(el) el.style.display = (id===sec) ? 'block' : 'none';
+      });
+      try{
+        if(sec==='pinned') await renderAdminPinnedList();
+        else if(sec==='pinreq'){ window.__adminReqTab='pin'; await renderAdminReqTab('pin'); }
+        else if(sec==='removereq'){ window.__adminReqTab='remove'; await renderAdminReqTab('remove'); }
+        else if(sec==='print'){ window.__adminReqTab='print'; await renderAdminReqTab('print'); }
+        else if(sec==='coins'){
+          window.__adminReqTab='pays';
+          await renderAdminReqTab('pays');
+          try{await loadAdminCoins()}catch(e){}
+          try{await loadAdminInbox()}catch(e){}
+        }
+        else if(sec==='users') await renderAdminUsers();
+      }catch(e){console.warn('openAdminSection',e)}
+      try{refreshAdminBadges()}catch(e){}
+    }
+    window.openAdminSection=openAdminSection;
+    function setAdminBadge(id, n){
+      var el=document.getElementById(id);
+      if(!el)return;
+      n=Number(n||0)||0;
+      if(n>0){el.hidden=false;el.textContent=String(n>99?'99+':n)}
+      else {el.hidden=true;el.textContent='0'}
+    }
+    async function refreshAdminBadges(){
+      try{
+        var pinN=0;
+        try{
+          await loadPublicPins();
+          pinN=(window.__pinBoard||[]).filter(function(p){return p&&Number(p.featuredUntil||0)>Date.now()}).length;
+        }catch(e){}
+        setAdminBadge('ab-pinned', pinN);
+      }catch(e){}
+      try{
+        var rows=await cfAdminRequests('pending','pin_payment_request');
+        setAdminBadge('ab-pinreq', (rows||[]).length);
+      }catch(e){setAdminBadge('ab-pinreq', 0)}
+      try{
+        var remDismissed=dismissedSet('rs_remove_dismissed');
+        var rreq=[];
+        try{rreq=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[]}catch(e){}
+        rreq=rreq.filter(function(x){return remDismissed.indexOf(String(x.id))<0});
+        setAdminBadge('ab-removereq', rreq.length);
+      }catch(e){}
+      try{
+        var fulfilled=await loadPrintFulfilledIds();
+        var prints=await cfAdminRequests('pending','print_request');
+        var active=(prints||[]).filter(function(r){return fulfilled.indexOf(String(r.id))<0});
+        setAdminBadge('ab-print', active.length);
+      }catch(e){setAdminBadge('ab-print', 0)}
+      try{
+        var pays=await cfAdminRequests('pending','coins');
+        setAdminBadge('ab-coins', (pays||[]).length);
+      }catch(e){setAdminBadge('ab-coins', 0)}
+    }
+    window.refreshAdminBadges=refreshAdminBadges;
 
     function setupSideMenu(){
       var openBtn=document.getElementById('btn-side-menu');
@@ -25395,27 +25474,147 @@ async function onIdFace(e){
         localStorage.setItem(key,JSON.stringify(d.slice(-200)));
       }catch(e){}
     }
+    async function fetchAdminPostThumb(postId){
+      postId=String(postId||'');
+      if(!postId) return {src:'',user:'',title:'',created:0};
+      try{
+        var live=typeof findPostAnywhere==='function'?findPostAnywhere(postId):null;
+        if(live){
+          var imgs=live.images&&live.images.length?live.images:((typeof parseImages==='function'?parseImages(live.image):[])||[]);
+          var src=(imgs&&imgs[0])||live.image||live.thumb_url||live.media_url||'';
+          if(src) return {src:src,user:live.user||'',title:live.title||'',created:Number(live.created||0)||0};
+        }
+      }catch(e){}
+      try{
+        if(window.sb){
+          var tr=await sb.from('posts').select('id,image_url,username,title,created_at,media_url,thumb_url').eq('id',postId).maybeSingle();
+          var row=tr&&tr.data;
+          if(row){
+            var imgs2=[];try{imgs2=parseImages(row.image_url)}catch(e){imgs2=row.image_url?[row.image_url]:[]}
+            var src2=(imgs2&&imgs2[0])||row.thumb_url||row.media_url||'';
+            return {src:src2||'',user:row.username||'',title:row.title||'',created:row.created_at?new Date(row.created_at).getTime():0};
+          }
+        }
+      }catch(e){}
+      try{
+        var pr=await fetch(CF_API+'/posts/'+encodeURIComponent(postId),{cache:'no-store'});
+        if(pr.ok){
+          var pj=await pr.json().catch(function(){return{}});
+          var post=pj.post||pj;
+          return {src:(post&&(post.thumb_url||post.media_url))||'',user:(post&&post.username)||'',title:(post&&post.title)||'',created:0};
+        }
+      }catch(e){}
+      return {src:'',user:'',title:'',created:0};
+    }
     async function renderAdminPins(box){
       box=box||document.getElementById('admin-req-pin');if(!box)return;
-      box.innerHTML='<div class="empty">Loading Cloudflare requests…</div>';
+      box.innerHTML='<div class="empty">Loading pin requests…</div>';
       try{
         var rows=await cfAdminRequests('pending','pin_payment_request');
-        if(!rows.length){box.innerHTML='<div class="empty">No pending Pin requests</div>';return}
+        // Also merge local/SB feature requests that still need thumbs.
+        var featDismissed=dismissedSet('rs_feature_dismissed');
+        var localReq=[];try{localReq=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[]}catch(e){}
+        localReq=localReq.filter(function(x){return featDismissed.indexOf(String(x.id))<0});
+        if(!rows.length && !localReq.length){box.innerHTML='<div class="empty">No pending Pin requests</div>';try{refreshAdminBadges()}catch(e){}return}
         var out=[];
         for(var i=0;i<Math.min(rows.length,40);i++){
-          var r=rows[i],post=null,payload={};try{payload=JSON.parse(r.payload||'{}')||{}}catch(e){}
-          try{if(r.post_id){var pr=await fetch(CF_API+'/posts/'+encodeURIComponent(String(r.post_id)),{cache:'no-store'});if(pr.ok){var pj=await pr.json();post=pj.post||pj}}}catch(e){}
-          var src=post&&(post.thumb_url||post.media_url)||'';var when=r.created_at?new Date(Number(r.created_at)).toLocaleString():'';
-          out.push('<div style="background:linear-gradient(180deg,rgba(124,58,237,.13),rgba(15,15,18,.96));border:1px solid rgba(124,58,237,.45);border-radius:16px;padding:14px;margin-bottom:10px">'
-          +'<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-size:11px;letter-spacing:1px;color:#c4b5fd;font-weight:900">PIN REQUEST</div><div style="font-size:17px;font-weight:900;margin-top:3px">'+esc(r.id)+'</div></div><span style="padding:5px 8px;border-radius:999px;background:rgba(245,197,24,.12);color:#f5c518;font-size:10px;font-weight:900">PENDING</span></div>'
-          +(src?'<img src="'+esc(src)+'" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin:12px 0;border:1px solid var(--border)"/>':'')
-          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px"><div><span style="color:var(--muted)">User</span><br><strong>@'+esc(r.user_id)+'</strong></div><div><span style="color:var(--muted)">Payment</span><br><strong>'+esc(r.amount||'$10')+'</strong></div><div><span style="color:var(--muted)">Coins</span><br><strong>'+Number(r.coins||50)+' FC</strong></div><div><span style="color:var(--muted)">Post</span><br><strong>'+esc(r.post_id||'—')+'</strong></div><div style="grid-column:1/-1"><span style="color:var(--muted)">Product</span><br><strong>'+esc(r.label||'Premium Pin — 48h')+'</strong></div><div style="grid-column:1/-1"><span style="color:var(--muted)">Created</span><br><strong>'+esc(when)+'</strong></div></div>'
+          var r=rows[i],payload={};try{payload=JSON.parse(r.payload||'{}')||{}}catch(e){}
+          var meta=await fetchAdminPostThumb(r.post_id);
+          var src=meta.src||'';
+          var when=r.created_at?new Date(Number(r.created_at)).toLocaleString():'';
+          out.push('<div class="admin-card">'
+          +'<div class="admin-card-row">'
+          +'<div class="admin-thumb">'+(src?'<img src="'+esc(src)+'" loading="lazy" alt=""/>':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">#'+esc(String(r.post_id||''))+'</div>')+'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:11px;letter-spacing:1px;color:#c4b5fd;font-weight:900">PIN REQUEST</div>'
+          +'<div style="font-weight:900;margin-top:2px">#'+esc(String(r.post_id||r.id))+' · @'+esc(r.user_id||meta.user||'')+'</div>'
+          +'<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc((meta.title||r.label||'Premium Pin').slice(0,60))+'</div>'
+          +'<span class="admin-status pending">PENDING</span>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:6px">'+esc(r.amount||'$5 / 50 FC')+' · '+Number(r.coins||50)+' FC'+(when?' · '+esc(when):'')+'</div>'
+          +'</div></div>'
           +(payload.message?'<div style="margin-top:10px;padding:9px;border-radius:10px;background:rgba(255,255,255,.04);font-size:11px;color:var(--muted)">'+esc(payload.message)+'</div>':'')
-          +'<div style="display:flex;gap:7px;margin-top:12px"><button class="btn btn-primary" style="flex:1" type="button" onclick="approveCloudflarePinRequest('+JSON.stringify(String(r.id))+')">✓ Approve & Pin</button><button class="btn btn-ghost" type="button" onclick="rejectCloudflareRequest('+JSON.stringify(String(r.id))+')">Reject</button></div></div>');
+          +'<div class="admin-actions"><button class="btn btn-primary btn-sm" type="button" onclick="approveCloudflarePinRequest('+JSON.stringify(String(r.id))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflareRequest('+JSON.stringify(String(r.id))+')">Reject</button></div></div>');
         }
-        box.innerHTML=out.join('');
-      }catch(e){box.innerHTML='<div class="empty">Could not load Cloudflare Pin requests: '+esc((e&&e.message)||'error')+'</div>'}
+        for(var j=0;j<Math.min(localReq.length,20);j++){
+          var lr=localReq[j];
+          if(rows.some(function(x){return String(x.post_id)===String(lr.id)})) continue;
+          var meta2=await fetchAdminPostThumb(lr.id);
+          var src2=lr.thumb||meta2.src||'';
+          out.push('<div class="admin-card"><div class="admin-card-row"><div class="admin-thumb">'+(src2?'<img src="'+esc(src2)+'" loading="lazy" alt=""/>':'')+'</div><div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(lr.id))+' · @'+esc(lr.user||meta2.user||'')+'</div><div style="font-size:12px;color:var(--muted)">'+esc((lr.title||meta2.title||'').slice(0,50))+(lr.at?' · '+ago(lr.at):'')+'</div><span class="admin-status pending">PENDING</span></div></div><div class="admin-actions"><button class="btn btn-primary btn-sm" type="button" onclick="approveFeature('+JSON.stringify(String(lr.id))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissFeatureReq('+JSON.stringify(String(lr.id))+')">Reject</button></div></div>');
+        }
+        box.innerHTML=out.join('')||'<div class="empty">No pending Pin requests</div>';
+        try{refreshAdminBadges()}catch(e){}
+      }catch(e){box.innerHTML='<div class="empty">Could not load Pin requests: '+esc((e&&e.message)||'error')+'</div>'}
     }
+    async function renderAdminPinnedList(){
+      var box=document.getElementById('admin-pinned-list');
+      if(!box)return;
+      box.innerHTML='<div class="empty">Loading pinned posts…</div>';
+      try{await loadPublicPins()}catch(e){}
+      var list=[];
+      var seen={};
+      function add(p, until){
+        if(!p||p.id==null)return;
+        var id=String(p.id);
+        if(seen[id])return;
+        until=Number(until||p.featuredUntil||0)||0;
+        if(until<=Date.now())return;
+        seen[id]=1;
+        list.push({p:p,until:until});
+      }
+      try{(window.__pinBoard||[]).forEach(function(p){add(p,p.featuredUntil)})}catch(e){}
+      try{
+        if(window.sb){
+          var featQ=await sb.from('posts').select('id,username,title,image_url,created_at,featured_until,tags').gt('featured_until',new Date().toISOString()).order('featured_until',{ascending:false}).limit(30);
+          (featQ.data||[]).forEach(function(row){
+            var imgs=[];try{imgs=parseImages(row.image_url)}catch(e){imgs=row.image_url?[row.image_url]:[]}
+            add({
+              id:row.id,user:row.username,title:row.title||'',image:imgs[0]||'',images:imgs,
+              created:row.created_at?new Date(row.created_at).getTime():0,
+              featuredUntil:row.featured_until?new Date(row.featured_until).getTime():0,
+              tags:row.tags||[]
+            }, row.featured_until?new Date(row.featured_until).getTime():0);
+          });
+        }
+      }catch(e){}
+      try{
+        (posts||[]).forEach(function(p){
+          var fu=typeof getPinUntil==='function'?getPinUntil(p):Number(p.featuredUntil||0);
+          add(p,fu);
+        });
+      }catch(e){}
+      list.sort(function(a,b){return b.until-a.until});
+      if(!list.length){
+        box.innerHTML='<div class="empty">No active pinned posts</div>';
+        try{refreshAdminBadges()}catch(e){}
+        return;
+      }
+      box.innerHTML=list.map(function(item){
+        var p=item.p;
+        var imgs=p.images&&p.images.length?p.images:((typeof parseImages==='function'?parseImages(p.image):[])||[]);
+        var src=(imgs&&imgs[0])||p.image||p.thumb_url||'';
+        var created=p.created?new Date(p.created).toLocaleString():'';
+        var left=item.until-Date.now();
+        return '<div class="admin-card" id="admin-pin-'+esc(String(p.id))+'"><div class="admin-card-row">'
+          +'<div class="admin-thumb">'+(src?'<img src="'+esc(src)+'" loading="lazy" alt=""/>':'')+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(p.id))+' · @'+esc(p.user||'')+'</div>'
+          +'<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc(String(p.title||'').slice(0,70))+'</div>'
+          +'<span class="admin-status paid">PINNED · '+esc(typeof fmt==='function'?fmt(left):'')+' left</span>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:6px">'+(created?('Published '+esc(created)):'')+'</div>'
+          +'</div></div><div class="admin-actions"><button class="btn btn-danger btn-sm" type="button" onclick="adminUnpinFromPanel('+JSON.stringify(String(p.id))+')">Unpin</button><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(p.id))+')">Open</button></div></div>';
+      }).join('');
+      try{refreshAdminBadges()}catch(e){}
+    }
+    async function adminUnpinFromPanel(id){
+      try{
+        await adminPin(String(id), false);
+        toast('Unpinned #'+id);
+        await renderAdminPinnedList();
+        try{refreshAdminBadges()}catch(e){}
+      }catch(e){toast((e&&e.message)||'Could not unpin')}
+    }
+    window.renderAdminPinnedList=renderAdminPinnedList;
+    window.adminUnpinFromPanel=adminUnpinFromPanel;
     async function approveCloudflarePinRequest(id){
       try{
         id=String(id);
@@ -25444,9 +25643,11 @@ async function onIdFace(e){
         try{renderPosts()}catch(e){}
         toast('✓ Pin approved — post is now at the top for 48h');
         await renderAdminReqTab('pin');
+        try{await renderAdminPinnedList()}catch(e){}
+        try{refreshAdminBadges()}catch(e){}
       }catch(e){toast((e&&e.message)||'Could not approve Pin request')}
     }
-    async function rejectCloudflareRequest(id){try{if(!confirm('Reject this request?'))return;await cfAdminRejectRequest(String(id),'Rejected by admin');toast('Request rejected');await renderAdminReqTab('pin')}catch(e){toast((e&&e.message)||'Could not reject request')}}
+    async function rejectCloudflareRequest(id){try{if(!confirm('Reject this request?'))return;await cfAdminRejectRequest(String(id),'Rejected by admin');toast('Request rejected');await renderAdminReqTab('pin');try{refreshAdminBadges()}catch(e){}}catch(e){toast((e&&e.message)||'Could not reject request')}}
     window.approveCloudflarePinRequest=approveCloudflarePinRequest;window.rejectCloudflareRequest=rejectCloudflareRequest;
     async function renderAdminRemoves(box){
       box=box||document.getElementById('admin-req-remove');
@@ -25502,12 +25703,20 @@ async function onIdFace(e){
           });
         }catch(e){}
       }
-      box.innerHTML='<div style="background:rgba(255,59,48,.1);border:1px solid rgba(255,59,48,.4);border-radius:12px;padding:10px"><strong style="color:#ff3b30">Remove requests ('+rreq.length+')</strong>'+rreq.slice(0,30).map(function(r){
+      box.innerHTML=rreq.slice(0,30).map(function(r){
         var meta=thumbMap[String(r.id)]||{};
         var src=meta.src||'';
-        var thumb='<div onclick="openDetail('+JSON.stringify(String(r.id))+')" style="width:52px;height:52px;border-radius:8px;background:#222;overflow:hidden;flex-shrink:0">'+(src?'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover"/>':'')+'</div>';
-        return '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,59,48,.18)">'+thumb+'<div style="flex:1;min-width:0"><strong>#'+esc(String(r.id))+'</strong> @'+esc(r.user||meta.user||'')+'<div style="font-size:11px;color:var(--muted)">'+esc((r.title||meta.title||'').slice(0,40))+(r.at?' · '+ago(r.at):'')+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'">Delete (paid)</button><button class="btn btn-secondary btn-sm" type="button" data-admin="remove-remind" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(r.user||''))+'">Remind</button><button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'">✕</button></div></div>';
-      }).join('')+'</div>';
+        return '<div class="admin-card"><div class="admin-card-row">'
+          +'<div class="admin-thumb" onclick="openDetail('+JSON.stringify(String(r.id))+')">'+(src?'<img src="'+esc(src)+'" loading="lazy" alt=""/>':'')+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(r.id))+' · @'+esc(r.user||meta.user||'')+'</div>'
+          +'<div style="font-size:12px;color:var(--muted)">'+esc((r.title||meta.title||'').slice(0,50))+(r.at?' · '+ago(r.at):'')+'</div>'
+          +'<span class="admin-status pending">DELETE REQUEST</span></div></div>'
+          +'<div class="admin-actions">'
+          +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'">Approve delete</button>'
+          +'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-remind" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(r.user||''))+'">Remind</button>'
+          +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'">Reject</button>'
+          +'</div></div>';
+      }).join('');
     }
     async function renderAdminRouletteBox(box){
       box=box||document.getElementById('admin-req-roulette');
@@ -25526,11 +25735,71 @@ async function onIdFace(e){
         return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong> <span style="color:var(--muted);font-size:11px">'+(r.created_at?ago(new Date(r.created_at).getTime()):'')+'</span><div style="font-size:11px;color:var(--muted);margin:4px 0">'+esc(r.message||'')+'</div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">Unlock 10</button><button class="btn btn-secondary btn-sm" type="button" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">Remind</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕</button></div></div>';
       }).join('')+'</div>';
     }
+    async function loadPrintFulfilledIds(){
+      var ids={};
+      try{
+        dismissedSet('rs_print_fulfilled').forEach(function(id){ids[String(id)]=1});
+      }catch(e){}
+      try{
+        dismissedSet('rs_pe_dismissed').forEach(function(id){ids[String(id)]=1});
+      }catch(e){}
+      try{
+        var r=await fetch(CF_API+'/notifs?to=__PRINT_FULFILLED__',{cache:'no-store'});
+        var j=await r.json().catch(function(){return{}});
+        ((j&&j.notifs)||[]).forEach(function(n){
+          var pid=String(n.post_id||'');
+          if(pid) ids[pid]=1;
+          try{
+            var m=JSON.parse(n.message||'{}')||{};
+            if(m.id) ids[String(m.id)]=1;
+          }catch(e){}
+        });
+      }catch(e){}
+      return Object.keys(ids);
+    }
+    async function recordPrintFulfilled(id, status, extra){
+      id=String(id||'');
+      if(!id) throw new Error('Missing print request id');
+      var payload=Object.assign({
+        id:id,
+        status:String(status||'sent'),
+        at:Date.now(),
+        by:(currentUser&&currentUser.name)||'admin'
+      }, extra||{});
+      markDismissed('rs_print_fulfilled', id);
+      var r=await fetch(CF_API+'/notifs',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        cache:'no-store',
+        body:JSON.stringify({
+          to_username:'__PRINT_FULFILLED__',
+          from_username:payload.by,
+          type:'print_'+payload.status,
+          post_id:id,
+          message:JSON.stringify(payload),
+          created_at:new Date().toISOString(),
+          read:false
+        })
+      });
+      var j=await r.json().catch(function(){return{}});
+      if(!r.ok || j.ok===false) throw new Error((j&&j.error)||('Could not save print status ('+r.status+')'));
+      return j;
+    }
+    function printStatusMeta(r){
+      var via=String(r.paid_via||'');
+      var secure=r.submitted_via==='api/print-submit'||via==='fc'||(via==='throne_proof'&&r.payment_proof);
+      var paid=secure || String(r.payment_status||'').toLowerCase()==='paid';
+      var label=paid?'paid':(via?'pending payment':'pending payment');
+      var cls=paid?'paid':'pending';
+      var viaLabel=via==='fc'?'FC (350)':(via==='throne_proof'?'Throne + screenshot':(via==='manual'?'Manual / unverified':(via||'unverified')));
+      return {paid:paid,secure:secure,label:label,cls:cls,viaLabel:viaLabel};
+    }
     async function renderAdminPrints(box){
       box=box||document.getElementById('admin-req-print');
       if(!box)return;
       box.innerHTML='<div class="empty">Loading Print requests…</div>';
       try{
+        var fulfilled=await loadPrintFulfilledIds();
         var rows=await cfAdminRequests('pending','print_request');
         var requests=(rows||[]).map(function(row){
           var q={};
@@ -25554,274 +25823,132 @@ async function onIdFace(e){
             at:Number(row.created_at||Date.now()),
             cfRequest:true
           };
-        }).filter(function(r){return r.id});
+        }).filter(function(r){return r.id && fulfilled.indexOf(String(r.id))<0});
         requests.sort(function(a,b){return (b.at||0)-(a.at||0)});
         window.__peAdminCache=requests;
         if(!requests.length){
-          box.innerHTML='<div class="empty">No pending Print requests.<br><span style="font-size:12px">New submissions will appear here. Nothing is published automatically.</span></div>';
+          box.innerHTML='<div class="empty">No active Print requests.<br><span style="font-size:12px">Rejected / sent orders stay out of this tray.</span></div>';
+          try{refreshAdminBadges()}catch(e){}
           return;
         }
-        box.innerHTML='<div style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.45);border-radius:12px;padding:12px"><strong style="color:#c77dff">🖨 Pending Print ('+requests.length+')</strong>'+requests.slice(0,30).map(function(r){
-          var photosHtml=(r.photos||[]).slice(0,12).map(function(src){
+        box.innerHTML=requests.slice(0,40).map(function(r){
+          var st=printStatusMeta(r);
+          var sid=String(r.id).replace(/[^a-zA-Z0-9_-]/g,'_');
+          var photosHtml=(r.photos||[]).slice(0,6).map(function(src){
             return '<a href="'+esc(src)+'" target="_blank" rel="noopener"><img src="'+esc(src)+'" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--border)"/></a>';
           }).join('');
-          var via=String(r.paid_via||'');
-          var secure=r.submitted_via==='api/print-submit'||via==='fc'||(via==='throne_proof'&&r.payment_proof);
-          var viaLabel=via==='fc'?'FC (350)':(via==='throne_proof'?'Throne + screenshot':(via==='manual'?'Manual / unverified':(via||'unverified')));
-          var payState=r.payment_status||(secure?'paid':'unverified');
-          var viaColor=secure?'#22c55e':'#f87171';
           var when='';
           try{when=r.at?new Date(r.at).toLocaleString():''}catch(e){when=r.at?ago(r.at):''}
           var proofHtml=r.payment_proof
-            ?('<div style="margin:8px 0;padding:8px;border:1px solid #f5c518;border-radius:10px;background:rgba(245,197,24,.08)"><div style="font-size:11px;font-weight:800;color:#f5c518;margin-bottom:6px">Payment screenshot</div><a href="'+esc(r.payment_proof)+'" target="_blank" rel="noopener"><img src="'+esc(r.payment_proof)+'" loading="lazy" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;background:#000"/></a></div>')
-            :(via==='fc'?'<div style="font-size:12px;color:#22c55e;margin:8px 0">FC payment — screenshot not required</div>':'<div style="font-size:12px;color:#f87171;margin:8px 0">No payment screenshot attached.</div>');
-          return '<div id="print-req-'+esc(String(r.id))+'" style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(168,85,247,.25)">'+
-            '<div style="font-weight:800">'+esc(r.name||'Request')+(r.order_code?' · <code style="color:#f5c518">'+esc(r.order_code)+'</code>':'')+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:4px">User: <strong style="color:#fff">@'+esc(r.author||'')+'</strong>'+(r.user_id&&r.user_id!==r.author?' · id '+esc(r.user_id):'')+'</div>'+
-            '<div style="font-size:12px;color:var(--muted)">Request ID: '+esc(r.id)+(when?' · '+esc(when):'')+(r.at?' · '+ago(r.at):'')+'</div>'+
-            '<div style="font-size:12px;margin-top:4px;font-weight:800;color:'+viaColor+'">Payment: '+esc(viaLabel)+' · status '+esc(payState)+(r.amount?' · '+esc(String(r.amount)):'')+(secure?'':' · ⚠ not server-verified')+'</div>'+
-            (r.socials?'<div style="font-size:12px;margin-top:4px;white-space:pre-wrap">'+esc(r.socials)+'</div>':'')+
-            proofHtml+
-            (photosHtml?'<div style="font-size:11px;color:var(--muted);margin:6px 0 4px">Flyer photos ('+(r.photo_count||((r.photos&&r.photos.length)||0))+')</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 8px">'+photosHtml+'</div>':'<div style="font-size:12px;color:var(--muted);margin:8px 0">No photos attached.</div>')+
-            '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-              '<button class="btn btn-primary btn-sm" type="button" onclick="approveCloudflarePrintRequest('+JSON.stringify(r.id)+')">✓ Publish</button>'+ 
-              '<button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflarePrintRequest('+JSON.stringify(r.id)+')">Reject</button>'+ 
-            '</div>'+ 
-          '</div>';
-        }).join('')+'</div>';
+            ?('<div style="margin:8px 0;padding:8px;border:1px solid #f5c518;border-radius:10px;background:rgba(245,197,24,.08)"><div style="font-size:11px;font-weight:800;color:#f5c518;margin-bottom:6px">Payment screenshot</div><a href="'+esc(r.payment_proof)+'" target="_blank" rel="noopener"><img src="'+esc(r.payment_proof)+'" loading="lazy" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;background:#000"/></a></div>')
+            :(st.paid&&String(r.paid_via)==='fc'?'<div style="font-size:12px;color:#22c55e;margin:8px 0">FC payment — screenshot not required</div>':'<div style="font-size:12px;color:#f87171;margin:8px 0">No payment screenshot · unpaid / unverified</div>');
+          var actions=st.paid
+            ?('<button class="btn btn-primary btn-sm" type="button" id="btn-print-sent-'+sid+'" onclick="markPrintRequestSent('+JSON.stringify(r.id)+')">Enviar / Mark sent</button>'
+              +'<button class="btn btn-secondary btn-sm" type="button" onclick="approveCloudflarePrintRequest('+JSON.stringify(r.id)+')">Publish</button>'
+              +'<button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflarePrintRequest('+JSON.stringify(r.id)+',true)">Reject</button>')
+            :('<button class="btn btn-danger btn-sm" type="button" onclick="rejectCloudflarePrintRequest('+JSON.stringify(r.id)+',false)">Reject unpaid</button>');
+          return '<div class="admin-card" id="print-req-'+esc(String(r.id))+'">'
+            +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">'
+            +'<div><div style="font-weight:900">'+esc(r.name||'Request')+(r.order_code?' · <code style="color:#f5c518">'+esc(r.order_code)+'</code>':'')+'</div>'
+            +'<div style="font-size:12px;color:var(--muted);margin-top:3px">@'+esc(r.author||'')+' · '+esc(r.id)+(when?' · '+esc(when):'')+'</div>'
+            +'<span class="admin-status '+st.cls+'">'+esc(st.label)+' · '+esc(st.viaLabel)+(r.amount?' · '+esc(String(r.amount)):'')+'</span></div></div>'
+            +(r.socials?'<div style="font-size:12px;margin-top:8px;white-space:pre-wrap">'+esc(r.socials)+'</div>':'')
+            +proofHtml
+            +(photosHtml?'<div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Flyer photos ('+(r.photo_count||((r.photos&&r.photos.length)||0))+')</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+photosHtml+'</div>':'<div style="font-size:12px;color:var(--muted);margin:8px 0">No photos attached.</div>')
+            +(st.paid?'<textarea id="print-sent-note-'+sid+'" placeholder="Optional note / chat proof text…" style="width:100%;min-height:54px;margin-top:10px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>':'')
+            +'<div class="admin-actions">'+actions+'</div></div>';
+        }).join('');
+        try{refreshAdminBadges()}catch(e){}
       }catch(e){
         console.warn('renderAdminPrints',e);
         window.__peAdminCache=[];
-        box.innerHTML='<div style="padding:14px;border:1px solid rgba(239,68,68,.45);border-radius:12px;background:rgba(239,68,68,.08)"><strong>Could not load Print requests.</strong><div style="font-size:12px;color:var(--muted);margin-top:6px">Check Admin login, then use Refresh. No Print is published by this error.</div><button class="btn btn-secondary btn-sm" type="button" style="margin-top:10px" onclick="renderAdminReqTab(\'print\')">↻ Retry</button></div>';
+        box.innerHTML='<div class="admin-card" style="border-color:rgba(239,68,68,.45)"><strong>Could not load Print requests.</strong><div style="font-size:12px;color:var(--muted);margin-top:6px">Check Admin login, then Refresh.</div><button class="btn btn-secondary btn-sm" type="button" style="margin-top:10px" onclick="renderAdminReqTab(\'print\')">↻ Retry</button></div>';
       }
     }
 
-    async function approveCloudflarePrintRequest(id){try{if(!confirm('Publish these photos? They will become public only after this approval.'))return;var out=await cfAdminApproveRequest(String(id),0);if(!out||out.ok===false)throw new Error((out&&out.error)||'Approval failed');toast('✓ Print approved and published');try{await loadPosts()}catch(e){};await renderAdminReqTab('print')}catch(e){toast((e&&e.message)||'Could not publish')}}
-    async function rejectCloudflarePrintRequest(id){try{if(!confirm('Reject this print request?'))return;await cfAdminRejectRequest(String(id),'Print not approved');toast('Print rejected');await renderAdminReqTab('print')}catch(e){toast((e&&e.message)||'Could not reject')}}
-    window.approveCloudflarePrintRequest=approveCloudflarePrintRequest; window.rejectCloudflarePrintRequest=rejectCloudflarePrintRequest;
+    async function markPrintRequestSent(id){
+      id=String(id||'');
+      if(!id){toast('Missing print id');return}
+      if(window.__printMarkLocks && window.__printMarkLocks[id]){toast('Already sending…');return}
+      window.__printMarkLocks=window.__printMarkLocks||{};
+      window.__printMarkLocks[id]=true;
+      var sid=id.replace(/[^a-zA-Z0-9_-]/g,'_');
+      var btn=document.getElementById('btn-print-sent-'+sid);
+      if(btn){btn.disabled=true;btn.textContent='Sending…'}
+      try{
+        var note='';
+        try{note=((document.getElementById('print-sent-note-'+sid)||{}).value||'').trim()}catch(e){}
+        // Only confirm after the fulfillment board write succeeds.
+        await recordPrintFulfilled(id,'sent',{note:note});
+        // Clear from CF pending queue without destroying wallet/ledger audit.
+        try{await cfAdminRejectRequest(id,'completed_sent')}catch(e){console.warn('print clear pending',e)}
+        toast('✓ Print marked sent');
+        await renderAdminPrints();
+        try{refreshAdminBadges()}catch(e){}
+      }catch(e){
+        toast((e&&e.message)||'Could not mark as sent');
+        if(btn){btn.disabled=false;btn.textContent='Enviar / Mark sent'}
+      }finally{
+        try{delete window.__printMarkLocks[id]}catch(e){}
+      }
+    }
+    async function approveCloudflarePrintRequest(id){
+      try{
+        if(!confirm('Publish these photos publicly?'))return;
+        var out=await cfAdminApproveRequest(String(id),0);
+        if(!out||out.ok===false)throw new Error((out&&out.error)||'Approval failed');
+        try{await recordPrintFulfilled(id,'sent',{published:true})}catch(e){console.warn(e)}
+        toast('✓ Print approved and published');
+        try{await loadPosts()}catch(e){}
+        await renderAdminReqTab('print');
+        try{refreshAdminBadges()}catch(e){}
+      }catch(e){toast((e&&e.message)||'Could not publish')}
+    }
+    async function rejectCloudflarePrintRequest(id, wasPaid){
+      try{
+        var msg=wasPaid?'Reject this paid print request?':'Reject this unpaid print request? It will leave the active tray and stay rejected.';
+        if(!confirm(msg))return;
+        await cfAdminRejectRequest(String(id), wasPaid?'Print not approved':'unpaid_rejected');
+        try{await recordPrintFulfilled(id,'rejected',{unpaid:!wasPaid})}catch(e){console.warn(e)}
+        markDismissed('rs_pe_dismissed', String(id));
+        toast(wasPaid?'Print rejected':'Unpaid print rejected · removed from tray');
+        // Drop card immediately even before reload.
+        try{var el=document.getElementById('print-req-'+String(id));if(el)el.remove()}catch(e){}
+        await renderAdminReqTab('print');
+        try{refreshAdminBadges()}catch(e){}
+      }catch(e){toast((e&&e.message)||'Could not reject')}
+    }
+    window.markPrintRequestSent=markPrintRequestSent;
+    window.approveCloudflarePrintRequest=approveCloudflarePrintRequest;
+    window.rejectCloudflarePrintRequest=rejectCloudflarePrintRequest;
+    window.loadPrintFulfilledIds=loadPrintFulfilledIds;
 
     async function renderAdmin(){
-      try{loadAdminTaskPending()}catch(e){}
-      try{loadPosts()}catch(e){}
-      try{await loadAdminUsers()}catch(e){}
-      var reqBox=document.getElementById('admin-feature-req');
-      if(reqBox){
-        var req=[];try{req=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[]}catch(e){}
-        var rreq=[];try{rreq=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[]}catch(e){}
-        var remDismissed=[];try{remDismissed=JSON.parse(localStorage.getItem('rs_remove_dismissed')||'[]')||[]}catch(e){}
-        var featDismissed=[];try{featDismissed=JSON.parse(localStorage.getItem('rs_feature_dismissed')||'[]')||[]}catch(e){}
-        if(sb){
-          try{
-            var nr=await sb.from('notifications').select('*').eq('type','remove_request').order('created_at',{ascending:false}).limit(40);
-            (nr.data||[]).forEach(function(n){
-              var pid=n.post_id;if(!pid)return;
-              if(remDismissed.indexOf(String(pid))>=0)return;
-              if(!rreq.some(function(x){return String(x.id)===String(pid)})){
-                rreq.push({id:pid,title:(n.message||'').replace(/^🗑 REMOVE \$10 — post #\d+ by @\S+\s*·?\s*/,'').slice(0,40),user:n.from_username||'',at:n.created_at?new Date(n.created_at).getTime():Date.now(),fromDb:true,message:n.message||''});
-              }
-            });
-          }catch(e){console.warn('load remove reqs',e)}
-          try{
-            var frDb=await sb.from('notifications').select('*').in('type',['feature_request','pin_payment_request']).order('created_at',{ascending:false}).limit(30);
-            (frDb.data||[]).forEach(function(n){
-              var pid=n.post_id;if(!pid)return;
-              if(featDismissed.indexOf(String(pid))>=0)return;
-              if(!req.some(function(x){return String(x.id)===String(pid)})){
-                req.push({id:pid,title:(n.message||'').slice(0,40),user:n.from_username||'',at:n.created_at?new Date(n.created_at).getTime():Date.now(),fromDb:true,message:n.message||''});
-              }
-            });
-          }catch(e){console.warn('load pin reqs',e)}
-        }
-        // Fetch missing thumbnails for remove requests not in memory
-        var missingIds=[];
-        rreq.concat(req).forEach(function(r){
-          if(!r||r.id==null)return;
-          if(!posts.some(function(pp){return String(pp.id)===String(r.id)}))missingIds.push(r.id);
-        });
-        var thumbMap={};
-        if(sb&&missingIds.length){
-          try{
-            var tr=await sb.from('posts').select('id,image_url').in('id',missingIds.slice(0,30));
-            (tr.data||[]).forEach(function(row){
-              var imgs=[];try{imgs=parseImages(row.image_url)}catch(e){imgs=row.image_url?[row.image_url]:[]}
-              if(imgs[0])thumbMap[String(row.id)]=imgs[0];
-            });
-          }catch(e){}
-        }
-        var html='';
-        req=req.filter(function(x){return featDismissed.indexOf(String(x.id))<0});
-        req.sort(function(a,b){return (b.at||0)-(a.at||0)});
-        if(req.length){
-          html+='<div style="background:rgba(124,58,237,.1);border:1px solid var(--orange);border-radius:12px;padding:10px;margin-bottom:8px"><strong style="color:var(--orange)">⭐ Pin requests ('+req.length+')</strong><p style="font-size:11px;color:var(--muted);margin:2px 0 0">Newest first · tap photo to open</p>'+req.slice(0,20).map(function(r){
-            var p=posts.find(function(pp){return String(pp.id)===String(r.id)});
-            var src=r.thumb||'';
-            if(!src&&p){var imgs=p.images&&p.images.length?p.images:parseImages(p.image);src=(imgs&&imgs[0])||p.image||''}
-            if(!src&&thumbMap[String(r.id)])src=thumbMap[String(r.id)];
-            var thumb='<div onclick="event.stopPropagation();openDetail('+JSON.stringify(String(r.id))+')" style="width:52px;height:52px;border-radius:8px;background:#222;flex-shrink:0;overflow:hidden;cursor:pointer;border:1px solid var(--border)">';
-            if(src)thumb+='<img src="'+src+'" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover"/>';
-            else thumb+='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#666;font-size:10px">#</div>';
-            thumb+='</div>';
-            return '<div style="font-size:12px;margin-top:8px;display:flex;gap:8px;align-items:center">'
-              +thumb
-              +'<div style="flex:1;min-width:0"><div style="font-weight:700">#'+esc(String(r.id))+' @'+esc(r.user||'')+'</div>'
-              +'<div style="color:var(--muted);font-size:11px">'+esc((r.title||'').slice(0,40))+(r.at?' · '+ago(r.at):'')+'</div></div>'
-              +'<span style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-primary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="event.preventDefault();event.stopPropagation();window.approveFeature('+JSON.stringify(String(r.id))+')">Pin</button><button class="btn btn-secondary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="remindPinPayment('+JSON.stringify(String(r.id))+','+JSON.stringify(String(r.user||''))+')">📩 Remind</button><button class="btn btn-ghost btn-sm" type="button" style="padding:6px 10px;font-size:11px" data-admin="unpin-dismiss" data-id="'+esc(String(r.id))+'">✕</button></span></div>';
-          }).join('')+'</div>';
-        }
-        rreq=rreq.filter(function(x){return remDismissed.indexOf(String(x.id))<0});
-        rreq.sort(function(a,b){return (b.at||0)-(a.at||0)});
-        if(rreq.length){
-          html+='<div style="background:rgba(255,59,48,.1);border:1px solid rgba(255,59,48,.4);border-radius:12px;padding:10px;margin-bottom:8px"><strong style="color:#ff3b30">Remove requests ('+rreq.length+')</strong><p style="font-size:11px;color:var(--muted);margin:2px 0 0">Tap thumbnail to open post</p>'+rreq.slice(0,20).map(function(r){
-            var age=r.at?ago(r.at):'';
-            var p=posts.find(function(pp){return String(pp.id)===String(r.id)});
-            var src='';
-            if(p){var imgs=p.images&&p.images.length?p.images:parseImages(p.image);src=(imgs&&imgs[0])||''}
-            if(!src&&thumbMap[String(r.id)])src=thumbMap[String(r.id)];
-            var thumb='<div onclick="event.stopPropagation();openDetail('+r.id+')" style="width:52px;height:52px;border-radius:8px;background:#222;flex-shrink:0;overflow:hidden;cursor:pointer;border:1px solid var(--border)">';
-            if(src)thumb+='<img src="'+src+'" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block"/>';
-            else thumb+='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:16px">📸</div>';
-            thumb+='</div>';
-            return '<div id="rmreq-'+r.id+'" style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,59,48,.18)">'
-              +thumb+'<div style="flex:1;min-width:0">'
-              +'<div style="margin-bottom:4px;line-height:1.3"><strong>#'+r.id+'</strong> @'+esc(r.user||'?')+' · '+esc((r.title||'').slice(0,26))+(age?' <span style="color:var(--muted);font-size:10px">'+age+'</span>':'')+'</div>'
-              +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
-              +'<button class="btn btn-danger btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="event.preventDefault();event.stopPropagation();window.approveRemoveReq('+JSON.stringify(String(r.id))+')">✓ Delete (paid)</button>'
-              +'<button class="btn btn-secondary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="remindRemovePayment('+r.id+',\''+String(r.user||'').replace(/'/g,"\\'")+'\')">📩 Remind</button>'
-              +'<button class="btn btn-ghost btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="dismissRemoveReq('+r.id+')">✕ Dismiss</button>'
-              +'</div></div></div>';
-          }).join('')+'</div>';
-        } else {
-          html+='<div style="background:rgba(255,59,48,.06);border:1px solid rgba(255,59,48,.2);border-radius:12px;padding:10px;margin-bottom:8px;font-size:12px;color:var(--muted)">No remove requests</div>';
-        }
-        // Roulette 10-spin unlock requests ($10)
-        var rrq=[];
-        if(sb){
-          try{
-            var rn=await sb.from('notifications').select('*').eq('type','roulette_pack_request').order('created_at',{ascending:false}).limit(30);
-            rrq=(rn.data||[]);
-          }catch(e){}
-        }
-        var rouDismissed=[];try{rouDismissed=JSON.parse(localStorage.getItem('rs_roulette_dismissed')||'[]')||[]}catch(e){}
-        rrq=rrq.filter(function(r){return rouDismissed.indexOf(String(r.id))<0});
-        if(rrq.length){
-          html+='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px;margin-bottom:8px"><strong style="color:var(--orange)">🎰 Roulette unlocks ('+rrq.length+')</strong><p style="font-size:11px;color:var(--muted);margin:2px 0 0">Verify 50 FC / coin payment, then unlock 15 spins.</p>'+rrq.slice(0,20).map(function(r){
-            var u=r.from_username||'?';
-            var age=r.created_at?ago(new Date(r.created_at).getTime()):'';
-            return '<div style="font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong>'+(age?' <span style="color:var(--muted);font-size:10px">'+age+'</span>':'')
-              +'<div style="font-size:11px;color:var(--muted);margin:4px 0">'+esc(r.message||'Roulette $10 request')+'</div>'
-              +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
-              +'<button class="btn btn-primary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">✓ Unlock 10</button>'
-              +'<button class="btn btn-secondary btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">📩 Remind</button>'
-              +'<button class="btn btn-ghost btn-sm" type="button" style="padding:6px 10px;font-size:11px" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕ Dismiss</button>'
-              +'</div></div>';
-          }).join('')+'</div>';
-        } else {
-          html+='<div style="background:rgba(124,58,237,.05);border:1px solid rgba(124,58,237,.18);border-radius:12px;padding:10px;margin-bottom:8px;font-size:12px;color:var(--muted)">No roulette unlock requests</div>';
-        }
-
-        // Public exposure requests ($40)
-        var peDismissed=[];try{peDismissed=JSON.parse(localStorage.getItem('rs_pe_dismissed')||'[]')||[]}catch(e){}
-        var pereq=[];try{pereq=JSON.parse(localStorage.getItem('rs_public_exposure_req')||'[]')||[]}catch(e){}
-        pereq=pereq.filter(function(x){return peDismissed.indexOf(String(x.id))<0});
-        if(sb){
-          try{
-            var pn=await sb.from('notifications').select('*').eq('type','public_exposure_request').order('created_at',{ascending:false}).limit(20);
-            (pn.data||[]).forEach(function(n){
-              if(peDismissed.indexOf(String(n.id))>=0)return;
-              var parsed=null;
-              try{
-                var raw=n.message||'';
-                if(raw.indexOf('{')===0)parsed=JSON.parse(raw);
-              }catch(e){}
-              var exists=pereq.some(function(x){
-                if(String(x.id)===String(n.id))return true;
-                if(x.at&&n.created_at&&Math.abs(x.at-new Date(n.created_at).getTime())<8000)return true;
-                if(parsed&&x.name===parsed.name&&x.author===parsed.author)return true;
-                return false;
-              });
-              if(exists)return;
-              if(parsed){
-                pereq.push({
-                  id:n.id||Date.now(),
-                  name:parsed.name||'',
-                  age:parsed.age||'',
-                  city:parsed.city||'',
-                  socials:parsed.socials||'',
-                  photos:parsed.photos||[],
-                  author:parsed.author||n.from_username||'',
-                  at:n.created_at?new Date(n.created_at).getTime():Date.now(),
-                  fromDb:true
-                });
-              } else {
-                pereq.push({
-                  id:n.id||Date.now(),
-                  name:(n.message||'').replace(/^PUBLIC EXPOSURE \$40 — /,'').split('·')[0]||'Request',
-                  age:'',city:'',socials:n.message||'',photos:[],author:n.from_username||'',
-                  at:n.created_at?new Date(n.created_at).getTime():Date.now(),
-                  fromDb:true
-                });
-              }
-            });
-          }catch(e){}
-        }
-        if(sb){
-          try{
-            var pr=await sb.from('public_exposure_requests').select('*').order('created_at',{ascending:false}).limit(30);
-            (pr.data||[]).forEach(function(row){
-              var rid=row.id||('row_'+row.created_at);
-              if(peDismissed.indexOf(String(rid))>=0)return;
-              if(pereq.some(function(x){return String(x.id)===String(rid)||(x.name===row.name&&x.author===row.author)}))return;
-              pereq.push({
-                id:rid,name:row.name||'',age:row.age||'',city:row.city||'',socials:row.socials||'',
-                photos:row.photos||[],author:row.author||'',at:row.created_at?new Date(row.created_at).getTime():Date.now(),fromDb:true
-              });
-            });
-          }catch(e){}
-        }
-        pereq.sort(function(a,b){return (b.at||0)-(a.at||0)});
-        window.__peAdminCache=pereq;
-        html+='<div style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.45);border-radius:12px;padding:12px;margin-bottom:8px"><strong style="color:#c77dff">🖨 Public exposure requests ('+pereq.length+')</strong><p style="font-size:11px;color:var(--muted);margin:4px 0 0">$40 / 350 FC · newest first</p>';
-        if(!pereq.length){
-          html+='<div style="font-size:12px;color:var(--muted);margin-top:8px">No print requests yet</div></div>';
-        } else {
-          html+=pereq.slice(0,20).map(function(r){
-            var when=r.at?ago(r.at):'';
-            var photosHtml=(r.photos||[]).slice(0,5).map(function(src,i){
-              return '<a href="'+src+'" target="_blank" rel="noopener" style="display:block;position:relative">'
-                +'<img src="'+src+'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--border);display:block"/>'
-                +'<span style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 6px;border-radius:6px">Open</span>'
-                +'</a>';
-            }).join('');
-            return '<div style="font-size:13px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(168,85,247,.25)">'
-              +'<div style="margin-bottom:8px;line-height:1.5">'
-              +'<div><strong style="font-size:15px">'+esc(r.name||'Request')+'</strong>'+(when?' <span style="color:var(--muted);font-size:11px">'+when+'</span>':'')+'</div>'
-              +'<div style="color:var(--muted);font-size:12px;margin-top:4px">Age: <strong style="color:var(--text)">'+esc(r.age||'—')+'</strong></div>'
-              +'<div style="color:var(--muted);font-size:12px">City: <strong style="color:var(--text)">'+esc(r.city||'—')+'</strong></div>'
-              +'<div style="color:var(--muted);font-size:12px">User: <strong style="color:var(--text)">@'+esc(r.author||'?')+'</strong></div>'
-              +'<div style="color:var(--muted);font-size:12px;margin-top:4px;white-space:pre-wrap">Socials:<br><strong style="color:var(--text)">'+esc(r.socials||'—')+'</strong></div>'
-              +'</div>'
-              +(photosHtml?'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0">'+photosHtml+'</div>':'<div style="color:var(--muted);font-size:12px;margin:8px 0">No photos stored (open on the device that submitted)</div>')
-              +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
-              +((r.photos&&r.photos[0])?'<a class="btn btn-secondary btn-sm" href="'+r.photos[0]+'" target="_blank" rel="noopener" style="text-decoration:none">⬇ Photo 1</a>':'')
-              +((r.photos&&r.photos[1])?'<a class="btn btn-secondary btn-sm" href="'+r.photos[1]+'" target="_blank" rel="noopener" style="text-decoration:none">⬇ Photo 2</a>':'')
-              +((r.photos&&r.photos[2])?'<a class="btn btn-secondary btn-sm" href="'+r.photos[2]+'" target="_blank" rel="noopener" style="text-decoration:none">⬇ Photo 3</a>':'')
-              +((r.photos&&r.photos[3])?'<a class="btn btn-secondary btn-sm" href="'+r.photos[3]+'" target="_blank" rel="noopener" style="text-decoration:none">⬇ Photo 4</a>':'')
-              +((r.photos&&r.photos[4])?'<a class="btn btn-secondary btn-sm" href="'+r.photos[4]+'" target="_blank" rel="noopener" style="text-decoration:none">⬇ Photo 5</a>':'')
-              +'<textarea id="pe-admin-first-'+String(r.id).replace(/[^a-zA-Z0-9_-]/g,'_')+'" placeholder="Optional first admin reply / proof…" style="width:100%;min-height:52px;margin:8px 0 6px"></textarea>'
-              +'<button class="btn btn-primary btn-sm" type="button" onclick="approvePublicExposureReq(\''+String(r.id).replace(/'/g,"\\'")+'\')">✓ Accept & publish</button>'
-              +'<button class="btn btn-ghost btn-sm" type="button" onclick="dismissPublicExposureReq(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕ Dismiss</button>'
-              +'</div></div>';
-          }).join('')+'</div>';
-        }
-        reqBox.innerHTML=html;
+      // Lazy: only refresh badges + the active section. Do not load every admin bag at once.
+      try{await refreshAdminBadges()}catch(e){}
+      try{await openAdminSection(window.__adminSec||'pinned')}catch(e){
+        console.warn('renderAdmin',e);
       }
-      var list=document.getElementById('admin-list');if(!posts.length){list.innerHTML='<div class="empty">No posts</div>';return}list.innerHTML=posts.map(function(p){
-      var fu=postFeaturedUntil(p);var isF=fu>Date.now();
-      return '<div style="background:var(--elev);border:1px solid '+(isF?'var(--orange)':'var(--border)')+';border-radius:12px;padding:12px;margin-bottom:8px"><div style="display:flex;gap:10px;align-items:flex-start">'+postThumb(p)+'<div style="flex:1;min-width:0"><strong style="font-size:14px">'+(isF?'⭐ ':'')+esc(p.title)+'</strong><br><small style="color:var(--muted)">@'+esc(p.user)+' · '+(isProfileOnly(p)||!p.expires?'Permanent':' '+fmt(p.expires-Date.now()))+' · ID '+p.id+(isF?' · Featured '+fmt(fu-Date.now()):'')+'</small><div style="display:flex;gap:8px;margin-top:10px"><button class="btn '+(isF?'btn-ghost':'btn-primary')+' btn-sm" type="button" onclick="adminPin('+jsId(p.id)+','+(!isF)+')">'+(isF?'Unpin':'Pin 48h')+'</button><button class="btn btn-danger btn-sm" type="button" onclick="deletePost('+jsId(p.id)+')">Delete</button></div></div></div></div>';
-    }).join('')}
-    
+    }
+
     async function dismissPublicExposureReq(id, silent){
-      if(String(id).indexOf('PRINT-')===0){try{await cfAdminRejectRequest(String(id),'Rejected by admin');toast('Print rejected');await renderAdminPrints();return}catch(e){toast((e&&e.message)||'Could not reject');return}}
+      id=String(id||'');
+      var isCfPrint=false;
+      try{
+        isCfPrint=String(id).indexOf('PRINT-')===0 || !!(window.__peAdminCache||[]).some(function(x){return String(x.id)===id && x.cfRequest});
+      }catch(e){isCfPrint=String(id).indexOf('PRINT-')===0}
+      if(isCfPrint){
+        try{
+          await cfAdminRejectRequest(id,'Rejected by admin');
+          try{await recordPrintFulfilled(id,'rejected',{legacy:true})}catch(e2){}
+          markDismissed('rs_print_fulfilled', id);
+          markDismissed('rs_pe_dismissed', id);
+          if(!silent) toast('Print rejected');
+          await renderAdminPrints();
+          try{refreshAdminBadges()}catch(e){}
+          return;
+        }catch(e){toast((e&&e.message)||'Could not reject');return}
+      }
       id=String(id);
       // mark dismissed so it doesn't reappear from notifications
       try{
@@ -25878,6 +26005,7 @@ async function onIdFace(e){
       }catch(e){}
       toast('Dismissed');
       try{await renderAdminReqTab('pin')}catch(e){try{renderAdmin()}catch(e2){}}
+      try{refreshAdminBadges()}catch(e){}
     }
     async function dismissRemoveReq(id){
       id=String(id);
@@ -25897,6 +26025,7 @@ async function onIdFace(e){
       }
       toast('Dismissed');
       try{await renderAdminReqTab('remove')}catch(e){}
+      try{refreshAdminBadges()}catch(e){}
     }
     async function approveRemoveReq(id){
       id=String(id);
@@ -25931,7 +26060,12 @@ async function onIdFace(e){
         if(d.indexOf(id)<0)d.push(id);
         localStorage.setItem('rs_feature_dismissed',JSON.stringify(d.slice(-150)));
       }catch(e){}
-      return adminPin(id,true);
+      return Promise.resolve(adminPin(id,true)).then(function(res){
+        try{renderAdminPinnedList()}catch(e){}
+        try{renderAdminReqTab('pin')}catch(e){}
+        try{refreshAdminBadges()}catch(e){}
+        return res;
+      });
     }
     async function adminPin(id, pin){
       id=String(id);
