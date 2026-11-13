@@ -915,6 +915,23 @@
     }
     .btn-remove-led:active{transform:scale(.98)}
     .dx-actions{padding:2px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    /* Post Detail only — contact / privacy notice under action bar */
+    .dx-contact{
+      margin:10px 0 0;padding:0;background:transparent;border:0;
+      font-size:12px;line-height:1.45;color:var(--muted);font-weight:500;
+    }
+    .dx-contact-title{display:block;margin:0 0 4px;color:var(--muted)}
+    .dx-contact-links{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+    .dx-contact a{
+      color:#9a9aa3;text-decoration:none;font-weight:600;
+      display:inline-flex;align-items:center;gap:5px;
+    }
+    .dx-contact a:hover,.dx-contact a:focus{color:#c8c8d0;text-decoration:underline}
+    .dx-contact .dx-contact-ico{font-size:12px;line-height:1;opacity:.9}
+    @media(max-width:420px){
+      .dx-contact{font-size:11px}
+      .dx-contact-links{flex-direction:column;align-items:flex-start;gap:4px}
+    }
     .dx-row{
       width:100%;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:13px 10px;cursor:pointer;
       font-weight:800;font-size:13px;color:#eee;background:#17171c;text-align:center;
@@ -21055,6 +21072,17 @@ function postCardHtml(p, compact){
       try{refreshExtendCooldownButtons()}catch(e){}
     }
     window.syncExtendedPanel=syncExtendedPanel;
+    /** Reusable Post Detail contact notice — only inject via openDetail, never feed/cards. */
+    function postDetailContactNoticeHtml(){
+      return ''
+        +'<aside class="dx-contact" aria-label="Contact about this post">'
+        +'<span class="dx-contact-title">¿Problemas con esta publicación? Contáctanos:</span>'
+        +'<div class="dx-contact-links">'
+        +'<a href="mailto:0788adm@gmail.com"><span class="dx-contact-ico" aria-hidden="true">✉</span>0788adm@gmail.com</a>'
+        +'<a href="https://t.me/mastersan01" target="_blank" rel="noopener noreferrer"><span class="dx-contact-ico" aria-hidden="true">✈</span>Telegram: @mastersan01</a>'
+        +'</div></aside>';
+    }
+    window.postDetailContactNoticeHtml=postDetailContactNoticeHtml;
     async function openDetail(id, focusComment){
       id=String(id==null?'':id);
       if(!id)return;
@@ -21228,6 +21256,7 @@ function postCardHtml(p, compact){
         +'<button class="dx-pin" type="button" onclick="openFeature('+jsId(post.id)+')"><b>Request Feature</b><i>50 FC · 48h</i></button>'
         +removeBtn
         +'</div>';
+      var contactNotice=postDetailContactNoticeHtml();
       var dxStats='<div class="dx-stats">'
         +'<div><div class="n">'+neonChip('views','')+'<b>'+displayViews(post.views)+'</b></div><em>views</em></div>'
         +'<div><div class="n">'+neonChip('likes','')+'<b>'+(post.likes||0)+'</b></div><em>likes</em></div>'
@@ -21236,7 +21265,7 @@ function postCardHtml(p, compact){
         +'<div><div class="n">'+neonChip('extends','')+'<b>'+(post.extensions||0)+'</b></div><em>extends</em></div>'
         +'<div><div class="n">'+neonChip('saves','')+'<b>'+postSaveCount(post)+'</b></div><em>saves</em></div>'
         +'</div>';
-      document.getElementById('detail-content').innerHTML='<div class="post"><div class="post-h"><div class="av">'+avatarHtml(post.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+(isVerifiedUser(post.user)?nameWithVerified(post.user):('@'+esc(post.user)))+'</div><div class="post-time">'+ago(post.created)+'</div></div>'+(permanent?'':hourTimerHtml(post.expires,rem))+'</div><div class="post-b"><div class="dx-title">'+esc(post.title)+(tierBadgeDetail?' '+tierBadgeDetail:'')+'</div>'+(post.desc?'<div class="dx-desc">'+esc(post.desc)+'</div>':'')+'<div class="tags">'+publicTags(post.tags||[]).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div>'+media+((!permanent && rem>0 && rem<4*3600000)?'<div style="margin:8px 14px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'')+dxStats+reactBarHtml(post)+'<div style="padding:12px 14px">'+acts+'</div>'+extHtml+'<div class="cmt-box" style="padding:0 14px 14px"><div class="cmt-in"><input type="text" id="cmt-in" placeholder="Say it to '+esc(who)+'…"/><button class="btn btn-primary btn-sm" type="button" onclick="addComment('+jsId(post.id)+')">Send</button></div><div>'+(comments.map(function(c,ci){return commentCardHtml(post,c,ci)}).join('')||'<div class="cmt">Nobody has spoken to him yet.</div>')+'</div><p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Post ID: '+post.id+'</p></div></div>';
+      document.getElementById('detail-content').innerHTML='<div class="post"><div class="post-h"><div class="av">'+avatarHtml(post.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+(isVerifiedUser(post.user)?nameWithVerified(post.user):('@'+esc(post.user)))+'</div><div class="post-time">'+ago(post.created)+'</div></div>'+(permanent?'':hourTimerHtml(post.expires,rem))+'</div><div class="post-b"><div class="dx-title">'+esc(post.title)+(tierBadgeDetail?' '+tierBadgeDetail:'')+'</div>'+(post.desc?'<div class="dx-desc">'+esc(post.desc)+'</div>':'')+'<div class="tags">'+publicTags(post.tags||[]).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div>'+media+((!permanent && rem>0 && rem<4*3600000)?'<div style="margin:8px 14px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'')+dxStats+reactBarHtml(post)+'<div style="padding:12px 14px">'+acts+contactNotice+'</div>'+extHtml+'<div class="cmt-box" style="padding:0 14px 14px"><div class="cmt-in"><input type="text" id="cmt-in" placeholder="Say it to '+esc(who)+'…"/><button class="btn btn-primary btn-sm" type="button" onclick="addComment('+jsId(post.id)+')">Send</button></div><div>'+(comments.map(function(c,ci){return commentCardHtml(post,c,ci)}).join('')||'<div class="cmt">Nobody has spoken to him yet.</div>')+'</div><p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Post ID: '+post.id+'</p></div></div>';
       showPanel('detail');
       window.__blockFeedTap=Date.now()+500;
       function pinDetailTop(){
