@@ -18,7 +18,7 @@ function assert(cond, msg) {
 
 assert(html.indexOf('function postDetailContactNoticeHtml') >= 0, 'reusable helper exists');
 assert(html.indexOf('class="dx-contact"') >= 0, 'dx-contact markup');
-assert(html.indexOf('¿Problemas con esta publicación? Contáctanos:') >= 0, 'exact Spanish copy');
+assert(html.indexOf('Problems with this post? Contact us:') >= 0, 'exact English copy');
 assert(html.indexOf('mailto:0788adm@gmail.com') >= 0, 'mailto link');
 assert(html.indexOf('https://t.me/mastersan01') >= 0, 'Telegram profile link');
 assert(html.indexOf('Telegram: @mastersan01') >= 0, 'Telegram label');
