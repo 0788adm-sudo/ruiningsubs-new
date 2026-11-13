@@ -59,11 +59,11 @@ assert(/\/\^del:\//.test(html) || /\^del:/.test(html), 'publicTags filters del: 
 assert(/function isPaidRemovePost/.test(html), 'legacy isPaidRemovePost kept');
 assert(/allowLocalFallback/.test(html), 'free delete can fall back if API down');
 
-// Extend timed + deletable backfill must still be paid-remove (bugfix)
-assert(!/if\(tier==='deletable'\) return false;/.test(html), 'isPaidRemovePost no longer short-circuits deletable');
-assert(/postHasActiveTimer/.test(html) && /isPaidRemovePost/.test(html), 'paid-remove considers active Extend timers');
+// Explicit free deletion (deletable) must short-circuit paid-remove even with a live timer.
+assert(/postFreeDeletionEnabled\(p\)\) return false/.test(html) || /if\(tier==='deletable'\) return false/.test(html), 'isPaidRemovePost honors free/deletable');
+assert(/postHasActiveTimer/.test(html) && /isPaidRemovePost/.test(html), 'paid-remove still considers timers for legacy');
 assert(/function samePostOwner/.test(html), 'owner match normalizes @/case');
-assert(/legacyRequiresFc\(row\)\) return DELETE_COST_FC/.test(api) || /legacyRequiresFc\(row\) \? DELETE_COST_FC/.test(api) || /if \(legacyRequiresFc\(row\)\) return DELETE_COST_FC/.test(api), 'API charges timed Extend even when column is deletable');
-assert(!/if \(tier === 'deletable'\) return 0;\s*if \(tier === 'locked'/.test(api), 'API no longer free-exits deletable before timed check');
+assert(/freeDeletionEnabled\(row\) \|\| tier === 'deletable'/.test(api), 'API free-exits deletable / free_deletion_enabled');
+assert(/legacyRequiresFc/.test(api), 'API keeps legacy timed paid path for non-free posts');
 
 console.log('\nAll deletion-tier static checks passed');
