@@ -3815,7 +3815,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     async function cfAdminLogin(forcePass){
       try{var tok=sessionStorage.getItem('rs_cf_admin_token');if(tok&&forcePass==null)return tok}catch(e){}
       var pass=forcePass!=null?String(forcePass):'';
-      if(!pass){try{pass=((document.getElementById('admin-pass-input')||{}).value||'')}catch(e){}}
+      if(!pass){try{pass=((document.getElementById('admin-pass-input')||{}).value||'').trim()}catch(e){}}
+      // After unlock the password field is cleared — re-prompt so Approve/Reject still work on 401.
+      if(!pass){
+        try{pass=String(window.prompt('Admin password required to continue')||'').trim()}catch(e){pass=''}
+      }
       if(!pass) throw new Error('Enter admin password');
       var r=await fetch(CF_API+'/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass}),cache:'no-store'});
       var j=await r.json().catch(function(){return {}});
@@ -9129,14 +9133,22 @@ function openRoulette(){
         var act=hit.getAttribute('data-admin');
         var id=hit.getAttribute('data-id')||'';
         var user=hit.getAttribute('data-user')||'';
-        toast(act+' #'+id);
+        var paid=hit.getAttribute('data-paid')==='1';
+        var inputId=hit.getAttribute('data-input')||'';
         try{
-          if(act==='pin') return window.approveFeature(id);
-          if(act==='unpin-dismiss') return window.dismissFeatureReq(id);
-          if(act==='delete') return window.approveRemoveReq(id);
-          if(act==='remove-dismiss') return window.dismissRemoveReq(id);
-          if(act==='pin-remind') return window.remindPinPayment(id,user);
-          if(act==='remove-remind') return window.remindRemovePayment(id,user);
+          if(act==='pin') return (window.approveFeature||approveFeature)(id);
+          if(act==='cf-pin-approve') return (window.approveCloudflarePinRequest||approveCloudflarePinRequest)(id);
+          if(act==='cf-pin-reject') return (window.rejectCloudflareRequest||rejectCloudflareRequest)(id);
+          if(act==='unpin-dismiss') return (window.dismissFeatureReq||dismissFeatureReq)(id);
+          if(act==='delete') return (window.approveRemoveReq||approveRemoveReq)(id);
+          if(act==='remove-dismiss') return (window.dismissRemoveReq||dismissRemoveReq)(id);
+          if(act==='pin-remind') return (window.remindPinPayment||remindPinPayment)(id,user);
+          if(act==='remove-remind') return (window.remindRemovePayment||remindRemovePayment)(id,user);
+          if(act==='print-approve') return (window.approveCloudflarePrintRequest||approveCloudflarePrintRequest)(id);
+          if(act==='print-reject') return (window.rejectCloudflarePrintRequest||rejectCloudflarePrintRequest)(id,paid);
+          if(act==='print-sent') return (window.markPrintRequestSent||markPrintRequestSent)(id);
+          if(act==='coin-approve') return (window.approveCoinRequestCustom||approveCoinRequestCustom)(id,inputId);
+          if(act==='coin-reject') return (window.rejectCoinRequestAdmin||rejectCoinRequestAdmin)(id);
         }catch(e){toast((e&&e.message)||'Admin action failed')}
       },true);
     }
@@ -10242,6 +10254,7 @@ function openRoulette(){
           if(loBtn)loBtn.style.display='inline-flex';
           toast('Admin unlocked');
           try{purgeBlockedPins()}catch(e){}
+          try{setupAdminSections()}catch(e){}
           renderAdmin();
         }catch(e){
           console.error('Cloudflare admin login',e);
@@ -25506,7 +25519,7 @@ async function onIdFace(e){
       try{
         var rows=await cfAdminRequests('pending','coins');
         if(!rows.length){box.innerHTML='<div class="empty">No pending coin requests</div>';return}
-        box.innerHTML='<div style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.3);border-radius:14px;padding:12px"><strong style="color:#f5c518">💰 Coin requests ('+rows.length+')</strong><p style="font-size:12px;color:var(--muted)">Verify payment, choose the FC amount, then approve.</p>'+rows.map(function(r){var iid='coin-credit-'+String(r.id).replace(/[^a-zA-Z0-9_-]/g,'_');return '<div style="border-top:1px solid rgba(255,255,255,.09);padding:12px 0"><strong>@'+esc(r.user_id||'')+'</strong> · '+esc(r.amount||'')+'<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Requested '+Number(r.coins||0)+' FC · '+esc(r.id)+'</div><input id="'+iid+'" type="number" min="1" value="'+Number(r.coins||0)+'" style="width:100%;box-sizing:border-box;padding:10px;margin-bottom:8px;border-radius:10px;background:#09090b;color:#fff;border:1px solid var(--border)"><div style="display:flex;gap:7px"><button class="btn btn-primary btn-sm" style="flex:1" onclick="approveCoinRequestCustom('+JSON.stringify(String(r.id))+','+JSON.stringify(iid)+')">✓ Accept & add FC</button><button class="btn btn-ghost btn-sm" onclick="rejectCoinRequestAdmin('+JSON.stringify(String(r.id))+')">Reject</button></div></div>'}).join('')+'</div>';
+        box.innerHTML='<div style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.3);border-radius:14px;padding:12px"><strong style="color:#f5c518">💰 Coin requests ('+rows.length+')</strong><p style="font-size:12px;color:var(--muted)">Verify payment, choose the FC amount, then approve.</p>'+rows.map(function(r){var iid='coin-credit-'+String(r.id).replace(/[^a-zA-Z0-9_-]/g,'_');return '<div style="border-top:1px solid rgba(255,255,255,.09);padding:12px 0"><strong>@'+esc(r.user_id||'')+'</strong> · '+esc(r.amount||'')+'<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Requested '+Number(r.coins||0)+' FC · '+esc(r.id)+'</div><input id="'+iid+'" type="number" min="1" value="'+Number(r.coins||0)+'" style="width:100%;box-sizing:border-box;padding:10px;margin-bottom:8px;border-radius:10px;background:#09090b;color:#fff;border:1px solid var(--border)"><div style="display:flex;gap:7px"><button class="btn btn-primary btn-sm" style="flex:1" type="button" data-admin="coin-approve" data-id="'+esc(String(r.id))+'" data-input="'+esc(iid)+'">✓ Accept & add FC</button><button class="btn btn-ghost btn-sm" type="button" data-admin="coin-reject" data-id="'+esc(String(r.id))+'">Reject</button></div></div>'}).join('')+'</div>';
       }catch(e){box.innerHTML='<div class="empty">Could not load coin requests: '+esc((e&&e.message)||'error')+'</div>'}
     }
     async function approveCoinRequestCustom(id,inputId){try{var el=document.getElementById(inputId),coins=Math.max(0,Math.floor(Number(el&&el.value||0)));if(!coins){toast('Enter FC amount');return}if(!confirm('Credit '+coins+' FC?'))return;await cfAdminApproveRequest(id,coins);toast('✓ '+coins+' FC added');await renderAdminReqTab('pays')}catch(e){toast((e&&e.message)||'Could not approve')}}
@@ -25680,9 +25693,30 @@ async function onIdFace(e){
         var pid=normalizeAdminPostId(r.id||r.post_id);
         var key=pid || ('nid:'+String(r.nid||r.notifId||r.cfId||r.requestId||Math.random()));
         if(seen[key]){
-          // Keep richer copy (prefer one with thumb / newer).
+          // Merge without wiping CF requestId / nids from an earlier richer row.
           var prev=seen[key];
-          if((r.at||0)>(prev.at||0)) Object.assign(prev, r, {id:pid||prev.id});
+          var newer=(r.at||0)>(prev.at||0);
+          if(newer){
+            prev.title=r.title||prev.title;
+            prev.user=r.user||prev.user;
+            prev.amount=r.amount||prev.amount;
+            prev.message=r.message||prev.message;
+            prev.at=r.at||prev.at;
+            prev.thumb=r.thumb||prev.thumb;
+            prev.source=r.source||prev.source;
+          }else{
+            if(!prev.user && r.user) prev.user=r.user;
+            if(!prev.title && r.title) prev.title=r.title;
+            if(!prev.thumb && r.thumb) prev.thumb=r.thumb;
+          }
+          if(!prev.requestId && r.requestId) prev.requestId=r.requestId;
+          if(!prev.nid && r.nid) prev.nid=r.nid;
+          var nids=[].concat(prev.nids||[], prev.nid?[prev.nid]:[], r.nids||[], r.nid?[r.nid]:[]);
+          var uniq=[];
+          nids.forEach(function(n){if(n!=null && uniq.indexOf(n)<0)uniq.push(n)});
+          prev.nids=uniq;
+          if(uniq.length && !prev.nid) prev.nid=uniq[0];
+          prev.id=pid||prev.id;
           return;
         }
         var copy=Object.assign({}, r, {id:pid||r.id});
@@ -25895,8 +25929,8 @@ async function onIdFace(e){
             +'</div></div>'
             +'<div class="admin-actions">'
             +(r.requestId
-              ?('<button class="btn btn-primary btn-sm" type="button" onclick="approveCloudflarePinRequest('+JSON.stringify(String(r.requestId))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflareRequest('+JSON.stringify(String(r.requestId))+')">Reject</button>')
-              :('<button class="btn btn-primary btn-sm" type="button" onclick="approveFeature('+JSON.stringify(String(r.id))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissFeatureReq('+JSON.stringify(String(r.id))+')">Reject</button>'))
+              ?('<button class="btn btn-primary btn-sm" type="button" data-admin="cf-pin-approve" data-id="'+esc(String(r.requestId))+'">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" data-admin="cf-pin-reject" data-id="'+esc(String(r.requestId))+'">Reject</button>')
+              :('<button class="btn btn-primary btn-sm" type="button" data-admin="pin" data-id="'+esc(String(r.id))+'">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" data-admin="unpin-dismiss" data-id="'+esc(String(r.id))+'">Reject</button>'))
             +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">Open</button>'
             +'</div></div>';
         }).join('');
@@ -25999,7 +26033,34 @@ async function onIdFace(e){
         try{refreshAdminBadges()}catch(e){}
       }catch(e){toast((e&&e.message)||'Could not approve Pin request')}
     }
-    async function rejectCloudflareRequest(id){try{if(!confirm('Reject this request?'))return;await cfAdminRejectRequest(String(id),'Rejected by admin');toast('Request rejected');await renderAdminReqTab('pin');try{refreshAdminBadges()}catch(e){}}catch(e){toast((e&&e.message)||'Could not reject request')}}
+    async function rejectCloudflareRequest(id){
+      try{
+        if(!confirm('Reject this request?'))return;
+        id=String(id);
+        var postId='';
+        try{
+          var pending=await cfAdminRequests('pending','pin_payment_request');
+          for(var i=0;i<(pending||[]).length;i++){
+            if(String(pending[i].id)===id){postId=normalizeAdminPostId(pending[i].post_id);break}
+          }
+        }catch(e){}
+        await cfAdminRejectRequest(id,'Rejected by admin');
+        if(postId){
+          markDismissed('rs_feature_dismissed', postId);
+          try{
+            var a=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
+            localStorage.setItem('rs_feature_req', JSON.stringify(a.filter(function(x){return normalizeAdminPostId(x.id)!==postId})));
+          }catch(e){}
+          if(window.sb){
+            try{await sb.from('notifications').delete().eq('type','feature_request').eq('post_id', /^\d+$/.test(postId)?Number(postId):postId)}catch(e){}
+            try{await sb.from('notifications').delete().eq('type','pin_payment_request').eq('post_id', /^\d+$/.test(postId)?Number(postId):postId)}catch(e){}
+          }
+        }
+        toast('Request rejected');
+        await renderAdminReqTab('pin');
+        try{refreshAdminBadges()}catch(e){}
+      }catch(e){toast((e&&e.message)||'Could not reject request')}
+    }
     window.approveCloudflarePinRequest=approveCloudflarePinRequest;window.rejectCloudflareRequest=rejectCloudflareRequest;
 
     async function renderAdminRemoves(box){
@@ -26207,10 +26268,10 @@ async function onIdFace(e){
             ?('<div style="margin:8px 0;padding:8px;border:1px solid #f5c518;border-radius:10px;background:rgba(245,197,24,.08)"><div style="font-size:11px;font-weight:800;color:#f5c518;margin-bottom:6px">Payment screenshot</div><a href="'+esc(r.payment_proof)+'" target="_blank" rel="noopener"><img src="'+esc(r.payment_proof)+'" loading="lazy" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;background:#000"/></a></div>')
             :(st.paid&&String(r.paid_via)==='fc'?'<div style="font-size:12px;color:#22c55e;margin:8px 0">FC payment — screenshot not required</div>':'<div style="font-size:12px;color:#f87171;margin:8px 0">No payment screenshot · unpaid / unverified</div>');
           var actions=st.paid
-            ?('<button class="btn btn-primary btn-sm" type="button" id="btn-print-sent-'+sid+'" onclick="markPrintRequestSent('+JSON.stringify(r.id)+')">Enviar / Mark sent</button>'
-              +'<button class="btn btn-secondary btn-sm" type="button" onclick="approveCloudflarePrintRequest('+JSON.stringify(r.id)+')">Publish</button>'
-              +'<button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflarePrintRequest('+JSON.stringify(r.id)+',true)">Reject</button>')
-            :('<button class="btn btn-danger btn-sm" type="button" onclick="rejectCloudflarePrintRequest('+JSON.stringify(r.id)+',false)">Reject unpaid</button>');
+            ?('<button class="btn btn-primary btn-sm" type="button" id="btn-print-sent-'+sid+'" data-admin="print-sent" data-id="'+esc(String(r.id))+'">Enviar / Mark sent</button>'
+              +'<button class="btn btn-secondary btn-sm" type="button" data-admin="print-approve" data-id="'+esc(String(r.id))+'">Publish</button>'
+              +'<button class="btn btn-ghost btn-sm" type="button" data-admin="print-reject" data-id="'+esc(String(r.id))+'" data-paid="1">Reject</button>')
+            :('<button class="btn btn-danger btn-sm" type="button" data-admin="print-reject" data-id="'+esc(String(r.id))+'" data-paid="0">Reject unpaid</button>');
           return '<div class="admin-card" id="print-req-'+esc(String(r.id))+'">'
             +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">'
             +'<div><div style="font-weight:900">'+esc(r.name||'Request')+(r.order_code?' · <code style="color:#f5c518">'+esc(r.order_code)+'</code>':'')+'</div>'
@@ -26363,7 +26424,16 @@ async function onIdFace(e){
           }
         }
       }catch(e){}
-      toast('Dismissed');
+      // Also reject pending CF pin_payment_request rows for this post so they stay gone.
+      try{
+        var pending=await cfAdminRequests('pending','pin_payment_request');
+        for(var pi=0;pi<(pending||[]).length;pi++){
+          if(normalizeAdminPostId(pending[pi].post_id)===id && pending[pi].id){
+            try{await cfAdminRejectRequest(String(pending[pi].id),'Rejected by admin')}catch(e){}
+          }
+        }
+      }catch(e){}
+      toast('Rejected');
       try{await renderAdminReqTab('pin')}catch(e){try{renderAdmin()}catch(e2){}}
       try{refreshAdminBadges()}catch(e){}
     }
@@ -26381,7 +26451,24 @@ async function onIdFace(e){
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',Number(id)||id)}catch(e){}
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('id',id)}catch(e){}
       }
-      toast('Dismissed');
+      try{
+        var cfRemoveTargets=['admin','MasterSan','mastersan'];
+        for(var cri=0;cri<cfRemoveTargets.length;cri++){
+          var cfR=await fetchCfNotifs(cfRemoveTargets[cri],'remove_request').catch(function(){return []});
+          for(var ri=0;ri<(cfR||[]).length;ri++){
+            var cn=cfR[ri];
+            var cpid=normalizeAdminPostId(cn.post_id)||'';
+            if(!cpid){
+              var cmm=String(cn.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);
+              if(cmm)cpid=normalizeAdminPostId(cmm[1]);
+            }
+            if(cpid===id || String(cn.id||'')===id){
+              try{await fetch(CF_API+'/notifs/'+encodeURIComponent(String(cn.id)),{method:'DELETE'})}catch(e){}
+            }
+          }
+        }
+      }catch(e){}
+      toast('Rejected');
       try{await renderAdminReqTab('remove')}catch(e){}
       try{refreshAdminBadges()}catch(e){}
     }
@@ -26410,11 +26497,22 @@ async function onIdFace(e){
         localStorage.setItem('rs_feature_req',JSON.stringify(a));
       }catch(e){}
       markDismissed('rs_feature_dismissed', id);
-      return Promise.resolve(adminPin(id,true)).then(function(res){
-        try{renderAdminPinnedList()}catch(e){}
-        try{renderAdminReqTab('pin')}catch(e){}
+      return Promise.resolve(adminPin(id,true)).then(async function(res){
+        // Clear matching CF pin payment requests so Approve does not leave orphans.
+        try{
+          var pending=await cfAdminRequests('pending','pin_payment_request');
+          for(var pi=0;pi<(pending||[]).length;pi++){
+            if(normalizeAdminPostId(pending[pi].post_id)===id && pending[pi].id){
+              try{await cfAdminRejectRequest(String(pending[pi].id),'Approved via admin pin')}catch(e){}
+            }
+          }
+        }catch(e){}
+        try{await renderAdminPinnedList()}catch(e){}
+        try{await renderAdminReqTab('pin')}catch(e){}
         try{refreshAdminBadges()}catch(e){}
         return res;
+      }).catch(function(e){
+        toast((e&&e.message)||'Could not approve pin');
       });
     }
     async function adminPin(id, pin){
@@ -26520,11 +26618,13 @@ async function onIdFace(e){
       }catch(e){}
       try{payProgress(false)}catch(e){}
       if(ok) toast(pin?'Pinned 48h · everyone can see it':'Unpinned');
-      else toast(pin?'Pinned 48h · published for everyone':'Unpinned');
+      else toast((pin?'Pin failed':'Unpin failed')+(err?(' · '+err):''));
       try{await loadPublicPins()}catch(e){}
       try{await loadPosts()}catch(e){}
       try{renderPosts()}catch(e){}
       try{await renderAdminReqTab('pin')}catch(e){}
+      if(!ok) throw new Error(err||(pin?'Pin failed':'Unpin failed'));
+      return {ok:ok,id:id,until:until};
     }
     async function deleteOwnProfilePost(id){
       var post=posts.find(function(p){return String(p.id)===String(id)});
@@ -26730,7 +26830,16 @@ async function onIdFace(e){
     function toast(msg){try{var t=document.getElementById('toast');if(t){t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2800);return}}catch(e){}try{alert(msg)}catch(e2){}}
   
     try{
-      window.approveFeature=approveFeature;window.adminPin=adminPin;window.approveRemoveReq=approveRemoveReq;window.dismissFeatureReq=dismissFeatureReq;window.dismissRemoveReq=dismissRemoveReq;window.confirmRemovePaid=confirmRemovePaid;window.remindRemovePayment=remindRemovePayment;window.toggleAdminUsers=toggleAdminUsers;window.adminSetUserStatus=adminSetUserStatus;window.likeTask=likeTask;window.openDeleteTask=openDeleteTask;window.confirmDeleteTaskPaid=confirmDeleteTaskPaid;window.openDeleteTaskResp=openDeleteTaskResp;window.confirmDeleteTaskRespPaid=confirmDeleteTaskRespPaid;window.openPrintDirty=openPrintDirty;window.dismissPublicExposureReq=dismissPublicExposureReq;window.compressOldPosts=compressOldPosts;window.doForgot=doForgot;
+      window.approveFeature=approveFeature;window.adminPin=adminPin;window.approveRemoveReq=approveRemoveReq;window.dismissFeatureReq=dismissFeatureReq;window.dismissRemoveReq=dismissRemoveReq;window.confirmRemovePaid=confirmRemovePaid;window.remindRemovePayment=remindRemovePayment;window.remindPinPayment=remindPinPayment;window.remindRoulettePayment=remindRoulettePayment;window.remindPrintPayment=remindPrintPayment;window.toggleAdminUsers=toggleAdminUsers;window.adminSetUserStatus=adminSetUserStatus;window.likeTask=likeTask;window.openDeleteTask=openDeleteTask;window.confirmDeleteTaskPaid=confirmDeleteTaskPaid;window.openDeleteTaskResp=openDeleteTaskResp;window.confirmDeleteTaskRespPaid=confirmDeleteTaskRespPaid;window.openPrintDirty=openPrintDirty;window.dismissPublicExposureReq=dismissPublicExposureReq;window.compressOldPosts=compressOldPosts;window.doForgot=doForgot;
+      window.approveCloudflarePinRequest=approveCloudflarePinRequest;
+      window.rejectCloudflareRequest=rejectCloudflareRequest;
+      window.approveCloudflarePrintRequest=approveCloudflarePrintRequest;
+      window.rejectCloudflarePrintRequest=rejectCloudflarePrintRequest;
+      window.markPrintRequestSent=markPrintRequestSent;
+      window.approveCoinRequestCustom=approveCoinRequestCustom;
+      window.rejectCoinRequestAdmin=rejectCoinRequestAdmin;
+      window.setupAdminSections=setupAdminSections;
+      window.bindAdminClicks=bindAdminClicks;
       window.doSaveNewPassword=doSaveNewPassword;
       window.openRecoveryUI=openRecoveryUI;
       window.showAuth=showAuth;
