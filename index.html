@@ -1741,13 +1741,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 .admin-tabs .tab.active .admin-badge{background:rgba(0,0,0,.28);color:#111}
 .admin-sec{margin:0}
 .admin-card{
-  background:var(--elev);border:1px solid var(--border);border-radius:14px;
-  padding:12px;margin:0 0 10px;
+  background:var(--elev);border:1px solid var(--border);border-radius:12px;
+  padding:10px;margin:0 0 8px;
 }
-.admin-card-row{display:flex;gap:10px;align-items:flex-start}
+.admin-card-row{display:flex;gap:10px;align-items:center}
 .admin-thumb{
-  width:72px;height:72px;border-radius:10px;overflow:hidden;flex-shrink:0;
-  background:#1a1a1f;border:1px solid var(--border);
+  width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;
+  background:#1a1a1f;border:1px solid var(--border);cursor:pointer;
 }
 .admin-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .admin-status{
@@ -1758,11 +1758,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 .admin-status.pending{background:rgba(245,197,24,.14);color:#f5c518}
 .admin-status.sent{background:rgba(59,130,246,.15);color:#60a5fa}
 .admin-status.rejected{background:rgba(239,68,68,.14);color:#f87171}
-.admin-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.admin-actions .btn{flex:1 1 auto;min-width:110px;padding:11px 10px;font-weight:800}
+.admin-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-bottom:2px}
+.admin-actions .btn{flex:1 1 auto;min-width:104px;padding:10px 8px;font-weight:800}
 .admin-more-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.admin-check{width:18px;height:18px;accent-color:var(--orange);flex-shrink:0;margin-top:2px}
+.admin-toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
+#panel-admin #admin-body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 @media(max-width:420px){
-  .admin-thumb{width:64px;height:64px}
+  .admin-thumb{width:58px;height:58px}
   .admin-actions .btn{min-width:46%}
 }
 
@@ -3013,10 +3016,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
 
           <div class="admin-sec" id="asec-pinreq" style="display:none">
+            <div class="admin-card" style="margin-bottom:10px">
+              <strong>Pin requests</strong>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending pin payments. Thumbnails load from the real post. Use checkboxes to permanently delete old request records (posts stay online).</p>
+            </div>
             <div id="admin-req-pin"><div class="empty">Open to load…</div></div>
           </div>
 
           <div class="admin-sec" id="asec-removereq" style="display:none">
+            <div class="admin-card" style="margin-bottom:10px">
+              <strong>Delete requests</strong>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending remove requests with post thumbnails. Approve deletes the post; Reject or Delete selected only clears the request records.</p>
+            </div>
             <div id="admin-req-remove"><div class="empty">Open to load…</div></div>
           </div>
 
@@ -9182,15 +9193,53 @@ function openRoulette(){
         setAdminBadge('ab-pinned', pinN);
       }catch(e){}
       try{
-        var rows=await cfAdminRequests('pending','pin_payment_request');
-        setAdminBadge('ab-pinreq', (rows||[]).length);
+        var featDismissed=dismissedSet('rs_feature_dismissed');
+        var pinIds={};
+        try{
+          var rows=await cfAdminRequests('pending','pin_payment_request');
+          (rows||[]).forEach(function(r){
+            var id=normalizeAdminPostId(r.post_id);
+            if(id && featDismissed.indexOf(id)<0) pinIds[id]=1;
+          });
+        }catch(e){}
+        try{
+          (JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[]).forEach(function(r){
+            var id=normalizeAdminPostId(r.id);
+            if(id && featDismissed.indexOf(id)<0) pinIds[id]=1;
+          });
+        }catch(e){}
+        try{
+          if(window.sb){
+            var fr=await sb.from('notifications').select('post_id,message').in('type',['feature_request','pin_payment_request']).limit(80);
+            (fr.data||[]).forEach(function(n){
+              var id=normalizeAdminPostId(n.post_id);
+              if(!id){var mm=String(n.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);if(mm)id=normalizeAdminPostId(mm[1])}
+              if(id && featDismissed.indexOf(id)<0) pinIds[id]=1;
+            });
+          }
+        }catch(e){}
+        setAdminBadge('ab-pinreq', Object.keys(pinIds).length);
       }catch(e){setAdminBadge('ab-pinreq', 0)}
       try{
         var remDismissed=dismissedSet('rs_remove_dismissed');
-        var rreq=[];
-        try{rreq=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[]}catch(e){}
-        rreq=rreq.filter(function(x){return remDismissed.indexOf(String(x.id))<0});
-        setAdminBadge('ab-removereq', rreq.length);
+        var remIds={};
+        try{
+          (JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[]).forEach(function(x){
+            var id=normalizeAdminPostId(x.id);
+            if(id && remDismissed.indexOf(id)<0) remIds[id]=1;
+          });
+        }catch(e){}
+        try{
+          if(window.sb){
+            var nr=await sb.from('notifications').select('post_id,message').or('type.eq.remove_request,type.eq.remove').limit(120);
+            (nr.data||[]).forEach(function(n){
+              var id=normalizeAdminPostId(n.post_id);
+              if(!id){var mm=String(n.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);if(mm)id=normalizeAdminPostId(mm[1])}
+              if(id && remDismissed.indexOf(id)<0) remIds[id]=1;
+            });
+          }
+        }catch(e){}
+        setAdminBadge('ab-removereq', Object.keys(remIds).length);
       }catch(e){}
       try{
         var fulfilled=await loadPrintFulfilledIds();
@@ -25464,88 +25513,397 @@ async function onIdFace(e){
     async function rejectCoinRequestAdmin(id){try{if(!confirm('Reject this request?'))return;await cfAdminRejectRequest(id,'Payment not approved');toast('Rejected');await renderAdminReqTab('pays')}catch(e){toast((e&&e.message)||'Could not reject')}}
     window.approveCoinRequestCustom=approveCoinRequestCustom; window.rejectCoinRequestAdmin=rejectCoinRequestAdmin;
     function dismissedSet(key){
-      try{return JSON.parse(localStorage.getItem(key)||'[]')||[]}catch(e){return []}
+      try{
+        return (JSON.parse(localStorage.getItem(key)||'[]')||[])
+          .map(function(x){return normalizeAdminPostId(x)||String(x||'')})
+          .filter(Boolean);
+      }catch(e){return []}
     }
     function markDismissed(key,id){
-      id=String(id);
+      id=normalizeAdminPostId(id)||String(id||'');
+      if(!id) return;
       try{
-        var d=dismissedSet(key);
+        var d=dismissedSet(key).map(function(x){return normalizeAdminPostId(x)||String(x)});
         if(d.indexOf(id)<0)d.push(id);
         localStorage.setItem(key,JSON.stringify(d.slice(-200)));
       }catch(e){}
     }
+    function normalizeAdminPostId(id){
+      if(id==null || id==='') return '';
+      // CF/SB sometimes store numeric ids as 2762.0 — that breaks .eq/.in lookups.
+      if(typeof id==='number' && isFinite(id)) return String(Math.trunc(id));
+      var s=String(id).trim();
+      if(!s) return '';
+      if(/^\d+\.0+$/.test(s)) return String(parseInt(s,10));
+      if(/^\d+$/.test(s)) return s;
+      var m=s.match(/post\s*#([A-Za-z0-9_-]+)/i);
+      if(m) return normalizeAdminPostId(m[1]);
+      return s;
+    }
+    function adminParseImageField(raw){
+      if(raw==null || raw==='') return [];
+      if(Array.isArray(raw)) return raw.filter(Boolean);
+      if(typeof parseImages==='function'){
+        try{return parseImages(raw)||[]}catch(e){}
+      }
+      var s=String(raw).trim();
+      if(!s) return [];
+      if(s.charAt(0)==='[' || s.charAt(0)==='{'){
+        try{
+          var j=JSON.parse(s);
+          if(Array.isArray(j)) return j.filter(Boolean);
+          if(j && typeof j==='object'){
+            return [j.url||j.src||j.image||j.thumb||''].filter(Boolean);
+          }
+        }catch(e){}
+      }
+      return [s];
+    }
+    function adminFirstImageFromRow(row){
+      if(!row) return '';
+      var pool=[];
+      try{
+        if(Array.isArray(row.images)) pool=pool.concat(row.images);
+      }catch(e){}
+      try{pool=pool.concat(adminParseImageField(row.image_url||row.image||''))}catch(e){}
+      try{if(row.media_url) pool.push(row.media_url)}catch(e){}
+      try{if(row.thumb_url) pool.push(row.thumb_url)}catch(e){}
+      try{if(row.poster) pool.push(row.poster)}catch(e){}
+      try{
+        var vt=typeof parseVthumbTag==='function'?parseVthumbTag(row.tags||[]):'';
+        if(vt) pool.unshift(vt);
+      }catch(e){}
+      var img='', vid='';
+      for(var i=0;i<pool.length;i++){
+        var u=String(pool[i]||'').trim();
+        if(!u || u.indexOf('data:')===0) continue;
+        // Skip leftover JSON blobs that failed parsing.
+        if(u.charAt(0)==='[' || u.charAt(0)==='{') continue;
+        u=typeof publicMediaUrl==='function'?publicMediaUrl(u):u;
+        if(!u) continue;
+        var isVid=false;
+        try{isVid=typeof isVideoUrl==='function'?isVideoUrl(u):/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(u)}catch(e){}
+        if(isVid){ if(!vid) vid=u; continue; }
+        if(!img) img=u;
+      }
+      return img || '';
+    }
+    function adminThumbHtml(src, postId){
+      var open=postId?(' onclick="event.stopPropagation();openDetail('+JSON.stringify(String(postId))+')"'):'';
+      if(src){
+        var thumb=typeof feedThumb==='function'?feedThumb(src,180):src;
+        return '<div class="admin-thumb"'+open+'><img src="'+esc(thumb)+'" data-orig="'+esc(src)+'" loading="lazy" decoding="async" alt="" onerror="this.onerror=null;if(this.dataset.orig&&this.src!==this.dataset.orig)this.src=this.dataset.orig;"/></div>';
+      }
+      return '<div class="admin-thumb"'+open+' style="display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">#'+esc(String(postId||''))+'</div>';
+    }
     async function fetchAdminPostThumb(postId){
-      postId=String(postId||'');
-      if(!postId) return {src:'',user:'',title:'',created:0};
+      postId=normalizeAdminPostId(postId);
+      if(!postId) return {src:'',user:'',title:'',created:0,id:''};
       try{
         var live=typeof findPostAnywhere==='function'?findPostAnywhere(postId):null;
         if(live){
-          var imgs=live.images&&live.images.length?live.images:((typeof parseImages==='function'?parseImages(live.image):[])||[]);
-          var src=(imgs&&imgs[0])||live.image||live.thumb_url||live.media_url||'';
-          if(src) return {src:src,user:live.user||'',title:live.title||'',created:Number(live.created||0)||0};
+          var src=adminFirstImageFromRow(live);
+          if(src) return {src:src,user:live.user||'',title:live.title||'',created:Number(live.created||0)||0,id:postId};
         }
       }catch(e){}
       try{
         if(window.sb){
-          var tr=await sb.from('posts').select('id,image_url,username,title,created_at,media_url,thumb_url').eq('id',postId).maybeSingle();
+          // IMPORTANT: do NOT select media_url/thumb_url — those columns are CF-only and
+          // make the whole Supabase query 400, which left admin thumbs blank.
+          var tr=await sb.from('posts').select('id,image_url,username,title,created_at,tags').eq('id', /^\d+$/.test(postId)?Number(postId):postId).maybeSingle();
           var row=tr&&tr.data;
           if(row){
-            var imgs2=[];try{imgs2=parseImages(row.image_url)}catch(e){imgs2=row.image_url?[row.image_url]:[]}
-            var src2=(imgs2&&imgs2[0])||row.thumb_url||row.media_url||'';
-            return {src:src2||'',user:row.username||'',title:row.title||'',created:row.created_at?new Date(row.created_at).getTime():0};
+            return {
+              src:adminFirstImageFromRow(row)||'',
+              user:row.username||'',
+              title:row.title||'',
+              created:row.created_at?new Date(row.created_at).getTime():0,
+              id:normalizeAdminPostId(row.id)
+            };
           }
         }
-      }catch(e){}
+      }catch(e){console.warn('fetchAdminPostThumb sb',e)}
       try{
         var pr=await fetch(CF_API+'/posts/'+encodeURIComponent(postId),{cache:'no-store'});
         if(pr.ok){
           var pj=await pr.json().catch(function(){return{}});
           var post=pj.post||pj;
-          return {src:(post&&(post.thumb_url||post.media_url))||'',user:(post&&post.username)||'',title:(post&&post.title)||'',created:0};
+          var mapped=null;
+          try{if(typeof cfRowToFeed==='function') mapped=cfRowToFeed(post)}catch(e){}
+          var src2=adminFirstImageFromRow(mapped||post)||'';
+          return {src:src2,user:(mapped&&mapped.user)||(post&&post.username)||'',title:(mapped&&mapped.title)||(post&&post.title)||'',created:0,id:postId};
         }
       }catch(e){}
-      return {src:'',user:'',title:'',created:0};
+      return {src:'',user:'',title:'',created:0,id:postId};
     }
+    async function batchFetchAdminThumbs(ids){
+      var map={};
+      var uniq=[];
+      var seen={};
+      (ids||[]).forEach(function(id){
+        var n=normalizeAdminPostId(id);
+        if(!n || seen[n]) return;
+        seen[n]=1; uniq.push(n);
+      });
+      if(!uniq.length) return map;
+      // Prefer one SB round-trip for numeric ids.
+      var nums=uniq.filter(function(id){return /^\d+$/.test(id)}).map(Number);
+      if(window.sb && nums.length){
+        try{
+          var tr=await sb.from('posts').select('id,image_url,username,title,created_at,tags').in('id', nums.slice(0,80));
+          (tr.data||[]).forEach(function(row){
+            var id=normalizeAdminPostId(row.id);
+            map[id]={
+              src:adminFirstImageFromRow(row)||'',
+              user:row.username||'',
+              title:row.title||'',
+              created:row.created_at?new Date(row.created_at).getTime():0,
+              id:id
+            };
+          });
+        }catch(e){console.warn('batchFetchAdminThumbs',e)}
+      }
+      // Fill gaps individually (uuid / missing).
+      for(var i=0;i<uniq.length;i++){
+        if(map[uniq[i]] && map[uniq[i]].src) continue;
+        try{
+          var one=await fetchAdminPostThumb(uniq[i]);
+          if(one && (one.src || !map[uniq[i]])) map[uniq[i]]=one;
+        }catch(e){}
+      }
+      return map;
+    }
+    function dedupeAdminRequests(list){
+      var out=[], seen={};
+      (list||[]).forEach(function(r){
+        if(!r) return;
+        var pid=normalizeAdminPostId(r.id||r.post_id);
+        var key=pid || ('nid:'+String(r.nid||r.notifId||r.cfId||r.requestId||Math.random()));
+        if(seen[key]){
+          // Keep richer copy (prefer one with thumb / newer).
+          var prev=seen[key];
+          if((r.at||0)>(prev.at||0)) Object.assign(prev, r, {id:pid||prev.id});
+          return;
+        }
+        var copy=Object.assign({}, r, {id:pid||r.id});
+        seen[key]=copy;
+        out.push(copy);
+      });
+      return out;
+    }
+    async function permanentlyDeleteAdminRequests(kind, items){
+      kind=String(kind||'');
+      items=(items||[]).filter(Boolean);
+      if(!items.length){toast('Nothing selected');return {ok:false}}
+      if(!confirm('Permanently delete '+items.length+' '+kind+' request(s)?\nThis removes request records only — posts stay online.')) return {ok:false};
+      var deleted=0, errors=0;
+      for(var i=0;i<items.length;i++){
+        var it=items[i]||{};
+        var pid=normalizeAdminPostId(it.id||it.post_id);
+        var dismissKey=kind==='pin'?'rs_feature_dismissed':'rs_remove_dismissed';
+        if(pid) markDismissed(dismissKey, pid);
+        try{
+          if(kind==='pin'){
+            var a=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
+            localStorage.setItem('rs_feature_req', JSON.stringify(a.filter(function(x){return normalizeAdminPostId(x.id)!==pid})));
+          }else{
+            var b=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+            localStorage.setItem('rs_remove_req', JSON.stringify(b.filter(function(x){return normalizeAdminPostId(x.id)!==pid})));
+          }
+        }catch(e){}
+        // Delete Supabase notification rows for this post (request only, never the post).
+        if(window.sb && pid){
+          var types=kind==='pin'?['feature_request','pin_payment_request']:['remove_request','remove'];
+          var pidVariants=[pid];
+          if(/^\d+$/.test(pid)){
+            pidVariants.push(Number(pid));
+            pidVariants.push(pid+'.0');
+            pidVariants.push(Number(pid+'.0'));
+          }
+          for(var t=0;t<types.length;t++){
+            for(var pv=0;pv<pidVariants.length;pv++){
+              try{await sb.from('notifications').delete().eq('type',types[t]).eq('post_id',pidVariants[pv])}catch(e){errors++}
+            }
+            if(it.nid||(it.nids&&it.nids.length)){
+              var delIds=[].concat(it.nids||[], it.nid?[it.nid]:[]);
+              for(var di=0;di<delIds.length;di++){
+                try{await sb.from('notifications').delete().eq('id',delIds[di])}catch(e){}
+              }
+            }
+          }
+        }
+        // Delete known CF notification ids.
+        var nids=[].concat(it.nids||[], it.nid?[it.nid]:[], it.notifId?[it.notifId]:[]);
+        for(var n=0;n<nids.length;n++){
+          try{await fetch(CF_API+'/notifs/'+encodeURIComponent(String(nids[n])),{method:'DELETE'})}catch(e){errors++}
+        }
+        // Reject CF request rows when we have a request id distinct from post id.
+        if(it.requestId && String(it.requestId)!==String(pid)){
+          try{await cfAdminRejectRequest(String(it.requestId),'Purged old admin request')}catch(e){errors++}
+        }else if(kind==='pin' && pid && typeof cfAdminRequests==='function'){
+          // No requestId on merged row — reject any pending CF pin rows for this post.
+          try{
+            var pending=await cfAdminRequests('pending','pin_payment_request');
+            for(var pr=0;pr<(pending||[]).length;pr++){
+              if(normalizeAdminPostId(pending[pr].post_id)===pid && pending[pr].id){
+                try{await cfAdminRejectRequest(String(pending[pr].id),'Purged old admin request')}catch(e){errors++}
+              }
+            }
+          }catch(e){}
+        }
+        // Request records do not own post media — never delete posts or post image_url files here.
+        deleted++;
+      }
+      toast('Deleted '+deleted+' request'+(errors?' · some cleanup warnings':''));
+      return {ok:true,deleted:deleted,errors:errors};
+    }
+    function encodeAdminItem(obj){
+      try{return encodeURIComponent(JSON.stringify(obj||{}))}catch(e){return ''}
+    }
+    function decodeAdminItem(raw){
+      try{return JSON.parse(decodeURIComponent(String(raw||'')))||{}}catch(e){
+        try{return JSON.parse(String(raw||'{}'))||{}}catch(e2){return {}}
+      }
+    }
+    function collectCheckedAdminRequests(box){
+      if(!box) return [];
+      var out=[];
+      box.querySelectorAll('input.admin-req-check:checked').forEach(function(el){
+        out.push(decodeAdminItem(el.getAttribute('data-item')));
+      });
+      return out;
+    }
+    async function purgeSelectedAdminRequests(kind){
+      var box=document.getElementById(kind==='pin'?'admin-req-pin':'admin-req-remove');
+      var items=collectCheckedAdminRequests(box);
+      var res=await permanentlyDeleteAdminRequests(kind, items);
+      if(res&&res.ok){
+        if(kind==='pin') await renderAdminReqTab('pin');
+        else await renderAdminReqTab('remove');
+        try{refreshAdminBadges()}catch(e){}
+      }
+    }
+    async function purgeOldAdminRequests(kind, olderThanMs){
+      olderThanMs=Number(olderThanMs)||(7*24*3600*1000);
+      var box=document.getElementById(kind==='pin'?'admin-req-pin':'admin-req-remove');
+      if(!box) return;
+      var items=[];
+      box.querySelectorAll('input.admin-req-check').forEach(function(el){
+        try{
+          var it=decodeAdminItem(el.getAttribute('data-item'));
+          if((it.at||0) && (Date.now()-Number(it.at))>=olderThanMs) items.push(it);
+        }catch(e){}
+      });
+      if(!items.length){toast('No requests older than 7 days');return}
+      var res=await permanentlyDeleteAdminRequests(kind, items);
+      if(res&&res.ok){
+        if(kind==='pin') await renderAdminReqTab('pin');
+        else await renderAdminReqTab('remove');
+        try{refreshAdminBadges()}catch(e){}
+      }
+    }
+    window.normalizeAdminPostId=normalizeAdminPostId;
+    window.fetchAdminPostThumb=fetchAdminPostThumb;
+    window.batchFetchAdminThumbs=batchFetchAdminThumbs;
+    window.purgeSelectedAdminRequests=purgeSelectedAdminRequests;
+    window.purgeOldAdminRequests=purgeOldAdminRequests;
+    window.permanentlyDeleteAdminRequests=permanentlyDeleteAdminRequests;
+
     async function renderAdminPins(box){
       box=box||document.getElementById('admin-req-pin');if(!box)return;
       box.innerHTML='<div class="empty">Loading pin requests…</div>';
       try{
-        var rows=await cfAdminRequests('pending','pin_payment_request');
-        // Also merge local/SB feature requests that still need thumbs.
+        var rows=[];
+        try{rows=await cfAdminRequests('pending','pin_payment_request')}catch(e){rows=[]}
         var featDismissed=dismissedSet('rs_feature_dismissed');
-        var localReq=[];try{localReq=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[]}catch(e){}
-        localReq=localReq.filter(function(x){return featDismissed.indexOf(String(x.id))<0});
-        if(!rows.length && !localReq.length){box.innerHTML='<div class="empty">No pending Pin requests</div>';try{refreshAdminBadges()}catch(e){}return}
-        var out=[];
-        for(var i=0;i<Math.min(rows.length,40);i++){
-          var r=rows[i],payload={};try{payload=JSON.parse(r.payload||'{}')||{}}catch(e){}
-          var meta=await fetchAdminPostThumb(r.post_id);
-          var src=meta.src||'';
-          var when=r.created_at?new Date(Number(r.created_at)).toLocaleString():'';
-          out.push('<div class="admin-card">'
-          +'<div class="admin-card-row">'
-          +'<div class="admin-thumb">'+(src?'<img src="'+esc(src)+'" loading="lazy" alt=""/>':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">#'+esc(String(r.post_id||''))+'</div>')+'</div>'
-          +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:11px;letter-spacing:1px;color:#c4b5fd;font-weight:900">PIN REQUEST</div>'
-          +'<div style="font-weight:900;margin-top:2px">#'+esc(String(r.post_id||r.id))+' · @'+esc(r.user_id||meta.user||'')+'</div>'
-          +'<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc((meta.title||r.label||'Premium Pin').slice(0,60))+'</div>'
-          +'<span class="admin-status pending">PENDING</span>'
-          +'<div style="font-size:11px;color:var(--muted);margin-top:6px">'+esc(r.amount||'$5 / 50 FC')+' · '+Number(r.coins||50)+' FC'+(when?' · '+esc(when):'')+'</div>'
-          +'</div></div>'
-          +(payload.message?'<div style="margin-top:10px;padding:9px;border-radius:10px;background:rgba(255,255,255,.04);font-size:11px;color:var(--muted)">'+esc(payload.message)+'</div>':'')
-          +'<div class="admin-actions"><button class="btn btn-primary btn-sm" type="button" onclick="approveCloudflarePinRequest('+JSON.stringify(String(r.id))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflareRequest('+JSON.stringify(String(r.id))+')">Reject</button></div></div>');
+        var list=[];
+        (rows||[]).forEach(function(r){
+          var pid=normalizeAdminPostId(r.post_id);
+          if(!pid || featDismissed.indexOf(pid)>=0) return;
+          var payload={};try{payload=JSON.parse(r.payload||'{}')||{}}catch(e){}
+          list.push({
+            id:pid,
+            requestId:String(r.id||''),
+            user:r.user_id||'',
+            title:r.label||payload.message||'Premium Pin',
+            amount:r.amount||'$5 / 50 FC',
+            coins:Number(r.coins||50)||50,
+            at:Number(r.created_at||Date.now())||Date.now(),
+            message:payload.message||'',
+            source:'cf'
+          });
+        });
+        // Local pending
+        try{
+          var localReq=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
+          localReq.forEach(function(lr){
+            var pid=normalizeAdminPostId(lr.id);
+            if(!pid || featDismissed.indexOf(pid)>=0) return;
+            list.push({id:pid,user:lr.user||'',title:lr.title||'',amount:lr.amount||'$5',at:Number(lr.at||Date.now()),thumb:lr.thumb||'',source:'local'});
+          });
+        }catch(e){}
+        // Supabase feature/pin notifications (source of many live requests)
+        if(window.sb){
+          try{
+            var frDb=await sb.from('notifications').select('id,type,from_username,post_id,message,created_at').in('type',['feature_request','pin_payment_request']).order('created_at',{ascending:false}).limit(80);
+            (frDb.data||[]).forEach(function(n){
+              var pid=normalizeAdminPostId(n.post_id);
+              if(!pid){
+                var mm=String(n.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);
+                if(mm) pid=normalizeAdminPostId(mm[1]);
+              }
+              if(!pid || featDismissed.indexOf(pid)>=0) return;
+              list.push({
+                id:pid,
+                user:n.from_username||'',
+                title:(n.message||'').slice(0,60),
+                amount:'$5',
+                at:n.created_at?new Date(n.created_at).getTime():Date.now(),
+                nid:n.id,
+                nids:[n.id],
+                source:'sb'
+              });
+            });
+          }catch(e){console.warn('load sb pin reqs',e)}
         }
-        for(var j=0;j<Math.min(localReq.length,20);j++){
-          var lr=localReq[j];
-          if(rows.some(function(x){return String(x.post_id)===String(lr.id)})) continue;
-          var meta2=await fetchAdminPostThumb(lr.id);
-          var src2=lr.thumb||meta2.src||'';
-          out.push('<div class="admin-card"><div class="admin-card-row"><div class="admin-thumb">'+(src2?'<img src="'+esc(src2)+'" loading="lazy" alt=""/>':'')+'</div><div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(lr.id))+' · @'+esc(lr.user||meta2.user||'')+'</div><div style="font-size:12px;color:var(--muted)">'+esc((lr.title||meta2.title||'').slice(0,50))+(lr.at?' · '+ago(lr.at):'')+'</div><span class="admin-status pending">PENDING</span></div></div><div class="admin-actions"><button class="btn btn-primary btn-sm" type="button" onclick="approveFeature('+JSON.stringify(String(lr.id))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissFeatureReq('+JSON.stringify(String(lr.id))+')">Reject</button></div></div>');
+        list=dedupeAdminRequests(list).filter(function(x){return featDismissed.indexOf(normalizeAdminPostId(x.id))<0});
+        list.sort(function(a,b){return (b.at||0)-(a.at||0)});
+        if(!list.length){
+          box.innerHTML='<div class="empty">No pending Pin requests</div>';
+          try{refreshAdminBadges()}catch(e){}
+          return;
         }
-        box.innerHTML=out.join('')||'<div class="empty">No pending Pin requests</div>';
+        var thumbMap=await batchFetchAdminThumbs(list.map(function(x){return x.id}));
+        var toolbar='<div class="admin-toolbar">'
+          +'<button class="btn btn-danger btn-sm" type="button" onclick="purgeSelectedAdminRequests(\'pin\')">Delete selected</button>'
+          +'<button class="btn btn-ghost btn-sm" type="button" onclick="purgeOldAdminRequests(\'pin\')">Purge &gt;7d</button>'
+          +'<span style="font-size:11px;color:var(--muted)">'+list.length+' unique</span></div>';
+        box.innerHTML=toolbar+list.slice(0,40).map(function(r){
+          var meta=thumbMap[normalizeAdminPostId(r.id)]||{};
+          var src=r.thumb||meta.src||'';
+          var when=r.at?ago(r.at):'';
+          var item=encodeAdminItem({id:r.id,requestId:r.requestId||'',nid:r.nid||'',nids:r.nids||[],at:r.at||0});
+          return '<div class="admin-card" data-post="'+esc(String(r.id))+'">'
+            +'<div class="admin-card-row">'
+            +'<input class="admin-check admin-req-check" type="checkbox" data-item="'+item+'"/>'
+            +adminThumbHtml(src,r.id)
+            +'<div style="flex:1;min-width:0">'
+            +'<div style="font-size:11px;letter-spacing:1px;color:#c4b5fd;font-weight:900">PIN REQUEST</div>'
+            +'<div style="font-weight:900;margin-top:2px">#'+esc(String(r.id))+' · @'+esc(r.user||meta.user||'')+'</div>'
+            +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc((meta.title||r.title||'Premium Pin').slice(0,55))+(when?' · '+when:'')+'</div>'
+            +'<span class="admin-status pending">PENDING · '+esc(r.amount||('$5 / '+(r.coins||50)+' FC'))+'</span>'
+            +'</div></div>'
+            +'<div class="admin-actions">'
+            +(r.requestId
+              ?('<button class="btn btn-primary btn-sm" type="button" onclick="approveCloudflarePinRequest('+JSON.stringify(String(r.requestId))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="rejectCloudflareRequest('+JSON.stringify(String(r.requestId))+')">Reject</button>')
+              :('<button class="btn btn-primary btn-sm" type="button" onclick="approveFeature('+JSON.stringify(String(r.id))+')">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissFeatureReq('+JSON.stringify(String(r.id))+')">Reject</button>'))
+            +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">Open</button>'
+            +'</div></div>';
+        }).join('');
         try{refreshAdminBadges()}catch(e){}
       }catch(e){box.innerHTML='<div class="empty">Could not load Pin requests: '+esc((e&&e.message)||'error')+'</div>'}
     }
+
     async function renderAdminPinnedList(){
       var box=document.getElementById('admin-pinned-list');
       if(!box)return;
@@ -25555,21 +25913,20 @@ async function onIdFace(e){
       var seen={};
       function add(p, until){
         if(!p||p.id==null)return;
-        var id=String(p.id);
-        if(seen[id])return;
+        var id=normalizeAdminPostId(p.id);
+        if(!id||seen[id])return;
         until=Number(until||p.featuredUntil||0)||0;
         if(until<=Date.now())return;
         seen[id]=1;
-        list.push({p:p,until:until});
+        list.push({p:Object.assign({},p,{id:id}),until:until});
       }
       try{(window.__pinBoard||[]).forEach(function(p){add(p,p.featuredUntil)})}catch(e){}
       try{
         if(window.sb){
           var featQ=await sb.from('posts').select('id,username,title,image_url,created_at,featured_until,tags').gt('featured_until',new Date().toISOString()).order('featured_until',{ascending:false}).limit(30);
           (featQ.data||[]).forEach(function(row){
-            var imgs=[];try{imgs=parseImages(row.image_url)}catch(e){imgs=row.image_url?[row.image_url]:[]}
             add({
-              id:row.id,user:row.username,title:row.title||'',image:imgs[0]||'',images:imgs,
+              id:row.id,user:row.username,title:row.title||'',image:adminFirstImageFromRow(row),images:[adminFirstImageFromRow(row)].filter(Boolean),
               created:row.created_at?new Date(row.created_at).getTime():0,
               featuredUntil:row.featured_until?new Date(row.featured_until).getTime():0,
               tags:row.tags||[]
@@ -25591,23 +25948,22 @@ async function onIdFace(e){
       }
       box.innerHTML=list.map(function(item){
         var p=item.p;
-        var imgs=p.images&&p.images.length?p.images:((typeof parseImages==='function'?parseImages(p.image):[])||[]);
-        var src=(imgs&&imgs[0])||p.image||p.thumb_url||'';
+        var src=adminFirstImageFromRow(p)||'';
         var created=p.created?new Date(p.created).toLocaleString():'';
         var left=item.until-Date.now();
         return '<div class="admin-card" id="admin-pin-'+esc(String(p.id))+'"><div class="admin-card-row">'
-          +'<div class="admin-thumb">'+(src?'<img src="'+esc(src)+'" loading="lazy" alt=""/>':'')+'</div>'
+          +adminThumbHtml(src,p.id)
           +'<div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(p.id))+' · @'+esc(p.user||'')+'</div>'
-          +'<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc(String(p.title||'').slice(0,70))+'</div>'
+          +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(String(p.title||'').slice(0,70))+'</div>'
           +'<span class="admin-status paid">PINNED · '+esc(typeof fmt==='function'?fmt(left):'')+' left</span>'
-          +'<div style="font-size:11px;color:var(--muted);margin-top:6px">'+(created?('Published '+esc(created)):'')+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+(created?('Published '+esc(created)):'')+'</div>'
           +'</div></div><div class="admin-actions"><button class="btn btn-danger btn-sm" type="button" onclick="adminUnpinFromPanel('+JSON.stringify(String(p.id))+')">Unpin</button><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(p.id))+')">Open</button></div></div>';
       }).join('');
       try{refreshAdminBadges()}catch(e){}
     }
     async function adminUnpinFromPanel(id){
       try{
-        await adminPin(String(id), false);
+        await adminPin(String(normalizeAdminPostId(id)), false);
         toast('Unpinned #'+id);
         await renderAdminPinnedList();
         try{refreshAdminBadges()}catch(e){}
@@ -25622,21 +25978,17 @@ async function onIdFace(e){
         var res=await cfAdminApproveRequest(id,50);
         if(!res||res.ok===false)throw new Error('Approval failed');
         var until=Number(res.featured_until)||0;
-        var pid=String(res.post_id||'');
+        var pid=normalizeAdminPostId(res.post_id||'');
         if(pid){
           try{
-            var pr=await fetch(CF_API+'/posts/'+encodeURIComponent(pid),{cache:'no-store'});
-            var pj=await pr.json().catch(function(){return {}});
-            var row=pj&&pj.post;
-            if(row){
-              var mapped=cfRowToFeed(row);
-              mapped.featuredUntil=Math.max(Number(mapped.featuredUntil)||0,until);
-              var i=(posts||[]).findIndex(function(x){return String(x.id)===pid});
-              if(i>=0)posts[i]=Object.assign({},posts[i],mapped,{featuredUntil:mapped.featuredUntil});
-              else {posts=posts||[];posts.unshift(mapped);}
-              try{setLocalFeatured(pid,mapped.featuredUntil)}catch(e){}
-              try{saveFeaturedSnap(mapped,mapped.featuredUntil)}catch(e){}
-            }
+            var meta=await fetchAdminPostThumb(pid);
+            var mapped={id:pid,user:meta.user,title:meta.title,image:meta.src,images:meta.src?[meta.src]:[],featuredUntil:until};
+            var i=(posts||[]).findIndex(function(x){return normalizeAdminPostId(x.id)===pid});
+            if(i>=0)posts[i]=Object.assign({},posts[i],mapped,{featuredUntil:Math.max(Number(posts[i].featuredUntil)||0,until)});
+            else {posts=posts||[];posts.unshift(mapped);}
+            try{setLocalFeatured(pid,until)}catch(e){}
+            try{saveFeaturedSnap(mapped,until)}catch(e){}
+            try{await adminPin(pid,true)}catch(e){}
           }catch(e){console.warn('refresh approved pin',e)}
         }
         try{await loadPosts()}catch(e){}
@@ -25649,15 +26001,23 @@ async function onIdFace(e){
     }
     async function rejectCloudflareRequest(id){try{if(!confirm('Reject this request?'))return;await cfAdminRejectRequest(String(id),'Rejected by admin');toast('Request rejected');await renderAdminReqTab('pin');try{refreshAdminBadges()}catch(e){}}catch(e){toast((e&&e.message)||'Could not reject request')}}
     window.approveCloudflarePinRequest=approveCloudflarePinRequest;window.rejectCloudflareRequest=rejectCloudflareRequest;
+
     async function renderAdminRemoves(box){
       box=box||document.getElementById('admin-req-remove');
       if(!box)return;
+      box.innerHTML='<div class="empty">Loading delete requests…</div>';
       var remDismissed=dismissedSet('rs_remove_dismissed');
       var rreq=[];
-      try{rreq=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[]}catch(e){}
+      try{
+        (JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[]).forEach(function(x){
+          var pid=normalizeAdminPostId(x.id);
+          if(!pid) return;
+          rreq.push({id:pid,title:x.title||'',user:x.user||'',at:Number(x.at||Date.now()),source:'local'});
+        });
+      }catch(e){}
       try{
         var cfR=[];
-        var cfRemoveTargets=['admin','MasterSan'];
+        var cfRemoveTargets=['admin','MasterSan','mastersan'];
         for(var cri=0;cri<cfRemoveTargets.length;cri++){
           try{
             var rpart=await fetchCfNotifs(cfRemoveTargets[cri],'remove_request');
@@ -25665,59 +26025,63 @@ async function onIdFace(e){
           }catch(e){console.warn('CF remove target '+cfRemoveTargets[cri],e)}
         }
         (cfR||[]).forEach(function(n){
-          var pid=n.post_id;
-          if(!pid){var mm=String(n.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);if(mm)pid=mm[1];}
-          if(!pid)pid='req_'+n.id;
-          if(!rreq.some(function(x){return String(x.id)===String(pid)})){
-            rreq.push({id:pid,title:(n.message||'').slice(0,80),user:n.from_username||'',at:Number(n.created_at)||Date.now(),nid:n.id,cf:true});
-          }
+          var pid=normalizeAdminPostId(n.post_id);
+          if(!pid){var mm=String(n.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);if(mm)pid=normalizeAdminPostId(mm[1]);}
+          if(!pid) return;
+          rreq.push({id:pid,title:(n.message||'').slice(0,80),user:n.from_username||'',at:Number(n.created_at)||Date.now(),nid:n.id,nids:[n.id],cf:true,source:'cf'});
         });
       }catch(e){console.warn('load CF remove requests',e)}
       if(sb){
         try{
-          var nr=await sb.from('notifications').select('*').or('type.eq.remove_request,type.eq.remove').order('created_at',{ascending:false}).limit(80);
+          var nr=await sb.from('notifications').select('id,type,from_username,post_id,message,created_at').or('type.eq.remove_request,type.eq.remove').order('created_at',{ascending:false}).limit(120);
           (nr.data||[]).forEach(function(n){
-            var pid=n.post_id;
+            var pid=normalizeAdminPostId(n.post_id);
             if(!pid){
               var mm=String(n.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);
-              if(mm)pid=mm[1];
+              if(mm)pid=normalizeAdminPostId(mm[1]);
             }
-            if(!pid) pid='req_'+n.id;
-            if(!rreq.some(function(x){return String(x.id)===String(pid)})){
-              rreq.push({id:pid,title:(n.message||'').slice(0,80),user:n.from_username||'',at:n.created_at?new Date(n.created_at).getTime():Date.now()});
-            }
+            if(!pid) return;
+            rreq.push({id:pid,title:(n.message||'').slice(0,80),user:n.from_username||'',at:n.created_at?new Date(n.created_at).getTime():Date.now(),nid:n.id,nids:[n.id],source:'sb'});
           });
         }catch(e){}
       }
-      rreq=rreq.filter(function(x){return remDismissed.indexOf(String(x.id))<0});
+      // Merge nids for same post before dedupe loss.
+      var nidBag={};
+      rreq.forEach(function(r){
+        var pid=normalizeAdminPostId(r.id);
+        if(!pid) return;
+        nidBag[pid]=nidBag[pid]||[];
+        (r.nids||[]).concat(r.nid?[r.nid]:[]).forEach(function(n){if(nidBag[pid].indexOf(n)<0)nidBag[pid].push(n)});
+      });
+      rreq=dedupeAdminRequests(rreq).filter(function(x){return remDismissed.indexOf(normalizeAdminPostId(x.id))<0});
+      rreq.forEach(function(r){r.nids=nidBag[normalizeAdminPostId(r.id)]||r.nids||[]});
       rreq.sort(function(a,b){return (b.at||0)-(a.at||0)});
-      if(!rreq.length){box.innerHTML='<div class="empty">No remove requests</div>';return}
-      var ids=rreq.map(function(r){return r.id});
-      var thumbMap={};
-      if(sb&&ids.length){
-        try{
-          var tr=await sb.from('posts').select('id,image_url,username,title').in('id',ids.slice(0,40));
-          (tr.data||[]).forEach(function(row){
-            var imgs=[];try{imgs=parseImages(row.image_url)}catch(e){imgs=row.image_url?[row.image_url]:[]}
-            thumbMap[String(row.id)]={src:imgs[0]||'',user:row.username,title:row.title};
-          });
-        }catch(e){}
-      }
-      box.innerHTML=rreq.slice(0,30).map(function(r){
-        var meta=thumbMap[String(r.id)]||{};
+      if(!rreq.length){box.innerHTML='<div class="empty">No remove requests</div>';try{refreshAdminBadges()}catch(e){}return}
+      var thumbMap=await batchFetchAdminThumbs(rreq.map(function(r){return r.id}));
+      var toolbar='<div class="admin-toolbar">'
+        +'<button class="btn btn-danger btn-sm" type="button" onclick="purgeSelectedAdminRequests(\'remove\')">Delete selected</button>'
+        +'<button class="btn btn-ghost btn-sm" type="button" onclick="purgeOldAdminRequests(\'remove\')">Purge &gt;7d</button>'
+        +'<span style="font-size:11px;color:var(--muted)">'+rreq.length+' unique</span></div>';
+      box.innerHTML=toolbar+rreq.slice(0,40).map(function(r){
+        var meta=thumbMap[normalizeAdminPostId(r.id)]||{};
         var src=meta.src||'';
+        var item=encodeAdminItem({id:r.id,nid:r.nid||'',nids:r.nids||[],at:r.at||0});
         return '<div class="admin-card"><div class="admin-card-row">'
-          +'<div class="admin-thumb" onclick="openDetail('+JSON.stringify(String(r.id))+')">'+(src?'<img src="'+esc(src)+'" loading="lazy" alt=""/>':'')+'</div>'
+          +'<input class="admin-check admin-req-check" type="checkbox" data-item="'+item+'"/>'
+          +adminThumbHtml(src,r.id)
           +'<div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(r.id))+' · @'+esc(r.user||meta.user||'')+'</div>'
-          +'<div style="font-size:12px;color:var(--muted)">'+esc((r.title||meta.title||'').slice(0,50))+(r.at?' · '+ago(r.at):'')+'</div>'
+          +'<div style="font-size:12px;color:var(--muted)">'+esc((meta.title||r.title||'').slice(0,50))+(r.at?' · '+ago(r.at):'')+'</div>'
           +'<span class="admin-status pending">DELETE REQUEST</span></div></div>'
           +'<div class="admin-actions">'
           +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'">Approve delete</button>'
           +'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-remind" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(r.user||''))+'">Remind</button>'
           +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'">Reject</button>'
+          +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">Open</button>'
           +'</div></div>';
       }).join('');
+      try{refreshAdminBadges()}catch(e){}
     }
+
     async function renderAdminRouletteBox(box){
       box=box||document.getElementById('admin-req-roulette');
       if(!box)return;
@@ -25972,14 +26336,10 @@ async function onIdFace(e){
       try{await renderAdminReqTab('print')}catch(e){try{renderAdmin()}catch(e2){}}
     }
     async function dismissFeatureReq(id){
-      id=String(id);
+      id=normalizeAdminPostId(id)||String(id);
+      markDismissed('rs_feature_dismissed', id);
       try{
-        var d=JSON.parse(localStorage.getItem('rs_feature_dismissed')||'[]')||[];
-        if(d.indexOf(id)<0)d.push(id);
-        localStorage.setItem('rs_feature_dismissed',JSON.stringify(d.slice(-150)));
-      }catch(e){}
-      try{
-        var a=JSON.parse(localStorage.getItem('rs_feature_req')||'[]').filter(function(x){return String(x.id)!==id});
+        var a=JSON.parse(localStorage.getItem('rs_feature_req')||'[]').filter(function(x){return normalizeAdminPostId(x.id)!==id});
         localStorage.setItem('rs_feature_req',JSON.stringify(a));
       }catch(e){}
       if(sb){
@@ -25993,10 +26353,10 @@ async function onIdFace(e){
         cfReqs=(cfReqs||[]).concat(await fetchCfNotifs('admin','pin_payment_request').catch(function(){return []}));
         for(var ci=0;ci<(cfReqs||[]).length;ci++){
           var cn=cfReqs[ci];
-          var cpid=String(cn.post_id||'');
+          var cpid=normalizeAdminPostId(cn.post_id)||'';
           if(!cpid){
             var cmm=String(cn.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);
-            if(cmm)cpid=String(cmm[1]);
+            if(cmm)cpid=normalizeAdminPostId(cmm[1]);
           }
           if(cpid===id || String(cn.id||'')===id){
             try{await fetch(CF_API+'/notifs/'+encodeURIComponent(String(cn.id)),{method:'DELETE'})}catch(e){}
@@ -26008,19 +26368,17 @@ async function onIdFace(e){
       try{refreshAdminBadges()}catch(e){}
     }
     async function dismissRemoveReq(id){
-      id=String(id);
+      id=normalizeAdminPostId(id)||String(id);
       try{var el=document.getElementById('rmreq-'+id);if(el){el.style.opacity='0.35';el.style.pointerEvents='none'}}catch(e){}
+      markDismissed('rs_remove_dismissed', id);
       try{
-        var d=JSON.parse(localStorage.getItem('rs_remove_dismissed')||'[]')||[];
-        if(d.indexOf(id)<0)d.push(id);
-        localStorage.setItem('rs_remove_dismissed',JSON.stringify(d.slice(-150)));
-      }catch(e){}
-      try{
-        var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]').filter(function(x){return String(x.id)!==id});
+        var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]').filter(function(x){return normalizeAdminPostId(x.id)!==id});
         localStorage.setItem('rs_remove_req',JSON.stringify(a));
       }catch(e){}
       if(sb){
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',id)}catch(e){}
+        try{await sb.from('notifications').delete().eq('type','remove').eq('post_id',id)}catch(e){}
+        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',Number(id)||id)}catch(e){}
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('id',id)}catch(e){}
       }
       toast('Dismissed');
@@ -26028,15 +26386,11 @@ async function onIdFace(e){
       try{refreshAdminBadges()}catch(e){}
     }
     async function approveRemoveReq(id){
-      id=String(id);
+      id=normalizeAdminPostId(id)||String(id);
       toast('Deleting #'+id+'…');
+      markDismissed('rs_remove_dismissed', id);
       try{
-        var d=JSON.parse(localStorage.getItem('rs_remove_dismissed')||'[]')||[];
-        if(d.indexOf(id)<0)d.push(id);
-        localStorage.setItem('rs_remove_dismissed',JSON.stringify(d.slice(-150)));
-      }catch(e){}
-      try{
-        var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]').filter(function(x){return String(x.id)!==id});
+        var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]').filter(function(x){return normalizeAdminPostId(x.id)!==id});
         localStorage.setItem('rs_remove_req',JSON.stringify(a));
       }catch(e){}
       if(sb){
@@ -26049,17 +26403,13 @@ async function onIdFace(e){
     }
 
     function approveFeature(id){
-      id=String(id);
+      id=normalizeAdminPostId(id)||String(id);
       toast('Pinning #'+id+'…');
       try{
-        var a=JSON.parse(localStorage.getItem('rs_feature_req')||'[]').filter(function(x){return String(x.id)!==id});
+        var a=JSON.parse(localStorage.getItem('rs_feature_req')||'[]').filter(function(x){return normalizeAdminPostId(x.id)!==id});
         localStorage.setItem('rs_feature_req',JSON.stringify(a));
       }catch(e){}
-      try{
-        var d=JSON.parse(localStorage.getItem('rs_feature_dismissed')||'[]')||[];
-        if(d.indexOf(id)<0)d.push(id);
-        localStorage.setItem('rs_feature_dismissed',JSON.stringify(d.slice(-150)));
-      }catch(e){}
+      markDismissed('rs_feature_dismissed', id);
       return Promise.resolve(adminPin(id,true)).then(function(res){
         try{renderAdminPinnedList()}catch(e){}
         try{renderAdminReqTab('pin')}catch(e){}
