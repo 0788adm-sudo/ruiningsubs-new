@@ -7,14 +7,17 @@
  *   postId: string,
  *   reason?: 'owner'|'moderation'|'privacy',
  *   adminKey?: string,
+ *   ownerToken?: string,
  *   idempotencyKey?: string
  * }
  *
- * - deletable / legacy-free: owner deletes free
- * - locked / permanent / legacy-timed: owner pays 50 FC (server-side price only)
+ * - deletable / free_deletion_enabled: verified owner deletes free (even with timer)
+ * - locked / permanent: owner pays 50 FC (server-side price only)
+ * - legacy timed (no explicit free flag): owner pays 50 FC
  * - moderation / privacy: free for admins — Permanent never blocks these
  * - spend is idempotent via CF wallet ledger; post is only deleted after successful spend
  */
+const crypto = require('crypto');
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 const DELETE_COST_FC = Number(process.env.FC_COST_DELETE || 50) || 50;
@@ -93,10 +96,24 @@ function resolveTier(row) {
   return 'legacy';
 }
 
-/** Legacy timed-remove detection (mirrors client isPaidRemovePost). */
+function freeDeletionEnabled(row) {
+  if (row && (row.free_deletion_enabled === true || row.free_deletion_enabled === 'true' || row.free_deletion_enabled === 1)) {
+    return true;
+  }
+  if (resolveTier(row) === 'deletable') return true;
+  const tags = parseTags(row?.tags).map((t) => String(t).toLowerCase());
+  if (tags.some((t) => t === 'remove:free' || t === 'delete:free' || t === 'free-remove')) return true;
+  return false;
+}
+
+function hashOwnerToken(token) {
+  return crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
+}
+
+/** Legacy timed-remove detection (only when free deletion was NOT explicitly chosen). */
 function legacyRequiresFc(row) {
+  if (freeDeletionEnabled(row)) return false;
   const tags = parseTags(row?.tags).map((t) => t.toLowerCase());
-  if (tags.some((t) => t === 'remove:free' || t === 'delete:free' || t === 'free-remove')) return false;
   if (tags.some((t) => t === 'profile_gallery' || t === 'profile_only' || t === 'normal_feed' || t === 'generated_id')) {
     return false;
   }
@@ -109,10 +126,10 @@ function legacyRequiresFc(row) {
 function ownerDeleteCost(row) {
   const tier = resolveTier(row);
   if (tier === 'locked' || tier === 'permanent') return DELETE_COST_FC;
-  // deletable was backfilled onto timed Extend rows. Keep Wall/normal free, but
-  // charge 50 FC when legacy timed-remove rules match (active expires_at / extend).
+  // Explicit free deletion (compose choice) always free for the verified author.
+  if (freeDeletionEnabled(row) || tier === 'deletable') return 0;
+  // Legacy posts without an explicit free flag still pay when timed/Extend rules match.
   if (legacyRequiresFc(row)) return DELETE_COST_FC;
-  if (tier === 'deletable') return 0;
   return 0;
 }
 
@@ -243,9 +260,16 @@ module.exports = async function handler(req, res) {
   {
     let q = await client
       .from('posts')
-      .select('id,username,tags,expires_at,extend_amount,deletion_tier')
+      .select('id,username,tags,expires_at,extend_amount,deletion_tier,free_deletion_enabled,owner_token_hash')
       .eq('id', postId)
       .maybeSingle();
+    if (q.error && /free_deletion_enabled|owner_token_hash/i.test(String(q.error.message || ''))) {
+      q = await client
+        .from('posts')
+        .select('id,username,tags,expires_at,extend_amount,deletion_tier')
+        .eq('id', postId)
+        .maybeSingle();
+    }
     if (q.error && /deletion_tier/i.test(String(q.error.message || ''))) {
       q = await client
         .from('posts')
@@ -260,7 +284,16 @@ module.exports = async function handler(req, res) {
 
   const owner = normUser(row.username);
   const tier = resolveTier(row);
-  const isOwner = owner === user;
+  const ownerToken = String(body.ownerToken || body.owner_token || '').trim();
+  let tokenOk = false;
+  if (ownerToken && row.owner_token_hash) {
+    try {
+      tokenOk = hashOwnerToken(ownerToken) === String(row.owner_token_hash || '').trim().toLowerCase();
+    } catch (_) {
+      tokenOk = false;
+    }
+  }
+  const isOwner = owner === user || tokenOk;
   const freeOverride =
     FREE_REASONS.has(reason) && (isAdminUser(user) || adminKeyOk(body.adminKey));
 
@@ -311,10 +344,12 @@ module.exports = async function handler(req, res) {
     ok: true,
     postId,
     tier,
+    free_deletion_enabled: freeDeletionEnabled(row),
     charged,
     reason: freeOverride ? reason : 'owner',
     balance: spend && spend.balance,
     free: !!freeOverride || charged === 0,
-    reused: !!(spend && spend.reused)
+    reused: !!(spend && spend.reused),
+    via_owner_token: !!tokenOk
   });
 };
