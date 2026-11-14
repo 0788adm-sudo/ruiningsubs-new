@@ -1,0 +1,47 @@
+# Ruinexpose / RuiningSubs — crawler policy
+# Public pages and eligible posts may be indexed.
+# Private app surfaces, auth, admin, and APIs must not be indexed.
+
+User-agent: *
+Allow: /
+Allow: /post/
+Allow: /p/
+Allow: /extend
+Allow: /wall
+Allow: /spotlight
+Allow: /explore
+Allow: /goontok
+Allow: /videos
+Allow: /sitemap.xml
+
+Disallow: /admin
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /messages
+Disallow: /profile
+Disallow: /coins
+Disallow: /alerts
+Disallow: /notifs
+Disallow: /randomcam
+Disallow: /upload-video
+
+# Prefer permanent post URLs over legacy query/hash forms
+Sitemap: https://www.ruinexpose.com/sitemap.xml
+
+User-agent: Googlebot
+Allow: /
+Allow: /post/
+Allow: /p/
+Disallow: /admin
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /messages
+Disallow: /profile
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /post/
+Disallow: /admin
+Disallow: /api/

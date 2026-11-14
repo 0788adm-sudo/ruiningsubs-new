@@ -1,5 +1,5 @@
-// Dynamic Open Graph HTML for shared posts (?p=ID).
-// Telegram/Facebook/etc. do not run the SPA JS — they need server HTML meta tags.
+// Dynamic Open Graph + SEO HTML for shared posts (?p=ID / /post/:id).
+// Telegram/Facebook/Googlebot do not run the SPA JS — they need server HTML meta tags.
 // Uses the public Supabase anon key (already in the client) + CF Worker fallback.
 
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
@@ -14,6 +14,20 @@ const SUPABASE_ANON =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
 
+const BLOCK_TAGS = {
+  noindex: 1,
+  seo_exclude: 1,
+  private: 1,
+  removed: 1,
+  deleted: 1,
+  takedown: 1,
+  dmca: 1,
+  reported: 1,
+  nonconsent: 1,
+  'non-consent': 1,
+  non_consensual: 1
+};
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -21,6 +35,39 @@ function esc(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function normalizeTags(tags) {
+  var arr = tags;
+  if (typeof arr === 'string') {
+    try {
+      arr = JSON.parse(arr);
+    } catch (e) {
+      arr = String(arr)
+        .split(/[,\s]+/)
+        .filter(Boolean);
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  return arr.map(function (t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/^#/, '')
+      .trim();
+  });
+}
+
+function isIndexablePost(post) {
+  if (!post || post.id == null) return false;
+  if (post.expires_at) {
+    var exp = new Date(post.expires_at).getTime();
+    if (exp && isFinite(exp) && exp < Date.now()) return false;
+  }
+  var tags = normalizeTags(post.tags);
+  for (var i = 0; i < tags.length; i++) {
+    if (BLOCK_TAGS[tags[i]]) return false;
+  }
+  return true;
 }
 
 // Worker /media/ paths 404 for crawlers; public R2 host serves the same object keys.
@@ -154,6 +201,28 @@ async function loadPost(id) {
   return null;
 }
 
+function jsonLd(opts) {
+  var data = {
+    '@context': 'https://schema.org',
+    '@type': 'SocialMediaPosting',
+    headline: opts.title,
+    description: opts.desc,
+    url: opts.url,
+    mainEntityOfPage: opts.url,
+    datePublished: opts.published || undefined,
+    author: opts.user
+      ? { '@type': 'Person', name: opts.user, url: SITE + '/u/' + encodeURIComponent(opts.user) }
+      : undefined,
+    image: opts.image && opts.image !== DEFAULT_IMAGE ? [opts.image] : undefined,
+    isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE + '/' }
+  };
+  return (
+    '<script type="application/ld+json">' +
+    JSON.stringify(data).replace(/</g, '\\u003c') +
+    '</script>'
+  );
+}
+
 function htmlPage(opts) {
   var title = opts.title;
   var desc = opts.desc;
@@ -161,6 +230,11 @@ function htmlPage(opts) {
   var url = opts.url;
   var user = opts.user;
   var spa = opts.spa;
+  var indexable = !!opts.indexable;
+  var robots = indexable
+    ? 'index,follow,max-image-preview:large'
+    : 'noindex,nofollow';
+  var imgAlt = clip(opts.imgAlt || title || 'Post image', 120);
   // No meta-refresh: crawlers that follow it would land on the SPA and lose OG tags.
   // Humans who hit /api/og get a plain link + JS redirect.
   return (
@@ -172,6 +246,12 @@ function htmlPage(opts) {
     '</title>' +
     '<meta name="description" content="' +
     esc(desc) +
+    '"/>' +
+    '<meta name="robots" content="' +
+    robots +
+    '"/>' +
+    '<meta name="googlebot" content="' +
+    robots +
     '"/>' +
     '<link rel="canonical" href="' +
     esc(url) +
@@ -195,6 +275,9 @@ function htmlPage(opts) {
     '<meta property="og:image:secure_url" content="' +
     esc(image) +
     '"/>' +
+    '<meta property="og:image:alt" content="' +
+    esc(imgAlt) +
+    '"/>' +
     '<meta property="og:image:type" content="image/jpeg"/>' +
     '<meta property="og:image:width" content="1200"/>' +
     '<meta property="og:image:height" content="630"/>' +
@@ -211,13 +294,34 @@ function htmlPage(opts) {
     (user
       ? '<meta property="article:author" content="' + esc('@' + user) + '"/>'
       : '') +
-    '</head><body style="background:#050506;color:#ececef;font-family:system-ui,sans-serif;padding:24px">' +
-    '<p>Opening post…</p>' +
+    (indexable ? jsonLd(opts) : '') +
+    '</head><body style="background:#050506;color:#ececef;font-family:system-ui,sans-serif;padding:24px;max-width:720px;margin:0 auto">' +
+    '<article>' +
     '<p><a href="' +
-    esc(spa) +
-    '" style="color:#ff6a00">Continue to ' +
+    esc(SITE + '/') +
+    '" style="color:#ff6a00;text-decoration:none">' +
     esc(SITE_NAME) +
     '</a></p>' +
+    '<h1 style="font-size:1.35rem;line-height:1.25;margin:12px 0">' +
+    esc(title) +
+    '</h1>' +
+    (user ? '<p style="color:#9a9aa3">@' + esc(user) + '</p>' : '') +
+    '<p style="line-height:1.45;color:#cfcfd6">' +
+    esc(desc) +
+    '</p>' +
+    (image && image !== DEFAULT_IMAGE
+      ? '<p><img src="' +
+        esc(image) +
+        '" alt="' +
+        esc(imgAlt) +
+        '" width="1200" height="630" style="max-width:100%;height:auto;border-radius:12px"/></p>'
+      : '') +
+    '<p><a href="' +
+    esc(spa) +
+    '" style="color:#ff6a00">Open this post on ' +
+    esc(SITE_NAME) +
+    '</a></p>' +
+    '</article>' +
     '<script>location.replace(' +
     JSON.stringify(spa) +
     ')</script>' +
@@ -242,20 +346,21 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    // Humans hitting the rewrite land here — send them to the SPA without looping
-    // back through the "/?p=" rewrite (index.html?p= is not rewritten).
+    // Humans hitting the rewrite land here — send them to the SPA permalink
+    // without looping through the "/?p=" rewrite.
     var ua = (req.headers && (req.headers['user-agent'] || req.headers['User-Agent'])) || '';
     if (!isBot(ua)) {
       res.statusCode = 302;
-      res.setHeader('Location', '/index.html?p=' + encodeURIComponent(id));
+      res.setHeader('Location', '/post/' + encodeURIComponent(id));
       res.setHeader('Cache-Control', 'private, no-store');
       res.end();
       return;
     }
 
     var post = await loadPost(id);
-    var spa = SITE + '/index.html?p=' + encodeURIComponent(id);
-    var url = SITE + '/?p=' + encodeURIComponent(id);
+    var indexable = isIndexablePost(post);
+    var canonical = SITE + '/post/' + encodeURIComponent(String(post && post.id != null ? post.id : id));
+    var spa = canonical;
 
     var user = post ? String(post.username || post.user || '').replace(/^@/, '') : '';
     var rawTitle = post ? String(post.title || '').trim() : '';
@@ -264,15 +369,38 @@ module.exports = async function handler(req, res) {
       ? clip((user ? user + ': ' : '') + (rawTitle || 'Exposure post'), 90)
       : SITE_NAME + ' — post';
     var desc = post
-      ? clip(rawDesc || rawTitle || 'Open this exposure on ruiningsubs.com', 180)
-      : 'Public exposure board at ruiningsubs.com';
+      ? clip(rawDesc || rawTitle || 'Open this exposure on ruinexpose.com', 180)
+      : 'Public exposure board at ruinexpose.com';
     var image = post ? pickImage(post) : DEFAULT_IMAGE;
+    var imgAlt = clip((rawTitle || 'Public exposure photo') + (user ? ' by @' + user : ''), 120);
 
-    var body = htmlPage({ title: title, desc: desc, image: image, url: url, user: user, spa: spa });
-    res.statusCode = 200;
+    var body = htmlPage({
+      title: title,
+      desc: desc,
+      image: image,
+      url: canonical,
+      user: user,
+      spa: spa,
+      indexable: indexable,
+      imgAlt: imgAlt,
+      published: post && post.created_at ? post.created_at : ''
+    });
+    res.statusCode = indexable || !post ? 200 : 200;
+    // Missing / blocked posts still return 200 with noindex so share previews stay soft.
+    if (!post) res.statusCode = 404;
+    else if (!indexable) res.statusCode = 410;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader(
+      'Cache-Control',
+      indexable ? 'public, s-maxage=300, stale-while-revalidate=600' : 'public, s-maxage=60, stale-while-revalidate=120'
+    );
     res.setHeader('Vary', 'User-Agent');
+    // Soft status for crawlers that treat 410 as hard-delete; keep HTML body for clarity.
+    if (!post) {
+      // 404 with noindex body
+    } else if (!indexable) {
+      // 410 Gone for expired/excluded
+    }
     res.end(body);
   } catch (e) {
     res.statusCode = 500;

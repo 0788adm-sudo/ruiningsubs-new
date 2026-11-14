@@ -1,5 +1,16 @@
 {
+  "headers": [
+    {
+      "source": "/robots.txt",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [{ "key": "Cache-Control", "value": "public, s-maxage=600, stale-while-revalidate=3600" }]
+    }
+  ],
   "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/admin/", "destination": "/index.html" },
     {
@@ -12,8 +23,10 @@
       "has": [{ "type": "query", "key": "post" }],
       "destination": "/api/og"
     },
-    { "source": "/post/:id", "destination": "/api/og?p=:id" },
-    { "source": "/p/:id", "destination": "/api/og?p=:id" },
+    { "source": "/post/:id", "destination": "/index.html" },
+    { "source": "/post/:id/", "destination": "/index.html" },
+    { "source": "/p/:id", "destination": "/index.html" },
+    { "source": "/p/:id/", "destination": "/index.html" },
     { "source": "/extend", "destination": "/index.html" },
     { "source": "/extend/", "destination": "/index.html" },
     { "source": "/feed", "destination": "/index.html" },

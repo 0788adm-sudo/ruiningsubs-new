@@ -11,24 +11,24 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Ruining Subs (ruiningsubs.com) | Public exposure board</title>
-  <meta name="description" content="They're public. Timer running. Share before they pay to hide. Photos, videos, ID cards — ruiningsubs.com"/>
-  <meta name="keywords" content="Ruining Subs, ruiningsubs.com, ruiningsubs, public exposure board, exposure feed, MasterSan, Ruin Roulette"/>
+  <title>Ruining Subs (ruinexpose.com) | Public exposure board</title>
+  <meta name="description" content="They're public. Timer running. Share before they pay to hide. Photos, videos, ID cards — ruinexpose.com"/>
+  <meta name="keywords" content="Ruining Subs, ruinexpose.com, ruiningsubs.com, ruiningsubs, public exposure board, exposure feed, MasterSan, Ruin Roulette"/>
   <meta name="robots" content="index,follow,max-image-preview:large"/>
   <meta name="googlebot" content="index,follow"/>
-  <link rel="canonical" href="https://www.ruiningsubs.com/"/>
+  <link rel="canonical" href="https://www.ruinexpose.com/"/>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='16' font-family='Impact,Arial Black,sans-serif' fill='%23ff6a00'%3ERS%3C/text%3E%3C/svg%3E"/>
   <meta property="og:site_name" content="Ruining Subs"/>
   <meta property="og:title" content="RuiningSubs — they're public. Open it."/>
   <meta property="og:description" content="Live exposure board. Photos, videos, IDs. Share before they pay to delete."/>
-  <meta property="og:url" content="https://www.ruiningsubs.com/"/>
+  <meta property="og:url" content="https://www.ruinexpose.com/"/>
   <meta property="og:type" content="website"/>
-  <meta property="og:image" content="https://www.ruiningsubs.com/icon-192.png"/>
+  <meta property="og:image" content="https://www.ruinexpose.com/icon-192.png"/>
   <meta name="twitter:card" content="summary_large_image"/>
-  <meta name="twitter:image" content="https://www.ruiningsubs.com/icon-192.png"/>
-  <meta name="twitter:title" content="Ruining Subs (ruiningsubs.com)"/>
-  <meta name="twitter:description" content="Public exposure board at ruiningsubs.com"/>
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ruining Subs","url":"https://www.ruiningsubs.com/","alternateName":["ruiningsubs","ruiningsubs.com","RuiningSubs"],"description":"Public exposure board. Post photos, ID cards, printed exposure, Ruin Roulette.","potentialAction":{"@type":"SearchAction","target":"https://www.ruiningsubs.com/#wall","query-input":"required name=search_term_string"}}</script>
+  <meta name="twitter:image" content="https://www.ruinexpose.com/icon-192.png"/>
+  <meta name="twitter:title" content="Ruining Subs (ruinexpose.com)"/>
+  <meta name="twitter:description" content="Public exposure board at ruinexpose.com"/>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ruining Subs","url":"https://www.ruinexpose.com/","alternateName":["ruinexpose","ruinexpose.com","ruiningsubs","ruiningsubs.com","RuiningSubs"],"description":"Public exposure board. Post photos, ID cards, printed exposure, Ruin Roulette.","potentialAction":{"@type":"SearchAction","target":"https://www.ruinexpose.com/wall","query-input":"required name=search_term_string"}}</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     try{
       window.approveFeature=approveFeature;window.adminPin=adminPin;window.approveRemoveReq=approveRemoveReq;window.dismissFeatureReq=dismissFeatureReq;window.dismissRemoveReq=dismissRemoveReq;window.confirmRemovePaid=confirmRemovePaid;window.remindRemovePayment=remindRemovePayment;window.remindPinPayment=remindPinPayment;window.remindRoulettePayment=remindRoulettePayment;window.remindPrintPayment=remindPrintPayment;window.toggleAdminUsers=toggleAdminUsers;window.adminSetUserStatus=adminSetUserStatus;window.likeTask=likeTask;window.openDeleteTask=openDeleteTask;window.confirmDeleteTaskPaid=confirmDeleteTaskPaid;window.openDeleteTaskResp=openDeleteTaskResp;window.confirmDeleteTaskRespPaid=confirmDeleteTaskRespPaid;window.openPrintDirty=openPrintDirty;window.approveRoulettePack=approveRoulettePack;window.dismissRoulettePack=dismissRoulettePack;window.requestRoulettePack=requestRoulettePack;window.checkRouletteUnlock=checkRouletteUnlock;window.dismissPublicExposureReq=dismissPublicExposureReq;window.approvePublicExposureReq=approvePublicExposureReq;window.renderAdminReqTab=renderAdminReqTab;window.replyPublicExposure=replyPublicExposure;window.commentPublicExposure=commentPublicExposure;window.reactPublicExposure=reactPublicExposure;window.reportPeComment=reportPeComment;window.compressOldPosts=compressOldPosts;window.doForgot=doForgot;
@@ -183,6 +183,8 @@
     .btn-dl{background:var(--elev);color:var(--text);border:1px solid var(--border)}
 
     .post{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:0;overflow:hidden;display:flex;flex-direction:column}
+    a.post-permalink{color:inherit;text-decoration:none;font:inherit;cursor:pointer}
+    a.post-permalink:hover,a.post-permalink:focus{color:inherit;text-decoration:none}
     .post.featured-card{border:1px solid var(--orange);box-shadow:0 0 0 1px rgba(124,58,237,.25)}
     #featured-slot{margin:12px 0 8px;display:flex;flex-direction:column;align-items:center}
     #featured-slot .featured-wrap{width:100%;margin:0}
@@ -3385,6 +3387,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     var CF_API='https://ruiningsubs-api.0788adm.workers.dev';
     var SITE_CANONICAL='https://www.ruinexpose.com';
+    var DEFAULT_DOC_TITLE='Ruining Subs (ruinexpose.com) | Public exposure board';
+    var DEFAULT_DOC_DESC="They're public. Timer running. Share before they pay to hide. Photos, videos, ID cards — ruinexpose.com";
     function siteOrigin(){
       try{
         var o=String((location&&location.origin)||'');
@@ -3393,6 +3397,100 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return SITE_CANONICAL;
     }
     window.siteOrigin=siteOrigin;
+    function postPath(id){
+      return '/post/'+encodeURIComponent(String(id==null?'':id));
+    }
+    function postPermalink(id){
+      return siteOrigin()+postPath(id);
+    }
+    window.postPath=postPath;
+    window.postPermalink=postPermalink;
+    function setMetaByName(name, content){
+      try{
+        var el=document.querySelector('meta[name="'+name+'"]');
+        if(!el){el=document.createElement('meta');el.setAttribute('name',name);document.head.appendChild(el)}
+        el.setAttribute('content',content==null?'':String(content));
+      }catch(e){}
+    }
+    function setMetaByProp(prop, content){
+      try{
+        var el=document.querySelector('meta[property="'+prop+'"]');
+        if(!el){el=document.createElement('meta');el.setAttribute('property',prop);document.head.appendChild(el)}
+        el.setAttribute('content',content==null?'':String(content));
+      }catch(e){}
+    }
+    function setCanonicalHref(href){
+      try{
+        var el=document.querySelector('link[rel="canonical"]');
+        if(!el){el=document.createElement('link');el.setAttribute('rel','canonical');document.head.appendChild(el)}
+        el.setAttribute('href',href);
+      }catch(e){}
+    }
+    function applyPostSeoMeta(post){
+      if(!post||post.id==null)return;
+      var user=String(post.user||'').replace(/^@/,'');
+      var rawTitle=String(post.title||'').replace(/\s+/g,' ').trim();
+      var rawDesc=String(post.desc||post.description||'').replace(/\s+/g,' ').trim();
+      var title=((user?user+': ':'')+(rawTitle||'Exposure post')).slice(0,90);
+      var desc=(rawDesc||rawTitle||'Open this exposure on ruinexpose.com').slice(0,180);
+      var url=postPermalink(post.id);
+      var img='';
+      try{
+        img=(post.images&&post.images[0])||post.image||post.media_url||'';
+        if(Array.isArray(img))img=img[0]||'';
+        img=typeof publicMediaUrl==='function'?publicMediaUrl(img):String(img||'');
+        if(!/^https?:\/\//i.test(img)) img=SITE_CANONICAL+'/icon-192.png';
+      }catch(e){img=SITE_CANONICAL+'/icon-192.png'}
+      try{document.title=title+' | Ruining Subs'}catch(e){}
+      setMetaByName('description',desc);
+      setMetaByName('robots','index,follow,max-image-preview:large');
+      setMetaByName('googlebot','index,follow');
+      setCanonicalHref(url);
+      setMetaByProp('og:type','article');
+      setMetaByProp('og:title',title);
+      setMetaByProp('og:description',desc);
+      setMetaByProp('og:url',url);
+      setMetaByProp('og:image',img);
+      setMetaByName('twitter:title',title);
+      setMetaByName('twitter:description',desc);
+      setMetaByName('twitter:image',img);
+      try{
+        var old=document.getElementById('rs-post-jsonld');
+        if(old)old.remove();
+        var s=document.createElement('script');
+        s.type='application/ld+json';
+        s.id='rs-post-jsonld';
+        s.textContent=JSON.stringify({
+          '@context':'https://schema.org',
+          '@type':'SocialMediaPosting',
+          headline:title,
+          description:desc,
+          url:url,
+          image:img?[img]:undefined,
+          author:user?{'@type':'Person',name:user}:undefined,
+          isPartOf:{'@type':'WebSite',name:'Ruining Subs',url:SITE_CANONICAL+'/'}
+        });
+        document.head.appendChild(s);
+      }catch(e){}
+    }
+    function restoreDefaultSeoMeta(){
+      try{document.title=DEFAULT_DOC_TITLE}catch(e){}
+      setMetaByName('description',DEFAULT_DOC_DESC);
+      setMetaByName('robots','index,follow,max-image-preview:large');
+      setMetaByName('googlebot','index,follow');
+      setCanonicalHref(SITE_CANONICAL+'/');
+      setMetaByProp('og:type','website');
+      setMetaByProp('og:title',"RuiningSubs — they're public. Open it.");
+      setMetaByProp('og:description','Live exposure board. Photos, videos, IDs. Share before they pay to delete.');
+      setMetaByProp('og:url',SITE_CANONICAL+'/');
+      setMetaByProp('og:image',SITE_CANONICAL+'/icon-192.png');
+      setMetaByName('twitter:title','Ruining Subs (ruinexpose.com)');
+      setMetaByName('twitter:description','Public exposure board at ruinexpose.com');
+      setMetaByName('twitter:image',SITE_CANONICAL+'/icon-192.png');
+      try{var old=document.getElementById('rs-post-jsonld');if(old)old.remove()}catch(e){}
+    }
+    window.applyPostSeoMeta=applyPostSeoMeta;
+    window.restoreDefaultSeoMeta=restoreDefaultSeoMeta;
     var THRONE_HOME='https://throne.com/mastersan';
     var PAYPAL_ME='https://www.paypal.me/MartinJimenez205';
     var BTC_WALLET='135nMgiNWpSniDT7X9bhrJYGEA71N245V9';
@@ -4683,13 +4781,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
       return out;
     }
-    function mediaHtml(images, postId, enableLb, posterHint){
+    function mediaHtml(images, postId, enableLb, posterHint, altHint){
       images=limitMediaVideos(images||[], 2);
       if(!images.length)return '<div class="photo-grid g1" style="min-height:160px;background:#141414;display:flex;align-items:center;justify-content:center;color:#555;font-size:13px">No photo</div>';
       var list=images.slice(0,5);
       var g=list.length===1?'g1':('g'+Math.min(list.length,4));
       var pid=postId!=null?String(postId):'';
       var hint=String(posterHint||'');
+      var altTxt=String(altHint||'').replace(/\s+/g,' ').trim().slice(0,80);
+      if(!altTxt) altTxt=pid?('Post '+pid):'Exposure photo';
+      var altAttr=esc(altTxt);
       if(enableLb){
         var first=list[0];
         var heroInner='';
@@ -4703,7 +4804,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }
           heroInner=lazyVideoHtml(first,heroPoster||'',0,pid);
         } else {
-          heroInner='<img id="dx-hero-img" src="'+esc(feedThumb(first,900))+'" data-orig="'+esc(first)+'" alt="" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="0" data-pid="'+pid+'"/>';
+          heroInner='<img id="dx-hero-img" src="'+esc(feedThumb(first,900))+'" data-orig="'+esc(first)+'" alt="'+altAttr+'" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="0" data-pid="'+pid+'"/>';
         }
         var nav='';
         if(list.length>1){
@@ -4716,7 +4817,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           thumbs='<div class="dx-thumbs">'+list.map(function(src,i){
             var thumb=feedThumb(src,160);
             var vid=typeof isVideoUrl==='function' && isVideoUrl(src);
-            return '<button type="button" class="dx-thumb'+(i===0?' on':'')+'" data-i="'+i+'" data-src="'+esc(src)+'" data-pid="'+esc(pid)+'">'+(vid?'<span class="dx-play">▶</span>':'')+'<img src="'+esc(thumb)+'" alt="" draggable="false"/></button>';
+            return '<button type="button" class="dx-thumb'+(i===0?' on':'')+'" data-i="'+i+'" data-src="'+esc(src)+'" data-pid="'+esc(pid)+'">'+(vid?'<span class="dx-play">▶</span>':'')+'<img src="'+esc(thumb)+'" alt="'+altAttr+'" draggable="false"/></button>';
           }).join('')+'</div>';
         }
         return '<div class="dx-gallery" data-pid="'+esc(pid)+'" data-count="'+list.length+'" data-index="0"><div class="dx-hero">'+heroInner+nav+'</div>'+thumbs+'</div>';
@@ -4729,7 +4830,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var thumb=feedThumb(src, 420);
         var orig=src;
         var onerr="this.onerror=null;if(this.dataset.orig&&this.src!==this.dataset.orig)this.src=this.dataset.orig;";
-        return '<img src="'+esc(thumb)+'" data-orig="'+esc(orig)+'" alt="" decoding="async" loading="eager" onerror="'+onerr+'"/>';
+        return '<img src="'+esc(thumb)+'" data-orig="'+esc(orig)+'" alt="'+altAttr+'" decoding="async" loading="eager" onerror="'+onerr+'"/>';
       }).join('')+(list.length>1?'<div class="more-photos">'+list.length+' photos</div>':'')+'</div>';
     }
     function pickDetailPhoto(btn, src, i, pid){
@@ -5005,6 +5106,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){}
       if(window.__openedHashPost===String(raw))return;
       window.__openedHashPost=String(raw);
+      // Normalize legacy #p= / ?p= into permanent /post/:id without losing the open.
+      try{
+        var wantPath=typeof postPath==='function'?postPath(raw):('/post/'+encodeURIComponent(String(raw)));
+        var cur=(location.pathname||'/').replace(/\/+$/,'')||'/';
+        if(cur!==wantPath){
+          history.replaceState({panel:'detail',post:String(raw)},'',wantPath);
+        }else if(location.hash||location.search){
+          history.replaceState({panel:'detail',post:String(raw)},'',wantPath);
+        }
+      }catch(e){}
       if(String(currentDetailId)===String(raw) && document.getElementById('panel-detail') && document.getElementById('panel-detail').classList.contains('active')) return;
       var found=typeof findPostAnywhere==='function'?findPostAnywhere(raw):null;
       if(found){openDetail(found.id);return;}
@@ -10299,6 +10410,7 @@ function openRoulette(){
         window.__detailFrom=null;
         currentDetailId=null;
         try{sessionStorage.removeItem('rs_open_post')}catch(e){}
+        try{if(typeof restoreDefaultSeoMeta==='function')restoreDefaultSeoMeta()}catch(e){}
         try{
           var path=sectionPathFor(dest==='detail'?'extend':dest);
           history.replaceState({panel:dest==='detail'?'feed':dest},'',path);
@@ -12905,6 +13017,7 @@ function openRoulette(){
             }
           }
         }catch(e){}
+        try{if(typeof restoreDefaultSeoMeta==='function')restoreDefaultSeoMeta()}catch(e){}
       }
       try{document.body.classList.toggle('gt-on',name==='goontok')}catch(e){}
       try{document.body.classList.toggle('rc-on',name==='randomcam')}catch(e){}
@@ -20464,7 +20577,7 @@ function postCardHtml(p, compact){
         var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
         if(vsrc) media=typeof lazyVideoHtml==='function'?lazyVideoHtml(vsrc,poster,0,p.id):mediaHtml([vsrc],p.id,false,poster);
         else media='<div style="min-height:180px;display:flex;align-items:center;justify-content:center;color:#fff;background:#111">▶ Video</div>';
-      } else if(imgs.length){media=mediaHtml(imgs,p.id,false)}
+      } else if(imgs.length){media=mediaHtml(imgs,p.id,false,'',p.title||('Post '+p.id))}
       else if(p._needImg){media='<div class="photo-grid g1" style="min-height:150px;background:#141414;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px">Loading photo…</div>'}
       else {media='<div class="photo-grid g1" style="min-height:140px;background:#141414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#888;font-size:12px;padding:12px"><span>Photo slow</span><button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();retryPostImage('+p.id+')">Retry photo</button></div>'}
       var extL=fmtMin(p.extendAmount||360);
@@ -20486,7 +20599,9 @@ function postCardHtml(p, compact){
       if(timerHtml && isPin && !hasExposure){
         timerHtml=timerHtml.replace('class="timer','class="timer pin-timer').replace('data-exp="','data-pin-timer="1" data-exp="');
       }
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
+      var perma=(typeof postPath==='function'?postPath(p.id):('/post/'+encodeURIComponent(String(p.id))));
+      var titleLink='<a class="post-permalink" href="'+esc(perma)+'" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')">'+esc(p.title)+'</a>';
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
     }
     
     function featCarouselGo(to, smooth){
@@ -21298,7 +21413,13 @@ function postCardHtml(p, compact){
       try{if(typeof sanitizeVideoPostMedia==='function') post=sanitizeVideoPostMedia(post)||post}catch(e){}
       currentDetailId=post.id;
       try{sessionStorage.removeItem('rs_open_post')}catch(e){}
-      try{history.replaceState(null,'',location.pathname+(location.search||'')+'#p='+encodeURIComponent(String(post.id)));}catch(e){}
+      try{
+        var want=typeof postPath==='function'?postPath(post.id):('/post/'+encodeURIComponent(String(post.id)));
+        history.replaceState({panel:'detail',post:String(post.id)},'',want);
+      }catch(e){
+        try{history.replaceState(null,'',location.pathname+(location.search||'')+'#p='+encodeURIComponent(String(post.id)));}catch(e2){}
+      }
+      try{if(typeof applyPostSeoMeta==='function')applyPostSeoMeta(post)}catch(e){}
       function refreshDetailGalleryMedia(){
         try{
           if(String(currentDetailId)!==String(post.id))return;
@@ -21322,7 +21443,7 @@ function postCardHtml(p, compact){
           mediaWrap.setAttribute('style','margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative');
           var rp='';
           try{rp=typeof videoPosterOf==='function'?videoPosterOf(post, all[0]||post.media_url):(post.poster||post.thumb_url||'')}catch(e){rp=post.poster||post.thumb_url||''}
-          mediaWrap.innerHTML=(featDetail2?'<div class="pinned-badge">Pinned</div>':(rank2?'<div class="rank-badge">#'+rank2+'</div>':''))+mediaHtml(all, post.id, true, rp);
+          mediaWrap.innerHTML=(featDetail2?'<div class="pinned-badge">Pinned</div>':(rank2?'<div class="rank-badge">#'+rank2+'</div>':''))+mediaHtml(all, post.id, true, rp, post.title||('Post '+post.id));
           try{bindDetailGallery()}catch(e){}
           try{warmVisibleLazyVideos(hold)}catch(e){}
         }catch(e){}
@@ -21389,7 +21510,7 @@ function postCardHtml(p, compact){
       }
       var detailPoster='';
       try{detailPoster=typeof videoPosterOf==='function'?videoPosterOf(post, imgs[0]||post.media_url||post.video):(post.poster||post.thumb_url||'')}catch(e){detailPoster=post.poster||post.thumb_url||''}
-      var media='<div class="dx-media-wrap" style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, detailPoster)+'</div>';
+      var media='<div class="dx-media-wrap" style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?'<div class="pinned-badge">Pinned</div>':(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, detailPoster, post.title||('Post '+post.id))+'</div>';
       var extL=fmtMin(post.extendAmount||360);
       var uCls=userClickable(post.user)?'post-user clickable':'post-user';
       var uClick=userClickable(post.user)?'data-user="'+String(post.user).replace(/"/g,'')+'" onclick="openUser(this.getAttribute(\'data-user\'))"':'';
@@ -24444,7 +24565,7 @@ async function onIdFace(e){
         }
       }
       try{
-        var link=id?(siteOrigin()+'/?p='+encodeURIComponent(String(id))):'';
+        var link=id?(typeof postPermalink==='function'?postPermalink(id):(siteOrigin()+'/post/'+encodeURIComponent(String(id)))):'';
         var mail=['ACTION: '+label,'USER: @'+userName,'AMOUNT: '+amount,id?('POST ID: '+id):'',link?('POST LINK: '+link):'',msg].filter(Boolean).join('\n');
         await pingAdminMail('RS '+label+' @'+userName, mail);
       }catch(e){console.warn('admin mail',e)}
@@ -25318,7 +25439,7 @@ async function onIdFace(e){
     }
 
     function postShareUrl(id){
-      return siteOrigin()+'/?p='+encodeURIComponent(String(id));
+      return typeof postPermalink==='function'?postPermalink(id):(siteOrigin()+'/post/'+encodeURIComponent(String(id)));
     }
     function shareHookFor(post){
       var who=(post&&post.user)?('@'+String(post.user).replace(/^@/,'')):'this sub';
