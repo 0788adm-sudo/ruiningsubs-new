@@ -1913,8 +1913,46 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 #panel-map .map-hint{font-size:12px;color:#9a9aa3;line-height:1.4;margin:0}
 #rs-map{height:min(52vh,420px)!important;min-height:280px;touch-action:manipulation}
 #panel-map .btn{min-height:46px}
+/* Explore: read-only map preview + search results under the search bar */
+.explore-map-card{
+  width:100%;text-align:left;border-radius:16px;border:1px solid #2a2a32;background:#101014;
+  padding:14px;color:#fff;margin:0 0 14px;box-sizing:border-box;
+}
+.explore-map-preview-wrap{
+  position:relative;margin-top:12px;border-radius:14px;overflow:hidden;
+  border:1px solid #2a2a32;background:#0c1b33;min-height:160px;cursor:pointer;
+  -webkit-tap-highlight-color:rgba(126,182,255,.2);
+}
+.explore-map-preview{
+  height:180px;width:100%;pointer-events:none;touch-action:none;background:#0c1b33;
+}
+.explore-map-preview-hit{
+  position:absolute;inset:0;z-index:1200;background:transparent;cursor:pointer;
+}
+.explore-map-meta{font-size:12px;color:#9a9aa3;margin-top:8px;line-height:1.35}
+.explore-search-actions{display:flex;gap:8px;margin:0 0 12px}
+.explore-search-actions #btn-search{flex:1;min-width:0;margin:0!important}
+.explore-search-actions #btn-search-clear{
+  flex:0 0 auto;min-width:84px;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important;
+  background:rgba(255,255,255,.06)!important;font-weight:800;
+}
+.explore-search-results .explore-search-head .btn{
+  color:#fff!important;border:1px solid rgba(255,255,255,.2)!important;background:rgba(255,255,255,.06)!important;
+}
+.explore-search-results{
+  margin:0 0 14px;padding:0 0 96px;scroll-margin-top:12px;scroll-margin-bottom:110px;
+}
+.explore-search-results .explore-search-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin:0 0 10px;font-size:13px;font-weight:800;color:#c8c8d0;
+}
+.explore-search-results .explore-search-empty{
+  padding:18px 14px;border-radius:14px;border:1px solid #2a2a32;background:#101014;
+  color:#9a9aa3;font-size:14px;font-weight:700;text-align:center;
+}
 @media(max-width:480px){
   #rs-map{height:min(48vh,360px)!important}
+  .explore-map-preview{height:150px}
   #home-random-strip .home-strip-card{flex:0 0 calc(20% - 5px);min-width:58px}
 }
 @media(max-width:360px){
@@ -2195,8 +2233,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <div id="panel-games" class="panel" style="display:none" aria-hidden="true"></div>
       <div id="panel-explore" class="panel">
         <div class="panel-h"><h2>Explore</h2><button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('explore','Explore')">Share</button></div>
-        <div class="form-group"><input type="text" id="search-q" placeholder="Search @accounts, words or #tags..." /></div>
-        <button class="btn btn-primary" style="width:100%;margin-bottom:12px" id="btn-search" type="button">Search</button>
+        <div class="form-group"><input type="text" id="search-q" placeholder="Search @accounts, words or #tags..." enterkeyhint="search" autocomplete="off"/></div>
+        <div class="explore-search-actions">
+          <button class="btn btn-primary" id="btn-search" type="button">Search</button>
+          <button class="btn btn-ghost" id="btn-search-clear" type="button" style="display:none" onclick="clearExploreSearch()">Clear</button>
+        </div>
+        <div id="search-results" class="explore-search-results" style="display:none" aria-live="polite"></div>
+        <div id="explore-browse" class="explore-browse">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px">
           <button type="button" onclick="openCoinShop()" style="text-align:left;border-radius:14px;padding:12px;background:#14110a;border:1px solid #f5c518;color:#fff"><b>$10</b><div style="font-size:12px;color:#f5c518">110 FC</div></button>
           <button type="button" onclick="openCoinShop()" style="text-align:left;border-radius:14px;padding:12px;background:#1a1208;border:1px solid #ff6a00;color:#fff"><b>$25</b><div style="font-size:12px;color:#ffb020">290 FC · most used</div></button>
@@ -2213,11 +2256,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 <button type="button" onclick="openCommunity('diapers')" style="text-align:left;border-radius:14px;border:1px solid #2a2a32;background:#101014;padding:12px;color:#fff"><div style="font-weight:900">Diapers</div></button>
 <button type="button" onclick="openCommunity('exposure')" style="text-align:left;border-radius:14px;border:1px solid #2a2a32;background:#101014;padding:12px;color:#fff"><div style="font-weight:900">Public Exposure</div></button>
 <button type="button" onclick="openCommunity('shit')" style="text-align:left;border-radius:14px;border:1px solid #2a2a32;background:#101014;padding:12px;color:#fff"><div style="font-weight:900">Shit</div></button></div>
-        <button type="button" onclick="openExposureMap()" style="width:100%;text-align:left;border-radius:16px;border:1px solid #2a2a32;background:#101014;padding:14px;color:#fff;margin:0 0 14px">
+        <div id="explore-map-card" class="explore-map-card">
           <div style="font-size:11px;letter-spacing:1.4px;color:#7eb6ff;font-weight:800">MAP</div>
           <div style="font-size:20px;font-weight:900;margin-top:2px">Exposure map</div>
           <div style="font-size:12px;color:#9a9aa3;margin-top:2px">Drop a pin. Others can see the city, not your exact door.</div>
-        </button>
+          <div class="explore-map-preview-wrap" role="button" tabindex="0" aria-label="Open Exposure map" onclick="openExposureMap()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExposureMap()}">
+            <div id="explore-map-preview" class="explore-map-preview" aria-hidden="true"></div>
+            <div class="explore-map-preview-hit" aria-hidden="true"></div>
+          </div>
+          <div id="explore-map-meta" class="explore-map-meta">Loading locations…</div>
+          <button class="btn btn-secondary" type="button" id="btn-explore-open-map" onclick="openExposureMap()" style="width:100%;margin-top:10px;min-height:44px;font-weight:800">Open Map</button>
+        </div>
         <div style="font-size:11px;letter-spacing:1.4px;color:#9a9aa3;font-weight:800;margin:6px 0 0;grid-column:1 / -1">PLAY</div>
         <div id="explore-xp-promo" style="margin:0 0 12px;grid-column:1 / -1"></div>
         <div class="tasks-entry" id="btn-explore-games" role="button" style="margin:0 0 14px;grid-column:1 / -1;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(255,106,0,.1));border:1px solid rgba(124,58,237,.4)" onclick="openChallengesHub()">
@@ -2310,7 +2359,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </div>
 
         <div id="trending-tags" style="display:none"></div>
-        <div id="search-results" style="display:none"></div>
+        </div><!-- /explore-browse -->
 
       </div>
       <div id="panel-doms" class="panel">
@@ -10390,7 +10439,8 @@ function openRoulette(){
         var r=new FileReader();r.onload=function(ev){msgPhoto=ev.target.result;document.getElementById('msg-photo-name').textContent='Photo attached'};r.readAsDataURL(f);
       };
       var bs=document.getElementById('btn-search');if(bs)bs.onclick=doSearch;
-      var sq=document.getElementById('search-q');if(sq)sq.addEventListener('keydown',function(e){if(e.key==='Enter')doSearch()});
+      var bsc=document.getElementById('btn-search-clear');if(bsc)bsc.onclick=clearExploreSearch;
+      var sq=document.getElementById('search-q');if(sq)sq.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doSearch()}});
       var _pt=document.getElementById('btn-profile-top');if(_pt)_pt.onclick=function(){forceTop();showPanel('profile');setTimeout(forceTop,50)};
       var _lg=document.getElementById('btn-home-logo');if(_lg)_lg.onclick=goHome;
       function tapOnce(el, fn){
@@ -10650,16 +10700,69 @@ function openRoulette(){
       }).join('');
     }
 
+    function setExploreSearchClearVisible(on){
+      var clr=document.getElementById('btn-search-clear');
+      if(clr) clr.style.display=on?'inline-flex':'none';
+    }
+    function setExploreBrowseHidden(on){
+      var browse=document.getElementById('explore-browse');
+      if(browse) browse.style.display=on?'none':'';
+    }
+    function scrollToExploreResults(){
+      var box=document.getElementById('search-results');
+      if(!box)return;
+      try{
+        // Keep results above the fixed bottom nav on iPhone/Android.
+        var nav=document.querySelector('.bottom-nav');
+        var pad=(nav&&nav.offsetHeight)?(nav.offsetHeight+12):96;
+        var top=box.getBoundingClientRect().top+(window.pageYOffset||document.documentElement.scrollTop||0)-12;
+        var se=document.scrollingElement||document.documentElement;
+        if(se&&typeof se.scrollTo==='function') se.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+        else box.scrollIntoView({behavior:'smooth',block:'start'});
+        box.style.paddingBottom=pad+'px';
+      }catch(e){
+        try{box.scrollIntoView({behavior:'smooth',block:'start'})}catch(e2){}
+      }
+    }
+    function clearExploreSearch(){
+      var inp=document.getElementById('search-q');
+      if(inp) inp.value='';
+      var box=document.getElementById('search-results');
+      if(box){box.style.display='none';box.innerHTML=''}
+      setExploreSearchClearVisible(false);
+      setExploreBrowseHidden(false);
+      try{normalFeedQuery='';renderNormalFeed()}catch(e){}
+      try{
+        if(typeof refreshExploreMapPreview==='function') refreshExploreMapPreview();
+      }catch(e){}
+      try{
+        var se=document.scrollingElement||document.documentElement;
+        if(se&&typeof se.scrollTo==='function') se.scrollTo({top:0,behavior:'smooth'});
+        else window.scrollTo(0,0);
+      }catch(e){}
+    }
+    window.clearExploreSearch=clearExploreSearch;
+
     async function doSearch(){
       var q=(document.getElementById('search-q').value||'').trim();
       var box=document.getElementById('search-results');
       if(!box)return;
-      if(!q){box.style.display='none';box.innerHTML='';return}
+      if(!q){
+        clearExploreSearch();
+        return;
+      }
       box.style.display='block';
+      setExploreSearchClearVisible(true);
+      setExploreBrowseHidden(true);
       var isTag=q.charAt(0)==='#';
       var term=q.replace(/^#/,'').toLowerCase().replace(/^@/,'');
-      if(!term){box.innerHTML='<div class="empty">Search accounts, words or #tags</div>';return}
-      box.innerHTML='<div class="empty">Searching…</div>';
+      if(!term){
+        box.innerHTML='<div class="explore-search-head"><span>Search</span></div><div class="explore-search-empty">Search accounts, words or #tags</div>';
+        scrollToExploreResults();
+        return;
+      }
+      box.innerHTML='<div class="explore-search-head"><span>Searching…</span></div>';
+      scrollToExploreResults();
 
       // --- Accounts ---
       var accounts=[];
@@ -10696,11 +10799,18 @@ function openRoulette(){
         return t.indexOf(term)>=0||d.indexOf(term)>=0||tags.indexOf(term)>=0||u.indexOf(term)>=0;
       });
 
-      if(!accounts.length&&!list.length){
-        box.innerHTML='<div class="empty">No results for "'+esc(q)+'"</div>';
+      var total=(isTag?0:accounts.length)+list.length;
+      if(!total){
+        box.innerHTML='<div class="explore-search-head"><span>0 results</span><button type="button" class="btn btn-ghost btn-sm" onclick="clearExploreSearch()">Clear</button></div><div class="explore-search-empty">No results found</div>';
+        scrollToExploreResults();
         return;
       }
-      var html='';
+      var countLabel=total+' result'+(total===1?'':'s');
+      var parts=[];
+      if(accounts.length&&!isTag) parts.push(accounts.length+' account'+(accounts.length===1?'':'s'));
+      if(list.length) parts.push(list.length+' post'+(list.length===1?'':'s'));
+      if(parts.length) countLabel+=' · '+parts.join(' · ');
+      var html='<div class="explore-search-head"><span>'+esc(countLabel)+'</span><button type="button" class="btn btn-ghost btn-sm" onclick="clearExploreSearch()">Clear</button></div>';
       if(accounts.length&&!isTag){
         html+='<div style="font-size:12px;color:var(--muted);margin:4px 0 8px;font-weight:700">Accounts</div>';
         html+=accounts.map(function(a){
@@ -10723,6 +10833,7 @@ function openRoulette(){
         }).join('');
       }
       box.innerHTML=html;
+      scrollToExploreResults();
     }
     
     function loadFollowingLocal(){
@@ -13059,7 +13170,7 @@ function openRoulette(){
         }
       }
       if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
-      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
+      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}try{if(typeof refreshExploreMapPreview==='function')refreshExploreMapPreview()}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){
         // openGoonTok already fetches + paints; avoid a second remount/re-arm storm.
@@ -27923,6 +28034,10 @@ async function onIdFace(e){
   var pins=[];
   var markerLayer=null;
   var clusterGroup=null;
+  var previewMap=null;
+  var previewCluster=null;
+  var previewLayer=null;
+  var leafletLoading=null;
   var COUNTRY_FLAG={
     'united states':'🇺🇸','usa':'🇺🇸','us':'🇺🇸','colombia':'🇨🇴','brazil':'🇧🇷','brasil':'🇧🇷',
     'mexico':'🇲🇽','spain':'🇪🇸','españa':'🇪🇸','france':'🇫🇷','germany':'🇩🇪','deutschland':'🇩🇪',
@@ -27990,10 +28105,116 @@ async function onIdFace(e){
       var r=await fetch(MAP_API+'/notifs?to=__MAP_PINS__',{cache:'no-store'});
       var j=await r.json().catch(function(){return{}});
       var remote=((j&&j.notifs)||[]).map(function(n){try{return JSON.parse(n.message||'{}')}catch(e){return null}}).filter(function(x){return x&&x.lat!=null&&x.lng!=null});
-      if(remote.length){ mergePins(remote); redrawMarkers(); list(); }
+      if(remote.length){ mergePins(remote); redrawMarkers(); redrawPreviewMarkers(); updateExploreMapMeta(); list(); }
       return remote.length;
     }catch(e){return 0}
   }
+  function updateExploreMapMeta(){
+    var el=document.getElementById('explore-map-meta');
+    if(!el)return;
+    var n=(pins||[]).length;
+    if(!n){el.textContent='No locations yet · open map to drop your city';return}
+    el.textContent=n+' location'+(n===1?'':'s')+' · tap map to open';
+  }
+  function redrawPreviewMarkers(){
+    if(!previewMap||!window.L)return;
+    if(!previewLayer){
+      if(L.markerClusterGroup){
+        previewCluster=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:40,spiderfyOnMaxZoom:false});
+        previewMap.addLayer(previewCluster);
+        previewLayer=previewCluster;
+      }else{
+        previewLayer=L.layerGroup().addTo(previewMap);
+      }
+    }
+    if(previewCluster) previewCluster.clearLayers();
+    else previewLayer.clearLayers();
+    (pins||[]).forEach(function(p){
+      if(!p||p.lat==null||p.lng==null)return;
+      var marker=L.circleMarker([p.lat,p.lng],{radius:7,color:'#ff6a00',fillColor:'#ff6a00',fillOpacity:.9,interactive:false});
+      (previewCluster||previewLayer).addLayer(marker);
+    });
+    try{
+      var layers=(previewCluster&&previewCluster.getLayers)?previewCluster.getLayers():(pins||[]);
+      if(layers&&layers.length>1 && previewCluster && previewCluster.getBounds){
+        var b=previewCluster.getBounds();
+        if(b&&b.isValid&&b.isValid()) previewMap.fitBounds(b.pad(0.2),{maxZoom:4,animate:false});
+        else previewMap.setView([20,0],1);
+      }else if((pins||[]).length===1){
+        previewMap.setView([pins[0].lat,pins[0].lng],3);
+      }else{
+        previewMap.setView([20,0],1);
+      }
+    }catch(e){
+      try{previewMap.setView([20,0],1)}catch(e2){}
+    }
+  }
+  function startPreview(){
+    var el=document.getElementById('explore-map-preview');
+    if(!el||!window.L)return;
+    if(previewMap){
+      setTimeout(function(){try{previewMap.invalidateSize();redrawPreviewMarkers()}catch(e){}},180);
+      return;
+    }
+    previewMap=L.map(el,{
+      worldCopyJump:true,
+      zoomControl:false,
+      attributionControl:false,
+      dragging:false,
+      touchZoom:false,
+      scrollWheelZoom:false,
+      doubleClickZoom:false,
+      boxZoom:false,
+      keyboard:false
+    }).setView([20,0],1);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16}).addTo(previewMap);
+    if(L.markerClusterGroup){
+      previewCluster=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:40,spiderfyOnMaxZoom:false});
+      previewMap.addLayer(previewCluster);
+      previewLayer=previewCluster;
+    }else{
+      previewLayer=L.layerGroup().addTo(previewMap);
+    }
+    setTimeout(function(){try{previewMap.invalidateSize();redrawPreviewMarkers()}catch(e){}},250);
+  }
+  function ensureLeaflet(cb){
+    if(window.L && window.L.markerClusterGroup){ cb(); return; }
+    if(window.L && !window.L.markerClusterGroup){
+      loadClusterLib(cb); return;
+    }
+    if(leafletLoading){ leafletLoading.then(cb); return; }
+    leafletLoading=new Promise(function(resolve){
+      var css=document.createElement('link');css.rel='stylesheet';css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
+      var js=document.createElement('script');js.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      js.onload=function(){ loadClusterLib(resolve); };
+      js.onerror=function(){ resolve(); };
+      document.body.appendChild(js);
+    });
+    leafletLoading.then(cb);
+  }
+  function loadClusterLib(done){
+    if(window.L && window.L.markerClusterGroup){ done(); return; }
+    var ccss=document.createElement('link');ccss.rel='stylesheet';ccss.href='https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css';document.head.appendChild(ccss);
+    var ccss2=document.createElement('link');ccss2.rel='stylesheet';ccss2.href='https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css';document.head.appendChild(ccss2);
+    var cjs=document.createElement('script');cjs.src='https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';
+    cjs.onload=function(){ done(); };
+    cjs.onerror=function(){ done(); };
+    document.body.appendChild(cjs);
+  }
+  window.refreshExploreMapPreview=function(){
+    loadPins(); mergePins([]); updateExploreMapMeta();
+    ensureLeaflet(function(){
+      startPreview();
+      redrawPreviewMarkers();
+      updateExploreMapMeta();
+      pullPins().then(function(){
+        redrawPreviewMarkers();
+        updateExploreMapMeta();
+        if(map) redrawMarkers();
+        list();
+      });
+    });
+  };
   function publicPinMeta(p){
     var who=String(p.user||'anon').replace(/^@/,'');
     var city=String(p.city||'').slice(0,40);
@@ -28021,24 +28242,19 @@ async function onIdFace(e){
     if(typeof showPanel==='function') showPanel('map');
     loadPins(); mergePins([]); list();
     setTimeout(boot,30);
-    try{ await pullPins(); list(); redrawMarkers(); }catch(e){}
+    try{ await pullPins(); list(); redrawMarkers(); redrawPreviewMarkers(); updateExploreMapMeta(); }catch(e){}
   };
   var map, pending;
   function boot(){
     if(map){ setTimeout(function(){try{map.invalidateSize();redrawMarkers()}catch(e){}},200); return; }
-    if(window.L){return loadClusterThenStart()}
-    var css=document.createElement('link');css.rel='stylesheet';css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
-    var js=document.createElement('script');js.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    js.onload=loadClusterThenStart;
-    js.onerror=function(){var m=document.getElementById('rs-map');if(m)m.textContent='Map failed to load. Try again.'};
-    document.body.appendChild(js);
-  }
-  function loadClusterThenStart(){
-    if(window.L&&window.L.markerClusterGroup){start();return}
-    var ccss=document.createElement('link');ccss.rel='stylesheet';ccss.href='https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css';document.head.appendChild(ccss);
-    var ccss2=document.createElement('link');ccss2.rel='stylesheet';ccss2.href='https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css';document.head.appendChild(ccss2);
-    var cjs=document.createElement('script');cjs.src='https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';
-    cjs.onload=start; cjs.onerror=start; document.body.appendChild(cjs);
+    ensureLeaflet(function(){
+      if(!window.L){
+        var m=document.getElementById('rs-map');
+        if(m)m.textContent='Map failed to load. Try again.';
+        return;
+      }
+      start();
+    });
   }
   function start(){
     if(map||!window.L)return;
@@ -28221,7 +28437,7 @@ async function onIdFace(e){
     var pin={user:user,city:city||'Pinned',country:country||geoCountry||'',note:note,lat:Number(pending.lat),lng:Number(pending.lng),t:Date.now()};
     mergePins([pin]);
     var ok=await pushPin(pin);
-    redrawMarkers(); list();
+    redrawMarkers(); redrawPreviewMarkers(); updateExploreMapMeta(); list();
     updateSelectedLabel();
     if(map){try{map.setView([pin.lat,pin.lng],6)}catch(e){}}
     if(typeof toast==='function')toast(ok?('Confirmed · '+pin.city+(pin.country?(', '+pin.country):'')):'Saved on this device');
