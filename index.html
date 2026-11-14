@@ -262,6 +262,11 @@
     .post-actions .btn{
       padding:11px 8px;font-size:13px;border-radius:12px;font-weight:700;
     }
+    .post-actions .feed-cmt-span{
+      grid-column:1/-1;
+      justify-self:stretch;
+      text-align:center;
+    }
     .post-compact .post-stats{padding:6px 10px 2px;font-size:11px;gap:8px}
     .post-compact .react-bar{padding:2px 10px 6px;gap:5px}
     .post-compact .react-bar span{padding:3px 7px;font-size:11px}
@@ -1039,8 +1044,9 @@
     .normal-feed-post-media{background:#000}
     .normal-feed-post-media img{display:block;width:100%;max-height:380px;object-fit:cover}
     .normal-feed-post-stats{display:none}
-    .normal-feed-post-actions{display:flex;gap:6px;padding:6px 12px 12px;flex-wrap:wrap}
+    .normal-feed-post-actions{display:flex;gap:6px;padding:6px 12px 12px;flex-wrap:wrap;justify-content:center}
     .normal-feed-post-actions .btn{padding:8px 10px;font-size:12px;flex:1;min-width:0}
+    .normal-feed-post-actions .nf-feed-comment{flex:1.15;text-align:center}
     .btn-hot{background:linear-gradient(90deg,#ff6a00,#ff2d55)!important;color:#fff!important;border:0!important;font-weight:900!important;box-shadow:0 0 14px rgba(255,106,0,.35)}
     .btn-hot.on{opacity:.72;filter:saturate(.85)}
     .nf-timer-chip{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.3px;background:rgba(255,59,48,.16);color:#ff8a8a;border:1px solid rgba(255,59,48,.4)}
@@ -3209,7 +3215,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete now · 50 FC</button>
       <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95">Pay $5 on Throne</a>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verify</button>
-      <button class="btn btn-ghost" type="button" style="width:100%;margin-bottom:10px;padding:12px;font-weight:800;border:1px solid rgba(248,113,113,.45);color:#fecaca" id="btn-remove-rights" onclick="confirmRemoveRights()">Rights / non-consensual · free review</button>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" id="btn-remove-buycoins" onclick="closeModals();openCoinShop()">Buy Fag Coins</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-rm" type="button">Keep it public</button>
     </div>
@@ -14648,12 +14653,7 @@ function openRoulette(){
       }else if(hotN>0){
         timerChip='<span class="nf-hot-chip">🔥 '+hotN+'</span>';
       }
-      var isMine=false;
-      try{isMine=typeof canDeletePostAsOwner==='function'?canDeletePostAsOwner(p):!!(currentUser&&currentUser.name&&samePostOwner(p,currentUser.name))}catch(e){}
       var tierBadge=typeof deletionTierBadgeHtml==='function'?deletionTierBadgeHtml(p):'';
-      var delNeedsFc=isMine && typeof deletionRequiresFc==='function' && deletionRequiresFc(p);
-      var delLabel=isMine?(delNeedsFc?'Delete · 50 FC':'Delete'):'Delete';
-      var delBtn='<button class="btn btn-ghost btn-sm" type="button" style="margin-left:auto;color:#f87171;font-weight:800" data-nf-act="delete" data-nf-id="'+pid+'">'+delLabel+'</button>';
       var reactRow='<div class="normal-feed-reacts">'+['❤️','😍','😂','🤏','👏'].map(function(e){
         var n=summary[e]||0;
         return '<button type="button" class="'+(mine===e?'on':'')+'" data-nf-act="react" data-nf-id="'+pid+'" data-nf-emoji="'+e+'" aria-label="'+reactionLabels[e]+'">'
@@ -14677,7 +14677,7 @@ function openRoulette(){
       }
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
-        +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+tierBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div>'+delBtn+'</div>'
+        +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+tierBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div></div>'
         +media
         +'<div class="normal-feed-post-body">'+body+'</div>'
         +'<span class="nf-action-hint">Tap a reaction to leave your mark</span>'
@@ -14685,7 +14685,7 @@ function openRoulette(){
         +'<div class="normal-feed-post-actions">'
         +actionBtns
         +'<button class="btn btn-like'+(mine?' liked':'')+'" type="button" data-nf-act="picker" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · '+(p.likes||0)+'</button>'
-        +'<button class="btn btn-secondary" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
+        +'<button class="btn btn-secondary nf-feed-comment" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span> '+(saved?'Saved':'Save')+'</button>'
         +(vsrc?'<button class="btn btn-secondary" type="button" data-nf-act="dl" data-nf-id="'+pid+'"><span class="nf-action-icon">⬇️</span> Download</button>':'')
         +'</div>'
@@ -20412,6 +20412,7 @@ function profileStatsHtml(userPosts, extra){
     function postCardActionButtons(p, permanent, already, alreadyCd){
       // Permanent / no timer → Hot only. Active timer → Extend.
       // Timed videos → Extend + Hot (timer must not block Hot on video posts).
+      // Delete lives only inside individual post detail — never on feed/wall cards.
       var hasTimer = (typeof postHasActiveTimer === 'function')
         ? postHasActiveTimer(p)
         : (!!(Number(p && p.expires || 0) > Date.now()));
@@ -20422,10 +20423,12 @@ function profileStatsHtml(userPosts, extra){
       var hotBtn = '<button class="btn btn-hot' + (hotOn ? ' on' : '') + '" type="button" ' + (hotOn ? 'disabled' : '') +
         ' data-nf-act="hot" data-nf-id="' + String(p.id).replace(/"/g, '') +
         '" onclick="event.stopPropagation();hotBumpWall(' + jsId(p.id) + ',{allowAnon:true,skipTimer:true})">🔥 Hot' + (hotN ? (' · ' + hotN) : '') + '</button>';
-      var cmtBtn = '<button class="btn btn-secondary" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
-      var delBtn = '<button class="btn btn-ghost" type="button" style="color:#f87171;font-weight:800" onclick="event.stopPropagation();openRemove(' + jsId(p.id) + ')">Delete</button>';
+      // Span full row when Comment would sit alone under Like + one action (balanced centering).
+      function cmtBtn(span){
+        return '<button class="btn btn-secondary'+(span?' feed-cmt-span':'')+'" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
+      }
       if(!hasTimer){
-        return hotBtn + cmtBtn + delBtn;
+        return hotBtn + cmtBtn(true);
       }
       var extAmt = (typeof postExtendMinutes === 'function' ? postExtendMinutes(p) : (Number(p.extendAmount) || 360));
       var label = already
@@ -20435,7 +20438,8 @@ function profileStatsHtml(userPosts, extra){
         '" type="button" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
         (already ? 'disabled aria-disabled="true"' : '') +
         ' onclick="event.stopPropagation();openExtend(' + jsId(p.id) + ')">' + label + '</button>';
-      return (isVid ? (extBtn + hotBtn + cmtBtn) : (extBtn + cmtBtn)) + delBtn;
+      if(isVid) return extBtn + hotBtn + cmtBtn(false);
+      return extBtn + cmtBtn(true);
     }
 function postCardHtml(p, compact){
       // Same pin/exposure source as Spotlight — never leave stubs at expires:0 while pinned.
@@ -21403,8 +21407,8 @@ function postCardHtml(p, compact){
       var hotLed='<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+',{allowAnon:true,skipTimer:true})"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>';
       var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
       var extLed=showExtendBtn ? extendLed : hotLed;
-      // Universal Delete: always visible. Owner free/paid paths reuse existing rules;
-      // everyone else opens the $5 / rights request modal (never auto-deletes).
+      // Universal Delete: visible in post detail only. Owner free/paid paths reuse existing rules;
+      // everyone else opens the $5 request modal (never auto-deletes).
       var removeBtn='';
       var tierNeedsFc=typeof deletionRequiresFc==='function'&&deletionRequiresFc(post);
       var freeDel=typeof postFreeDeletionEnabled==='function'&&postFreeDeletionEnabled(post);
@@ -21420,7 +21424,7 @@ function postCardHtml(p, compact){
       }else if(isOwner){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>your post</i></button>';
       }else{
-        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>$5 request · or rights</i></button>';
+        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>$5 request</i></button>';
       }
       var acts='<div class="dx-actions">'
         +extLed
@@ -24520,12 +24524,6 @@ async function onIdFace(e){
         if(buy) buy.style.display=show?'block':'none';
       }catch(e){}
     }
-    function setRemoveModalRights(show){
-      try{
-        var rights=document.getElementById('btn-remove-rights');
-        if(rights) rights.style.display=show?'block':'none';
-      }catch(e){}
-    }
     function openRemove(id){
       window.__removePostId=id||currentDetailId;
       window.__removeRequestKind='paid';
@@ -24557,7 +24555,6 @@ async function onIdFace(e){
         if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
-        setRemoveModalRights(false);
       }else if(owner && (tier==='locked'||tier==='permanent')){
         // Locked / Permanent: owner FC confirm only (no external "I paid" shortcut for tier deletes)
         if(title) title.textContent='Delete · 50 FC';
@@ -24565,36 +24562,32 @@ async function onIdFace(e){
         if(fc){fc.style.display='block';fc.textContent='Confirm · 50 FC';fc.setAttribute('onclick','removeWithCoins()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
-        setRemoveModalRights(false);
       }else if(owner && (timeless || wall) && !needsFc){
         if(title) title.textContent='Delete wall post';
         if(pEl) pEl.innerHTML='Your Wall / permanent post deletes for free.';
         if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
-        setRemoveModalRights(false);
       }else if(owner && needsFc){
         if(title) title.textContent='Delete · 50 FC';
         if(pEl) pEl.innerHTML='Deleting this post costs <strong style="color:#f5c518">50 FC</strong>. Continue?';
         if(fc){fc.style.display='block';fc.textContent='Confirm · 50 FC';fc.setAttribute('onclick','removeWithCoins()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
-        setRemoveModalRights(false);
       }else if(!owner){
-        // Anyone can request removal of someone else's post — $5 pending admin, or free rights channel.
+        // Anyone can request removal of someone else's post — $5 pending admin verify.
+        // Rights / non-consensual reports go through the post-detail contact notice only.
         if(title) title.textContent='Request delete · $5';
-        if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. Pay <strong style="color:#f5c518">$5 USD</strong>, then tap <strong>I paid</strong>. Admin reviews before anything is removed. Rights / non-consensual reports are free.';
+        if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. Pay <strong style="color:#f5c518">$5 USD</strong>, then tap <strong>I paid</strong>. Admin reviews before anything is removed.';
         if(fc){fc.style.display='none'}
         if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verify'}
         setRemoveModalExternalPay(true);
-        setRemoveModalRights(true);
       }else{
         if(title) title.textContent='Remove this post';
         if(pEl) pEl.innerHTML='Delete · <strong style="color:#f5c518">$5 / 50 FC</strong>. Or pay outside and tap <strong>I paid</strong>.';
         if(fc){fc.style.display='block';fc.textContent='Delete · $5 / 50 FC';fc.setAttribute('onclick','removeWithCoins()');}
         if(paid) paid.style.display='block';
         setRemoveModalExternalPay(true);
-        setRemoveModalRights(true);
       }
       var modal=document.getElementById('remove-modal');
       if(modal){modal.style.display='';modal.classList.add('show');}
