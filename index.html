@@ -3353,31 +3353,56 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){}
       try{fetch(CF_API+'/posts/'+encodeURIComponent(id)+'/view',{method:'POST'}).catch(function(){})}catch(e){}
     }
+    function impressionKey(panel, id){
+      return String(panel||'')+':'+(__viewVisit[panel]||1)+':'+String(id||'');
+    }
     function countImpression(id, panel){
       id=String(id||'');
       if(!id||isDeletedId(id))return;
-      var visit=__viewVisit[panel]||1;
-      var key=panel+':'+visit+':'+id;
+      var key=impressionKey(panel,id);
       if(__viewSeen[key])return;
       __viewSeen[key]=1;
       bumpViews(id,1);
     }
+    function clearImpression(id, panel){
+      id=String(id||'');
+      if(!id)return;
+      try{delete __viewSeen[impressionKey(panel,id)]}catch(e){}
+    }
+    /** Post cards only — ignore nested media/gallery [data-pid] so one card = one impression. */
+    function impressionNodes(root){
+      root=root||document;
+      try{
+        return root.querySelectorAll('article[data-pid], .normal-feed-post[data-pid], .vid-row[data-pid], .vid-card[data-pid], .id-archive-card[data-pid], .home-strip-card[data-pid]');
+      }catch(e){
+        return root.querySelectorAll('[data-pid]');
+      }
+    }
     function bindImpressions(panel, root){
       root=root||document;
-      var nodes=root.querySelectorAll('[data-pid]');
+      var nodes=impressionNodes(root);
       if(!nodes.length)return;
       if(!window.IntersectionObserver){
         Array.prototype.forEach.call(nodes,function(el){countImpression(el.getAttribute('data-pid'),panel)});
         return;
       }
       if(window.__impObs){try{window.__impObs.disconnect()}catch(e){}}
+      // Visible ≥35% → +1 view. Fully leave viewport → can count again on next scroll-in.
+      // Opening the post (openDetail) always adds another view on top.
+      // Re-entering the feed/wall (startViewVisit) starts a new visit so cards count again.
       var obs=new IntersectionObserver(function(entries){
         entries.forEach(function(en){
-          if(!en.isIntersecting)return;
           var id=en.target.getAttribute('data-pid');
-          if(id)countImpression(id,panel);
+          if(!id)return;
+          var ratio=Number(en.intersectionRatio)||0;
+          if(ratio>=0.35){
+            countImpression(id,panel);
+          }else if(ratio<=0){
+            // Fully off-screen → next scroll-in can count again.
+            clearImpression(id,panel);
+          }
         });
-      },{threshold:0.35,root:null});
+      },{threshold:[0,0.35],root:null});
       window.__impObs=obs;
       Array.prototype.forEach.call(nodes,function(el){obs.observe(el)});
     }
@@ -5472,8 +5497,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     var FEATURED_PROFILES = ['loserfagg'];
     var FEATURED_PROFILE_PIN_MS = 30 * 24 * 3600 * 1000;
     function displayViews(n){
-      n = Number(n)||0;
-      return n * 2; // same doubled number on the card and inside the post
+      // Honest count: same number on the card and inside the post (no multiplier).
+      return Number(n)||0;
     }
     function normProfileName(name){
       return String(name||'').replace(/^@/,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
@@ -13044,7 +13069,7 @@ function openRoulette(){
         }
       }
       if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
-      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
+      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}startViewVisit('wall')}
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){
         // openGoonTok already fetches + paints; avoid a second remount/re-arm storm.
@@ -16011,9 +16036,8 @@ function openRoulette(){
           ? '<video controls playsinline webkit-playsinline preload="metadata" poster="'+esc(poster)+'" style="width:100%;border-radius:12px;background:#000;max-height:320px" src="'+esc(src)+'"></video>'
           : '<div style="padding:20px;text-align:center;color:#9a9aa3">Video loading…</div>';
         var raw=Number(p.views||0);
-        var boost=1200+(typeof seedHash==='function'?seedHash(String(p.id))%1800:800);
-        var shown=displayViews(raw)+boost;
-        return '<div style="background:#141418;border:1px solid #2a2a32;border-radius:14px;color:#fff;padding:10px;margin-bottom:12px">'+player+'<div style="font-size:13px;font-weight:700;margin-top:8px">@'+esc(p.user||'')+' · '+esc(String(p.title||'Print video'))+'</div><div style="font-size:12px;color:#9a9aa3;margin-top:4px">👀 '+shown.toLocaleString()+' views</div></div>';
+        var shown=typeof displayViews==='function'?displayViews(raw):raw;
+        return '<div style="background:#141418;border:1px solid #2a2a32;border-radius:14px;color:#fff;padding:10px;margin-bottom:12px">'+player+'<div style="font-size:13px;font-weight:700;margin-top:8px">@'+esc(p.user||'')+' · '+esc(String(p.title||'Print video'))+'</div><div style="font-size:12px;color:#9a9aa3;margin-top:4px">👀 '+Number(shown||0).toLocaleString()+' views</div></div>';
       }).join(''):'<div style="color:#9a9aa3;font-size:13px">Print videos from @MasterSan appear here.</div>';
     }
     window.fillHomePostStrip=fillHomePostStrip;
