@@ -223,6 +223,62 @@ function jsonLd(opts) {
   );
 }
 
+function gonePage(url) {
+  var title = 'This post is no longer available';
+  var desc = 'This post was deleted and is no longer available on Ruinexpose.';
+  return (
+    '<!DOCTYPE html><html lang="en"><head>' +
+    '<meta charset="UTF-8"/>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +
+    '<title>' +
+    esc(title) +
+    '</title>' +
+    '<meta name="description" content="' +
+    esc(desc) +
+    '"/>' +
+    '<meta name="robots" content="noindex,nofollow"/>' +
+    '<meta name="googlebot" content="noindex,nofollow"/>' +
+    '<meta name="googlebot-image" content="noindex"/>' +
+    '<link rel="canonical" href="' +
+    esc(url) +
+    '"/>' +
+    '<meta property="og:site_name" content="' +
+    esc(SITE_NAME) +
+    '"/>' +
+    '<meta property="og:type" content="website"/>' +
+    '<meta property="og:title" content="' +
+    esc(title) +
+    '"/>' +
+    '<meta property="og:description" content="' +
+    esc(desc) +
+    '"/>' +
+    '<meta property="og:url" content="' +
+    esc(url) +
+    '"/>' +
+    '<meta name="twitter:card" content="summary"/>' +
+    '<meta name="twitter:title" content="' +
+    esc(title) +
+    '"/>' +
+    '<meta name="twitter:description" content="' +
+    esc(desc) +
+    '"/>' +
+    '</head><body style="background:#050506;color:#ececef;font-family:system-ui,sans-serif;padding:28px;max-width:640px;margin:0 auto;text-align:center">' +
+    '<p style="color:#9a9aa3;font-size:13px;letter-spacing:.4px">' +
+    esc(SITE_NAME.toUpperCase()) +
+    '</p>' +
+    '<h1 style="font-size:1.4rem;margin:18px 0 10px">' +
+    esc(title) +
+    '</h1>' +
+    '<p style="color:#9a9aa3;line-height:1.45;margin:0 0 22px">' +
+    esc(desc) +
+    '</p>' +
+    '<p><a href="' +
+    esc(SITE + '/') +
+    '" style="color:#ff6a00;text-decoration:none;font-weight:700">Back to feed</a></p>' +
+    '</body></html>'
+  );
+}
+
 function htmlPage(opts) {
   var title = opts.title;
   var desc = opts.desc;
@@ -358,21 +414,41 @@ module.exports = async function handler(req, res) {
     }
 
     var post = await loadPost(id);
-    var indexable = isIndexablePost(post);
     var canonical = SITE + '/post/' + encodeURIComponent(String(post && post.id != null ? post.id : id));
-    var spa = canonical;
 
-    var user = post ? String(post.username || post.user || '').replace(/^@/, '') : '';
-    var rawTitle = post ? String(post.title || '').trim() : '';
-    var rawDesc = post ? String(post.description || post.desc || '').trim() : '';
-    var title = post
-      ? clip((user ? user + ': ' : '') + (rawTitle || 'Exposure post'), 90)
-      : SITE_NAME + ' — post';
-    var desc = post
-      ? clip(rawDesc || rawTitle || 'Open this exposure on ruinexpose.com', 180)
-      : 'Public exposure board at ruinexpose.com';
-    var image = post ? pickImage(post) : DEFAULT_IMAGE;
+    // Deleted / missing: never expose old title, photos, OG image, or SPA redirect.
+    if (!post) {
+      res.statusCode = 410;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.setHeader('CDN-Cache-Control', 'no-store');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noimageindex');
+      res.setHeader('Vary', 'User-Agent');
+      res.end(gonePage(canonical));
+      return;
+    }
+
+    var indexable = isIndexablePost(post);
+    var spa = canonical;
+    var user = String(post.username || post.user || '').replace(/^@/, '');
+    var rawTitle = String(post.title || '').trim();
+    var rawDesc = String(post.description || post.desc || '').trim();
+    var title = clip((user ? user + ': ' : '') + (rawTitle || 'Exposure post'), 90);
+    var desc = clip(rawDesc || rawTitle || 'Open this exposure on ruinexpose.com', 180);
+    var image = pickImage(post);
     var imgAlt = clip((rawTitle || 'Public exposure photo') + (user ? ' by @' + user : ''), 120);
+
+    // Expired / explicitly blocked: keep 410 + noindex, strip rich media when not indexable.
+    if (!indexable) {
+      res.statusCode = 410;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.setHeader('CDN-Cache-Control', 'no-store');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noimageindex');
+      res.setHeader('Vary', 'User-Agent');
+      res.end(gonePage(canonical));
+      return;
+    }
 
     var body = htmlPage({
       title: title,
@@ -381,26 +457,14 @@ module.exports = async function handler(req, res) {
       url: canonical,
       user: user,
       spa: spa,
-      indexable: indexable,
+      indexable: true,
       imgAlt: imgAlt,
-      published: post && post.created_at ? post.created_at : ''
+      published: post.created_at || ''
     });
-    res.statusCode = indexable || !post ? 200 : 200;
-    // Missing / blocked posts still return 200 with noindex so share previews stay soft.
-    if (!post) res.statusCode = 404;
-    else if (!indexable) res.statusCode = 410;
+    res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader(
-      'Cache-Control',
-      indexable ? 'public, s-maxage=300, stale-while-revalidate=600' : 'public, s-maxage=60, stale-while-revalidate=120'
-    );
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     res.setHeader('Vary', 'User-Agent');
-    // Soft status for crawlers that treat 410 as hard-delete; keep HTML body for clarity.
-    if (!post) {
-      // 404 with noindex body
-    } else if (!indexable) {
-      // 410 Gone for expired/excluded
-    }
     res.end(body);
   } catch (e) {
     res.statusCode = 500;

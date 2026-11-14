@@ -228,6 +228,38 @@ async function deletePostRow(client, postId) {
   return error;
 }
 
+/** Best-effort Cloudflare purge for deleted post URLs + sitemap. Never fails the delete. */
+async function purgeDeletedPostCaches(postId) {
+  const zone = String(process.env.CF_ZONE_ID || process.env.CLOUDFLARE_ZONE_ID || '').trim();
+  const token = String(process.env.CF_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN || '').trim();
+  const files = [
+    SITE + '/post/' + encodeURIComponent(String(postId)),
+    SITE + '/p/' + encodeURIComponent(String(postId)),
+    SITE + '/?p=' + encodeURIComponent(String(postId)),
+    SITE + '/api/og?p=' + encodeURIComponent(String(postId)),
+    SITE + '/sitemap.xml'
+  ];
+  if (!zone || !token) {
+    return { skipped: true, reason: 'missing_cf_credentials', files };
+  }
+  try {
+    const r = await fetch('https://api.cloudflare.com/client/v4/zones/' + encodeURIComponent(zone) + '/purge_cache', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ files })
+    });
+    const j = await r.json().catch(function () {
+      return {};
+    });
+    return { ok: !!(r.ok && j && j.success), status: r.status, files, result: j };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message ? e.message : e), files };
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
   if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
@@ -340,6 +372,17 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // Post row is gone — purge CDN/edge caches so old OG/HTML cannot resurrect.
+  let cachePurge = null;
+  try {
+    cachePurge = await purgeDeletedPostCaches(postId);
+  } catch (e) {
+    cachePurge = { ok: false, error: String(e && e.message ? e.message : e) };
+  }
+
+  // Hint for Google Search Console Removals (manual): list the URL that must drop.
+  const removalUrl = SITE + '/post/' + encodeURIComponent(String(postId));
+
   return json(res, 200, {
     ok: true,
     postId,
@@ -350,6 +393,9 @@ module.exports = async function handler(req, res) {
     balance: spend && spend.balance,
     free: !!freeOverride || charged === 0,
     reused: !!(spend && spend.reused),
-    via_owner_token: !!tokenOk
+    via_owner_token: !!tokenOk,
+    cachePurge,
+    removalUrl,
+    gscHint: 'Request temporary removal for ' + removalUrl + ' in Google Search Console if it still appears in search.'
   });
 };

@@ -6,7 +6,21 @@
     },
     {
       "source": "/sitemap.xml",
-      "headers": [{ "key": "Cache-Control", "value": "public, s-maxage=600, stale-while-revalidate=3600" }]
+      "headers": [{ "key": "Cache-Control", "value": "public, s-maxage=120, stale-while-revalidate=600" }]
+    },
+    {
+      "source": "/post/:id",
+      "headers": [
+        { "key": "Cache-Control", "value": "private, no-store" },
+        { "key": "CDN-Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/p/:id",
+      "headers": [
+        { "key": "Cache-Control", "value": "private, no-store" },
+        { "key": "CDN-Cache-Control", "value": "no-store" }
+      ]
     }
   ],
   "rewrites": [
