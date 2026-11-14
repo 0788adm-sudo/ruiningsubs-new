@@ -16890,8 +16890,11 @@ function openRoulette(){
       try{
         // Parallel network with timeouts — never let one hung source freeze Loading forever.
         var nowIso=new Date().toISOString();
-        // deletion_tier is enough to honor free deletion; free_deletion_enabled is optional (migration).
-        var SB_FEED_COLS='id,username,title,description,tags,image_url,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions,deletion_tier';
+        // Live Extend feed columns. Do NOT request deletion_tier / free_deletion_enabled /
+        // owner_token_hash here — those columns are not on production yet, and a named
+        // missing column returns HTTP 400 and empties the whole Live Feed. Tier still
+        // resolves from del:* tags via parseDeletionTierTag when mapping rows.
+        var SB_FEED_COLS='id,username,title,description,tags,image_url,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions';
         // Fetch a wide first page so Extend can scroll well past 100 live exposures
         // without an artificial 60-post ceiling. Client windowing still paints in chunks.
         window.__feedNetDone=false;
