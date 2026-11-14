@@ -945,6 +945,21 @@
       display:flex;align-items:center;justify-content:center;gap:6px;
     }
     .dx-row.on{color:#ff4d6d;border-color:rgba(255,77,109,.4);background:rgba(255,77,109,.1)}
+    /* Post detail Share only — neon green CTA; keep size/radius of .dx-row */
+    .dx-row.dx-share{
+      color:#fff;font-weight:800;
+      background:linear-gradient(180deg,#00E676 0%,#00C853 100%);
+      border-color:rgba(0,230,118,.55);
+      box-shadow:0 0 12px rgba(0,230,118,.55),0 0 22px rgba(0,230,118,.28);
+    }
+    .dx-row.dx-share .share-ico{
+      width:15px;height:15px;display:inline-flex;flex-shrink:0;color:#fff;
+    }
+    .dx-row.dx-share .share-ico svg{
+      width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:2;
+      stroke-linecap:round;stroke-linejoin:round;
+    }
+    .dx-row.dx-share:active{transform:scale(.98)}
     .dx-ext{
       grid-column:1/-1;width:100%;border:0;border-radius:16px;padding:14px 12px;cursor:pointer;
       font-weight:900;color:#111;background:linear-gradient(135deg,#ff8a00,#ff6a00);
@@ -21551,7 +21566,7 @@ function postCardHtml(p, compact){
         +extLed
         +'<button class="dx-row'+(mineR?' on':'')+'" type="button" onclick="quickLike('+jsId(post.id)+',event)">'+(mineR||'❤️')+' '+(mineR?'Liked':'Like')+'</button>'
         +'<button class="dx-row" type="button" onclick="downloadPost('+jsId(post.id)+')">Download</button>'
-        +'<button class="dx-row" type="button" onclick="sharePost('+jsId(post.id)+')">Share</button>'
+        +'<button class="dx-row dx-share" type="button" onclick="sharePost('+jsId(post.id)+')"><span class="share-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.3 10.8 7.4-4"/><path d="m8.3 13.2 7.4 4"/></svg></span>Share</button>'
         +'<button class="dx-row" type="button" onclick="toggleSave('+jsId(post.id)+')">'+(isSaved(post.id)?'Saved':'Save')+'</button>'
         +'<button class="dx-pin" type="button" onclick="openFeature('+jsId(post.id)+')"><b>Request Feature</b><i>50 FC · 48h</i></button>'
         +removeBtn
