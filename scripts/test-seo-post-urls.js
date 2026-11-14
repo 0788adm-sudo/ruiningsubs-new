@@ -35,6 +35,8 @@ assert(og.indexOf("SITE + '/post/'") >= 0 || og.indexOf('"/post/"') >= 0, 'OG ca
 assert(og.indexOf('noindex') >= 0, 'OG can noindex ineligible posts');
 assert(og.indexOf('SocialMediaPosting') >= 0, 'OG emits structured data');
 assert(og.indexOf('isIndexablePost') >= 0, 'OG eligibility gate');
+assert(og.indexOf('This post is no longer available') >= 0, 'OG gone page for missing posts');
+assert(/statusCode\s*=\s*410/.test(og), 'OG uses HTTP 410 for gone/blocked');
 
 assert(sitemap.indexOf('urlset') >= 0, 'sitemap builder present');
 assert(sitemap.indexOf('isIndexableRow') >= 0, 'sitemap eligibility gate');

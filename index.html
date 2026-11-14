@@ -4144,6 +4144,84 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         return d.indexOf(String(id))>=0;
       }catch(e){return false}
     }
+    /** Strip a deleted post from every in-memory + local cache so it cannot resurrect. */
+    function purgePostEverywhere(id){
+      id=String(id||'');
+      if(!id)return;
+      markDeleted(id);
+      try{posts=(posts||[]).filter(function(p){return String(p.id)!==id})}catch(e){}
+      try{normalFeedPosts=(normalFeedPosts||[]).filter(function(p){return String(p.id)!==id})}catch(e){}
+      try{window.__videoCache=(window.__videoCache||[]).filter(function(p){return String(p.id)!==id})}catch(e){}
+      try{window.__feedRest=(window.__feedRest||[]).filter(function(p){return String(p.id)!==id})}catch(e){}
+      try{
+        ['rs_home_cache','rs_wall_cache','rs_videos','rs_home_cache_v2','rs_wall_cache_v2','rs_feed_cache'].forEach(function(k){
+          var arr=JSON.parse(localStorage.getItem(k)||'[]')||[];
+          if(Array.isArray(arr)) localStorage.setItem(k,JSON.stringify(arr.filter(function(p){return String(p&&p.id)!==id})));
+        });
+      }catch(e){}
+      try{clearFeaturedForPost(id)}catch(e){}
+      try{
+        localStorage.setItem('rs_deleted_broadcast', JSON.stringify({id:id,t:Date.now()}));
+      }catch(e){}
+      try{
+        if(window.BroadcastChannel){
+          if(!window.__rsDeleteBus) window.__rsDeleteBus=new BroadcastChannel('rs_posts');
+          window.__rsDeleteBus.postMessage({type:'deleted',id:id,t:Date.now()});
+        }
+      }catch(e){}
+    }
+    function showPostGone(id){
+      id=String(id||currentDetailId||'');
+      try{purgePostEverywhere(id)}catch(e){}
+      try{if(typeof restoreDefaultSeoMeta==='function')restoreDefaultSeoMeta()}catch(e){}
+      currentDetailId=null;
+      var box=document.getElementById('detail-content');
+      var html=''
+        +'<div class="empty" style="padding:48px 18px;text-align:center">'
+        +'<div style="font-size:18px;font-weight:900;margin-bottom:8px">This post is no longer available</div>'
+        +'<div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:18px">It was deleted and cannot be shown.</div>'
+        +'<button class="btn btn-primary" type="button" onclick="showPanel(\'feed\')">Back to feed</button>'
+        +'</div>';
+      if(box){
+        box.innerHTML=html;
+        try{showPanel('detail')}catch(e){}
+      }else{
+        toast('This post is no longer available');
+        try{showPanel('feed')}catch(e){}
+      }
+      try{
+        if(id) history.replaceState({panel:'detail',gone:1,post:String(id)},'','/post/'+encodeURIComponent(String(id)));
+      }catch(e){}
+    }
+    window.purgePostEverywhere=purgePostEverywhere;
+    window.showPostGone=showPostGone;
+    function applyRemotePostDeleted(id){
+      id=String(id||'');
+      if(!id)return;
+      purgePostEverywhere(id);
+      try{renderPosts()}catch(e){}
+      try{renderNormalFeed()}catch(e){}
+      try{syncExtendedPanel(window.__feedRest||posts)}catch(e){}
+      if(String(currentDetailId)===id) showPostGone(id);
+    }
+    try{
+      window.addEventListener('storage',function(ev){
+        if(!ev||ev.key!=='rs_deleted_broadcast')return;
+        try{
+          var j=JSON.parse(ev.newValue||'{}')||{};
+          if(j&&j.id) applyRemotePostDeleted(j.id);
+        }catch(e){}
+      });
+    }catch(e){}
+    try{
+      if(window.BroadcastChannel){
+        window.__rsDeleteBus=new BroadcastChannel('rs_posts');
+        window.__rsDeleteBus.onmessage=function(ev){
+          var d=ev&&ev.data;
+          if(d&&d.type==='deleted'&&d.id) applyRemotePostDeleted(d.id);
+        };
+      }
+    }catch(e){}
     try{markDeleted('491ef088-831c-4345-b507-471fcd635f2f')}catch(e){}
     try{markDeleted('1792566465151')}catch(e){}
     async function deleteCfPost(id){
@@ -5323,6 +5401,24 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){}
     },18000);
     setInterval(loadNotifs,20000);setInterval(updateMsgBadge,15000);setInterval(updateTimers,1000);
+    // If another user deletes the post you're viewing, swap to the gone state.
+    setInterval(function(){
+      try{
+        var id=currentDetailId;
+        if(!id)return;
+        if(typeof isDeletedId==='function' && isDeletedId(id)){ showPostGone(id); return; }
+        if(typeof sb==='undefined'||!sb)return;
+        if(window.__detailLiveCheckBusy)return;
+        window.__detailLiveCheckBusy=true;
+        sb.from('posts').select('id').eq('id',id).maybeSingle().then(function(q){
+          window.__detailLiveCheckBusy=false;
+          if(q && !q.error && !q.data && String(currentDetailId)===String(id)){
+            try{purgePostEverywhere(id)}catch(e){}
+            showPostGone(id);
+          }
+        }).catch(function(){ window.__detailLiveCheckBusy=false; });
+      }catch(e){ window.__detailLiveCheckBusy=false; }
+    }, 20000);
     }
     function initUser(){
       var uid=localStorage.getItem('rs_uid');
@@ -14417,6 +14513,7 @@ function openRoulette(){
     /* —— Background optimize queue (client-side, rate-limited; never deletes posts) —— */
     function findPostAnywhere(id){
       id=String(id||'');
+      if(typeof isDeletedId==='function' && isDeletedId(id)) return null;
       var pools=[window.__videoCache||[],posts||[],normalFeedPosts||[]];
       try{pools.push(JSON.parse(localStorage.getItem('rs_videos')||'[]')||[])}catch(e){}
       for(var i=0;i<pools.length;i++){
@@ -16445,11 +16542,15 @@ function openRoulette(){
     function findPostAnywhere(id){
       // Keep video caches so GoonTok / Videos Hot and detail lookup never miss.
       id=String(id||'');
+      if(typeof isDeletedId==='function' && isDeletedId(id)) return null;
       var pools=[window.__videoCache||[], posts||[], normalFeedPosts||[]];
       try{pools.push(JSON.parse(localStorage.getItem('rs_videos')||'[]')||[])}catch(e){}
       for(var i=0;i<pools.length;i++){
         for(var j=0;j<(pools[i]||[]).length;j++){
-          if(String(pools[i][j]&&pools[i][j].id)===id) return pools[i][j];
+          if(String(pools[i][j]&&pools[i][j].id)===id){
+            if(typeof isDeletedId==='function' && isDeletedId(id)) return null;
+            return pools[i][j];
+          }
         }
       }
       return null;
@@ -16469,9 +16570,11 @@ function openRoulette(){
     async function ensureFeedPost(id){
       id=String(id||'').trim();
       if(!id)return null;
-      var post=findPostAnywhere(id);
-      if(post)return rememberFeedPost(post);
+      if(typeof isDeletedId==='function' && isDeletedId(id)) return null;
+      // Always re-check the server for permalink opens — never trust only local caches
+      // after a delete (another tab/device may have removed it).
       var urls=[CF_API+'/posts/'+encodeURIComponent(id), CF_API+'/feed?id='+encodeURIComponent(id)+'&limit=1'];
+      var remote=null;
       for(var i=0;i<urls.length;i++){
         try{
           var r0=await fetch(urls[i],{cache:'no-store'});
@@ -16486,7 +16589,8 @@ function openRoulette(){
                 var isVid=!!(mapped._kind==='video'||mapped.media_type==='video'||(typeof isVideoPost==='function'&&isVideoPost(mapped)));
                 if(isVid){ mapped.expires=0; }
               }catch(e){}
-              return rememberFeedPost(mapped);
+              remote=rememberFeedPost(mapped);
+              break;
             }
           }
         }catch(e){console.warn('post lookup',e)}
@@ -16504,8 +16608,19 @@ function openRoulette(){
               return rememberFeedPost(mapped2);
             }
           }
+          // Confirmed missing from Supabase and no CF hit → tombstone locally.
+          if(q && !q.error && !q.data && !remote){
+            try{markDeleted(id)}catch(e){}
+            try{purgePostEverywhere(id)}catch(e){}
+            return null;
+          }
         }
       }catch(e){console.warn('supabase post lookup',e)}
+      if(remote) return remote;
+      // Fall back to local pools only if server lookups failed (offline) — never if tombstoned.
+      if(typeof isDeletedId==='function' && isDeletedId(id)) return null;
+      var local=findPostAnywhere(id);
+      if(local) return rememberFeedPost(local);
       return null;
     }
     if(!window.__fastTapBound){
@@ -21518,7 +21633,7 @@ function postCardHtml(p, compact){
         }
       }catch(e){}
 
-      if(isDeletedId(id)){toast('This post was deleted');showPanel('feed');return;}
+      if(isDeletedId(id)){showPostGone(id);return;}
       try{saveFeedScroll()}catch(e){}
       try{
         if(document.body.classList.contains('gt-on') || (window.__detailFrom==='goontok')) saveGoonTokScroll();
@@ -21527,14 +21642,17 @@ function postCardHtml(p, compact){
       if(box0) box0.innerHTML='<div class="empty">Opening…</div>';
       showPanel('detail');
       var post=null;
-      try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
-      if(!post){
-        post=(posts||[]).concat(window.normalFeedPosts||[]).concat(window.__videoCache||[]).find(function(p){return String(p.id)===String(id)});
-      }
-      if(!post && typeof ensureFeedPost==='function'){
+      // Prefer live server lookup so deleted posts cannot reopen from stale local pools.
+      if(typeof ensureFeedPost==='function'){
         try{post=await ensureFeedPost(id)}catch(e){}
       }
-      if(!post){toast('Could not open post');return;}
+      if(!post){
+        try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+      }
+      if(!post){
+        post=(posts||[]).concat(window.normalFeedPosts||[]).concat(window.__videoCache||[]).find(function(p){return String(p.id)===String(id) && !(typeof isDeletedId==='function' && isDeletedId(p.id))});
+      }
+      if(!post){showPostGone(id);return;}
       try{if(typeof hydratePinnedPost==='function') post=hydratePinnedPost(post)}catch(e){}
       try{if(typeof sanitizeVideoPostMedia==='function') post=sanitizeVideoPostMedia(post)||post}catch(e){}
       currentDetailId=post.id;
@@ -24863,24 +24981,17 @@ async function onIdFace(e){
         if(r.ok && j && j.ok){
           if(j.balance!=null) window.__fcLast=Number(j.balance)||window.__fcLast;
           try{await loadFagBalance()}catch(e){}
-          try{markDeleted(id)}catch(e){}
           try{await deleteCfPost(id)}catch(e){}
           try{
             var map=loadOwnerTokens();
             if(map[id]){delete map[id];localStorage.setItem('rs_owner_tokens',JSON.stringify(map))}
           }catch(e){}
-          posts=(posts||[]).filter(function(p){return String(p.id)!==id});
-          normalFeedPosts=(normalFeedPosts||[]).filter(function(p){return String(p.id)!==id});
-          try{
-            ['rs_home_cache','rs_wall_cache','rs_videos','rs_home_cache_v2','rs_wall_cache_v2'].forEach(function(k){
-              var arr=JSON.parse(localStorage.getItem(k)||'[]')||[];
-              if(Array.isArray(arr)) localStorage.setItem(k,JSON.stringify(arr.filter(function(p){return String(p.id)!==id})));
-            });
-          }catch(e){}
+          try{purgePostEverywhere(id)}catch(e){try{markDeleted(id)}catch(e2){}}
           try{renderPosts()}catch(e){}
           try{renderNormalFeed()}catch(e){}
+          try{syncExtendedPanel(window.__feedRest||posts)}catch(e){}
           if(String(currentDetailId)===id){try{showPanel('feed')}catch(e){}}
-          toast(j.charged>0?('Deleted · −'+j.charged+' FC'):'Deleted');
+          toast(j.charged>0?('Post successfully deleted · −'+j.charged+' FC'):'Post successfully deleted');
           return true;
         }
         if(j && (j.error==='insufficient'||j.error==='insufficient_fc'||r.status===402)){
@@ -24989,12 +25100,10 @@ async function onIdFace(e){
       var deleted=false;
       try{deleted=!!(await deletePost(id))}catch(e){deleted=false}
       try{await deleteCfPost(id)}catch(e){}
-      try{markDeleted(id)}catch(e){}
-      try{posts=(posts||[]).filter(function(p){return String(p.id)!==String(id)})}catch(e){}
-      try{localStorage.setItem('rs_videos',JSON.stringify((JSON.parse(localStorage.getItem('rs_videos')||'[]')||[]).filter(function(p){return String(p.id)!==String(id)})))}catch(e){}
+      try{purgePostEverywhere(id)}catch(e){try{markDeleted(id)}catch(e2){}}
       closeModals();
-      try{showPanel('feed');renderPosts()}catch(e){}
-      if(deleted) toast('Deleted');
+      try{showPanel('feed');renderPosts();renderNormalFeed()}catch(e){}
+      if(deleted) toast('Post successfully deleted');
       else toast('Payment received — delete may need a refresh');
     }
     window.removeWithCoins=removeWithCoins;
@@ -27244,21 +27353,12 @@ async function onIdFace(e){
           }catch(e){err=(e&&e.message)||err}
         }
       }
-      markDeleted(id);
-      try{clearFeaturedForPost(id)}catch(e){}
       try{await patchCfPost(id,{featured_until:0})}catch(e){}
-      posts=(posts||[]).filter(function(p){return String(p.id)!==id});
-      normalFeedPosts=(normalFeedPosts||[]).filter(function(p){return String(p.id)!==id});
-      try{
-        var cacheKeys=['rs_home_cache','rs_wall_cache','rs_videos','rs_home_cache_v2','rs_wall_cache_v2'];
-        cacheKeys.forEach(function(k){
-          var arr=JSON.parse(localStorage.getItem(k)||'[]')||[];
-          if(Array.isArray(arr)) localStorage.setItem(k,JSON.stringify(arr.filter(function(p){return String(p.id)!==id})));
-        });
-      }catch(e){}
-      toast('Deleted');
+      try{purgePostEverywhere(id)}catch(e){try{markDeleted(id)}catch(e2){}}
+      toast('Post successfully deleted');
       try{renderPosts()}catch(e){}
       try{renderNormalFeed()}catch(e){}
+      try{syncExtendedPanel(window.__feedRest||posts)}catch(e){}
       if(String(currentDetailId)===id)showPanel('feed');
       return true;
     }

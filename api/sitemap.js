@@ -157,7 +157,8 @@ module.exports = async function handler(req, res) {
     var xml = body.join('');
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+    // Shorter CDN TTL so deleted posts drop from sitemap quickly after purge.
+    res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     res.end(xml);
   } catch (e) {
     res.statusCode = 500;
