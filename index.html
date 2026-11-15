@@ -9959,13 +9959,16 @@ function openRoulette(){
       var wheel=document.getElementById('roulette-wheel');
       if(!wheel) return;
       wheel.style.transition='none';
+      wheel.style.animation='none';
       wheel.style.willChange='transform';
+      try{wheel.classList.add('is-teasing')}catch(e){}
       var base=Number(rouletteAngle)||0;
       if(!isFinite(base)) base=0;
       var t0=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
       function frame(now){
+        if(!rouletteSpinning){ stopRouletteTeaser(); return; }
         var elapsed=(now||Date.now())-t0;
-        var deg=base+(elapsed/1000)*900; // 2.5 rev/s while waiting on server
+        var deg=base+(elapsed/1000)*1080; // 3 rev/s while waiting on server
         window.__rouletteTeaserAngle=deg;
         wheel.style.transform='rotate('+deg+'deg)';
         __rouletteTeaserRaf=requestAnimationFrame(frame);
@@ -9973,29 +9976,37 @@ function openRoulette(){
       __rouletteTeaserRaf=requestAnimationFrame(frame);
     }
     function settleRouletteOnIndex(idx, onDone){
+      // Capture live teaser angle before stopRouletteTeaser clears it into rouletteAngle.
+      var live=window.__rouletteTeaserAngle;
       stopRouletteTeaser();
       var n=ROULETTE_OPTIONS.length||1;
       var seg=360/n;
       idx=((Number(idx)||0)%n+n)%n;
       var targetCenter=idx*seg+seg/2;
-      var extraTurns=4+Math.floor(Math.random()*3);
+      var extraTurns=5+Math.floor(Math.random()*3);
       var finalAngle=extraTurns*360+(360-targetCenter);
-      var current=Number(rouletteAngle)||0;
+      var current=(live!=null && isFinite(live))?Number(live):(Number(rouletteAngle)||0);
       if(!isFinite(current)) current=0;
       var currentMod=((current%360)+360)%360;
       var delta=finalAngle-currentMod;
-      if(delta<360*3) delta+=360*3;
+      if(delta<360*4) delta+=360*4;
       rouletteAngle=current+delta;
       var wheel=document.getElementById('roulette-wheel');
       if(wheel){
+        try{wheel.classList.remove('is-teasing')}catch(e){}
+        wheel.style.animation='none';
         wheel.style.transition='none';
         wheel.style.transform='rotate('+current+'deg)';
+        // Force reflow so the browser always paints the CSS transition.
         void wheel.offsetWidth;
         wheel.style.willChange='transform';
         wheel.style.transition='transform 4.2s cubic-bezier(0.12, 0.75, 0.18, 1)';
         wheel.style.transform='rotate('+rouletteAngle+'deg)';
       }
-      setTimeout(function(){ try{onDone&&onDone()}catch(e){} }, 4300);
+      setTimeout(function(){
+        try{if(wheel) wheel.style.willChange='auto'}catch(e){}
+        try{onDone&&onDone()}catch(e){}
+      }, 4300);
     }
     window.spinRoulette=async function spinRoulette(opts){
       opts=opts||{};
@@ -10636,32 +10647,38 @@ function openRoulette(){
       bindSpin(document.getElementById('btn-spin-roulette'));
       bindSpin(document.getElementById('btn-roulette-again'));
       document.querySelectorAll('#panel-roulette button').forEach(function(b){if(/SPIN/i.test(b.textContent||''))bindSpin(b)});
-      var accept = document.getElementById('btn-roulette-accept');
-      if(accept) accept.onclick = function(){
+      function acceptRouletteChallenge(){
+        if(!lastRouletteOpt || !lastRoulettePlayId){
+          toast('Spin first to get a task');
+          return false;
+        }
         try{
-          if(!lastRouletteOpt || !lastRoulettePlayId){
-            toast('Spin first to get a task');
-            return;
-          }
           window.__rouletteAccepted={playId:lastRoulettePlayId, title:lastRouletteOpt.title, at:Date.now(), challengeId:window.__pendingRouletteChallengeId||null};
           localStorage.setItem('rs_roulette_accepted', JSON.stringify(window.__rouletteAccepted));
           // Mark spawned defeat/game challenge accepted in the challenge store.
-          try{
-            var cid=window.__pendingRouletteChallengeId;
-            if(cid && currentUser && currentUser.name){
-              var st=challengeUserState();
-              var day=rsDayKey();
-              st.accepted[day]=st.accepted[day]||{};
-              st.accepted[day][cid]={at:Date.now(),from:'roulette',gameId:'roulette',sessionId:lastRoulettePlayId,status:'accepted'};
-              persistChallengeUser(st);
-            }
-          }catch(e){}
+          var cid=window.__pendingRouletteChallengeId;
+          if(cid && currentUser && currentUser.name){
+            var st=challengeUserState();
+            var day=rsDayKey();
+            st.accepted[day]=st.accepted[day]||{};
+            st.accepted[day][cid]={at:Date.now(),from:'roulette',gameId:'roulette',sessionId:lastRoulettePlayId,status:'accepted'};
+            persistChallengeUser(st);
+          }
         }catch(e){}
+        return true;
+      }
+      var accept = document.getElementById('btn-roulette-accept');
+      if(accept) accept.onclick = function(){
+        if(!acceptRouletteChallenge()) return;
         toast('Challenge accepted — upload proof and publish to Roulette');
         try{ publishRouletteToFeed(); }catch(e){}
       };
       var pub = document.getElementById('btn-roulette-publish');
-      if(pub) pub.onclick = function(){ publishRouletteToFeed(); };
+      if(pub) pub.onclick = function(){
+        // One-tap fulfill: accepting is implied when publishing from the result card.
+        try{ acceptRouletteChallenge(); }catch(e){}
+        publishRouletteToFeed();
+      };
     }
 
     function publishRouletteToFeed(){
