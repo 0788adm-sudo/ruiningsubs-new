@@ -147,6 +147,25 @@ function adminKeyOk(provided) {
   return String(provided || '').trim() === expected;
 }
 
+function bearerToken(req) {
+  const h = String((req.headers && (req.headers.authorization || req.headers.Authorization)) || '');
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? String(m[1] || '').trim() : '';
+}
+
+/** Verify Cloudflare Worker admin session — never trust client isAdmin flags alone. */
+async function verifyCfAdminToken(token) {
+  if (!token) return false;
+  try {
+    const res = await cfFetch('/admin/requests?limit=1', {
+      headers: { Authorization: 'Bearer ' + token, Origin: SITE }
+    });
+    return !!(res.ok && res.json && res.json.ok !== false);
+  } catch (_) {
+    return false;
+  }
+}
+
 async function readBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
   const chunks = [];
@@ -391,8 +410,16 @@ module.exports = async function handler(req, res) {
     }
   }
   const isOwner = owner === user || tokenOk;
-  const freeOverride =
-    FREE_REASONS.has(reason) && (isAdminUser(user) || adminKeyOk(body.adminKey));
+  let cfAdminOk = false;
+  try {
+    cfAdminOk = await verifyCfAdminToken(bearerToken(req));
+  } catch (_) {
+    cfAdminOk = false;
+  }
+  // CRITICAL: never trust body.user alone (e.g. user:"admin") for moderation deletes.
+  // Require ADMIN_KEY or a verified Cloudflare Worker admin bearer token.
+  const adminCredOk = adminKeyOk(body.adminKey) || cfAdminOk;
+  const freeOverride = FREE_REASONS.has(reason) && adminCredOk;
 
   if (!freeOverride && !isOwner) {
     return json(res, 403, {
