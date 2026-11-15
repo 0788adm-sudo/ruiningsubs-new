@@ -9,7 +9,6 @@ var path = require('path');
 var root = path.join(__dirname, '..');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var delApi = fs.readFileSync(path.join(root, 'api', 'delete-post.js'), 'utf8');
-var reqApi = fs.readFileSync(path.join(root, 'api', 'request-delete.js'), 'utf8');
 var adminApi = fs.readFileSync(path.join(root, 'api', 'admin-request.js'), 'utf8');
 var fcSpend = fs.readFileSync(path.join(root, 'api', 'fc-spend.js'), 'utf8');
 
@@ -20,6 +19,9 @@ function assert(cond, msg) {
   }
   console.log('PASS · ' + msg);
 }
+
+assert(!fs.existsSync(path.join(root, 'api', 'request-delete.js')), 'api/request-delete.js removed');
+assert(html.indexOf('/api/request-delete') < 0, 'no /api/request-delete references in SPA');
 
 assert(html.indexOf('function requestDeleteWithCoins') >= 0, 'requestDeleteWithCoins helper');
 assert(html.indexOf("reason:'paid'") >= 0 || html.indexOf('reason:\'paid\'') >= 0, 'FC path uses reason=paid');
@@ -54,12 +56,11 @@ assert(delApi.indexOf('refundDeleteFc') >= 0, 'API refunds if delete fails after
 assert(delApi.indexOf("reason === 'paid'") >= 0 || delApi.indexOf("reason === 'paid'") >= 0, 'API accepts paid reason');
 assert(delApi.indexOf('already_deleted') >= 0, 'idempotent already-deleted response');
 
-// request-delete create disabled; admin actions kept for legacy / PayPal tooling
-assert(reqApi.indexOf('fc_delete_is_automatic') >= 0, 'request-delete create disabled for FC');
-assert(reqApi.indexOf("'approve'") >= 0 || reqApi.indexOf('approve') >= 0, 'admin approve still available');
+// PayPal / I paid admin tooling kept; FC has no pending queue
 assert(adminApi.indexOf('remove_request') >= 0, 'admin-request still allows remove_request for $5');
 assert(html.indexOf('submitRemoveRequest') >= 0, 'I paid still uses submitRemoveRequest');
 assert(html.indexOf("kind:'remove_request'") >= 0, 'external pay still notifies admin');
+assert(html.indexOf('function adminRequestDeleteAction') >= 0, 'admin approve/reject helper present');
 assert(fcSpend.indexOf('delete') >= 0, 'fc-spend delete cost kept for other spends');
 
 // Progress is delete-oriented, not admin-request-oriented

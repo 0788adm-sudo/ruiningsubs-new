@@ -27975,34 +27975,38 @@ async function onIdFace(e){
           +'<div class="admin-actions" style="margin-top:6px"><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(row.id))+')">View post</button></div></div>';
       }).join('');
     }
+    function removeRefundDoneKey(postId, requester){
+      return 'rs_remove_refunded:'+String(postId||'')+':'+String(requester||'').toLowerCase();
+    }
     async function adminRequestDeleteAction(action, postId, opts){
       opts=opts||{};
-      var headers={'Content-Type':'application/json'};
-      try{
-        var tok=sessionStorage.getItem('rs_cf_admin_token');
-        if(tok) headers.Authorization='Bearer '+tok;
-      }catch(e){}
-      var body={
-        action:action,
-        postId:String(postId||''),
-        requester:opts.requester||'',
-        refund:!!opts.refund,
-        adminUser:(currentUser&&currentUser.name)||'admin'
-      };
-      var r=await fetch('/api/request-delete',{
-        method:'POST',
-        headers:headers,
-        body:JSON.stringify(body),
-        cache:'no-store'
-      });
-      var j=await r.json().catch(function(){return{}});
-      if(r.status===401){
-        try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
-        toast('Admin password required to continue');
-        try{await cfAdminLogin()}catch(e){}
-        return {ok:false,error:'admin_required',detail:j};
+      action=String(action||'').toLowerCase();
+      postId=String(postId||'');
+      if(action==='approve'){
+        var ok=await secureDeletePost(postId,{reason:'moderation',allowLocalFallback:false});
+        return {ok:!!ok, status:ok?'COMPLETED':'FAILED', action:'approve', postId:postId};
       }
-      return Object.assign({http:r.status}, j||{});
+      if(action==='refund' || (action==='reject' && opts.refund)){
+        var requester=String(opts.requester||'').replace(/^@/,'').trim();
+        if(!requester) return {ok:false, error:'missing_requester_for_refund'};
+        var key=removeRefundDoneKey(postId, requester);
+        try{
+          if(localStorage.getItem(key)==='1'){
+            return {ok:true, refund_reused:true, status:'REJECTED', action:action};
+          }
+        }catch(e){}
+        try{
+          await adminAcceptCoins(requester, 50, 'remove-refund:'+postId);
+          try{localStorage.setItem(key,'1')}catch(e){}
+          return {ok:true, refund_reused:false, status:'REJECTED', action:action};
+        }catch(e){
+          return {ok:false, error:(e&&e.message)||'refund_failed'};
+        }
+      }
+      if(action==='reject'){
+        return {ok:true, status:'REJECTED', action:'reject', postId:postId};
+      }
+      return {ok:false, error:'unknown_action'};
     }
     async function refundRemoveReqFc(id, requester){
       id=normalizeAdminPostId(id)||String(id);
