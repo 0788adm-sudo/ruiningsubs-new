@@ -4868,6 +4868,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(/^hot:\d+$/i.test(t))return false;
         if(t==='profile_gallery'||t==='profile_only'||t==='generated_id'||t==='normal_feed')return false;
         if(/^gender_/.test(t)||/^ext_/.test(t))return false;
+        // Game origin is shown via badge, not raw #tags
+        if(/^game_badge_/i.test(t)||/^game_origin:/i.test(t)||/^game_task:/i.test(t))return false;
         return true;
       });
     }
@@ -7950,19 +7952,31 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     var ROULETTE_PACK_FC=50;
     var RS_LIVE_GAMES={roulette:1,dice:1,tic_tac_toe:1};
     var RS_GAME_BADGES={
-      roulette:{label:'🏆 RUIN ROULETTE',tag:'game_badge_roulette',panel:'roulette'},
-      dice:{label:'🎲 EXPOSURE DICE',tag:'game_badge_dice',panel:'dice'},
-      tic_tac_toe:{label:'⭕ TIC-TAC-TOE',tag:'game_badge_ttt',panel:'challenges'}
+      roulette:{label:'🎡 Roulette',tag:'game_badge_roulette',panel:'roulette',emoji:'🎡'},
+      dice:{label:'🎲 Exposure Dice',tag:'game_badge_dice',panel:'dice',emoji:'🎲'},
+      tic_tac_toe:{label:'🎮 Tic-Tac-Toe',tag:'game_badge_ttt',panel:'challenges',emoji:'🎮'},
+      challenges:{label:'👑 Challenges',tag:'game_badge_challenge',panel:'challenges',emoji:'👑'}
     };
     function detectGameOrigin(p){
       if(!p) return '';
+      try{
+        if(p.game_origin && RS_GAME_BADGES[p.game_origin]) return String(p.game_origin);
+        if(p.gameOrigin && RS_GAME_BADGES[p.gameOrigin]) return String(p.gameOrigin);
+      }catch(e){}
       var tg=p.tags||[];
       if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
       if(!Array.isArray(tg)) tg=[];
       tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      for(var i=0;i<tg.length;i++){
+        if(tg[i].indexOf('game_origin:')===0){
+          var go=tg[i].slice('game_origin:'.length);
+          if(RS_GAME_BADGES[go]) return go;
+        }
+      }
       if(tg.indexOf('game_badge_roulette')>=0||tg.indexOf('roulette_task')>=0) return 'roulette';
       if(tg.indexOf('game_badge_dice')>=0||tg.indexOf('exposure_dice')>=0) return 'dice';
       if(tg.indexOf('game_badge_ttt')>=0||tg.indexOf('ttt_challenge')>=0) return 'tic_tac_toe';
+      if(tg.indexOf('game_badge_challenge')>=0||tg.indexOf('challenge_proof')>=0) return 'challenges';
       if(tg.indexOf('roulette')>=0 && typeof isRouletteWallPost==='function' && isRouletteWallPost(p)) return 'roulette';
       return '';
     }
@@ -7977,7 +7991,229 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(id==='roulette'){ try{window.__gamesToolReturn=null;openRoulette()}catch(e){showPanel('roulette')} return; }
       if(id==='dice'){ try{window.__gamesToolReturn=null;openDiceGame()}catch(e){showPanel('dice')} return; }
       if(id==='tic_tac_toe'){ try{openChallengesHub();startTicTacToeMenu()}catch(e){showPanel('challenges')} return; }
+      if(id==='challenges'){ try{openChallengesHub()}catch(e){showPanel('challenges')} return; }
     }
+    // —— Centralized game task store (shared by Roulette / Dice / TTT / Challenges) ——
+    function loadGameTasks(){
+      try{return JSON.parse(localStorage.getItem('rs_game_tasks')||'{}')||{}}catch(e){return{}}
+    }
+    function saveGameTasks(m){
+      try{localStorage.setItem('rs_game_tasks',JSON.stringify(m||{}))}catch(e){}
+    }
+    function gameTaskUserKey(){
+      try{return String((currentUser&&currentUser.name)||coinUserId()||'guest').replace(/^@/,'').toLowerCase()}catch(e){return 'guest'}
+    }
+    function listGameTasksForUser(){
+      var m=loadGameTasks();
+      var u=gameTaskUserKey();
+      var arr=Array.isArray(m[u])?m[u]:[];
+      return arr.filter(Boolean);
+    }
+    function persistGameTasksForUser(arr){
+      var m=loadGameTasks();
+      m[gameTaskUserKey()]=(arr||[]).slice(0,40);
+      saveGameTasks(m);
+    }
+    function findGameTask(taskId){
+      var arr=listGameTasksForUser();
+      for(var i=0;i<arr.length;i++) if(arr[i]&&String(arr[i].id)===String(taskId)) return arr[i];
+      return null;
+    }
+    function findGameTaskBySession(gameId, sessionId){
+      var arr=listGameTasksForUser();
+      for(var i=0;i<arr.length;i++){
+        var t=arr[i];
+        if(!t) continue;
+        if(String(t.gameId||'')===String(gameId||'') && String(t.sessionId||'')===String(sessionId||'')) return t;
+      }
+      return null;
+    }
+    function assignGameTask(opts){
+      opts=opts||{};
+      var gameId=String(opts.gameId||'challenges');
+      var sessionId=String(opts.sessionId||opts.playId||('sess_'+Date.now().toString(36)));
+      var existing=findGameTaskBySession(gameId, sessionId);
+      if(existing && existing.status!=='completed'){
+        // Idempotent: same match/spin never duplicates a pending task.
+        if(opts.challengeId) existing.challengeId=opts.challengeId;
+        if(opts.title) existing.title=opts.title;
+        if(opts.desc) existing.desc=opts.desc;
+        existing.updatedAt=Date.now();
+        var arr0=listGameTasksForUser().map(function(t){return (t&&t.id===existing.id)?existing:t});
+        persistGameTasksForUser(arr0);
+        window.__activeGameTaskId=existing.id;
+        return existing;
+      }
+      var id='gt_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+      var task={
+        id:id,
+        gameId:gameId,
+        sessionId:sessionId,
+        challengeId:opts.challengeId||null,
+        title:String(opts.title||'Game task'),
+        desc:String(opts.desc||''),
+        instructions:String(opts.instructions||opts.desc||''),
+        status:'assigned', // assigned | accepted | completed
+        badge:opts.badge||gameId,
+        requireMedia:opts.requireMedia!==false,
+        permanent:!!opts.permanent,
+        free_delete:!!opts.free_delete,
+        deletion_tier:opts.deletion_tier||'',
+        postId:null,
+        createdAt:Date.now(),
+        updatedAt:Date.now(),
+        acceptedAt:null,
+        completedAt:null
+      };
+      var arr=listGameTasksForUser();
+      arr.unshift(task);
+      persistGameTasksForUser(arr);
+      window.__activeGameTaskId=task.id;
+      try{localStorage.setItem('rs_active_game_task', JSON.stringify({id:task.id,at:Date.now()}))}catch(e){}
+      return task;
+    }
+    function acceptGameTask(taskId){
+      var arr=listGameTasksForUser();
+      var found=null;
+      for(var i=0;i<arr.length;i++){
+        if(arr[i]&&String(arr[i].id)===String(taskId)){
+          // Opening alone must NOT complete — only mark accepted.
+          if(arr[i].status==='assigned') arr[i].status='accepted';
+          arr[i].acceptedAt=arr[i].acceptedAt||Date.now();
+          arr[i].updatedAt=Date.now();
+          found=arr[i];
+          break;
+        }
+      }
+      if(found) persistGameTasksForUser(arr);
+      if(found) window.__activeGameTaskId=found.id;
+      return found;
+    }
+    function completeGameTask(taskId, postId){
+      var arr=listGameTasksForUser();
+      var found=null;
+      for(var i=0;i<arr.length;i++){
+        if(arr[i]&&String(arr[i].id)===String(taskId)){
+          arr[i].status='completed';
+          arr[i].postId=postId?String(postId):arr[i].postId;
+          arr[i].completedAt=Date.now();
+          arr[i].updatedAt=Date.now();
+          found=arr[i];
+          break;
+        }
+      }
+      if(found) persistGameTasksForUser(arr);
+      return found;
+    }
+    function pendingGameTasks(){
+      return listGameTasksForUser().filter(function(t){return t&&t.status!=='completed'});
+    }
+    function forceWallProofComposer(){
+      // Never fall back to timed Exposure for game proofs.
+      window.__fromNormalFeed=true;
+      window.__wallComposer=true;
+      window.__profilePostMode=true;
+      try{setProfilePostMode({keepFields:true})}catch(e){}
+      showPanel('post');
+      try{
+        var hide=['post-gender-group','post-duration-group','post-extend-group'];
+        // Keep title visible for game proofs so the task name is obvious.
+        var tg=document.getElementById('post-title-group'); if(tg) tg.style.display='block';
+        hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
+        var title=document.getElementById('post-panel-title');
+        if(title) title.textContent='Publish game proof';
+        var note=document.getElementById('profile-post-note');
+        if(note){
+          note.style.display='block';
+          if(!window.__pendingComposerPrefill||!window.__pendingComposerPrefill.note){
+            note.innerHTML='<b style="color:#ff6a00">Game proof · Wall</b> — permanent post. Attach the required evidence, then publish.';
+          }
+        }
+        var btn=document.getElementById('btn-publish');
+        if(btn && !(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.btn)) btn.textContent='Publish proof';
+      }catch(e){}
+      try{applyPendingComposerPrefill()}catch(e){}
+      setTimeout(function(){
+        try{
+          window.__wallComposer=true;
+          window.__profilePostMode=true;
+          window.__fromNormalFeed=true;
+          var hide2=['post-gender-group','post-duration-group','post-extend-group'];
+          var tg2=document.getElementById('post-title-group'); if(tg2) tg2.style.display='block';
+          hide2.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
+          var t=document.getElementById('post-panel-title');
+          if(t) t.textContent='Publish game proof';
+          applyPendingComposerPrefill();
+        }catch(e){}
+      },0);
+      setTimeout(function(){ try{applyPendingComposerPrefill()}catch(e){} },50);
+    }
+    function openGameTaskPublish(taskOrId){
+      var task=typeof taskOrId==='object'&&taskOrId?taskOrId:findGameTask(taskOrId);
+      if(!task){toast('Task not found');return false}
+      if(!isRegistered()){toast('Login to publish proof');try{showAuth('login')}catch(e){}return false}
+      acceptGameTask(task.id);
+      var badgeKey=task.badge&&RS_GAME_BADGES[task.badge]?task.badge:(RS_GAME_BADGES[task.gameId]?task.gameId:'challenges');
+      var badge=RS_GAME_BADGES[badgeKey]||RS_GAME_BADGES.challenges;
+      var badgeTag=badge.tag;
+      var tags=['normal_feed','exposed',badgeTag,'game_task:'+String(task.id).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)];
+      if(task.gameId==='roulette') tags.push('roulette','roulette_task');
+      if(task.gameId==='dice') tags.push('dice','exposure_dice');
+      if(task.gameId==='tic_tac_toe') tags.push('tic_tac_toe','ttt_challenge');
+      if(task.gameId==='challenges'||badgeKey==='challenges') tags.push('challenge','challenge_proof');
+      window.__pendingComposerPrefill={
+        title:task.title,
+        desc:task.instructions||task.desc||task.title,
+        tags:tags.join(', '),
+        note:'Game proof · <strong>'+esc(badge.label)+'</strong> · task stays pending until you publish',
+        btn:'Publish proof',
+        requireMedia:!!task.requireMedia
+      };
+      window.__pendingGamePublish={
+        game:task.gameId,
+        playId:task.sessionId,
+        badge:badgeKey,
+        challengeId:task.challengeId||null,
+        taskId:task.id,
+        game_origin:badgeKey
+      };
+      window.__pendingChallengePublish={
+        challengeId:task.challengeId||null,
+        gameId:task.gameId,
+        sessionId:task.sessionId,
+        taskId:task.id,
+        at:Date.now()
+      };
+      try{localStorage.setItem('rs_pending_composer_prefill', JSON.stringify(window.__pendingComposerPrefill))}catch(e){}
+      try{localStorage.setItem('rs_pending_game_publish', JSON.stringify(window.__pendingGamePublish))}catch(e){}
+      if(task.permanent||task.deletion_tier==='permanent'){
+        try{setSelectedDeletionTier('permanent')}catch(e){}
+        try{selectedDeletionTier='permanent'}catch(e){}
+      }else if(task.free_delete||task.deletion_tier==='deletable'){
+        try{setSelectedDeletionTier('deletable')}catch(e){}
+        try{selectedDeletionTier='deletable'}catch(e){}
+      }
+      forceWallProofComposer();
+      toast('Add your proof, then publish — nothing posts until you confirm');
+      return true;
+    }
+    function restorePendingGameComposer(){
+      try{
+        if(!window.__pendingComposerPrefill){
+          window.__pendingComposerPrefill=JSON.parse(localStorage.getItem('rs_pending_composer_prefill')||'null');
+        }
+        if(!window.__pendingGamePublish){
+          window.__pendingGamePublish=JSON.parse(localStorage.getItem('rs_pending_game_publish')||'null');
+        }
+      }catch(e){}
+    }
+    window.assignGameTask=assignGameTask;
+    window.acceptGameTask=acceptGameTask;
+    window.completeGameTask=completeGameTask;
+    window.pendingGameTasks=pendingGameTasks;
+    window.openGameTaskPublish=openGameTaskPublish;
+    window.forceWallProofComposer=forceWallProofComposer;
+    window.findGameTask=findGameTask;
     window.detectGameOrigin=detectGameOrigin;
     window.gameOriginBadgeHtml=gameOriginBadgeHtml;
     window.openGameFromBadge=openGameFromBadge;
@@ -9856,7 +10092,7 @@ async function claimPayPalPack(p){
         updateDiceUI();
         try{loadFagBalance()}catch(e){}
         try{if(isRegistered()) awardGameXp('game_play','dice_'+playId)}catch(e){}
-        // Register active challenge so Accept/Post proof can complete the challenge store.
+        // Register active challenge + centralized task so Post proof can complete it.
         try{
           if(isRegistered()){
             var spawnId=spawnDefeatChallenge({
@@ -9868,6 +10104,16 @@ async function claimPayPalPack(p){
               opt:{title:'Exposure Dice',desc:'WEAR: '+wearTxt+' · POSE: '+poseTxt+' · PROOF: '+proofTxt}
             });
             window.__pendingDiceChallengeId=spawnId||null;
+            assignGameTask({
+              gameId:'dice',
+              sessionId:playId,
+              challengeId:spawnId||null,
+              title:'Dice '+[w,p,t].join('-')+' · exposed',
+              desc:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt,
+              instructions:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt,
+              badge:'dice',
+              requireMedia:true
+            });
           }
         }catch(e){}
       }, waitMore);
@@ -9882,30 +10128,18 @@ async function claimPayPalPack(p){
       if(!isRegistered()){toast('Login to publish proof');try{showAuth('login')}catch(e){}return}
       var title='Dice '+((r.n||[]).join('-')||'roll')+' · exposed';
       var body='WEAR: '+r.wear+'\nPOSE: '+r.pose+'\nPROOF: '+(r.proof||r.task)+(r.where?('\nWHERE: '+r.where):'');
-      var badgeTag=(RS_GAME_BADGES.dice&&RS_GAME_BADGES.dice.tag)||'game_badge_dice';
-      var rollTag=r.playId?('dice:'+String(r.playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
-      var tags='dice, exposure_dice, normal_feed, exposed, '+badgeTag+(rollTag?', '+rollTag:'');
-      window.__pendingGamePublish={game:'dice',playId:r.playId||'',badge:'dice',challengeId:window.__pendingDiceChallengeId||null};
-      window.__pendingDicePublish={playId:r.playId||'',at:Date.now()};
-      window.__pendingChallengePublish={
-        challengeId:window.__pendingDiceChallengeId||null,
+      var task=assignGameTask({
         gameId:'dice',
-        sessionId:r.playId||'',
-        at:Date.now()
-      };
-      window.__pendingComposerPrefill={
+        sessionId:r.playId||('dice_'+Date.now()),
+        challengeId:window.__pendingDiceChallengeId||null,
         title:title,
         desc:body,
-        tags:tags,
-        note:'Dice proof · Wall · badge 🎲 EXPOSURE DICE',
-        btn:'Post dice proof'
-      };
-      try{openNormalPostComposer()}catch(e){
-        try{setExposurePostMode()}catch(e2){}
-        showPanel('post');
-      }
-      try{applyPendingComposerPrefill()}catch(e){}
-      toast('Add your proof photos and publish — badge 🎲 EXPOSURE DICE');
+        instructions:body,
+        badge:'dice',
+        requireMedia:true
+      });
+      window.__pendingDicePublish={playId:r.playId||'',at:Date.now()};
+      openGameTaskPublish(task);
     }
     window.publishDiceProof=publishDiceProof;
 
@@ -10164,7 +10398,7 @@ function openRoulette(){
           toast('Challenge ready — accept & publish proof');
         }
         try{if(isRegistered()) awardGameXp('game_play','roulette_'+playId)}catch(e){}
-        // Register active game challenge for Accept → Wall publish → complete.
+        // Register active game challenge + centralized task for Accept → Wall publish → complete.
         if(opt && !isPrize){
           try{
             var spawnId=spawnDefeatChallenge({
@@ -10176,6 +10410,19 @@ function openRoulette(){
               opt:opt
             });
             window.__pendingRouletteChallengeId=spawnId||null;
+            assignGameTask({
+              gameId:'roulette',
+              sessionId:playId,
+              challengeId:spawnId||null,
+              title:opt.title||'Roulette task',
+              desc:opt.desc||'',
+              instructions:'Roulette task: '+(opt.title||'')+((opt.desc)?('\n'+opt.desc):''),
+              badge:'roulette',
+              requireMedia:true,
+              permanent:!!opt.permanent,
+              free_delete:!!opt.free_delete,
+              deletion_tier:opt.deletion_tier||(opt.permanent?'permanent':(opt.free_delete?'deletable':''))
+            });
           }catch(e){}
         }
       });
@@ -10589,7 +10836,14 @@ function openRoulette(){
         btn.onclick=function(){
           var a=btn.getAttribute('data-sm');
           closeSideMenu();
-          if(a==='post'){try{openExtendPostComposer()}catch(e){try{setExposurePostMode()}catch(e2){}showPanel('post')}}
+          if(a==='post'){
+            try{restorePendingGameComposer()}catch(e){}
+            if(window.__pendingComposerPrefill||window.__pendingGamePublish||window.__activeGameTaskId){
+              try{forceWallProofComposer()}catch(e){try{openNormalPostComposer()}catch(e2){}}
+            }else{
+              try{openExtendPostComposer()}catch(e){try{setExposurePostMode()}catch(e2){}showPanel('post')}
+            }
+          }
           else if(a==='premium'){try{openPremium()}catch(e){}}
           else if(a==='coins'){try{openCoinShop()}catch(e){}}
           else if(a==='roulette'){try{openRoulette()}catch(e){}}
@@ -10687,7 +10941,7 @@ function openRoulette(){
       try{
         if(!opt){
           var saved=JSON.parse(localStorage.getItem('rs_roulette_last_challenge')||'null');
-          if(saved&&saved.title){ opt={title:saved.title,desc:saved.desc||'',permanent:!!saved.permanent,free_delete:!!saved.free_delete}; playId=saved.playId||playId; }
+          if(saved&&saved.title){ opt={title:saved.title,desc:saved.desc||'',permanent:!!saved.permanent,free_delete:!!saved.free_delete,deletion_tier:saved.deletion_tier||''}; playId=saved.playId||playId; }
         }
       }catch(e){}
       if(!opt){
@@ -10714,56 +10968,31 @@ function openRoulette(){
         }
         window.__pendingRoulettePublish={playId:playId, title:opt.title, at:Date.now()};
       }catch(e){}
+      if(opt.permanent || (opt.deletion_tier==='permanent')){
+        if(!confirm('This spin requires a PERMANENT publication. Free deletion will NOT be available. Continue?')){
+          toast('Permanent publish cancelled');
+          return;
+        }
+      }
       var cleanTitle = String(opt.title||'').replace(/^[^\w]+/,'').trim();
       if(cleanTitle.length>60) cleanTitle = cleanTitle.slice(0,57)+'…';
       var body = String(opt.desc||'').trim();
       var caption = 'Roulette task: '+(opt.title||'')+(body?'\n'+body:'');
       if(caption.length>280) caption = caption.slice(0,277)+'…';
-      var spinTag=playId?('spin:'+String(playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
-      var badgeTag=(RS_GAME_BADGES.roulette&&RS_GAME_BADGES.roulette.tag)||'game_badge_roulette';
-      var tags = 'roulette, roulette_task, normal_feed, exposed, '+badgeTag+(spinTag?', '+spinTag:'');
-      var permNote=opt.permanent?' · <strong style="color:#fecaca">PERMANENT</strong>':'';
-      var freeNote=opt.free_delete?' · <strong style="color:#86efac">FREE DELETE</strong>':'';
-      window.__pendingComposerPrefill={
+      var task=assignGameTask({
+        gameId:'roulette',
+        sessionId:playId||('roulette_'+Date.now()),
+        challengeId:window.__pendingRouletteChallengeId||(window.__rouletteAccepted&&window.__rouletteAccepted.challengeId)||null,
         title:cleanTitle || 'Roulette task',
         desc:caption,
-        tags:tags,
-        note:'Roulette proof · Wall → <strong>Roulette</strong> · badge 🏆'+permNote+freeNote,
-        btn:'Post roulette challenge',
-        requireMedia:true
-      };
-      // Enforce permanent vs free-delete from the spin outcome (never mix).
-      try{
-        if(opt.permanent || (opt.deletion_tier==='permanent')){
-          if(!confirm('This spin requires a PERMANENT publication. Free deletion will NOT be available. Continue?')){
-            toast('Permanent publish cancelled');
-            return;
-          }
-          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'permanent',permanent:true,free_delete:false,badge:'roulette',challengeId:window.__pendingRouletteChallengeId||null};
-          try{if(typeof selectDeletionTier==='function')selectDeletionTier('permanent')}catch(e){}
-          try{selectedDeletionTier='permanent'}catch(e){}
-        }else if(opt.free_delete || opt.deletion_tier==='deletable'){
-          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'deletable',permanent:false,free_delete:true,badge:'roulette',challengeId:window.__pendingRouletteChallengeId||null};
-          try{if(typeof selectDeletionTier==='function')selectDeletionTier('deletable')}catch(e){}
-          try{selectedDeletionTier='deletable'}catch(e){}
-        }else{
-          window.__pendingGamePublish={game:'roulette',playId:playId,badge:'roulette',challengeId:window.__pendingRouletteChallengeId||null};
-        }
-      }catch(e){}
-      window.__pendingChallengePublish={
-        challengeId:window.__pendingRouletteChallengeId||(window.__rouletteAccepted&&window.__rouletteAccepted.challengeId)||null,
-        gameId:'roulette',
-        sessionId:playId,
-        at:Date.now()
-      };
-      // Roulette proofs go on The Wall under the Roulette category (existing Wall publisher)
-      try{ openNormalPostComposer(); }catch(e){
-        try{ setProfilePostMode(); }catch(e2){}
-        showPanel('post');
-      }
-      try{applyPendingComposerPrefill()}catch(e){}
-      try{ window.scrollTo(0,0); }catch(e){}
-      toast('Add your photo/video proof · publishes under Roulette');
+        instructions:caption,
+        badge:'roulette',
+        requireMedia:true,
+        permanent:!!(opt.permanent||opt.deletion_tier==='permanent'),
+        free_delete:!!(opt.free_delete||opt.deletion_tier==='deletable'),
+        deletion_tier:opt.deletion_tier||(opt.permanent?'permanent':(opt.free_delete?'deletable':''))
+      });
+      openGameTaskPublish(task);
     }
 
 
@@ -11375,11 +11604,19 @@ function openRoulette(){
               if(typeof openVideoComposer==='function') openVideoComposer();
               return;
             }
+            // Pending game proof always opens Wall composer — never timed Exposure.
+            try{
+              restorePendingGameComposer();
+              if(window.__pendingComposerPrefill || window.__pendingGamePublish || window.__activeGameTaskId){
+                if(typeof forceWallProofComposer==='function'){ forceWallProofComposer(); return; }
+                if(typeof openNormalPostComposer==='function'){ openNormalPostComposer(); return; }
+              }
+            }catch(e){}
             // Context-aware: Wall → permanent composer; Extend/elsewhere → timed exposure.
             try{
               var act=document.querySelector('.panel.active');
               var pid=act&&act.id||'';
-              if(pid==='panel-wall'||pid==='panel-explore'){
+              if(pid==='panel-wall'||pid==='panel-explore'||pid==='panel-roulette'||pid==='panel-dice'||pid==='panel-challenges'||pid==='panel-games'){
                 if(typeof openNormalPostComposer==='function'){ openNormalPostComposer(); return; }
               }
             }catch(e){}
@@ -18152,6 +18389,11 @@ function openRoulette(){
     window.applyPendingComposerPrefill=applyPendingComposerPrefill;
     function openNormalPostComposer(){
       if(!isRegistered()){toast('Register to create a normal post');try{showAuth('login')}catch(e){}return}
+      try{restorePendingGameComposer()}catch(e){}
+      if(window.__pendingComposerPrefill || window.__pendingGamePublish || window.__activeGameTaskId){
+        forceWallProofComposer();
+        return;
+      }
       window.__fromNormalFeed=true;
       window.__wallComposer=true;
       // Permanent Wall composer — never the timed Extend exposure form.
@@ -20288,6 +20530,22 @@ function profileStatsHtml(userPosts, extra){
         html+='</div></div>';
       });
 
+      // Centralized pending game tasks (recoverable after leaving the game screen)
+      try{
+        var pend=pendingGameTasks();
+        if(pend.length){
+          html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#ffb35c;margin:14px 0 10px">PENDING GAME TASKS</div>';
+          pend.slice(0,8).forEach(function(task){
+            var badge=RS_GAME_BADGES[task.badge]||RS_GAME_BADGES[task.gameId]||RS_GAME_BADGES.challenges;
+            html+='<div class="rs-game-card" style="border-color:rgba(245,197,24,.4)">';
+            html+='<div class="rs-game-cat">'+(badge?badge.label:'TASK')+' · '+esc(String(task.status||'assigned').toUpperCase())+'</div>';
+            html+='<div class="rs-game-name">'+esc(task.title||'Game task')+'</div>';
+            html+='<div class="rs-game-desc">'+esc(String(task.desc||task.instructions||'').slice(0,160))+'</div>';
+            html+='<div class="rs-game-foot"><span class="rs-game-xp">Linked to match</span>';
+            html+='<button type="button" class="btn rs-game-btn" data-open-task="'+esc(task.id)+'">'+(task.status==='accepted'?'PUBLISH PROOF':'ACCEPT &amp; FULFILL')+'</button></div></div>';
+          });
+        }
+      }catch(e){}
       // Spawned defeat / game challenges (only real challenge ids — skip composite keys)
       try{
         var spawned=st.spawned||{};
@@ -20321,6 +20579,12 @@ function profileStatsHtml(userPosts, extra){
       });
       Array.prototype.forEach.call(box.querySelectorAll('[data-open-game]'),function(btn){
         btn.onclick=function(){openRegisteredGame(btn.getAttribute('data-open-game'))};
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-open-task]'),function(btn){
+        btn.onclick=function(){
+          var tid=btn.getAttribute('data-open-task');
+          try{openGameTaskPublish(tid)}catch(e){toast('Could not open task')}
+        };
       });
     }
     function renderGamesHub(){ renderChallengesHub(); }
@@ -20465,35 +20729,22 @@ function profileStatsHtml(userPosts, extra){
       st.accepted[day][ch.id]={at:Date.now(),from:'challenge_wall',gameId:(st.spawned[ch.id]&&st.spawned[ch.id].gameId)||'',sessionId:(st.spawned[ch.id]&&st.spawned[ch.id].sessionId)||'',status:'accepted'};
       persistChallengeUser(st);
       var spawn=st.spawned&&st.spawned[ch.id];
+      var gameId=(spawn&&spawn.gameId)||'challenges';
+      if(gameId==='triki') gameId='tic_tac_toe';
+      var badge=RS_GAME_BADGES[gameId]?gameId:'challenges';
       var title=(ch.title||'Challenge proof');
       var desc=(ch.desc||'')+(ch.prompt?('\n\n'+ch.prompt):'');
-      var tags='challenge, challenge_proof, normal_feed, exposed';
-      if(spawn&&spawn.gameId==='roulette') tags+=', roulette, roulette_task, game_badge_roulette';
-      if(spawn&&spawn.gameId==='dice') tags+=', dice, exposure_dice, game_badge_dice';
-      if(spawn&&(spawn.gameId==='tic_tac_toe'||spawn.gameId==='triki')) tags+=', tic_tac_toe, ttt_challenge, game_badge_ttt';
-      window.__pendingChallengePublish={
+      var task=assignGameTask({
+        gameId:gameId,
+        sessionId:(spawn&&spawn.sessionId)||('ch_'+ch.id+'_'+Date.now()),
         challengeId:ch.id,
-        gameId:(spawn&&spawn.gameId)||'',
-        sessionId:(spawn&&spawn.sessionId)||'',
-        at:Date.now()
-      };
-      window.__pendingGamePublish={
-        game:(spawn&&spawn.gameId)||'challenge',
-        playId:(spawn&&spawn.sessionId)||'',
-        badge:(spawn&&spawn.gameId==='roulette')?'roulette':(spawn&&spawn.gameId==='dice')?'dice':(spawn&&(spawn.gameId==='tic_tac_toe'||spawn.gameId==='triki'))?'ttt':null,
-        challengeId:ch.id
-      };
-      window.__pendingComposerPrefill={
         title:title,
         desc:desc,
-        tags:tags,
-        note:'Challenge proof · <strong>'+esc(ch.title||'Challenge')+'</strong> · publish on Wall',
-        btn:'Publish challenge proof',
+        instructions:desc,
+        badge:badge,
         requireMedia:ch.validate!=='text'
-      };
-      try{openNormalPostComposer()}catch(e){showPanel('post')}
-      try{applyPendingComposerPrefill()}catch(e){}
-      toast('Add your proof and publish — challenge stays active until published');
+      });
+      openGameTaskPublish(task);
     }
     window.openChallengeWallPublish=openChallengeWallPublish;
     function completeChallengeFromPublish(postId, meta){
@@ -21426,62 +21677,64 @@ function profileStatsHtml(userPosts, extra){
 
       var title=result==='win'?'YOU WON':(result==='draw'?'DRAW / EMPATE':'YOU LOST');
       var spawnedId=null;
+      var lossTask=null;
       // Draw is NOT a defeat — only losses auto-spawn a challenge.
       if(result==='loss'){
         try{spawnedId=spawnDefeatChallenge(session)}catch(e){}
+        try{
+          var spawnDef0=getChallengeDef(spawnedId)||getChallengeDef('defeat_response');
+          lossTask=assignGameTask({
+            gameId:'tic_tac_toe',
+            sessionId:session.id,
+            challengeId:spawnedId||(spawnDef0&&spawnDef0.id)||'defeat_response',
+            title:(spawnDef0&&spawnDef0.title)||'Defeat challenge',
+            desc:(spawnDef0&&spawnDef0.desc)||'Publish your defeat proof on Wall.',
+            instructions:((spawnDef0&&spawnDef0.desc)||'')+((spawnDef0&&spawnDef0.prompt)?('\n\n'+spawnDef0.prompt):''),
+            badge:'tic_tac_toe',
+            requireMedia:!(spawnDef0&&spawnDef0.validate==='text')
+          });
+        }catch(e){}
       }
-      var retosHtml=result==='loss'?showTrikiRetosSection():'';
       var spawnDef=spawnedId?getChallengeDef(spawnedId):null;
       var canRetry=result==='draw' && ch.games<3;
+      // Loss screen: YOU LOST + board result + one assigned task. No extra game catalog.
+      var boardHtml='';
+      try{
+        boardHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:220px;margin:0 auto 12px">'+ended.board.map(function(v){
+          return '<div style="aspect-ratio:1;border-radius:12px;border:1px solid #2a2a32;background:#101014;color:#fff;font-size:22px;font-weight:900;display:flex;align-items:center;justify-content:center">'+(v||'')+'</div>';
+        }).join('')+'</div>';
+      }catch(e){}
       showGamePlay(
         '<div class="rs-games-hero"><div class="rs-games-kicker">⭕ TIC-TAC-TOE</div>'
         +'<div class="rs-games-title">'+title+'</div>'
         +'<div class="rs-games-meta">vs '+esc(session.opponent)+' · +'+xp+' XP · Game '+ch.games+'/3 · Wins '+ch.wins+'/3'
-        +(result==='loss'?' · defeat challenge assigned':'')
+        +(result==='loss'?' · defeat task assigned':'')
         +(result==='draw'?' · draw — not a defeat':'')+'</div></div>'
-        +(spawnDef?('<div class="rs-game-card" style="border-color:rgba(255,106,0,.45);margin-bottom:10px"><div style="font-size:11px;letter-spacing:1px;color:#ffb35c;font-weight:900;margin-bottom:6px">YOUR DEFEAT CHALLENGE</div><div style="font-weight:900;margin-bottom:4px">'+(spawnDef.icon||'⚔️')+' '+esc(spawnDef.title)+'</div><div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">'+esc(spawnDef.desc||'')+'</div><div style="font-size:12px;color:#c4b5fd;margin-bottom:10px">Proof: '+esc((spawnDef.proof_type||spawnDef.validate||'photo').toUpperCase())+' · Publish on Wall or Feed</div><button type="button" class="btn btn-primary" id="ttt-open-spawn" style="width:100%;min-height:48px;font-weight:900">Accept &amp; fulfill</button></div>'):'')
-        +retosHtml
+        +(result==='loss'?boardHtml:'')
+        +(spawnDef||lossTask?('<div class="rs-game-card" style="border-color:rgba(255,106,0,.45);margin-bottom:10px"><div style="font-size:11px;letter-spacing:1px;color:#ffb35c;font-weight:900;margin-bottom:6px">YOUR TASK</div><div style="font-weight:900;margin-bottom:4px">'+esc((spawnDef&&spawnDef.icon)||'⚔️')+' '+esc((lossTask&&lossTask.title)||(spawnDef&&spawnDef.title)||'Defeat challenge')+'</div><div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">'+esc((lossTask&&lossTask.desc)||(spawnDef&&spawnDef.desc)||'')+'</div><div style="font-size:12px;color:#c4b5fd;margin-bottom:10px">Proof: '+esc(((spawnDef&&(spawnDef.proof_type||spawnDef.validate))||'photo').toUpperCase())+' · Publish on Wall</div><button type="button" class="btn btn-primary" id="ttt-open-spawn" style="width:100%;min-height:48px;font-weight:900;margin-bottom:8px">Accept &amp; fulfill</button><button type="button" class="btn btn-secondary" id="ttt-publish-proof" style="width:100%;min-height:48px;font-weight:900">Publish proof</button></div>'):'')
         +'<div class="rs-game-card">'
         +(canRetry?'<button type="button" class="btn btn-primary" id="ttt-retry" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">RETRY</button>':'')
-        +(result==='loss'?'<button type="button" class="btn btn-secondary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">Open defeat challenge</button>':'')
         +(ch.games<3?'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">NEXT GAME ('+ch.games+'/3)</button>'
           :'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">SUMMARY / NEW</button>')
         +'<button type="button" class="btn btn-ghost" id="ttt-hub" style="width:100%;margin-top:8px">← Games</button></div>'
       );
-      Array.prototype.forEach.call(document.querySelectorAll('[data-accept-reto]'),function(btn){
-        btn.onclick=function(){
-          var id=btn.getAttribute('data-accept-reto');
-          if(!confirm('Do you explicitly accept this challenge? Nothing posts automatically.')) return;
-          try{openChallenge(id)}catch(e){toast('Challenge accepted: '+id)}
-        };
-      });
       var os=document.getElementById('ttt-open-spawn');
       if(os) os.onclick=function(){
-        var cid=spawnedId||'defeat_response';
-        if(!confirm('Accept this challenge voluntarily? You will publish proof on Wall or Feed.')) return;
+        if(!confirm('Accept this task? Nothing publishes until you confirm on the form.')) return;
         try{
+          if(lossTask){ openGameTaskPublish(lossTask); return; }
+          var cid=spawnedId||'defeat_response';
           var def=getChallengeDef(cid);
-          // WALL_POST defeat challenges open the existing Wall composer directly.
-          if(def && (def.evidence==='WALL_POST' || def.spawn==='defeat')){
-            openChallenge(cid).then(function(){
-              try{openChallengeWallPublish(Object.assign({},def,{id:cid}))}catch(e){}
-            }).catch(function(){
-              try{openChallenge(cid)}catch(e2){}
-            });
-          }else{
-            openChallenge(cid);
-          }
+          openChallengeWallPublish(Object.assign({},def||{},{id:cid}));
         }catch(e){toast('Open Games → challenge')}
       };
-      var d=document.getElementById('ttt-defeat'); if(d)d.onclick=function(){
-        var cid=spawnedId||'defeat_response';
+      var pubT=document.getElementById('ttt-publish-proof');
+      if(pubT) pubT.onclick=function(){
         try{
+          if(lossTask){ openGameTaskPublish(lossTask); return; }
+          var cid=spawnedId||'defeat_response';
           var def=getChallengeDef(cid);
-          if(def && (def.evidence==='WALL_POST' || def.spawn==='defeat')){
-            openChallengeWallPublish(Object.assign({},def,{id:cid}));
-          }else{
-            openChallenge(cid);
-          }
+          openChallengeWallPublish(Object.assign({},def||{},{id:cid}));
         }catch(e){}
       };
       var retryBtn=document.getElementById('ttt-retry');
@@ -22256,7 +22509,9 @@ function postCardHtml(p, compact){
       }
       var perma=(typeof postPath==='function'?postPath(p.id):('/post/'+encodeURIComponent(String(p.id))));
       var titleLink='<a class="post-permalink" href="'+esc(perma)+'" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')">'+esc(p.title)+'</a>';
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes','<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>')+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
+      var gameBadge='';
+      try{gameBadge=typeof gameOriginBadgeHtml==='function'?gameOriginBadgeHtml(p):''}catch(e){}
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+gameBadge+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes','<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>')+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
     }
     
     function featCarouselGo(to, smooth){
@@ -24495,11 +24750,13 @@ async function onIdFace(e){
       }
     }
     
-    function setProfilePostMode(){
+    function setProfilePostMode(opts){
+      opts=opts||{};
+      var keepFields=!!opts.keepFields || !!window.__pendingComposerPrefill || !!window.__pendingGamePublish;
       window.__profilePostMode=true;
       window.__wallComposer=true;
-      var title=document.getElementById('post-panel-title'); if(title)title.textContent='Wall post';
-      var tg=document.getElementById('post-title-group'); if(tg)tg.style.display='none';
+      var title=document.getElementById('post-panel-title'); if(title)title.textContent=keepFields?'Publish game proof':'Wall post';
+      var tg=document.getElementById('post-title-group'); if(tg)tg.style.display=keepFields?'block':'none';
       var gg=document.getElementById('post-gender-group'); if(gg)gg.style.display='none';
       var dg=document.getElementById('post-duration-group'); if(dg)dg.style.display='none';
       var eg=document.getElementById('post-extend-group'); if(eg)eg.style.display='none';
@@ -24508,19 +24765,23 @@ async function onIdFace(e){
       var note=document.getElementById('profile-post-note');
       if(note){
         note.style.display='block';
-        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
+        if(!(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.note)){
+          note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
+        }
       }
-      var btn=document.getElementById('btn-publish'); if(btn)btn.textContent='Post on the wall';
-      var up=document.getElementById('media-upload'); if(up)up.textContent='📸 Optional — tap to add photos (max 5)';
-      var pl=document.getElementById('post-photos-label'); if(pl)pl.textContent='Photos (optional)';
+      var btn=document.getElementById('btn-publish'); if(btn)btn.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.btn)||'Post on the wall';
+      var up=document.getElementById('media-upload'); if(up)up.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.requireMedia)?'📸 Required — tap to add proof photos/videos':'📸 Optional — tap to add photos (max 5)';
+      var pl=document.getElementById('post-photos-label'); if(pl)pl.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.requireMedia)?'Proof media (required)':'Photos (optional)';
       var dl=document.getElementById('post-desc-label'); if(dl)dl.textContent='Status / text (optional if you add photos)';
       var tags=document.getElementById('new-tags'); if(tags)tags.placeholder='#mood, #tag (optional)';
       var desc=document.getElementById('new-desc'); if(desc){desc.placeholder="What's on your mind? Write a status..."; desc.maxLength=500;}
-      var input=document.getElementById('profile-photo-input'); if(input)input.value='';
-      photos=[]; try{renderPhotoPreviews()}catch(e){}
-      var titleInput=document.getElementById('new-title'); if(titleInput)titleInput.value='';
-      if(desc)desc.value='';
-      if(tags)tags.value='';
+      if(!keepFields){
+        var input=document.getElementById('profile-photo-input'); if(input)input.value='';
+        photos=[]; try{renderPhotoPreviews()}catch(e){}
+        var titleInput=document.getElementById('new-title'); if(titleInput)titleInput.value='';
+        if(desc)desc.value='';
+        if(tags)tags.value='';
+      }
       try{window.scrollTo(0,0)}catch(e){}
     }
     function setExposurePostMode(){
@@ -24639,7 +24900,7 @@ async function onIdFace(e){
             }
           }
         }catch(e){}
-        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');}catch(eG){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
+        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');if(gpub&&(gpub.game==='challenges'||gpub.badge==='challenges')&&base.indexOf('challenge_proof')<0)base.push('challenge_proof');if(gpub&&gpub.game_origin&&base.indexOf('game_origin:'+gpub.game_origin)<0)base.push('game_origin:'+gpub.game_origin);if(gpub&&gpub.taskId&&base.indexOf('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40))<0)base.push('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));}catch(eG){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
         var payload={
           username:currentUser.name,
           title:title,
@@ -24819,10 +25080,18 @@ async function onIdFace(e){
               sessionId:(gpub&&gpub.playId)||(window.__pendingChallengePublish&&window.__pendingChallengePublish.sessionId)||''
             });
           }catch(eC){}
+          try{
+            var tid=(gpub&&gpub.taskId)||(window.__pendingChallengePublish&&window.__pendingChallengePublish.taskId)||window.__activeGameTaskId;
+            if(tid) completeGameTask(tid, row&&row.id);
+          }catch(eT){}
           window.__pendingGamePublish=null;
           window.__pendingDicePublish=null;
           window.__pendingChallengePublish=null;
           window.__pendingComposerPrefill=null;
+          window.__activeGameTaskId=null;
+          try{localStorage.removeItem('rs_pending_composer_prefill')}catch(eL){}
+          try{localStorage.removeItem('rs_pending_game_publish')}catch(eL2){}
+          try{localStorage.removeItem('rs_active_game_task')}catch(eL3){}
         }catch(e){}
         if(!profileMode){
           toast(isRoulettePub
