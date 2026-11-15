@@ -3517,6 +3517,268 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     window.setViewsEverywhere=setViewsEverywhere;
     window.persistViews=persistViews;
     window.localViewsFloor=localViewsFloor;
+
+    // ---- Likes persistence (mirror views stack; do not alter views helpers above) ----
+    var __likePersist={};
+    function readLocalReactionsMap(){
+      try{return JSON.parse(localStorage.getItem('rs_reactions')||'{}')||{}}catch(e){return {}}
+    }
+    function writeLocalReactionsMap(map){
+      try{localStorage.setItem('rs_reactions',JSON.stringify(map||{}))}catch(e){}
+    }
+    function readLocalLikesCountMap(){
+      try{return JSON.parse(localStorage.getItem('rs_likes')||'{}')||{}}catch(e){return {}}
+    }
+    function writeLocalLikesCountMap(map){
+      try{localStorage.setItem('rs_likes',JSON.stringify(map||{}))}catch(e){}
+    }
+    function countUniqueLikers(likedBy, reactions){
+      var seen={};
+      var n=0;
+      function add(u){
+        u=String(u||'').trim();
+        if(!u||seen[u])return;
+        seen[u]=1;n++;
+      }
+      try{(likedBy||[]).forEach(add)}catch(e){}
+      try{Object.keys(reactions||{}).forEach(add)}catch(e){}
+      return n;
+    }
+    function localLikesFloor(id){
+      id=String(id||'');
+      if(!id)return 0;
+      var best=0;
+      try{best=Math.max(best, Number(readLocalLikesCountMap()[id])||0)}catch(e){}
+      try{
+        var loc=readLocalReactionsMap()[id]||{};
+        best=Math.max(best, Object.keys(loc||{}).length);
+      }catch(e){}
+      return best;
+    }
+    function knownLikes(id){
+      id=String(id||'');
+      if(!id)return 0;
+      var best=localLikesFloor(id);
+      function take(list){
+        (list||[]).forEach(function(p){
+          if(!(p&&String(p.id)===id))return;
+          best=Math.max(best, Number(p.likes)||0, countUniqueLikers(p.likedBy, p.reactions));
+        });
+      }
+      try{take(posts)}catch(e){}
+      try{take(normalFeedPosts)}catch(e){}
+      try{take(window.__videoCache)}catch(e){}
+      return best;
+    }
+    function mergeReactionsMaps(){
+      var out={};
+      for(var i=0;i<arguments.length;i++){
+        var m=arguments[i];
+        if(!m||typeof m!=='object')continue;
+        Object.keys(m).forEach(function(u){
+          if(m[u]==null||m[u]==='')return;
+          out[u]=m[u];
+        });
+      }
+      return out;
+    }
+    function mergeLikedByLists(){
+      var seen={};
+      var out=[];
+      for(var i=0;i<arguments.length;i++){
+        var arr=arguments[i];
+        if(!Array.isArray(arr))continue;
+        arr.forEach(function(u){
+          u=String(u||'').trim();
+          if(!u||seen[u])return;
+          seen[u]=1;out.push(u);
+        });
+      }
+      return out;
+    }
+    function paintLikesDom(id, total){
+      id=String(id||'');
+      total=Number(total)||0;
+      var label=String(total);
+      try{
+        document.querySelectorAll('[data-likes-id="'+id.replace(/"/g,'')+'"]').forEach(function(el){
+          el.textContent=label;
+        });
+      }catch(e){}
+    }
+    function setLikesEverywhere(id, total, likedBy, reactions){
+      id=String(id||'');
+      total=Math.max(0, Number(total)||0);
+      if(!id)return total;
+      // Absolute assign: likes can decrease on unlike (unlike views which only rise).
+      likedBy=Array.isArray(likedBy)?likedBy.slice():null;
+      reactions=(reactions&&typeof reactions==='object')?Object.assign({},reactions):null;
+      function apply(list){
+        (list||[]).forEach(function(p){
+          if(!(p&&String(p.id)===id))return;
+          p.likes=total;
+          if(likedBy) p.likedBy=likedBy.slice();
+          if(reactions) p.reactions=Object.assign({},reactions);
+        });
+      }
+      try{apply(posts)}catch(e){}
+      try{apply(normalFeedPosts)}catch(e){}
+      try{apply(window.__videoCache)}catch(e){}
+      try{
+        var cmap=readLocalLikesCountMap();
+        cmap[id]=total;
+        writeLocalLikesCountMap(cmap);
+      }catch(e){}
+      if(reactions){
+        try{
+          var rmap=readLocalReactionsMap();
+          rmap[id]=Object.assign({},reactions);
+          writeLocalReactionsMap(rmap);
+        }catch(e){}
+      }
+      paintLikesDom(id, total);
+      return total;
+    }
+    function mergeLikesValue(id, remoteLikes){
+      return Math.max(Number(remoteLikes)||0, knownLikes(id), localLikesFloor(id));
+    }
+    function applyLikesSnapshot(id, snap){
+      id=String(id||'');
+      if(!id||!snap)return;
+      var likes=Number(snap.likes)||0;
+      var likedBy=Array.isArray(snap.likedBy)?snap.likedBy.slice():[];
+      var reactions=(snap.reactions&&typeof snap.reactions==='object')?Object.assign({},snap.reactions):{};
+      function apply(list){
+        (list||[]).forEach(function(p){
+          if(!(p&&String(p.id)===id))return;
+          p.likes=likes;
+          p.likedBy=likedBy.slice();
+          p.reactions=Object.assign({},reactions);
+        });
+      }
+      try{apply(posts)}catch(e){}
+      try{apply(normalFeedPosts)}catch(e){}
+      try{apply(window.__videoCache)}catch(e){}
+      try{
+        var cmap=readLocalLikesCountMap();
+        cmap[id]=likes;
+        writeLocalLikesCountMap(cmap);
+      }catch(e){}
+      try{
+        var rmap=readLocalReactionsMap();
+        rmap[id]=Object.assign({},reactions);
+        writeLocalReactionsMap(rmap);
+      }catch(e){}
+      paintLikesDom(id, likes);
+    }
+    function persistLikes(id, state){
+      id=String(id||'');
+      state=state||{};
+      if(!id)return Promise.resolve({ok:false,reason:'no_id'});
+      var username=String(state.username||'').trim();
+      var emoji=state.emoji==null||state.emoji===''?null:String(state.emoji);
+      var prevEmoji=state.prevEmoji==null||state.prevEmoji===''?null:String(state.prevEmoji);
+      var localReactions=(state.reactions&&typeof state.reactions==='object')?Object.assign({},state.reactions):{};
+      var localLikedBy=Array.isArray(state.likedBy)?state.likedBy.slice():Object.keys(localReactions);
+      var optimistic=Number(state.likes);
+      if(!isFinite(optimistic)) optimistic=countUniqueLikers(localLikedBy, localReactions);
+      var token=String(Date.now())+':'+Math.random().toString(36).slice(2,8);
+      __likePersist[id]={token:token,t:Date.now(),likes:optimistic};
+      // Cloudflare D1 (legacy path — may not touch Supabase)
+      try{
+        fetch(CF_API+'/posts/'+encodeURIComponent(id)+'/like',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({username:username,emoji:emoji||''})
+        }).catch(function(){});
+      }catch(e){}
+      // Supabase is the source of truth for SPA feed rows — merge then write absolute state.
+      return new Promise(function(resolve){
+        try{
+          if(typeof sb==='undefined' || !sb){
+            resolve({ok:false,reason:'no_sb'});
+            return;
+          }
+          var key=/^\d+$/.test(id)?Number(id):id;
+          sb.from('posts').select('likes_count,liked_by,reactions').eq('id',key).maybeSingle().then(function(q){
+            if(__likePersist[id]&&__likePersist[id].token!==token) return {skipped:true};
+            if(q&&q.error) throw q.error;
+            var remote=q&&q.data||{};
+            var remoteReactions={};
+            try{
+              if(remote.reactions&&typeof remote.reactions==='object') remoteReactions=Object.assign({},remote.reactions);
+              else if(typeof remote.reactions==='string') remoteReactions=JSON.parse(remote.reactions)||{};
+            }catch(e){remoteReactions={}}
+            var remoteLikedBy=[];
+            try{
+              if(Array.isArray(remote.liked_by)) remoteLikedBy=remote.liked_by.slice();
+              else if(typeof remote.liked_by==='string') remoteLikedBy=JSON.parse(remote.liked_by)||[];
+            }catch(e){remoteLikedBy=[]}
+            var merged=mergeReactionsMaps(remoteReactions, localReactions);
+            if(username){
+              if(emoji) merged[username]=emoji;
+              else delete merged[username];
+            }
+            var likedBy=mergeLikedByLists(remoteLikedBy, localLikedBy, Object.keys(merged));
+            if(username){
+              if(emoji){
+                if(likedBy.indexOf(username)<0) likedBy.push(username);
+              }else{
+                likedBy=likedBy.filter(function(u){return u!==username});
+              }
+            }
+            var delta=0;
+            if(username){
+              if(emoji && !prevEmoji) delta=1;
+              else if(!emoji && prevEmoji) delta=-1;
+            }
+            var remoteCount=Number(remote.likes_count)||0;
+            var next=Math.max(
+              countUniqueLikers(likedBy, merged),
+              remoteCount+delta,
+              Number(optimistic)||0
+            );
+            if(delta<0) next=Math.max(countUniqueLikers(likedBy, merged), Math.max(0, remoteCount+delta));
+            return sb.from('posts').update({
+              likes_count:next,
+              liked_by:likedBy,
+              reactions:merged
+            }).eq('id',key).then(function(up){
+              if(up&&up.error) throw up.error;
+              if(__likePersist[id]&&__likePersist[id].token!==token) return {skipped:true};
+              setLikesEverywhere(id, next, likedBy, merged);
+              try{
+                var post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null;
+                if(post){
+                  post.likes=next;
+                  post.likedBy=likedBy.slice();
+                  post.reactions=Object.assign({},merged);
+                  rememberFeedPost(post);
+                }
+              }catch(e){}
+              try{paintPostEngagement(id)}catch(e){}
+              return {ok:true,likes:next,likedBy:likedBy,reactions:merged};
+            });
+          }).then(function(res){
+            resolve(res||{ok:true});
+          }).catch(function(err){
+            console.warn('likes persist',err);
+            resolve({ok:false,error:err});
+          });
+        }catch(e){
+          console.warn('likes persist',e);
+          resolve({ok:false,error:e});
+        }
+      });
+    }
+    window.knownLikes=knownLikes;
+    window.mergeLikesValue=mergeLikesValue;
+    window.setLikesEverywhere=setLikesEverywhere;
+    window.persistLikes=persistLikes;
+    window.localLikesFloor=localLikesFloor;
+    window.paintLikesDom=paintLikesDom;
+    window.applyLikesSnapshot=applyLikesSnapshot;
+    window.countUniqueLikers=countUniqueLikers;
     function countImpression(id, panel){
       id=String(id||'');
       if(!id||isDeletedId(id))return;
@@ -3849,6 +4111,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         expires:(function(){var exp=p.expires_at?new Date(p.expires_at).getTime():0;try{var m=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};if(m[p.id]&&m[p.id].expires>exp)exp=m[p.id].expires}catch(e){}return exp})(),
         views:(typeof mergeViewsValue==='function'?mergeViewsValue(p.id,p.views):Number(p.views||0)),likes:(function(){
           var n=Number(p.likes_count||p.likes||0)||0;
+          try{n=typeof mergeLikesValue==='function'?mergeLikesValue(p.id,n):n}catch(e){}
           try{
             var loc=(JSON.parse(localStorage.getItem('rs_reactions')||'{}')||{})[String(p.id)]||{};
             var extra=Object.keys(loc||{}).length;
@@ -5713,7 +5976,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             });
             if(i>=0){
               posts[i].views=Math.max(Number(posts[i].views)||0, Number(sp.views)||0, typeof localViewsFloor==='function'?localViewsFloor(sp.id):0);
-              posts[i].likes=Math.max(Number(posts[i].likes)||0, Number(sp.likes)||0);
+              posts[i].likes=Math.max(Number(posts[i].likes)||0, Number(sp.likes)||0, typeof localLikesFloor==='function'?localLikesFloor(posts[i].id):0);
             }
           });
         }catch(e){
@@ -12640,7 +12903,7 @@ function openRoulette(){
       try{liked=!!(typeof getMyReaction==='function'&&getMyReaction(p))}catch(e){}
       try{saved=!!(typeof isSaved==='function'&&isSaved(p.id))}catch(e){}
       var acts='<div class="vid-acts" style="display:flex;gap:8px;margin-top:10px">'
-        +'<button type="button" class="btn btn-ghost btn-sm'+(liked?' liked':'')+'" onclick="event.stopPropagation();openReact('+jsId(p.id)+',event)">❤️ '+(p.likes||0)+'</button>'
+        +'<button type="button" class="btn btn-ghost btn-sm'+(liked?' liked':'')+'" onclick="event.stopPropagation();openReact('+jsId(p.id)+',event)">❤️ <span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span></button>'
         +'<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleSave('+jsId(p.id)+');renderVideos()">🔖 '+(saved?'Saved':'Save')+'</button>'
         +'<button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">💬 Comment</button>'
         +'<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();downloadPost('+jsId(p.id)+')">⬇️ Download</button>'
@@ -14110,7 +14373,7 @@ function openRoulette(){
         '<div class="gt-rail">'+
           '<div class="gt-av" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">'+av+'</div>'+
           '<span class="gt-plus">+</span>'+
-          '<button class="gt-act" type="button" onclick="event.stopPropagation();openReact(\''+String(p.id).replace(/'/g,'')+'\',event)"><span class="ico">♥</span>'+likes+'</button>'+
+          '<button class="gt-act" type="button" onclick="event.stopPropagation();openReact(\''+String(p.id).replace(/'/g,'')+'\',event)"><span class="ico">♥</span><span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+likes+'</span></button>'+
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openDetail(\''+String(p.id).replace(/'/g,'')+'\',true)"><span class="ico">💬</span>'+comments+'</button>'+
           '<button class="gt-act gt-hot" type="button" aria-label="Hot '+hotN+'" onclick="event.stopPropagation();hotBumpGoonTok(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🔥</span><span class="lab">HOT</span><span class="gt-hot-n">'+hotN+'</span></button>'+
           extBtn+
@@ -15380,7 +15643,7 @@ function openRoulette(){
         +reactRow
         +'<div class="normal-feed-post-actions">'
         +actionBtns
-        +'<button class="btn btn-like'+(mine?' liked':'')+'" type="button" data-nf-act="picker" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · '+(p.likes||0)+'</button>'
+        +'<button class="btn btn-like'+(mine?' liked':'')+'" type="button" data-nf-act="picker" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · <span data-likes-id="'+pid+'">'+(p.likes||0)+'</span></button>'
         +'<button class="btn btn-secondary nf-feed-comment" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span> '+(saved?'Saved':'Save')+'</button>'
         +(vsrc?'<button class="btn btn-secondary" type="button" data-nf-act="dl" data-nf-id="'+pid+'"><span class="nf-action-icon">⬇️</span> Download</button>':'')
@@ -15864,7 +16127,7 @@ function openRoulette(){
             if(likeBtn){
               var mine=typeof getMyReaction==='function'?getMyReaction(p):'';
               likeBtn.classList.toggle('liked',!!mine);
-              likeBtn.innerHTML='<span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · '+(p.likes||0);
+              likeBtn.innerHTML='<span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · <span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>';
             }
             var viewBadge=art.querySelector('.normal-feed-view-badge');
             if(viewBadge){
@@ -16923,17 +17186,29 @@ function openRoulette(){
     function rememberFeedPost(post){
       if(!post||post.id==null)return post;
       var id=String(post.id);
-      // Never let a fresh server row (views:0) wipe a higher live / local total.
+      // Never let a fresh server row (views:0 / likes:0) wipe a higher live / local total.
       try{
         post.views=typeof mergeViewsValue==='function'
           ? mergeViewsValue(id, post.views)
           : Math.max(Number(post.views)||0, typeof knownViews==='function'?knownViews(id):0);
       }catch(e){}
       var i=(posts||[]).findIndex(function(p){return String(p.id)===id});
+      try{
+        post.likes=typeof mergeLikesValue==='function'
+          ? mergeLikesValue(id, post.likes)
+          : Math.max(Number(post.likes)||0, typeof knownLikes==='function'?knownLikes(id):0);
+        var locReact=null;
+        try{locReact=(readLocalReactionsMap()[id])||null}catch(e){}
+        var prevReact=(i>=0&&posts[i])?posts[i].reactions:null;
+        post.reactions=mergeReactionsMaps(post.reactions, locReact, prevReact);
+        post.likedBy=mergeLikedByLists(post.likedBy, Object.keys(post.reactions||{}));
+      }catch(e){}
       if(i>=0){
         var merged=Object.assign({},posts[i],post);
         merged.views=Math.max(Number(posts[i].views)||0, Number(post.views)||0);
         merged.likes=Math.max(Number(posts[i].likes)||0, Number(post.likes)||0);
+        merged.reactions=mergeReactionsMaps(posts[i].reactions, post.reactions);
+        merged.likedBy=mergeLikedByLists(posts[i].likedBy, post.likedBy, Object.keys(merged.reactions||{}));
         posts[i]=merged;
         post=merged;
       } else {
@@ -16946,6 +17221,8 @@ function openRoulette(){
           var mergedN=Object.assign({},normalFeedPosts[j],post);
           mergedN.views=Math.max(Number(normalFeedPosts[j].views)||0, Number(post.views)||0);
           mergedN.likes=Math.max(Number(normalFeedPosts[j].likes)||0, Number(post.likes)||0);
+          mergedN.reactions=mergeReactionsMaps(normalFeedPosts[j].reactions, post.reactions);
+          mergedN.likedBy=mergeLikedByLists(normalFeedPosts[j].likedBy, post.likedBy, Object.keys(mergedN.reactions||{}));
           normalFeedPosts[j]=mergedN;
           // Same object in feed + wall pools so bumpViews / detail stay aligned.
           if(i>=0) posts[i]=mergedN;
@@ -17366,7 +17643,7 @@ function openRoulette(){
           var mapped={
             id:r.id,user:r.username||r.user||'anon',title:r.title||'Published card',desc:r.description||r.desc||'',
             tags:r.tags||['generated_id','normal_feed'],created:new Date(r.created_at||r.created||Date.now()).getTime(),
-            expires:0,views:r.views||0,likes:r.likes_count||r.likes||0,image:imgs[0]||'',images:imgs,
+            expires:0,views:(typeof mergeViewsValue==='function'?mergeViewsValue(r.id,r.views||0):Number(r.views||0)),likes:(typeof mergeLikesValue==='function'?mergeLikesValue(r.id,r.likes_count||r.likes||0):Number(r.likes_count||r.likes||0)),image:imgs[0]||'',images:imgs,
             featuredUntil:0,commentCount:0,_cf:true
           };
           if(!isPeaOrIdPost(mapped)) mapped.tags=(mapped.tags||[]).concat(['generated_id','normal_feed']);
@@ -17434,11 +17711,12 @@ function openRoulette(){
               try{
                 var hit=(normalFeedPosts||[]).find(function(x){return String(x.id)===String(p.id)});
                 if(hit){
-                  hit.likes=Math.max(Number(hit.likes)||0, Number(p.likes)||0);
+                  hit.likes=Math.max(Number(hit.likes)||0, Number(p.likes)||0, typeof localLikesFloor==='function'?localLikesFloor(hit.id):0);
                   hit.views=Math.max(Number(hit.views)||0, Number(p.views)||0, typeof localViewsFloor==='function'?localViewsFloor(hit.id):0);
                   hit.hotCount=Math.max(Number(hit.hotCount)||0, Number(p.hotCount)||0);
                   hit.commentCount=Math.max(Number(hit.commentCount)||0, Number(p.commentCount)||0);
-                  hit.reactions=p.reactions||hit.reactions;
+                  hit.reactions=mergeReactionsMaps(hit.reactions, p.reactions);
+                  hit.likedBy=mergeLikedByLists(hit.likedBy, p.likedBy, Object.keys(hit.reactions||{}));
                 }
               }catch(e){}
             }
@@ -17843,11 +18121,18 @@ function openRoulette(){
       if(typeof rowTags==='string'){try{rowTags=JSON.parse(rowTags)}catch(e){rowTags=[]}}
       var rowPermanent=Array.isArray(rowTags)&&(rowTags.indexOf('profile_only')>=0||rowTags.indexOf('profile_gallery')>=0||rowTags.indexOf('generated_id')>=0);
       var rowExpires=rowPermanent?0:(p.expires_at?new Date(p.expires_at).getTime():0);
+      var rowLikedBy=[];
+      try{rowLikedBy=Array.isArray(p.liked_by)?p.liked_by.slice():(p.liked_by?[].concat(p.liked_by):[])}catch(e){rowLikedBy=[]}
+      try{rowLikedBy=mergeLikedByLists(rowLikedBy, Object.keys(reactions||{}))}catch(e){}
+      var rowLikes=typeof mergeLikesValue==='function'
+        ? mergeLikesValue(p.id, p.likes_count||p.likes||0)
+        : Math.max(Number(p.likes_count||p.likes)||0, rowLikedBy.length, Object.keys(reactions||{}).length);
       var row={
           id:p.id,user:p.username,title:p.title,desc:p.description||'',tags:rowTags,
           created:new Date(p.created_at).getTime(),expires:rowExpires,
-          views:p.views||0,likes:p.likes_count||0,extensions:p.extensions_count||0,
-          extendAmount:p.extend_amount||360,extenders:p.extenders||[],likedBy:p.liked_by||[],
+          views:(typeof mergeViewsValue==='function'?mergeViewsValue(p.id,p.views||0):Number(p.views||0)),
+          likes:rowLikes,extensions:p.extensions_count||0,
+          extendAmount:p.extend_amount||360,extenders:p.extenders||[],likedBy:rowLikedBy,
           image:'',images:[],featuredUntil:Math.max(dbF,locF),
           savesCount:p.saves_count||0,downloadsCount:p.downloads_count||0,reactions:reactions||{},
           _needImg:true,_imgFail:false,
@@ -21293,7 +21578,7 @@ function postCardHtml(p, compact){
       }
       var perma=(typeof postPath==='function'?postPath(p.id):('/post/'+encodeURIComponent(String(p.id))));
       var titleLink='<a class="post-permalink" href="'+esc(perma)+'" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')">'+esc(p.title)+'</a>';
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes',p.likes||0)+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes','<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>')+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
     }
     
     function featCarouselGo(to, smooth){
@@ -21962,7 +22247,9 @@ function postCardHtml(p, compact){
             var likeChip=art.querySelector('.st-likes');
             if(likeChip){
               var ico=likeChip.querySelector('.neon-ico');
-              likeChip.innerHTML=(ico?ico.outerHTML:'')+String(p.likes||0);
+              var likeVal=likeChip.querySelector('[data-likes-id]');
+              if(likeVal) likeVal.textContent=String(p.likes||0);
+              else likeChip.innerHTML=(ico?ico.outerHTML:'')+'<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+String(p.likes||0)+'</span>';
             }
             var extChip=art.querySelector('.st-extends');
             if(extChip){
@@ -22156,6 +22443,9 @@ function postCardHtml(p, compact){
         // Keep the openDetail `post` reference in sync with pools + DB.
         var nextViews=bumpViews(post.id,1);
         if(nextViews!=null) post.views=Math.max(Number(post.views)||0, Number(nextViews)||0);
+        try{
+          post.likes=typeof mergeLikesValue==='function'?mergeLikesValue(post.id, post.likes):Math.max(Number(post.likes)||0, typeof knownLikes==='function'?knownLikes(post.id):0);
+        }catch(eLikes){}
         try{post=rememberFeedPost(post)||post}catch(e2){}
       }catch(e){}
       var comments=[];
@@ -22261,7 +22551,7 @@ function postCardHtml(p, compact){
       var contactNotice=postDetailContactNoticeHtml();
       var dxStats='<div class="dx-stats">'
         +'<div><div class="n">'+neonChip('views','')+'<b data-views-id="'+String(post.id).replace(/"/g,'')+'">'+displayViews(post.views)+'</b></div><em>views</em></div>'
-        +'<div><div class="n">'+neonChip('likes','')+'<b>'+(post.likes||0)+'</b></div><em>likes</em></div>'
+        +'<div><div class="n">'+neonChip('likes','')+'<b data-likes-id="'+String(post.id).replace(/"/g,'')+'">'+(post.likes||0)+'</b></div><em>likes</em></div>'
         +'<div><div class="n">'+neonChip('comments','')+'<b>'+comments.length+'</b></div><em>comments</em></div>'
         +'<div><div class="n">'+neonChip('downloads','')+'<b>'+postDlCount(post)+'</b></div><em>downloads</em></div>'
         +'<div><div class="n">'+neonChip('extends','')+'<b>'+(post.extensions||0)+'</b></div><em>extends</em></div>'
@@ -23318,7 +23608,7 @@ async function onIdFace(e){
           } else if(typeof posts!=='undefined' && Array.isArray(posts)){
             // ensure existing entry has latest likes
             var existing=posts.find(function(p){return String(p.id)===String(r.id)});
-            if(existing){existing.likes=r.likes_count||r.likes||existing.likes||0; if(hotN) existing.hotCount=Math.max(Number(existing.hotCount||0),hotN);}
+            if(existing){existing.likes=Math.max(Number(existing.likes)||0, Number(r.likes_count||r.likes)||0, typeof localLikesFloor==='function'?localLikesFloor(existing.id):0); if(hotN) existing.hotCount=Math.max(Number(existing.hotCount||0),hotN);}
           }
         });
         box.innerHTML=html||('<div style="color:var(--muted);font-size:13px">'+(idRenderMode==='pea'?'No published PEAs yet.':'No published IDs yet.')+'</div>');
@@ -24489,20 +24779,40 @@ async function onIdFace(e){
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       if(!post) return;
-      var likes=Number(post.likes||0)||((post.likedBy||[]).length);
+      var likes=Number(post.likes||0)||countUniqueLikers(post.likedBy, post.reactions);
       var mine=getMyReaction(post);
       var bar=reactBarHtml(post);
-      document.querySelectorAll('[data-pid="'+id+'"],[data-normal-post-id="'+id+'"]').forEach(function(card){
+      try{paintLikesDom(id, likes)}catch(e){}
+      document.querySelectorAll('[data-pid="'+id+'"],[data-normal-post-id="'+id+'"],[data-gid="'+id+'"]').forEach(function(card){
         try{
-          var likeBtns=card.querySelectorAll('.btn-like, .dx-ico.heart');
+          var likeBtns=card.querySelectorAll('.btn-like, .dx-ico.heart, [data-nf-act="picker"]');
           Array.prototype.forEach.call(likeBtns,function(b){
             b.classList.toggle('liked',!!mine);
-            if(b.classList.contains('btn-like')) b.innerHTML=(mine||'❤️')+' Like';
+            if(b.getAttribute('data-nf-act')==='picker'){
+              b.innerHTML='<span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · <span data-likes-id="'+id.replace(/"/g,'')+'">'+likes+'</span>';
+            }else if(b.classList.contains('btn-like')){
+              b.innerHTML=(mine||'❤️')+' Like';
+            }
           });
           var hearts=card.querySelectorAll('[title="Likes"], .post-stats span');
           Array.prototype.forEach.call(hearts,function(s){
-            if(/❤️|♥|❤/.test(s.textContent||'')) s.innerHTML='❤️ '+likes;
+            if(s.hasAttribute('data-likes-id')){ s.textContent=String(likes); return; }
+            if(/❤️|♥|❤/.test(s.textContent||'') && !s.querySelector('[data-likes-id]')) s.innerHTML='❤️ '+likes;
           });
+          var gtAct=card.querySelector('.gt-act .ico');
+          if(gtAct && /♥|❤/.test(gtAct.textContent||'')){
+            var btn=gtAct.parentElement;
+            if(btn){
+              var keep=btn.querySelector('.ico');
+              btn.innerHTML='';
+              if(keep) btn.appendChild(keep);
+              else btn.innerHTML='<span class="ico">♥</span>';
+              var span=document.createElement('span');
+              span.setAttribute('data-likes-id', id);
+              span.textContent=String(likes);
+              btn.appendChild(span);
+            }
+          }
           var rb=card.querySelector('.react-bar');
           if(bar){
             if(rb) rb.outerHTML=bar;
@@ -24513,6 +24823,17 @@ async function onIdFace(e){
           }else if(rb) rb.remove();
         }catch(e){}
       });
+      try{
+        var detailRoot=document.getElementById('detail-content');
+        if(detailRoot){
+          detailRoot.querySelectorAll('[data-likes-id="'+id.replace(/"/g,'')+'"]').forEach(function(el){el.textContent=String(likes)});
+          var likeRow=detailRoot.querySelector('.dx-row');
+          if(likeRow && /Like|Liked|❤️|♥/.test(likeRow.textContent||'')){
+            likeRow.classList.toggle('on',!!mine);
+            likeRow.textContent=(mine||'❤️')+' '+(mine?'Liked':'Like');
+          }
+        }
+      }catch(e){}
     }
     function setReaction(id, emoji){
       id=String(id||'');
@@ -24531,10 +24852,16 @@ async function onIdFace(e){
         post={id:id,user:'Anon',title:'',desc:'',tags:[],created:Date.now(),expires:0,views:0,likes:0,extensions:0,extendAmount:0,extenders:[],likedBy:[],image:'',images:[],featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{}};
         try{rememberFeedPost(post)}catch(e){posts.push(post)}
       }
+      var snapshot={
+        likes:Number(post.likes)||0,
+        likedBy:(post.likedBy||[]).slice(),
+        reactions:Object.assign({},post.reactions||{})
+      };
       var reactions=Object.assign({},post.reactions||{});
       var likedBy=(post.likedBy||[]).slice();
       var name=currentUser.name;
       var prev=getMyReaction(post);
+      var prevCount=Number(post.likes)||0;
       if(!emoji){
         delete reactions[name];
         likedBy=likedBy.filter(function(u){return u!==name});
@@ -24551,31 +24878,42 @@ async function onIdFace(e){
           }catch(e){}
         }
       }
-      post.reactions=reactions;post.likedBy=likedBy;post.likes=Math.max(Number(post.likes||0),likedBy.length);
+      var unique=countUniqueLikers(likedBy, reactions);
+      var nextCount=prevCount;
+      if(emoji && !prev) nextCount=prevCount+1;
+      else if(!emoji && prev) nextCount=Math.max(0, prevCount-1);
+      nextCount=Math.max(nextCount, unique);
+      post.reactions=reactions;post.likedBy=likedBy;post.likes=nextCount;
       try{
         if(emoji&&!prev){
           maybeViralReward(post);
           if((Number(post.likes)||0)>=100 && String(post.user)===String(name)) unlockBadge('likes_100');
         }
       }catch(e){}
+      try{setLikesEverywhere(id, nextCount, likedBy, reactions)}catch(e){}
       try{rememberFeedPost(post)}catch(e){}
-      try{
-        var loc=JSON.parse(localStorage.getItem('rs_reactions')||'{}');
-        loc[String(id)]=reactions;
-        localStorage.setItem('rs_reactions',JSON.stringify(loc));
-      }catch(e){}
       try{paintPostEngagement(id)}catch(e){}
       toast(emoji?('Liked'):'Like removed');
-      fetch(CF_API+'/posts/'+encodeURIComponent(id)+'/like',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({username:name,emoji:emoji||''})
-      }).then(function(r){return r.json().catch(function(){return{}})}).then(function(likeJ){
-        if(likeJ&&typeof likeJ.likes==='number' && likeJ.likes>=likedBy.length){
-          post.likes=likeJ.likes;
+      Promise.resolve(persistLikes(id,{
+        username:name,
+        emoji:emoji||null,
+        prevEmoji:prev||null,
+        likes:nextCount,
+        likedBy:likedBy,
+        reactions:reactions
+      })).then(function(res){
+        if(res&&res.ok===false && res.reason!=='no_sb' && !res.skipped){
+          try{applyLikesSnapshot(id, snapshot)}catch(e){}
+          try{paintPostEngagement(id)}catch(e){}
+          try{toast('Like not saved — try again')}catch(e){}
+        }else if(res&&typeof res.likes==='number'){
           try{paintPostEngagement(id)}catch(e){}
         }
-      }).catch(function(e){console.warn(e)});
+      }).catch(function(e){
+        console.warn(e);
+        try{applyLikesSnapshot(id, snapshot)}catch(e2){}
+        try{paintPostEngagement(id)}catch(e2){}
+      });
     }
     function reactFromFeed(id, emoji){
       Promise.resolve(ensureFeedPost(id)).then(function(post){

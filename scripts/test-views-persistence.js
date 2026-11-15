@@ -22,7 +22,7 @@ assert(html.includes('function setViewsEverywhere('), 'setViewsEverywhere helper
 assert(html.includes("sb.from('posts').update({views:total})"), 'Supabase absolute views write present');
 assert(html.includes("CF_API+'/posts/'+encodeURIComponent(id)+'/view'"), 'CF /view still called');
 assert(/data-views-id="'\+String\(post\.id\)/.test(html) || html.includes('data-views-id="\'+String(post.id)'), 'detail stats use data-views-id');
-assert(html.includes('Never let a fresh server row (views:0) wipe'), 'rememberFeedPost protects views');
+assert(/Never let a fresh server row \(views:0(?: \/ likes:0)?\) wipe/.test(html), 'rememberFeedPost protects views');
 assert(html.includes('posts[i].views=Math.max(Number(posts[i].views)||0, Number(sp.views)||0'), 'profile sync uses Math.max for views');
 assert(!/map\[id\]=\(Number\(map\[id\]\)\|\|0\)\+n/.test(html), 'old localStorage increment-from-0 removed');
 
