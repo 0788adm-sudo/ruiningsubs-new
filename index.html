@@ -20324,6 +20324,8 @@ function profileStatsHtml(userPosts, extra){
 
     async function openChallenge(id){
       if(!isRegistered()){toast('Login first');showAuth('login');return}
+      // Ensure Challenges panel is visible — otherwise games-play stays hidden inside another panel.
+      try{showPanel('challenges')}catch(e){}
       // Ensure sticky daily set exists first
       var daily=pickDailyChallenges(4);
       var ch=null;
@@ -20349,7 +20351,10 @@ function profileStatsHtml(userPosts, extra){
       var hub=document.getElementById('games-hub')||document.getElementById('challenges-hub');
       var play=document.getElementById('games-play')||document.getElementById('challenges-play');
       if(hub)hub.style.display='none';
-      if(!play)return;
+      if(!play){
+        toast('Challenges panel missing');
+        return;
+      }
       play.style.display='block';
       __rsChallengeView=id;
       __rsActiveChallenge=ch;
@@ -20357,9 +20362,10 @@ function profileStatsHtml(userPosts, extra){
       var status=challengeStatusFor(ch);
       var st=challengeUserState();
       var day=rsDayKey();
-      if(status==='available'){
+      // Treat pending defeat spawns as available so Accept marks them accepted.
+      if(status==='available' || (status==='accepted' && st.accepted[day]&&st.accepted[day][ch.id]&&st.accepted[day][ch.id].status==='pending')){
         if(!st.accepted[day]) st.accepted[day]={};
-        st.accepted[day][ch.id]={at:Date.now()};
+        st.accepted[day][ch.id]=Object.assign({}, st.accepted[day][ch.id]||{}, {at:Date.now(),status:'accepted'});
         st.snapshots[challengeSubKey(ch.id,day)]=await snapshotForChallenge(ch);
         persistChallengeUser(st);
         status='accepted';
