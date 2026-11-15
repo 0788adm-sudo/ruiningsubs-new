@@ -115,13 +115,29 @@ try{if(window.supabase)sb=window.supabase.createClient('https://snlpdolzhzcbbdyx
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{"photos":[],"reacts":{},"comments":{}}')}catch(e){return {photos:[],reacts:{},comments:{}}}}
 function save(d){localStorage.setItem(KEY,JSON.stringify(d))}
 function toast(t){var e=document.getElementById('toast');e.textContent=t;e.style.display='block';setTimeout(function(){e.style.display='none'},1800)}
-function getPass(){return 'kenny00'}
-function setPass(){var n=prompt('New admin password');if(!n)return;localStorage.setItem(PASS_KEY,n);toast('Password saved')}
+function getPass(){
+  try{return String(localStorage.getItem(PASS_KEY)||'').trim()}catch(e){return ''}
+}
+function setPass(){
+  var n=prompt('New admin password (min 6 chars)');
+  if(!n||String(n).trim().length<6){toast('Password too short');return}
+  localStorage.setItem(PASS_KEY,String(n).trim());
+  toast('Password saved on this device only');
+}
 function openAdmin(){document.getElementById('admin').classList.add('show')}
 function closeAdmin(){document.getElementById('admin').classList.remove('show')}
 function adminLogin(){
-  var v=document.getElementById('adm-pass').value;
-  if(v!==getPass()){toast('Wrong password');return}
+  var v=String(document.getElementById('adm-pass').value||'');
+  var pass=getPass();
+  // No hardcoded password. First unlock on this browser sets the local admin pass.
+  if(!pass){
+    if(v.trim().length<6){toast('Set a password (min 6 chars)');return}
+    localStorage.setItem(PASS_KEY,v.trim());
+    toast('Admin password created on this device');
+  }else if(v!==pass){
+    toast('Wrong password');
+    return;
+  }
   document.getElementById('admin-login').style.display='none';
   document.getElementById('admin-box').style.display='block';
   renderAdmin();
