@@ -387,9 +387,13 @@ function noAdminTraffic() {
   assert.ok(api.indexOf('walletUserCandidates') >= 0, 'wallet case candidates');
   assert.ok(api.indexOf('resolveFcBalance') >= 0, 'shared balance resolver');
   assert.ok(api.indexOf('spendSupabaseFc') >= 0, 'supabase spend fallback');
+  assert.ok(api.indexOf('fast_invalidate') >= 0, 'pin cleanup is fast (no full board scan)');
+  assert.ok(api.indexOf('withTimeout') >= 0, 'cleanup timeouts');
+  assert.ok(api.indexOf('DELETE_NOOP') >= 0 || api.indexOf('delete_blocked_or_noop') >= 0, 'detect silent delete failure');
   assert.ok(html.indexOf('coinUserId') >= 0 && html.indexOf("secureDeletePost") >= 0, 'client uses coin identity');
   assert.ok(html.indexOf('Checking balance, then charging 50 FC') >= 0, 'progress not fake-success');
   assert.ok(html.indexOf('Same numeric truth as /api/delete-post') >= 0, 'header matches API resolution');
+  assert.ok(html.indexOf("fetchWithTimeout('/api/delete-post'") >= 0, 'client uses timed delete fetch');
   console.log('PASS · static balance/identity contract');
 
   console.log('OK · fc-autodelete-handler');
