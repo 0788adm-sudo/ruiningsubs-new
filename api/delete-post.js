@@ -5,7 +5,7 @@
  * Body: {
  *   user: string,
  *   postId: string,
- *   reason?: 'owner'|'moderation'|'privacy',
+ *   reason?: 'owner'|'paid'|'moderation'|'privacy',
  *   adminKey?: string,
  *   ownerToken?: string,
  *   idempotencyKey?: string
@@ -14,8 +14,10 @@
  * - deletable / free_deletion_enabled: verified owner deletes free (even with timer)
  * - locked / permanent: owner pays 50 FC (server-side price only)
  * - legacy timed (no explicit free flag): owner pays 50 FC
+ * - non-owner / reason=paid: ALWAYS 50 FC then immediate delete (no admin request)
  * - moderation / privacy: free for admins — Permanent never blocks these
- * - spend is idempotent via CF wallet ledger; post is only deleted after successful spend
+ * - spend is idempotent via CF wallet ledger; if DB delete fails after a NEW charge, refund
+ * - FC auto-delete never creates admin notifications or pending requests
  */
 const crypto = require('crypto');
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
@@ -189,25 +191,37 @@ async function cfFetch(path, opts) {
   return { ok: r.ok, status: r.status, json: j };
 }
 
-async function findLedgerSpend(user, action, ref, minCoins) {
+async function findLedgerRow(user, kind, action, ref, minCoins) {
   const res = await cfFetch('/wallet/ledger?user=' + encodeURIComponent(user));
   const rows = (res.json && res.json.ledger) || [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] || {};
-    if (String(row.kind || '') !== 'spend') continue;
-    if (String(row.action || '') !== String(action)) continue;
+    if (kind && String(row.kind || '') !== String(kind)) continue;
+    if (action && String(row.action || '') !== String(action)) continue;
     if (String(row.ref_id || row.ref || '') !== String(ref || '')) continue;
-    if (Number(row.coins || 0) < Number(minCoins || 0)) continue;
+    if (minCoins != null && Number(row.coins || 0) < Number(minCoins || 0)) continue;
     return row;
   }
   return null;
+}
+
+async function findLedgerSpend(user, action, ref, minCoins) {
+  return findLedgerRow(user, 'spend', action, ref, minCoins);
+}
+
+function deleteSpendRef(user, postId, idemRef) {
+  return String(idemRef || `delete-post:${postId}:${user}`).slice(0, 120);
+}
+
+function deleteRefundRef(user, postId) {
+  return String(`delete-refund:${postId}:${user}`).slice(0, 120);
 }
 
 /** Same atomic spend path as /api/fc-spend — never trust client price. */
 async function spendDeleteFc(user, postId, idemRef) {
   const action = 'delete';
   const cost = DELETE_COST_FC;
-  const ref = String(idemRef || `delete-post:${postId}:${user}`).slice(0, 120);
+  const ref = deleteSpendRef(user, postId, idemRef);
 
   const existing = await findLedgerSpend(user, action, ref, cost);
   if (existing) {
@@ -236,10 +250,50 @@ async function spendDeleteFc(user, postId, idemRef) {
       ok: false,
       error: 'insufficient',
       need: cost,
-      balance: Number((res.json && res.json.balance) || 0) || 0
+      balance: Number((res.json && res.json.balance) || 0) || 0,
+      ref
     };
   }
-  return { ok: false, error: err || 'spend_failed', status: res.status };
+  return { ok: false, error: err || 'spend_failed', status: res.status, ref };
+}
+
+/** Refund 50 FC if DB delete fails after a NEW charge — idempotent. */
+async function refundDeleteFc(user, postId) {
+  const ref = deleteRefundRef(user, postId);
+  const existing =
+    (await findLedgerRow(user, null, 'delete_refund', ref, DELETE_COST_FC)) ||
+    (await findLedgerRow(user, 'add', null, ref, DELETE_COST_FC));
+  if (existing) {
+    return { ok: true, reused: true, balance: null, coins: DELETE_COST_FC, ref };
+  }
+
+  const res = await cfFetch('/wallet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: SITE },
+    body: JSON.stringify({
+      user,
+      add: DELETE_COST_FC,
+      action: 'delete_refund',
+      ref,
+      admin: true
+    })
+  });
+
+  if (res.json && res.json.ok) {
+    return {
+      ok: true,
+      reused: false,
+      balance: res.json.balance != null ? Number(res.json.balance) : null,
+      coins: DELETE_COST_FC,
+      ref
+    };
+  }
+  return {
+    ok: false,
+    error: (res.json && (res.json.error || res.json.message)) || 'refund_failed',
+    status: res.status,
+    ref
+  };
 }
 
 async function deletePostRow(client, postId) {
@@ -396,7 +450,30 @@ module.exports = async function handler(req, res) {
     if (q.error) return json(res, 500, { error: 'load_failed', detail: q.error.message });
     row = q.data;
   }
-  if (!row) return json(res, 404, { error: 'not_found' });
+
+  const spendRef = deleteSpendRef(
+    user,
+    postId,
+    idempotencyKey || `delete-post:${postId}:${user}:${DELETE_COST_FC}`
+  );
+
+  // Idempotent re-entry after a successful delete (double-click / reload).
+  if (!row) {
+    const priorSpend = await findLedgerSpend(user, 'delete', spendRef, DELETE_COST_FC);
+    if (priorSpend) {
+      return json(res, 200, {
+        ok: true,
+        postId,
+        already_deleted: true,
+        charged: 0,
+        reused: true,
+        balance: null,
+        free: false,
+        reason: 'already_deleted'
+      });
+    }
+    return json(res, 404, { error: 'not_found' });
+  }
 
   const owner = normUser(row.username);
   const tier = resolveTier(row);
@@ -420,21 +497,34 @@ module.exports = async function handler(req, res) {
   // Require ADMIN_KEY or a verified Cloudflare Worker admin bearer token.
   const adminCredOk = adminKeyOk(body.adminKey) || cfAdminOk;
   const freeOverride = FREE_REASONS.has(reason) && adminCredOk;
+  const paidForce = reason === 'paid' || reason === 'paid_remove' || reason === 'fc';
 
-  if (!freeOverride && !isOwner) {
+  // Non-owners may delete ONLY by paying 50 FC (automatic — no admin queue).
+  // Free owner deletes and admin moderation stay unchanged.
+  if (!freeOverride && !isOwner && !paidForce) {
+    // Legacy clients that omit reason=paid still get the paid path when not owner.
+    // (FC button always sends reason=paid; bare calls without ownership stay forbidden.)
     return json(res, 403, {
       error: 'forbidden',
-      detail: 'Only the owner (or admin moderation/privacy) can delete.'
+      detail: 'Only the owner, a paid FC removal, or admin moderation/privacy can delete.'
     });
   }
 
   let charged = 0;
   let spend = null;
+  let deleteReason = freeOverride ? reason : isOwner ? 'owner' : 'paid';
 
   if (!freeOverride) {
-    const cost = ownerDeleteCost(row);
+    let cost = 0;
+    if (!isOwner || paidForce) {
+      // Paid automatic removal — always 50 FC (server price).
+      cost = DELETE_COST_FC;
+      deleteReason = 'paid';
+    } else {
+      cost = ownerDeleteCost(row);
+    }
     if (cost > 0) {
-      spend = await spendDeleteFc(user, postId, idempotencyKey || `delete-post:${postId}:${user}:${cost}`);
+      spend = await spendDeleteFc(user, postId, spendRef);
       if (!spend.ok) {
         const code = spend.error || 'spend_failed';
         const status = code === 'insufficient' ? 402 : spend.status || 400;
@@ -455,12 +545,22 @@ module.exports = async function handler(req, res) {
 
   const delErr = await deletePostRow(client, postId);
   if (delErr) {
+    let refund = null;
+    if (charged > 0 && spend && !spend.reused) {
+      try {
+        refund = await refundDeleteFc(user, postId);
+      } catch (e) {
+        refund = { ok: false, error: String(e && e.message ? e.message : e) };
+      }
+    }
     return json(res, 500, {
-      error: 'delete_failed_after_charge',
+      error: 'delete_failed',
       detail: delErr.message,
-      charged,
+      charged: refund && refund.ok ? 0 : charged,
+      refunded: !!(refund && refund.ok),
+      refund,
       tier,
-      balance: spend && spend.balance
+      balance: (refund && refund.balance != null ? refund.balance : null) ?? (spend && spend.balance)
     });
   }
 
@@ -489,11 +589,13 @@ module.exports = async function handler(req, res) {
     tier,
     free_deletion_enabled: freeDeletionEnabled(row),
     charged,
-    reason: freeOverride ? reason : 'owner',
+    reason: deleteReason,
     balance: spend && spend.balance,
     free: !!freeOverride || charged === 0,
     reused: !!(spend && spend.reused),
     via_owner_token: !!tokenOk,
+    auto_deleted: true,
+    admin_notified: false,
     pinCleanup,
     cachePurge,
     removalUrl,
