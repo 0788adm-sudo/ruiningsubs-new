@@ -2,6 +2,7 @@
   "name": "ruiningsubs",
   "private": true,
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "@vercel/edge": "^1.2.1"
   }
 }

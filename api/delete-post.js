@@ -22,6 +22,20 @@
 const crypto = require('crypto');
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
+const SB_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL ||
+  'https://snlpdolzhzcbbdyxqlnb.supabase.co';
+// Prefer service role (can DELETE). Fall back to the same anon key used by /api/extend
+// so the function still boots when the npm package or env wiring is incomplete.
+const SB_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
 const DELETE_COST_FC = Number(process.env.FC_COST_DELETE || 50) || 50;
 const ALLOWED_TIERS = new Set(['deletable', 'locked', 'permanent']);
 const FREE_REASONS = new Set(['moderation', 'privacy']);
@@ -37,7 +51,8 @@ const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store'
 };
 
 function json(res, status, body) {
@@ -46,17 +61,36 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function sb() {
-  if (!createClient) throw new Error('Missing @supabase/supabase-js');
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Missing Supabase env');
-  return createClient(url, key, { auth: { persistSession: false } });
+function sbClient() {
+  if (!createClient || !SB_URL || !SB_KEY) return null;
+  return createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
+}
+
+async function sbRest(path, opts) {
+  if (!SB_URL || !SB_KEY) throw new Error('Missing Supabase env');
+  const r = await fetch(
+    SB_URL + path,
+    Object.assign(
+      {
+        headers: {
+          apikey: SB_KEY,
+          Authorization: 'Bearer ' + SB_KEY,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation'
+        },
+        cache: 'no-store'
+      },
+      opts || {}
+    )
+  );
+  const text = await r.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (_) {
+    data = text;
+  }
+  return { ok: r.ok, status: r.status, data: data };
 }
 
 function normUser(u) {
@@ -296,9 +330,62 @@ async function refundDeleteFc(user, postId) {
   };
 }
 
-async function deletePostRow(client, postId) {
-  const { error } = await client.from('posts').delete().eq('id', postId);
-  return error;
+async function loadPostRow(postId) {
+  const colsFull = 'id,username,tags,expires_at,extend_amount,deletion_tier,free_deletion_enabled,owner_token_hash';
+  const colsTier = 'id,username,tags,expires_at,extend_amount,deletion_tier';
+  const colsBase = 'id,username,tags,expires_at,extend_amount';
+  const client = sbClient();
+  if (client) {
+    let q = await client.from('posts').select(colsFull).eq('id', postId).maybeSingle();
+    if (q.error && /free_deletion_enabled|owner_token_hash/i.test(String(q.error.message || ''))) {
+      q = await client.from('posts').select(colsTier).eq('id', postId).maybeSingle();
+    }
+    if (q.error && /deletion_tier/i.test(String(q.error.message || ''))) {
+      q = await client.from('posts').select(colsBase).eq('id', postId).maybeSingle();
+    }
+    if (q.error) throw new Error(q.error.message || 'load_failed');
+    return q.data || null;
+  }
+  // REST fallback (same pattern as /api/extend) — works without the npm package.
+  let rest = await sbRest(
+    '/rest/v1/posts?select=' + encodeURIComponent(colsFull) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
+  );
+  if (!rest.ok && rest.status === 400) {
+    rest = await sbRest(
+      '/rest/v1/posts?select=' + encodeURIComponent(colsTier) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
+    );
+  }
+  if (!rest.ok && rest.status === 400) {
+    rest = await sbRest(
+      '/rest/v1/posts?select=' + encodeURIComponent(colsBase) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
+    );
+  }
+  if (!rest.ok) throw new Error('load_failed_http_' + rest.status);
+  const rows = Array.isArray(rest.data) ? rest.data : [];
+  return rows[0] || null;
+}
+
+async function deletePostRow(postId) {
+  const client = sbClient();
+  if (client) {
+    const { error } = await client.from('posts').delete().eq('id', postId);
+    if (error) return error;
+  } else {
+    const rest = await sbRest('/rest/v1/posts?id=eq.' + encodeURIComponent(String(postId)), {
+      method: 'DELETE'
+    });
+    if (!rest.ok) {
+      return { message: 'delete_failed_http_' + rest.status, details: rest.data };
+    }
+  }
+  // Also drop CF mirror so feed/search cannot resurrect the post.
+  try {
+    await cfFetch('/posts/' + encodeURIComponent(String(postId)), {
+      method: 'DELETE',
+      headers: { Origin: SITE }
+    });
+  } catch (_) {}
+  return null;
 }
 
 /** Best-effort Cloudflare purge for deleted post URLs + sitemap. Never fails the delete. */
@@ -418,37 +505,15 @@ module.exports = async function handler(req, res) {
 
   if (!user) return json(res, 400, { error: 'missing_user' });
   if (!postId) return json(res, 400, { error: 'missing_post_id' });
-
-  let client;
-  try {
-    client = sb();
-  } catch (e) {
-    return json(res, 500, { error: 'supabase_env', detail: String(e.message || e) });
+  if (!SB_URL || !SB_KEY) {
+    return json(res, 500, { error: 'supabase_env', detail: 'Missing SUPABASE_URL / key' });
   }
 
   let row = null;
-  {
-    let q = await client
-      .from('posts')
-      .select('id,username,tags,expires_at,extend_amount,deletion_tier,free_deletion_enabled,owner_token_hash')
-      .eq('id', postId)
-      .maybeSingle();
-    if (q.error && /free_deletion_enabled|owner_token_hash/i.test(String(q.error.message || ''))) {
-      q = await client
-        .from('posts')
-        .select('id,username,tags,expires_at,extend_amount,deletion_tier')
-        .eq('id', postId)
-        .maybeSingle();
-    }
-    if (q.error && /deletion_tier/i.test(String(q.error.message || ''))) {
-      q = await client
-        .from('posts')
-        .select('id,username,tags,expires_at,extend_amount')
-        .eq('id', postId)
-        .maybeSingle();
-    }
-    if (q.error) return json(res, 500, { error: 'load_failed', detail: q.error.message });
-    row = q.data;
+  try {
+    row = await loadPostRow(postId);
+  } catch (e) {
+    return json(res, 500, { error: 'load_failed', detail: String(e && e.message ? e.message : e) });
   }
 
   const spendRef = deleteSpendRef(
@@ -543,7 +608,7 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  const delErr = await deletePostRow(client, postId);
+  const delErr = await deletePostRow(postId);
   if (delErr) {
     let refund = null;
     if (charged > 0 && spend && !spend.reused) {
@@ -555,7 +620,7 @@ module.exports = async function handler(req, res) {
     }
     return json(res, 500, {
       error: 'delete_failed',
-      detail: delErr.message,
+      detail: delErr.message || String(delErr),
       charged: refund && refund.ok ? 0 : charged,
       refunded: !!(refund && refund.ok),
       refund,
