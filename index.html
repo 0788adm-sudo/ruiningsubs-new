@@ -15627,7 +15627,7 @@ function openRoulette(){
       // Permanent → Hot only. Timed → Extend. Timed videos → Extend + Hot (Hot never blocked by timer).
       var actionBtns='';
       if(hasTimer){
-        actionBtns+='<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>';
+        actionBtns+='<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'" onclick="event.preventDefault();event.stopPropagation()"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>';
         if(isVid){
           actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
         }
@@ -17356,14 +17356,29 @@ function openRoulette(){
             return true;
           }
         }
-        var ext=el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext');
-        if(ext && !ext.disabled && !ext.classList.contains('is-cooling')){
-          var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
-          var id=art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid'));
-          if(id){e.preventDefault();clearPress();openExtend(id);return true;}
+        // Extend must NEVER open the post. Stop the event fully — Safari synthesizes a
+        // delayed click that otherwise lands on the card and calls openDetail.
+        var ext=el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext,[data-nf-act="extend"]');
+        if(ext){
+          try{
+            e.preventDefault();
+            e.stopPropagation();
+            if(typeof e.stopImmediatePropagation==='function') e.stopImmediatePropagation();
+          }catch(err){}
+          clearPress();
+          window.__blockFeedTap=Date.now()+800;
+          window.__suppressDetailOpen=Date.now()+800;
+          var cooling=!!(ext.disabled || ext.classList.contains('is-cooling') || ext.getAttribute('aria-disabled')==='true');
+          if(!cooling){
+            var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
+            var id=ext.getAttribute('data-nf-id')||ext.getAttribute('data-pid')||(art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid')));
+            if(id) openExtend(id);
+          }
+          return true;
         }
         if(el.closest('.post-actions button,.normal-feed-post-actions button,.normal-feed-reacts,.react-bar,.cmt-in,.id-archive-actions'))return false;
-        if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost,button.gt-act'))return false;
+        if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost,button.gt-act,[data-nf-act="extend"]'))return false;
+        if(window.__suppressDetailOpen && Date.now()<window.__suppressDetailOpen) return false;
         // Only real post cards — never bare [data-pid] (chips / counters / nested wrappers).
         var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card,.normal-feed-post');
         if(!card)return false;
@@ -17398,7 +17413,17 @@ function openRoulette(){
       document.addEventListener('click',function(e){
         var el=e.target;
         if(!el||!el.closest)return;
-        if(el.closest('button,.btn,.react-bar,.post-actions,.dx-actions,input,textarea,a,.bottom-nav,.nav-row'))return;
+        // Extend owns its click — never treat it as a card open.
+        if(el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext,[data-nf-act="extend"]')) return;
+        // Ghost click after Extend: only suppress card/content opens, not modal/UI buttons.
+        if(window.__suppressDetailOpen && Date.now()<window.__suppressDetailOpen){
+          var ghostCard=el.closest('article.post,article.normal-feed-post,article.id-archive-card,.post-h,.post-b,.post-media,[data-nf-act="open"]');
+          if(ghostCard && !el.closest('button,.btn,.react-bar,.post-actions,.normal-feed-post-actions,.dx-actions,input,textarea,a,.bottom-nav,.nav-row,.modal-bg,#extend-modal')){
+            try{e.preventDefault();e.stopPropagation()}catch(err){}
+            return;
+          }
+        }
+        if(el.closest('button,.btn,.react-bar,.post-actions,.normal-feed-post-actions,.dx-actions,input,textarea,a,.bottom-nav,.nav-row'))return;
         var card=el.closest('article.post,article.normal-feed-post,article.id-archive-card');
         if(!card)return;
         if(card.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return;
@@ -17419,6 +17444,7 @@ function openRoulette(){
         if(!hit)return;
         ev.preventDefault();
         ev.stopPropagation();
+        if(typeof ev.stopImmediatePropagation==='function') ev.stopImmediatePropagation();
         var act=hit.getAttribute('data-nf-act');
         var id=hit.getAttribute('data-nf-id');
         var emoji=hit.getAttribute('data-nf-emoji')||'';
@@ -17428,7 +17454,14 @@ function openRoulette(){
           if(typeof activateLazyVideo==='function')activateLazyVideo(box);
           return;
         }
+        if(act==='extend'){
+          window.__blockFeedTap=Date.now()+800;
+          window.__suppressDetailOpen=Date.now()+800;
+          if(typeof openExtend==='function') openExtend(id);
+          return;
+        }
         if(act==='open'||act==='comment'){
+          if(window.__suppressDetailOpen && Date.now()<window.__suppressDetailOpen && act==='open') return;
           openDetail(id, act==='comment');
         } else         if(act==='delete'){
           window.__removePostId=id;
@@ -17468,8 +17501,6 @@ function openRoulette(){
         } else if(act==='hot'){
           // Guests + timed videos can Hot; hotBumpWall decides via isVideo / skipTimer.
           hotBumpWall(id,{allowAnon:true});
-        } else if(act==='extend'){
-          if(typeof openExtend==='function') openExtend(id);
         }
       }, true);
     }
@@ -21526,9 +21557,9 @@ function profileStatsHtml(userPosts, extra){
         ? ('Extended <span class="ext-cd">' + fmtExtendCountdown(alreadyCd) + '</span>')
         : ('⚡ Extend +' + fmtMin(extAmt) + ' · ' + ((p.extensions || 0) + 1));
       var extBtn = '<button class="btn btn-extend' + (already ? ' is-cooling' : '') +
-        '" type="button" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
+        '" type="button" data-nf-act="extend" data-nf-id="' + String(p.id).replace(/"/g, '') + '" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
         (already ? 'disabled aria-disabled="true"' : '') +
-        ' onclick="event.stopPropagation();openExtend(' + jsId(p.id) + ')">' + label + '</button>';
+        ' onclick="event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;openExtend(' + jsId(p.id) + ')">' + label + '</button>';
       if(isVid) return extBtn + hotBtn + cmtBtn(false);
       return extBtn + cmtBtn(true);
     }
@@ -22359,6 +22390,8 @@ function postCardHtml(p, compact){
     async function openDetail(id, focusComment){
       id=String(id==null?'':id);
       if(!id)return;
+      // Extend / action ghost taps must not navigate into the post page.
+      if(!focusComment && window.__suppressDetailOpen && Date.now()<window.__suppressDetailOpen) return;
       var _now=Date.now();
       if(window.__openDetailLock && window.__openDetailLock.id===id && (_now-window.__openDetailLock.t)<700) return;
       window.__openDetailLock={id:id,t:_now};
@@ -22516,7 +22549,7 @@ function postCardHtml(p, compact){
       // Active timer → Extend. No timer / permanent / videos → Hot only.
       var showExtendBtn=!detailIsVideo && ((typeof postHasActiveTimer==='function')?postHasActiveTimer(post):(!!(timedLive && !timeless)));
       var hotLed='<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+',{allowAnon:true,skipTimer:true})"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>';
-      var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
+      var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-nf-act="extend" data-nf-id="'+String(post.id).replace(/"/g,'')+'" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="event.preventDefault();event.stopPropagation();openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
       var extLed=showExtendBtn ? extendLed : hotLed;
       // Universal Delete: visible in post detail only. Owner free/paid paths reuse existing rules;
       // everyone else opens the $5 request modal (never auto-deletes).
@@ -24447,6 +24480,9 @@ async function onIdFace(e){
     async function openExtend(id){
       id=String(id||'');
       if(!id)return;
+      // Keep the user on the feed — block ghost card taps from opening detail.
+      window.__blockFeedTap=Date.now()+800;
+      window.__suppressDetailOpen=Date.now()+800;
       // Safari fires pointerup + click + onclick — debounce so one open = one confirm modal.
       var now=Date.now();
       if(window.__openExtTap && window.__openExtTap.id===id && (now-window.__openExtTap.t)<700) return;
@@ -24550,7 +24586,13 @@ async function onIdFace(e){
     }
     function confirmExtend(){
       var id=String(currentExtendPostId||'');
-      window.__blockFeedTap=Date.now()+400;
+      window.__blockFeedTap=Date.now()+800;
+      window.__suppressDetailOpen=Date.now()+800;
+      // Preserve feed scroll across soft re-renders after extend.
+      var keepScrollY=0;
+      try{keepScrollY=window.pageYOffset||document.documentElement.scrollTop||document.body.scrollTop||0}catch(e){keepScrollY=0}
+      try{if(keepScrollY>0) window.__feedY=keepScrollY}catch(e){}
+      try{if(keepScrollY>0) window.__wallY=keepScrollY}catch(e){}
       // Hide modal FIRST so Safari paints before any work (no Extending… hang).
       try{
         var m0=document.getElementById('extend-modal');
@@ -24615,8 +24657,15 @@ async function onIdFace(e){
         try{grantXp && grantXp('extend', String(id), false)}catch(e){}
         try{refreshExtendCooldownButtons()}catch(e){}
         try{if(typeof renderPosts==='function')renderPosts()}catch(e){}
-        try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
+        try{if(typeof renderNormalFeed==='function')renderNormalFeed({keepVisible:true})}catch(e){}
         try{if(typeof syncExtendedPanel==='function')syncExtendedPanel(window.__feedRest)}catch(e){}
+        // Restore scroll if a remount moved the viewport (soft paint usually keeps it).
+        try{
+          if(keepScrollY>0){
+            window.scrollTo(0, keepScrollY);
+            if(typeof restoreFeedScroll==='function') restoreFeedScroll(keepScrollY);
+          }
+        }catch(e){}
       }, 0);
 
       // Persist in background — UI already updated.
