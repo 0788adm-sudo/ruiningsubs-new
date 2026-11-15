@@ -3393,30 +3393,104 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function jsId(id){return "'"+String(id==null?'':id).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";}
     var __viewVisit={feed:1,videos:1,wall:1,idcard:1};
     var __viewSeen={};
-    function bumpViews(id,n){
-      n=n||1;id=String(id||'');
-      if(!id)return;
-      function apply(list){
-        (list||[]).forEach(function(p){if(String(p.id)===id)p.views=(Number(p.views)||0)+n});
+    var __viewPersist={};
+    function readLocalViewsMap(){
+      try{return JSON.parse(localStorage.getItem('rs_views')||'{}')||{}}catch(e){return {}}
+    }
+    function writeLocalViewsMap(map){
+      try{localStorage.setItem('rs_views',JSON.stringify(map||{}))}catch(e){}
+    }
+    function localViewsFloor(id){
+      id=String(id||'');
+      if(!id)return 0;
+      try{return Number(readLocalViewsMap()[id])||0}catch(e){return 0}
+    }
+    function knownViews(id){
+      id=String(id||'');
+      if(!id)return 0;
+      var best=localViewsFloor(id);
+      function take(list){
+        (list||[]).forEach(function(p){
+          if(p&&String(p.id)===id) best=Math.max(best, Number(p.views)||0);
+        });
       }
-      apply(posts);apply(normalFeedPosts);
-      try{apply(window.__videoCache)}catch(e){}
-      var shown=0;
+      try{take(posts)}catch(e){}
+      try{take(normalFeedPosts)}catch(e){}
+      try{take(window.__videoCache)}catch(e){}
+      return best;
+    }
+    function paintViewsDom(id, total){
+      id=String(id||'');
+      total=Number(total)||0;
+      var label=String(typeof displayViews==='function'?displayViews(total):total);
       try{
-        var map=JSON.parse(localStorage.getItem('rs_views')||'{}')||{};
-        map[id]=(Number(map[id])||0)+n;
-        shown=map[id];
-        localStorage.setItem('rs_views',JSON.stringify(map));
-      }catch(e){}
-      try{
-        document.querySelectorAll('[data-views-id="'+id+'"]').forEach(function(el){
-          var p=(posts||[]).find(function(x){return String(x.id)===id});
-          var v=(p&&p.views)||shown||0;
-          el.textContent=String(typeof displayViews==='function'?displayViews(v):v);
+        document.querySelectorAll('[data-views-id="'+id.replace(/"/g,'')+'"]').forEach(function(el){
+          el.textContent=label;
         });
       }catch(e){}
-      try{fetch(CF_API+'/posts/'+encodeURIComponent(id)+'/view',{method:'POST'}).catch(function(){})}catch(e){}
     }
+    function setViewsEverywhere(id, total){
+      id=String(id||'');
+      total=Number(total)||0;
+      if(!id)return total;
+      function apply(list){
+        (list||[]).forEach(function(p){
+          if(p&&String(p.id)===id) p.views=Math.max(Number(p.views)||0, total);
+        });
+      }
+      try{apply(posts)}catch(e){}
+      try{apply(normalFeedPosts)}catch(e){}
+      try{apply(window.__videoCache)}catch(e){}
+      try{
+        var map=readLocalViewsMap();
+        map[id]=Math.max(Number(map[id])||0, total);
+        writeLocalViewsMap(map);
+      }catch(e){}
+      paintViewsDom(id, total);
+      return total;
+    }
+    function mergeViewsValue(id, remoteViews){
+      return Math.max(Number(remoteViews)||0, knownViews(id), localViewsFloor(id));
+    }
+    function persistViews(id, total){
+      id=String(id||'');
+      total=Number(total)||0;
+      if(!id||total<0)return;
+      var prev=__viewPersist[id];
+      if(prev && Number(prev.total)>=total) return;
+      __viewPersist[id]={total:total,t:Date.now()};
+      // Cloudflare D1 (no-op for Supabase-only posts, still safe to call)
+      try{fetch(CF_API+'/posts/'+encodeURIComponent(id)+'/view',{method:'POST',cache:'no-store'}).catch(function(){})}catch(e){}
+      // Supabase is the source of truth for most posts — write the absolute total.
+      try{
+        if(typeof sb!=='undefined' && sb){
+          var key=/^\d+$/.test(id)?Number(id):id;
+          sb.from('posts').select('views').eq('id',key).maybeSingle().then(function(q){
+            var cur=Number(q&&q.data&&q.data.views)||0;
+            if(total<=cur){
+              if(cur>total) setViewsEverywhere(id, cur);
+              return null;
+            }
+            return sb.from('posts').update({views:total}).eq('id',key);
+          }).then(function(up){
+            if(up&&up.error) console.warn('views persist',up.error);
+          }).catch(function(e){console.warn('views persist',e)});
+        }
+      }catch(e){}
+    }
+    function bumpViews(id,n){
+      n=Number(n)||1;id=String(id||'');
+      if(!id||n<=0)return 0;
+      var next=knownViews(id)+n;
+      setViewsEverywhere(id, next);
+      persistViews(id, next);
+      return next;
+    }
+    window.knownViews=knownViews;
+    window.mergeViewsValue=mergeViewsValue;
+    window.setViewsEverywhere=setViewsEverywhere;
+    window.persistViews=persistViews;
+    window.localViewsFloor=localViewsFloor;
     function countImpression(id, panel){
       id=String(id||'');
       if(!id||isDeletedId(id))return;
@@ -3640,7 +3714,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         media_type:r.media_type||'',
         expires_at:exp?new Date(exp).toISOString():null,
         featured_until:r.featured_until?new Date(Number(r.featured_until)).toISOString():null,
-        views:(function(){var v=Number(r.views||0);try{var m=JSON.parse(localStorage.getItem('rs_views')||'{}')||{};if(m[r.id]>v)v=m[r.id]}catch(e){}return v})(),
+        views:(typeof mergeViewsValue==='function'?mergeViewsValue(r.id,r.views):Number(r.views||0)),
         likes_count:r.likes_count||0,
         extensions_count:Number(r.extensions_count||0),
         extenders:r.extenders||'[]',
@@ -3747,7 +3821,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         id:p.id,user:p.username||p.user||'anon',title:p.title||'',desc:stripAlbumMarker(p.description||p.desc||''),tags:tags,
         created:created,
         expires:(function(){var exp=p.expires_at?new Date(p.expires_at).getTime():0;try{var m=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};if(m[p.id]&&m[p.id].expires>exp)exp=m[p.id].expires}catch(e){}return exp})(),
-        views:(function(){var v=Number(p.views||0);try{var m=JSON.parse(localStorage.getItem('rs_views')||'{}')||{};if(m[p.id]>v)v=m[p.id]}catch(e){}return v})(),likes:(function(){
+        views:(typeof mergeViewsValue==='function'?mergeViewsValue(p.id,p.views):Number(p.views||0)),likes:(function(){
           var n=Number(p.likes_count||p.likes||0)||0;
           try{
             var loc=(JSON.parse(localStorage.getItem('rs_reactions')||'{}')||{})[String(p.id)]||{};
@@ -5535,7 +5609,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               tags:tags,
               created:r.created_at?new Date(r.created_at).getTime():Date.now(),
               expires:r.expires_at?new Date(r.expires_at).getTime():0,
-              views:Number(r.views)||0,
+              views:(typeof mergeViewsValue==='function'?mergeViewsValue(r.id,r.views):Number(r.views)||0),
               likes:Number(r.likes_count)||0,
               extensions:0,
               savesCount:0,
@@ -5547,14 +5621,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           });
           window.__profileStatsPosts=serverMine;
 
-          /* Sync current local copies with the server counts. */
+          /* Sync current local copies with the server counts — never lower live views. */
           serverMine.forEach(function(sp){
             var i=(posts||[]).findIndex(function(x){
               return String(x.id)===String(sp.id);
             });
             if(i>=0){
-              posts[i].views=sp.views;
-              posts[i].likes=sp.likes;
+              posts[i].views=Math.max(Number(posts[i].views)||0, Number(sp.views)||0, typeof localViewsFloor==='function'?localViewsFloor(sp.id):0);
+              posts[i].likes=Math.max(Number(posts[i].likes)||0, Number(sp.likes)||0);
             }
           });
         }catch(e){
@@ -16558,12 +16632,34 @@ function openRoulette(){
     function rememberFeedPost(post){
       if(!post||post.id==null)return post;
       var id=String(post.id);
+      // Never let a fresh server row (views:0) wipe a higher live / local total.
+      try{
+        post.views=typeof mergeViewsValue==='function'
+          ? mergeViewsValue(id, post.views)
+          : Math.max(Number(post.views)||0, typeof knownViews==='function'?knownViews(id):0);
+      }catch(e){}
       var i=(posts||[]).findIndex(function(p){return String(p.id)===id});
-      if(i>=0)posts[i]=Object.assign({},posts[i],post);
-      else {posts=posts||[];posts.unshift(post);}
+      if(i>=0){
+        var merged=Object.assign({},posts[i],post);
+        merged.views=Math.max(Number(posts[i].views)||0, Number(post.views)||0);
+        merged.likes=Math.max(Number(posts[i].likes)||0, Number(post.likes)||0);
+        posts[i]=merged;
+        post=merged;
+      } else {
+        posts=posts||[];
+        posts.unshift(post);
+      }
       if(typeof normalFeedPosts!=='undefined'){
         var j=normalFeedPosts.findIndex(function(p){return String(p.id)===id});
-        if(j>=0)normalFeedPosts[j]=Object.assign({},normalFeedPosts[j],post);
+        if(j>=0){
+          var mergedN=Object.assign({},normalFeedPosts[j],post);
+          mergedN.views=Math.max(Number(normalFeedPosts[j].views)||0, Number(post.views)||0);
+          mergedN.likes=Math.max(Number(normalFeedPosts[j].likes)||0, Number(post.likes)||0);
+          normalFeedPosts[j]=mergedN;
+          // Same object in feed + wall pools so bumpViews / detail stay aligned.
+          if(i>=0) posts[i]=mergedN;
+          post=mergedN;
+        }
       }
       return post;
     }
@@ -21701,7 +21797,12 @@ function postCardHtml(p, compact){
           }
         }catch(e){}
       }
-      try{bumpViews(post.id,1)}catch(e){}
+      try{
+        // Keep the openDetail `post` reference in sync with pools + DB.
+        var nextViews=bumpViews(post.id,1);
+        if(nextViews!=null) post.views=Math.max(Number(post.views)||0, Number(nextViews)||0);
+        try{post=rememberFeedPost(post)||post}catch(e2){}
+      }catch(e){}
       var comments=[];
       try{
         var loc=JSON.parse(localStorage.getItem('rs_cmt_'+String(id))||'[]')||[];
@@ -21802,7 +21903,7 @@ function postCardHtml(p, compact){
         +'</div>';
       var contactNotice=postDetailContactNoticeHtml();
       var dxStats='<div class="dx-stats">'
-        +'<div><div class="n">'+neonChip('views','')+'<b>'+displayViews(post.views)+'</b></div><em>views</em></div>'
+        +'<div><div class="n">'+neonChip('views','')+'<b data-views-id="'+String(post.id).replace(/"/g,'')+'">'+displayViews(post.views)+'</b></div><em>views</em></div>'
         +'<div><div class="n">'+neonChip('likes','')+'<b>'+(post.likes||0)+'</b></div><em>likes</em></div>'
         +'<div><div class="n">'+neonChip('comments','')+'<b>'+comments.length+'</b></div><em>comments</em></div>'
         +'<div><div class="n">'+neonChip('downloads','')+'<b>'+postDlCount(post)+'</b></div><em>downloads</em></div>'
