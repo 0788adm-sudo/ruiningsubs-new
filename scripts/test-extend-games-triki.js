@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Static checks: Extend uses publisher amount + 6h re-extend;
- * Games hub keeps Tic-Tac-Toe + Word Scramble + Roulette + Dice only.
+ * Games hub keeps Ruin Roulette + Exposure Dice + Tic-Tac-Toe only.
  */
 const fs = require('fs');
 const path = require('path');
@@ -31,16 +31,16 @@ assert(api.includes('You can extend again in '), 'api English cooldown');
 assert(api.includes('minutes_added'), 'api returns minutes_added');
 
 assert(html.includes("id:'tic_tac_toe'"), 'Tic-Tac-Toe in registry');
-assert(html.includes("id:'word_challenge'"), 'Word Scramble in registry');
 assert(html.includes("id:'roulette'") && html.includes("id:'dice'"), 'Roulette + Dice in registry');
+assert(html.includes("status:'disabled'") && html.includes("id:'word_challenge'"), 'Word Scramble disabled in registry');
 assert(!html.includes("id:'memory'"), 'memory game removed');
 assert(!html.includes("id:'reaction'"), 'reaction game removed');
 assert(!html.includes("id:'typing'"), 'typing game removed');
 assert(!html.includes("id:'sequence'"), 'sequence game removed');
-assert(html.includes('WORD SCRAMBLE'), 'Word Scramble label');
 assert(html.includes('TIC-TAC-TOE'), 'Tic-Tac-Toe label');
 assert(html.includes('backFromDiceGame'), 'dice back returns to games');
 assert(html.includes("__gamesToolReturn='challenges'"), 'roulette/dice remember games hub');
-assert(html.includes('TIC-TAC-TOE · WORD SCRAMBLE · ROULETTE · DICE'), 'promo lists four games');
+assert(html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo lists three games');
+assert(html.includes("allowedGames={roulette:1,dice:1,tic_tac_toe:1}"), 'hub filters to three games');
 
 console.log('\nExtend + Games checks passed');

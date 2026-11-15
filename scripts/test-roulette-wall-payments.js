@@ -14,14 +14,14 @@ function assert(c, m) {
   console.log('PASS ·', m);
 }
 
-assert(/FREE_ROULETTE_PER_DAY\s*=\s*Number\([^)]*\|\|\s*3\)/.test(game), 'server free spins = 3');
+assert(/FREE_USES_PER_GAME\s*=\s*Number\([^)]*\|\|\s*3\)/.test(game), 'server free uses = 3');
 assert(/ROULETTE_PACK_SPINS\s*=\s*Number\([^)]*\|\|\s*10\)/.test(game), 'server pack = 10 spins');
 assert(/FC_ROULETTE_PACK\s*=\s*Number\([^)]*\|\|\s*50\)/.test(game), 'server pack cost = 50 FC');
 assert(game.includes("action === 'buy_pack'") && game.includes('!packSpend.reused'), 'buy_pack skips duplicate pack credit');
-assert(game.includes('kind: \'pack_spin\'') && game.includes('roulettePackBalance'), 'pack spins consumed server-side');
+assert(game.includes("kind: 'pack_spin'") && game.includes('roulettePackBalance'), 'pack spins consumed server-side');
 assert(spend.includes('roulette_pack: Number(process.env.FC_COST_ROULETTE_PACK || 50)'), 'fc-spend roulette_pack cost');
 
-assert(html.includes('var ROULETTE_FREE_PER_DAY=3'), 'client free = 3');
+assert(html.includes('var ROULETTE_FREE_PER_DAY=3') || html.includes('var GAME_FREE_USES=3'), 'client free = 3');
 assert(html.includes('var ROULETTE_PACK_SPINS=10') && html.includes('var ROULETTE_PACK_FC=50'), 'client pack constants');
 assert(html.includes('lastRoulettePlayId') && html.includes('rs_roulette_last_challenge'), 'spin ↔ challenge association');
 assert(html.includes('rs_roulette_published') && html.includes('__pendingRoulettePublish'), 'duplicate publish guard');

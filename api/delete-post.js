@@ -260,6 +260,71 @@ async function purgeDeletedPostCaches(postId) {
   }
 }
 
+function parseBoardMsg(raw) {
+  try {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    return JSON.parse(String(raw));
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Drop pin-board + pin-reward refs so deleted posts never reappear as Spotlight pins. */
+async function retirePinsForDeletedPost(postId) {
+  const boards = ['__PIN_BOARD__', '__PIN_REWARDS__'];
+  const summary = { boards: {}, removed: 0 };
+  for (let b = 0; b < boards.length; b++) {
+    const board = boards[b];
+    let removed = 0;
+    try {
+      const res = await cfFetch('/notifs?to=' + encodeURIComponent(board));
+      const list = (res.json && res.json.notifs) || [];
+      for (let i = 0; i < list.length; i++) {
+        const n = list[i];
+        if (!n || !n.id) continue;
+        const msg = parseBoardMsg(n.message);
+        const pid = String((msg && (msg.id || msg.post_id)) || n.post_id || '');
+        if (pid !== String(postId) && String(n.post_id || '') !== String(postId)) continue;
+        try {
+          const dr = await cfFetch('/notifs/' + encodeURIComponent(String(n.id)), { method: 'DELETE' });
+          if (dr && dr.ok) removed++;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    // Mark reward invalidated (append-only audit; does not restore the pin).
+    try {
+      await cfFetch('/notifs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: SITE },
+        body: JSON.stringify({
+          to_username: board === '__PIN_REWARDS__' ? '__PIN_REWARDS__' : '__PIN_BOARD__',
+          from_username: 'system',
+          type: 'pin_invalidated',
+          post_id: String(postId),
+          message: JSON.stringify({
+            post_id: String(postId),
+            invalidated: true,
+            reason: 'post_deleted',
+            at: Date.now()
+          })
+        })
+      });
+    } catch (_) {}
+    summary.boards[board] = removed;
+    summary.removed += removed;
+  }
+  // Best-effort clear featured on CF post mirror (row may already be gone in Supabase).
+  try {
+    await cfFetch('/posts/' + encodeURIComponent(String(postId)), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Origin: SITE },
+      body: JSON.stringify({ featured_until: 0 })
+    });
+  } catch (_) {}
+  return summary;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
   if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
@@ -372,6 +437,14 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // Never leave Spotlight / pin lists pointing at a deleted post.
+  let pinCleanup = null;
+  try {
+    pinCleanup = await retirePinsForDeletedPost(postId);
+  } catch (e) {
+    pinCleanup = { ok: false, error: String(e && e.message ? e.message : e) };
+  }
+
   // Post row is gone — purge CDN/edge caches so old OG/HTML cannot resurrect.
   let cachePurge = null;
   try {
@@ -394,6 +467,7 @@ module.exports = async function handler(req, res) {
     free: !!freeOverride || charged === 0,
     reused: !!(spend && spend.reused),
     via_owner_token: !!tokenOk,
+    pinCleanup,
     cachePurge,
     removalUrl,
     gscHint: 'Request temporary removal for ' + removalUrl + ' in Google Search Console if it still appears in search.'

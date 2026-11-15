@@ -31,17 +31,30 @@ assert(html.includes("RS_CHALLENGE_SET_VER='2026-11-06-drop4'"), 'challenge set 
 assert(html.includes('RS_REMOVED_DAILY_IDS'), 'removed daily id map');
 assert(html.includes("bannedDaily={exp_presence:1,pro_check:1,pro_avatar:1,com_encourage:1"), 'computeDaily bans retired ids');
 
-// --- Exactly four games ---
+// --- Exactly three live games (word scramble kept disabled for history) ---
 var reg = html.match(/var RS_GAME_REGISTRY=\[([\s\S]*?)\];/);
 assert(!!reg, 'RS_GAME_REGISTRY present');
-var ids = (reg[1].match(/id:'([^']+)'/g) || []).map(function (s) { return s.slice(4, -1); });
-assert(ids.length === 4, 'exactly 4 games in registry, got ' + ids.join(','));
-['roulette', 'dice', 'tic_tac_toe', 'word_challenge'].forEach(function (id) {
-  assert(ids.indexOf(id) >= 0, 'registry includes ' + id);
+var liveIds = [];
+reg[1].split(/\{id:'/).slice(1).forEach(function (chunk) {
+  var id = chunk.slice(0, chunk.indexOf("'"));
+  if (/status:'live'/.test(chunk.split(/\},?\s*\{id:|\}]$/)[0] || chunk)) liveIds.push(id);
+  else if (chunk.indexOf("status:'live'") >= 0 && chunk.indexOf("status:'disabled'") < 0) liveIds.push(id);
 });
-assert(html.includes("allowedGames={roulette:1,dice:1,tic_tac_toe:1,word_challenge:1}"), 'hub filters to four games');
-assert(html.includes("['roulette','dice','tic_tac_toe','word_challenge'].indexOf(id)<0"), 'openRegisteredGame blocks other ids');
-assert(html.includes('TIC-TAC-TOE · WORD SCRAMBLE · ROULETTE · DICE'), 'promo lists four games');
-assert(!/id:'memory'/.test(html) && !/id:'reaction'/.test(html), 'legacy mini-games stay removed');
+// Simpler: parse each object
+var objs = reg[1].match(/\{id:'[^']+'[\s\S]*?status:'[^']+'/g) || [];
+var live = objs.filter(function (o) { return /status:'live'/.test(o); }).map(function (o) {
+  return (o.match(/id:'([^']+)'/) || [])[1];
+});
+assert(live.length === 3, 'exactly 3 live games, got ' + live.join(','));
+['roulette', 'dice', 'tic_tac_toe'].forEach(function (id) {
+  assert(live.indexOf(id) >= 0, 'live registry includes ' + id);
+});
+assert(html.includes("allowedGames={roulette:1,dice:1,tic_tac_toe:1}"), 'hub filters to three games');
+assert(html.includes("['roulette','dice','tic_tac_toe'].indexOf(id)<0"), 'openRegisteredGame blocks other ids');
+assert(html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo lists three games');
+assert(!/id:'memory'/.test(html) && !/id:'reaction'/.test(html), 'legacy mini-game stay removed');
+assert(html.includes("if(!isRegistered()){toast('Login first');showAuth('login');return}") === false || html.includes('Guest play'), 'games hub allows guests');
+assert(html.includes('getAnonSessionId'), 'anonymous session helper');
+assert(html.includes('GAME_FREE_USES=3') || html.includes('var GAME_FREE_USES=3'), '3 free uses constant');
 
 console.log('\nFeed filters + challenges + games checks passed');
