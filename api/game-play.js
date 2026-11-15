@@ -1,6 +1,6 @@
 // Game play intake: roulette / dice / tic_tac_toe.
-// Lifetime free uses (3 per game), anonymous sessions, pin rewards, XP-safe.
-// Does NOT touch PayPal / Throne payment flows.
+// Free uses: 3 per game per cycle, then 24h recovery (independent counters).
+// Anonymous sessions, pin rewards, XP-safe. Does NOT touch PayPal / Throne payment flows.
 
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
@@ -8,17 +8,94 @@ const FC_ROULETTE = Number(process.env.FC_COST_ROULETTE || 10);
 const FC_ROULETTE_PACK = Number(process.env.FC_COST_ROULETTE_PACK || 50);
 const ROULETTE_PACK_SPINS = Number(process.env.ROULETTE_PACK_SPINS || 10);
 const FREE_USES_PER_GAME = Number(process.env.FREE_USES_PER_GAME || 3);
+const FREE_RECOVERY_MS = Number(process.env.FREE_RECOVERY_MS || (24 * 60 * 60 * 1000));
 const FC_DICE = Number(process.env.FC_COST_DICE || 10);
 const FC_CUSTOM = Number(process.env.FC_COST_CUSTOM_ROULETTE || 250);
 const TRIKI_PIN_HOURS = Number(process.env.TRIKI_PIN_HOURS || 48);
 const ROULETTE_PIN_HOURS = Number(process.env.ROULETTE_PIN_HOURS || 48);
+const EXTEND_10D_MS = 10 * 24 * 60 * 60 * 1000;
 const BOARD_PLAYS = '__GAME_PLAYS__';
 const BOARD_FREE = '__GAME_FREE_USES__';
 const BOARD_FREE_LEGACY = '__GAME_FREE_DAY__';
 const BOARD_PACKS = '__ROULETTE_PACKS__';
 const BOARD_TRIKI = '__TRIKI_SESSIONS__';
 const BOARD_PIN_REWARDS = '__PIN_REWARDS__';
+const BOARD_EXTEND_REWARDS = '__GAME_EXTEND_REWARDS__';
 const LIVE_GAMES = { roulette: 1, dice: 1, tic_tac_toe: 1, triki: 1 };
+
+/** Server-side Exposure Dice catalogs — coherent Wear / Pose / Proof pairs. */
+var DICE_WEAR = [
+  'T-shirt pulled up to the chest',
+  'Hoodie only — nothing underneath',
+  'Underwear only',
+  'Socks and underwear',
+  'Shirt open, chest bare',
+  'Towel wrapped loosely',
+  'Collar or belt around the neck + underwear',
+  'Just a tank top, bottoms off',
+  'Pants down to the knees',
+  'Blindfold + underwear',
+  'Mirror selfie, clothes halfway off',
+  'Hands covering only — otherwise bare'
+];
+var DICE_POSE = [
+  'Kneel. Hands on thighs. Look at the camera.',
+  'Stand for inspection. Hands behind your head.',
+  'On all fours on the bed or floor. Look back at the camera.',
+  'Sit on the edge of the bed. Hands on thighs.',
+  'Bent over a chair or bed edge. Steady pose.',
+  'Face the wall. Hands at your sides. Ass toward camera.',
+  'Lie on your back. Knees bent. Still.',
+  'Nadu: kneel, chest out, palms on thighs.',
+  'Humble: forehead down, hips up — hold still.',
+  'Wait in a doorway. Hands at your sides.',
+  'Present: hold the pose for inspection.',
+  'Table: flat on your back on the bed, still.'
+];
+var DICE_PROOF = [
+  'Hold the pose 20 seconds, then take one clear photo and publish it.',
+  'Hold the pose 30 seconds on video, then publish the clip.',
+  'Front photo of the pose. Publish it.',
+  'Front and side photos of the same pose. Publish both.',
+  'Write RUINED on paper, hold it in frame with the pose, photo, publish.',
+  'Count out loud to 15 while holding the pose on video. Publish.',
+  '15s kneeling/standing apology video in this outfit and pose. Publish.',
+  'Three angles of the same pose. Publish all three.',
+  'Screenshot this roll and include it with your proof photo. Publish both.',
+  'Hold 30s, then freeze for a still photo. Publish photo (video optional).',
+  'Caption the post: exposed on RuiningSubs — include wear + pose. Publish.',
+  'Mirror proof: same pose in a mirror selfie. Publish.'
+];
+/** Compatible pose indices (0-based) for each wear face — avoids absurd combos. */
+var DICE_COMPAT = [
+  [0, 1, 3, 7, 9, 10],
+  [0, 1, 3, 7, 9, 10],
+  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  [0, 1, 3, 7, 9, 10],
+  [0, 1, 3, 7, 9, 10],
+  [0, 1, 3, 7, 9],
+  [0, 1, 7, 9, 10],
+  [0, 1, 3, 7, 9, 10],
+  [0, 1, 2, 4, 5, 9],
+  [0, 1, 7, 9, 10],
+  [0, 1, 3, 7, 9, 10],
+  [0, 1, 2, 3, 7, 9, 10]
+];
+
+function pickCoherentDiceRoll() {
+  var wearIdx = Math.floor(Math.random() * 12);
+  var compat = DICE_COMPAT[wearIdx] || [0, 1, 3, 7];
+  var poseIdx = compat[Math.floor(Math.random() * compat.length)];
+  var proofIdx = Math.floor(Math.random() * 12);
+  return {
+    wear_idx: wearIdx + 1,
+    pose_idx: poseIdx + 1,
+    proof_idx: proofIdx + 1,
+    wear: DICE_WEAR[wearIdx],
+    pose: DICE_POSE[poseIdx],
+    proof: DICE_PROOF[proofIdx]
+  };
+}
 
 var locks = new Map();
 var recent = new Map();
@@ -143,9 +220,9 @@ async function spendViaWallet(user, coins, action, ref) {
   return { ok: false, error: err || 'spend_failed' };
 }
 
-/** Lifetime free-use counter (does NOT reset by day). Merges legacy daily board. */
-function countFreeUses(notifs, user, game) {
-  var n = 0;
+/** Collect unique free-use timestamps for a user+game (legacy daily board merged). */
+function collectFreeUseTimes(notifs, user, game) {
+  var times = [];
   var seen = {};
   for (var i = 0; i < notifs.length; i++) {
     var msg = parseMsg(notifs[i] && notifs[i].message);
@@ -156,9 +233,64 @@ function countFreeUses(notifs, user, game) {
     var pid = String(msg.play_id || msg.id || notifs[i].id || i);
     if (seen[pid]) continue;
     seen[pid] = 1;
-    n++;
+    var at = Number(msg.at) || Date.parse(String(notifs[i].created_at || '')) || 0;
+    times.push(at || 0);
   }
-  return n;
+  times.sort(function (a, b) { return a - b; });
+  return times;
+}
+
+/**
+ * 3 free uses per cycle → 24h recovery → restore 3.
+ * Uses after recoveryEnds start a new cycle. Independent per game.
+ */
+function freeCycleState(notifs, user, game, now) {
+  now = now || Date.now();
+  var times = collectFreeUseTimes(notifs, user, game);
+  var cycleUsed = 0;
+  var recoveryEnds = 0;
+  for (var i = 0; i < times.length; i++) {
+    var t = times[i];
+    if (recoveryEnds && t < recoveryEnds) continue;
+    if (recoveryEnds && t >= recoveryEnds) {
+      recoveryEnds = 0;
+      cycleUsed = 0;
+    }
+    cycleUsed++;
+    if (cycleUsed >= FREE_USES_PER_GAME) {
+      recoveryEnds = t + FREE_RECOVERY_MS;
+    }
+  }
+  if (recoveryEnds && now < recoveryEnds) {
+    return {
+      free_used: FREE_USES_PER_GAME,
+      free_left: 0,
+      recovery_ends_at: recoveryEnds,
+      recovery_ms: Math.max(0, recoveryEnds - now),
+      cycle_used: FREE_USES_PER_GAME
+    };
+  }
+  if (recoveryEnds && now >= recoveryEnds) {
+    return {
+      free_used: 0,
+      free_left: FREE_USES_PER_GAME,
+      recovery_ends_at: 0,
+      recovery_ms: 0,
+      cycle_used: 0
+    };
+  }
+  return {
+    free_used: cycleUsed,
+    free_left: Math.max(0, FREE_USES_PER_GAME - cycleUsed),
+    recovery_ends_at: 0,
+    recovery_ms: 0,
+    cycle_used: cycleUsed
+  };
+}
+
+/** Lifetime-style count of free rows (debug / tests). Prefer freeCycleState. */
+function countFreeUses(notifs, user, game) {
+  return collectFreeUseTimes(notifs, user, game).length;
 }
 
 function roulettePackBalance(notifs, user) {
@@ -192,22 +324,26 @@ async function loadFreeBoards() {
   return (a || []).concat(b || []);
 }
 
-function freeLeftFor(used) {
-  return Math.max(0, FREE_USES_PER_GAME - (Number(used) || 0));
-}
-
-function freeSnapshot(freeBoard, user) {
-  var usedR = countFreeUses(freeBoard, user, 'roulette');
-  var usedD = countFreeUses(freeBoard, user, 'dice');
-  var usedT = countFreeUses(freeBoard, user, 'tic_tac_toe');
+function freeSnapshot(freeBoard, user, now) {
+  now = now || Date.now();
+  var r = freeCycleState(freeBoard, user, 'roulette', now);
+  var d = freeCycleState(freeBoard, user, 'dice', now);
+  var t = freeCycleState(freeBoard, user, 'tic_tac_toe', now);
   return {
-    free_used: { roulette: usedR, dice: usedD, tic_tac_toe: usedT },
-    free_left: {
-      roulette: freeLeftFor(usedR),
-      dice: freeLeftFor(usedD),
-      tic_tac_toe: freeLeftFor(usedT)
+    free_used: { roulette: r.free_used, dice: d.free_used, tic_tac_toe: t.free_used },
+    free_left: { roulette: r.free_left, dice: d.free_left, tic_tac_toe: t.free_left },
+    recovery_ends_at: {
+      roulette: r.recovery_ends_at || 0,
+      dice: d.recovery_ends_at || 0,
+      tic_tac_toe: t.recovery_ends_at || 0
     },
-    free_per_game: FREE_USES_PER_GAME
+    recovery_ms: {
+      roulette: r.recovery_ms || 0,
+      dice: d.recovery_ms || 0,
+      tic_tac_toe: t.recovery_ms || 0
+    },
+    free_per_game: FREE_USES_PER_GAME,
+    free_recovery_ms: FREE_RECOVERY_MS
   };
 }
 
@@ -219,8 +355,20 @@ async function recordFreeUse(user, game, playId) {
     play_id: playId,
     at: Date.now(),
     paid: false,
-    lifetime: true
+    cycle: true
   });
+}
+
+async function patchPostExpires(postId, expiresAtMs, meta) {
+  var body = { expires_at: expiresAtMs || 0 };
+  if (meta && meta.source) body.extend_source = meta.source;
+  if (meta && meta.add_ms) body.extend_ms = meta.add_ms;
+  var res = await cfFetch('/posts/' + encodeURIComponent(String(postId)), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Origin: SITE },
+    body: JSON.stringify(body)
+  });
+  return res;
 }
 
 async function grantPinReward(user, postId, source, hours, extra) {
@@ -276,13 +424,15 @@ module.exports = async function handler(req, res) {
           roulette_pack: FC_ROULETTE_PACK
         },
         free_per_game: FREE_USES_PER_GAME,
-        free_per_day: FREE_USES_PER_GAME, // legacy alias — value is lifetime, not daily
+        free_per_day: FREE_USES_PER_GAME, // legacy alias — 3 per recovery cycle
+        free_recovery_ms: FREE_RECOVERY_MS,
         roulette_pack_spins: ROULETTE_PACK_SPINS,
         live_games: ['roulette', 'dice', 'tic_tac_toe'],
         triki_max_games: 3,
         triki_wins_for_pin: 3,
         triki_pin_hours: TRIKI_PIN_HOURS,
-        roulette_pin_hours: ROULETTE_PIN_HOURS
+        roulette_pin_hours: ROULETTE_PIN_HOURS,
+        extend_10d_ms: EXTEND_10D_MS
       };
       if (player.user) {
         Object.assign(out, freeSnapshot(free, player.user));
@@ -485,12 +635,60 @@ module.exports = async function handler(req, res) {
       return json(res, 200, outPin);
     }
 
+    // —— Claim +10 days extend reward (registered only) ——
+    if ((game === 'roulette' || game === 'dice' || game === 'tic_tac_toe') && (action === 'claim_extend' || action === 'extend_10d')) {
+      if (player.anon) {
+        return json(res, 403, { ok: false, error: 'anon_no_rewards', message: 'Anonymous players cannot receive extend rewards' });
+      }
+      if (!postId) return json(res, 400, { ok: false, error: 'need_post_id' });
+      var existingExt = await fetchBoard(BOARD_EXTEND_REWARDS);
+      for (var ei = 0; ei < existingExt.length; ei++) {
+        var exm = parseMsg(existingExt[ei] && existingExt[ei].message);
+        if (!exm) continue;
+        if (normUser(exm.user || existingExt[ei].from_username) !== user) continue;
+        if (String(exm.post_id || '') !== String(postId)) continue;
+        if (String(exm.play_id || '') === String(playId) || String(exm.source_play || '') === String(playId)) {
+          var reusedExt = {
+            ok: true, reused: true, game: game, play_id: playId,
+            post_id: postId, expires_at: exm.expires_at || null,
+            extended_ms: EXTEND_10D_MS, label: 'Extended +10 days (already claimed)'
+          };
+          recent.set(lockKey, { at: Date.now(), body: reusedExt });
+          return json(res, 200, reusedExt);
+        }
+      }
+      var postRes = await cfFetch('/posts/' + encodeURIComponent(String(postId)), { cache: 'no-store' });
+      var postObj = (postRes.json && (postRes.json.post || postRes.json.data || postRes.json)) || {};
+      var curExp = Number(postObj.expires_at || postObj.expires || 0) || 0;
+      if (curExp > 0 && curExp < 1e12) curExp = curExp * 1000; // seconds → ms
+      if (!curExp || curExp < Date.now()) curExp = Date.now();
+      var newExp = curExp + EXTEND_10D_MS;
+      var patchExt = await patchPostExpires(postId, newExp, { source: game + '_win', add_ms: EXTEND_10D_MS });
+      var extOk = !!(patchExt.ok && patchExt.json && patchExt.json.ok !== false);
+      await postBoard(BOARD_EXTEND_REWARDS, user, 'extend_10d', playId, {
+        user: user, game: game, post_id: postId, play_id: playId,
+        source_play: playId, expires_at: newExp, add_ms: EXTEND_10D_MS,
+        granted: extOk, at: Date.now()
+      });
+      await postBoard(BOARD_PLAYS, user, game + '_extend', playId, {
+        id: playId, user: user, game: game, kind: 'extend_10d',
+        post_id: postId, expires_at: newExp, at: Date.now()
+      });
+      var outExt = {
+        ok: true, game: game, play_id: playId, post_id: postId,
+        expires_at: newExp, extended_ms: EXTEND_10D_MS, granted: extOk,
+        label: '+10 days applied to post #' + postId
+      };
+      recent.set(lockKey, { at: Date.now(), body: outExt });
+      return json(res, 200, outExt);
+    }
+
     // —— Roulette / Dice spin ——
     if (game === 'roulette' || game === 'dice') {
       var freeBoard = await loadFreeBoards();
       var snap = freeSnapshot(freeBoard, user);
-      var freeUsed = snap.free_used[game] || 0;
       var freeLeftNow = snap.free_left[game] || 0;
+      var recoveryEndsNow = (snap.recovery_ends_at && snap.recovery_ends_at[game]) || 0;
       var packBoard = (!player.anon && game === 'roulette') ? await fetchBoard(BOARD_PACKS) : [];
       var packLeft = (!player.anon && game === 'roulette') ? roulettePackBalance(packBoard, user) : 0;
       var useFree = !forcePaid && freeLeftNow > 0;
@@ -514,8 +712,10 @@ module.exports = async function handler(req, res) {
           return json(res, 402, {
             ok: false,
             error: 'free_exhausted',
-            message: 'Free uses exhausted. Register to buy more plays with FC.',
+            message: 'Free uses exhausted. Wait 24h recovery or register to buy more plays with FC.',
             free_left: 0,
+            recovery_ends_at: recoveryEndsNow || null,
+            recovery_ms: recoveryEndsNow ? Math.max(0, recoveryEndsNow - Date.now()) : 0,
             need: cost
           });
         }
@@ -530,6 +730,7 @@ module.exports = async function handler(req, res) {
               need: cost,
               balance: spend.balance || 0,
               free_left: freeLeftNow,
+              recovery_ends_at: recoveryEndsNow || null,
               pack_spins: packLeft
             });
           }
@@ -540,8 +741,22 @@ module.exports = async function handler(req, res) {
         coinsCharged = cost;
       }
 
+      // Server-authoritative outcome (client animates to these indices)
+      var resultIdx = null;
+      var diceRoll = null;
+      if (game === 'roulette') {
+        var optionCount = Number(body.option_count || body.options_count || 30) || 30;
+        optionCount = Math.max(2, Math.min(60, Math.floor(optionCount)));
+        if (result && result.idx != null && Number(result.idx) >= 0 && Number(result.idx) < optionCount) {
+          // Ignore client-suggested idx — always server pick
+        }
+        resultIdx = Math.floor(Math.random() * optionCount);
+      } else if (game === 'dice') {
+        diceRoll = pickCoherentDiceRoll();
+      }
+
       var pinPrize = !!(body.pin_prize || (result && result.pin) || (result && result.pin_prize));
-      await postBoard(BOARD_PLAYS, user, game + '_play', playId, {
+      var playPayload = {
         id: playId,
         user: user,
         game: game,
@@ -550,15 +765,20 @@ module.exports = async function handler(req, res) {
         pack: !!usePack,
         coins: coinsCharged,
         result: result || null,
+        result_idx: resultIdx,
+        dice: diceRoll,
         pin_prize: pinPrize,
         anon: !!player.anon,
         at: Date.now()
-      });
+      };
+      await postBoard(BOARD_PLAYS, user, game + '_play', playId, playPayload);
 
       var packsLeftAfter = (!player.anon && game === 'roulette')
         ? roulettePackBalance(await fetchBoard(BOARD_PACKS), user)
         : 0;
-      var freeLeftAfter = useFree ? Math.max(0, freeLeftNow - 1) : freeLeftNow;
+      var snapAfter = useFree ? freeSnapshot(await loadFreeBoards(), user) : snap;
+      var freeLeftAfter = snapAfter.free_left[game] != null ? snapAfter.free_left[game] : (useFree ? Math.max(0, freeLeftNow - 1) : freeLeftNow);
+      var recoveryAfter = (snapAfter.recovery_ends_at && snapAfter.recovery_ends_at[game]) || 0;
       var outSpin = {
         ok: true,
         reused: reused,
@@ -570,15 +790,16 @@ module.exports = async function handler(req, res) {
         coins: coinsCharged,
         balance: balance,
         free_left: freeLeftAfter,
-        free_left_map: Object.assign({}, snap.free_left, (function () {
-          var m = {};
-          m[game] = freeLeftAfter;
-          return m;
-        })()),
+        free_left_map: Object.assign({}, snapAfter.free_left),
+        recovery_ends_at: recoveryAfter || 0,
+        recovery_ms: recoveryAfter ? Math.max(0, recoveryAfter - Date.now()) : 0,
+        recovery_ends_at_map: Object.assign({}, snapAfter.recovery_ends_at || {}),
         pack_spins: packsLeftAfter,
         anon: !!player.anon,
         xp_eligible: !player.anon,
         pin_prize: pinPrize,
+        result_idx: resultIdx,
+        dice: diceRoll,
         label: useFree
           ? ('Free ' + game + ' · ' + freeLeftAfter + ' free left')
           : (usePack
@@ -604,12 +825,16 @@ module.exports = async function handler(req, res) {
         var usedThisPlay = false;
         if (consumeFree && !forcePaid && !body.paid) {
           if (freeLeftT <= 0 && action !== 'result') {
+            var recT = (snapT.recovery_ends_at && snapT.recovery_ends_at.tic_tac_toe) || 0;
             return json(res, 402, {
               ok: false,
               error: 'free_exhausted',
-              message: 'Free Tic-Tac-Toe uses exhausted',
+              message: 'Free Tic-Tac-Toe uses exhausted. Wait 24h recovery.',
               free_left: 0,
-              free_left_map: snapT.free_left
+              free_left_map: snapT.free_left,
+              recovery_ends_at: recT || null,
+              recovery_ms: recT ? Math.max(0, recT - Date.now()) : 0,
+              recovery_ends_at_map: snapT.recovery_ends_at || {}
             });
           }
           if (action === 'consume_free' || action === 'start' || (action === 'play' && gamesPlayed <= 1)) {
@@ -625,10 +850,12 @@ module.exports = async function handler(req, res) {
             if (!alreadySession && freeLeftT > 0) {
               await postBoard(BOARD_FREE, user, 'free_play', playId, {
                 user: user, game: 'tic_tac_toe', day: dayKey(), play_id: playId,
-                session_id: sessionId, at: Date.now(), paid: false, lifetime: true
+                session_id: sessionId, at: Date.now(), paid: false, cycle: true
               });
               usedThisPlay = true;
-              freeLeftT = Math.max(0, freeLeftT - 1);
+              var snapT2 = freeSnapshot(await loadFreeBoards(), user);
+              freeLeftT = snapT2.free_left.tic_tac_toe;
+              snapT = snapT2;
             }
           }
         }
@@ -675,10 +902,14 @@ module.exports = async function handler(req, res) {
           pin_granted: pinGranted,
           featured_until: featuredUntil || null,
           free_left: freeLeftT,
+          free_left_map: snapT.free_left,
+          recovery_ends_at: (snapT.recovery_ends_at && snapT.recovery_ends_at.tic_tac_toe) || 0,
+          recovery_ends_at_map: snapT.recovery_ends_at || {},
           free_consumed: usedThisPlay,
           anon: !!player.anon,
           xp_eligible: !player.anon,
-          show_challenges: String(result) === 'loss'
+          show_challenges: String(result) === 'loss',
+          opponent: 'ruiningsubs'
         };
         recent.set(lockKey, { at: Date.now(), body: outT });
         return json(res, 200, outT);
