@@ -303,30 +303,29 @@ async function sbWalletBalance(user) {
 /**
  * Same numeric FC the header should show: pick the highest available wallet
  * across CF case variants and Supabase coin_wallets (never hide SB coins
- * behind a near-empty CF key).
+ * behind a near-empty CF key). Parallel lookups keep delete-post under mobile timeouts.
  */
 async function resolveFcBalance(rawUser) {
   const candidates = walletUserCandidates(rawUser);
   let best = { user: candidates[0] || walletUser(rawUser), balance: 0, source: 'cf' };
+  const jobs = [];
   for (let i = 0; i < candidates.length; i++) {
     const u = candidates[i];
-    let bal = 0;
-    try {
-      bal = await cfWalletBalance(u);
-    } catch (_) {
-      bal = 0;
-    }
-    if (bal > best.balance) best = { user: u, balance: bal, source: 'cf' };
+    jobs.push(
+      cfWalletBalance(u)
+        .then((bal) => ({ user: u, balance: Number(bal) || 0, source: 'cf' }))
+        .catch(() => ({ user: u, balance: 0, source: 'cf' }))
+    );
+    jobs.push(
+      sbWalletBalance(u)
+        .then((bal) => ({ user: u, balance: Number(bal) || 0, source: 'supabase' }))
+        .catch(() => ({ user: u, balance: 0, source: 'supabase' }))
+    );
   }
-  for (let i = 0; i < candidates.length; i++) {
-    const u = candidates[i];
-    let bal = 0;
-    try {
-      bal = await sbWalletBalance(u);
-    } catch (_) {
-      bal = 0;
-    }
-    if (bal > best.balance) best = { user: u, balance: bal, source: 'supabase' };
+  const results = await Promise.all(jobs);
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.balance > best.balance) best = r;
   }
   return best;
 }
@@ -540,35 +539,18 @@ async function refundDeleteFc(user, postId) {
 }
 
 async function loadPostRow(postId) {
-  const colsFull = 'id,username,tags,expires_at,extend_amount,deletion_tier,free_deletion_enabled,owner_token_hash';
-  const colsTier = 'id,username,tags,expires_at,extend_amount,deletion_tier';
+  // Live DB may lack deletion_tier / free_deletion_enabled / owner_token_hash —
+  // select only columns that exist so we don't burn a failed round-trip.
   const colsBase = 'id,username,tags,expires_at,extend_amount';
   const client = sbClient();
   if (client) {
-    let q = await client.from('posts').select(colsFull).eq('id', postId).maybeSingle();
-    if (q.error && /free_deletion_enabled|owner_token_hash/i.test(String(q.error.message || ''))) {
-      q = await client.from('posts').select(colsTier).eq('id', postId).maybeSingle();
-    }
-    if (q.error && /deletion_tier/i.test(String(q.error.message || ''))) {
-      q = await client.from('posts').select(colsBase).eq('id', postId).maybeSingle();
-    }
+    const q = await client.from('posts').select(colsBase).eq('id', postId).maybeSingle();
     if (q.error) throw new Error(q.error.message || 'load_failed');
     return q.data || null;
   }
-  // REST fallback (same pattern as /api/extend) — works without the npm package.
-  let rest = await sbRest(
-    '/rest/v1/posts?select=' + encodeURIComponent(colsFull) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
+  const rest = await sbRest(
+    '/rest/v1/posts?select=' + encodeURIComponent(colsBase) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
   );
-  if (!rest.ok && rest.status === 400) {
-    rest = await sbRest(
-      '/rest/v1/posts?select=' + encodeURIComponent(colsTier) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
-    );
-  }
-  if (!rest.ok && rest.status === 400) {
-    rest = await sbRest(
-      '/rest/v1/posts?select=' + encodeURIComponent(colsBase) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
-    );
-  }
   if (!rest.ok) throw new Error('load_failed_http_' + rest.status);
   const rows = Array.isArray(rest.data) ? rest.data : [];
   return rows[0] || null;
@@ -577,8 +559,13 @@ async function loadPostRow(postId) {
 async function deletePostRow(postId) {
   const client = sbClient();
   if (client) {
-    const { error } = await client.from('posts').delete().eq('id', postId);
+    const { data, error } = await client.from('posts').delete().eq('id', postId).select('id');
     if (error) return error;
+    // RLS can return success with 0 rows — treat that as failure so we refund.
+    if (!data || !data.length) {
+      const still = await loadPostRow(postId);
+      if (still) return { message: 'delete_blocked_or_noop', code: 'DELETE_NOOP' };
+    }
   } else {
     const rest = await sbRest('/rest/v1/posts?id=eq.' + encodeURIComponent(String(postId)), {
       method: 'DELETE'
@@ -586,6 +573,8 @@ async function deletePostRow(postId) {
     if (!rest.ok) {
       return { message: 'delete_failed_http_' + rest.status, details: rest.data };
     }
+    const still = await loadPostRow(postId).catch(() => null);
+    if (still) return { message: 'delete_blocked_or_noop', code: 'DELETE_NOOP' };
   }
   // Also drop CF mirror so feed/search cannot resurrect the post.
   try {
@@ -639,51 +628,40 @@ function parseBoardMsg(raw) {
   }
 }
 
-/** Drop pin-board + pin-reward refs so deleted posts never reappear as Spotlight pins. */
+/**
+ * Fast pin invalidation only.
+ * NEVER scan full __PIN_BOARD__ / __PIN_REWARDS__ lists — that took 30s+ in production
+ * and caused mobile clients to abort with a generic "Could not delete" while the
+ * charge/delete may already have completed on the server.
+ */
 async function retirePinsForDeletedPost(postId) {
   const boards = ['__PIN_BOARD__', '__PIN_REWARDS__'];
-  const summary = { boards: {}, removed: 0 };
-  for (let b = 0; b < boards.length; b++) {
-    const board = boards[b];
-    let removed = 0;
-    try {
-      const res = await cfFetch('/notifs?to=' + encodeURIComponent(board));
-      const list = (res.json && res.json.notifs) || [];
-      for (let i = 0; i < list.length; i++) {
-        const n = list[i];
-        if (!n || !n.id) continue;
-        const msg = parseBoardMsg(n.message);
-        const pid = String((msg && (msg.id || msg.post_id)) || n.post_id || '');
-        if (pid !== String(postId) && String(n.post_id || '') !== String(postId)) continue;
-        try {
-          const dr = await cfFetch('/notifs/' + encodeURIComponent(String(n.id)), { method: 'DELETE' });
-          if (dr && dr.ok) removed++;
-        } catch (_) {}
-      }
-    } catch (_) {}
-    // Mark reward invalidated (append-only audit; does not restore the pin).
-    try {
-      await cfFetch('/notifs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Origin: SITE },
-        body: JSON.stringify({
-          to_username: board === '__PIN_REWARDS__' ? '__PIN_REWARDS__' : '__PIN_BOARD__',
-          from_username: 'system',
-          type: 'pin_invalidated',
-          post_id: String(postId),
-          message: JSON.stringify({
+  const summary = { boards: {}, removed: 0, mode: 'fast_invalidate' };
+  await Promise.all(
+    boards.map(async (board) => {
+      try {
+        await cfFetch('/notifs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Origin: SITE },
+          body: JSON.stringify({
+            to_username: board,
+            from_username: 'system',
+            type: 'pin_invalidated',
             post_id: String(postId),
-            invalidated: true,
-            reason: 'post_deleted',
-            at: Date.now()
+            message: JSON.stringify({
+              post_id: String(postId),
+              invalidated: true,
+              reason: 'post_deleted',
+              at: Date.now()
+            })
           })
-        })
-      });
-    } catch (_) {}
-    summary.boards[board] = removed;
-    summary.removed += removed;
-  }
-  // Best-effort clear featured on CF post mirror (row may already be gone in Supabase).
+        });
+        summary.boards[board] = 0;
+      } catch (_) {
+        summary.boards[board] = -1;
+      }
+    })
+  );
   try {
     await cfFetch('/posts/' + encodeURIComponent(String(postId)), {
       method: 'PATCH',
@@ -692,6 +670,30 @@ async function retirePinsForDeletedPost(postId) {
     });
   } catch (_) {}
   return summary;
+}
+
+function withTimeout(promise, ms, fallback) {
+  return new Promise((resolve) => {
+    let done = false;
+    const t = setTimeout(() => {
+      if (done) return;
+      done = true;
+      resolve(fallback);
+    }, ms);
+    Promise.resolve(promise)
+      .then((v) => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve(v);
+      })
+      .catch(() => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve(fallback);
+      });
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -874,21 +876,18 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Never leave Spotlight / pin lists pointing at a deleted post.
-  let pinCleanup = null;
-  try {
-    pinCleanup = await retirePinsForDeletedPost(postId);
-  } catch (e) {
-    pinCleanup = { ok: false, error: String(e && e.message ? e.message : e) };
-  }
-
-  // Post row is gone — purge CDN/edge caches so old OG/HTML cannot resurrect.
-  let cachePurge = null;
-  try {
-    cachePurge = await purgeDeletedPostCaches(postId);
-  } catch (e) {
-    cachePurge = { ok: false, error: String(e && e.message ? e.message : e) };
-  }
+  // Best-effort cleanup with hard caps — never block the client past a few seconds.
+  // (Full pin-board scans previously made this endpoint ~30s and mobile aborted.)
+  const pinCleanup = await withTimeout(
+    retirePinsForDeletedPost(postId),
+    2500,
+    { skipped: true, reason: 'pin_cleanup_timeout', mode: 'fast_invalidate' }
+  );
+  const cachePurge = await withTimeout(
+    purgeDeletedPostCaches(postId),
+    1500,
+    { skipped: true, reason: 'cache_purge_timeout' }
+  );
 
   // Hint for Google Search Console Removals (manual): list the URL that must drop.
   const removalUrl = SITE + '/post/' + encodeURIComponent(String(postId));

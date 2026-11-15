@@ -25455,13 +25455,21 @@ async function onIdFace(e){
         ownerProven=!!(ownerToken || (postProbe && typeof samePostOwner==='function' && samePostOwner(postProbe, currentUser&&currentUser.name)));
       }catch(e){ownerProven=!!ownerToken}
       var allowLocal=!!(opts.allowLocalFallback && ownerProven && !moderation);
+      function applyDeletedLocally(){
+        try{purgePostEverywhere(id)}catch(e){try{markDeleted(id)}catch(e2){}}
+        try{renderPosts()}catch(e){}
+        try{renderNormalFeed()}catch(e){}
+        try{syncExtendedPanel(window.__feedRest||posts)}catch(e){}
+        if(String(currentDetailId)===id){try{showPanel('feed')}catch(e){}}
+      }
       try{
-        var r=await fetch('/api/delete-post',{
+        // 45s: server must finish charge+delete quickly; cleanup is capped server-side.
+        var r=await fetchWithTimeout('/api/delete-post',{
           method:'POST',
           headers:headers,
           body:JSON.stringify(body),
           cache:'no-store'
-        });
+        }, 45000);
         var j=await r.json().catch(function(){return{}});
         if(r.ok && j && j.ok){
           if(j.balance!=null) window.__fcLast=Number(j.balance)||window.__fcLast;
@@ -25471,13 +25479,9 @@ async function onIdFace(e){
             var map=loadOwnerTokens();
             if(map[id]){delete map[id];localStorage.setItem('rs_owner_tokens',JSON.stringify(map))}
           }catch(e){}
-          try{purgePostEverywhere(id)}catch(e){try{markDeleted(id)}catch(e2){}}
+          applyDeletedLocally();
           try{await retirePinBoardNotifs(id)}catch(e){}
           try{await loadPublicPins()}catch(e){}
-          try{renderPosts()}catch(e){}
-          try{renderNormalFeed()}catch(e){}
-          try{syncExtendedPanel(window.__feedRest||posts)}catch(e){}
-          if(String(currentDetailId)===id){try{showPanel('feed')}catch(e){}}
           toast('Post deleted successfully');
           return true;
         }
@@ -25497,13 +25501,34 @@ async function onIdFace(e){
         if(allowLocal){
           try{await deletePost(id,{requireOwner:true});return true}catch(e){}
         }
-        toast((j&&(j.detail||j.error))||'Could not delete');
+        var errMsg=(j&&(j.detail||j.error))||('Could not delete (HTTP '+r.status+')');
+        console.error('secureDeletePost failed', r.status, j);
+        toast(String(errMsg));
         return false;
       }catch(e){
+        // Timeout / network: server may have already charged+deleted — verify before failing.
+        console.error('secureDeletePost network', e);
+        try{
+          var still=typeof findPostAnywhere==='function'?findPostAnywhere(id):null;
+          if(!still && window.sb){
+            var chk=await sb.from('posts').select('id').eq('id',id).maybeSingle();
+            if(!(chk&&chk.data&&chk.data.id)){
+              try{await loadFagBalance()}catch(e2){}
+              applyDeletedLocally();
+              toast('Post deleted successfully');
+              return true;
+            }
+          }else if(!still){
+            try{await loadFagBalance()}catch(e2){}
+            applyDeletedLocally();
+            toast('Post deleted successfully');
+            return true;
+          }
+        }catch(e3){}
         if(allowLocal){
           try{await deletePost(id,{requireOwner:true});return true}catch(err){}
         }
-        toast('Could not delete');
+        toast((e&&e.name==='AbortError')?'Delete timed out — check if the post is gone and retry':'Could not delete');
         return false;
       }
     }
@@ -25693,24 +25718,23 @@ async function onIdFace(e){
       __requestDeleteLocks[lockKey]=true;
       var btn=document.getElementById('btn-remove-fc');
       if(btn){btn.disabled=true;btn.setAttribute('aria-busy','true')}
+      var finishedOk=false;
       try{
         deleteRequestProgress(true,'processing_payment');
         // Atomic charge + delete on the server. Never creates an admin request.
         var ok=await secureDeletePost(id,{reason:'paid',allowLocalFallback:false});
-        if(!ok){
-          deleteRequestProgress(false);
-          return false;
-        }
+        if(!ok) return false;
+        finishedOk=true;
         deleteRequestProgress(true,'completed');
         closeModals();
         setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
         return true;
       }catch(e){
-        deleteRequestProgress(false);
         toast('Could not delete');
         console.warn('requestDeleteWithCoins',e);
         return false;
       }finally{
+        if(!finishedOk){try{deleteRequestProgress(false)}catch(e){}}
         __requestDeleteLocks[lockKey]=false;
         if(btn){btn.disabled=false;btn.removeAttribute('aria-busy')}
       }
