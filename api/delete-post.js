@@ -242,15 +242,32 @@ async function readBody(req) {
   }
 }
 
-async function cfFetch(path, opts) {
-  const r = await fetch(CF_API + path, Object.assign({ cache: 'no-store' }, opts || {}));
-  let j = {};
+/** CF wallet/ledger currently takes ~10s per call — always bound it so delete stays mobile-safe. */
+async function cfFetch(path, opts, timeoutMs) {
+  const ms = timeoutMs == null ? 2800 : Number(timeoutMs) || 2800;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timer = null;
+  if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (_) {} }, ms);
   try {
-    j = await r.json();
-  } catch (_) {
-    j = {};
+    const init = Object.assign({ cache: 'no-store' }, opts || {});
+    if (ctrl) init.signal = ctrl.signal;
+    const r = await fetch(CF_API + path, init);
+    let j = {};
+    try {
+      j = await r.json();
+    } catch (_) {
+      j = {};
+    }
+    return { ok: r.ok, status: r.status, json: j };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      json: { error: 'cf_timeout', detail: String(e && e.message ? e.message : e) }
+    };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return { ok: r.ok, status: r.status, json: j };
 }
 
 async function findLedgerRow(user, kind, action, ref, minCoins) {
@@ -389,91 +406,81 @@ async function spendSupabaseFc(user, cost, ref) {
 
 /**
  * Charge 50 FC from the SAME wallet the header uses.
- * Never trust client price. Tries CF case variants, then Supabase coin_wallets.
+ * Prefer Supabase coin_wallets first — CF /wallet currently takes ~10s/call and
+ * was making delete-post exceed mobile timeouts even after pin-scan removal.
  */
 async function spendDeleteFc(rawUser, postId, idemRef) {
   const action = 'delete';
   const cost = DELETE_COST_FC;
-  const resolved = await resolveFcBalance(rawUser);
-  const user = walletUser(resolved.user || rawUser);
-  const ref = deleteSpendRef(user, postId, idemRef);
-
-  // Idempotency across case variants of the same person.
   const candidates = walletUserCandidates(rawUser);
-  for (let i = 0; i < candidates.length; i++) {
-    const existing = await findLedgerSpend(candidates[i], action, deleteSpendRef(candidates[i], postId, idemRef), cost);
-    if (existing) {
-      return {
-        ok: true,
-        reused: true,
-        balance: resolved.balance,
-        coins: cost,
-        ref: deleteSpendRef(candidates[i], postId, idemRef),
-        user: candidates[i],
-        source: 'ledger'
-      };
-    }
-  }
+  const primary = candidates[0] || walletUser(rawUser);
+  const ref = deleteSpendRef(primary, postId, idemRef);
 
-  if (resolved.balance < cost) {
-    return {
-      ok: false,
-      error: 'insufficient',
-      need: cost,
-      balance: resolved.balance,
-      have: resolved.balance,
-      ref,
-      user,
-      source: resolved.source
-    };
-  }
-
-  // Spend from the store that actually holds the funds (CF preferred when tied/higher).
-  if (resolved.source === 'cf' || resolved.source === 'ledger') {
-    for (let i = 0; i < candidates.length; i++) {
-      const u = candidates[i];
-      const spendRef = deleteSpendRef(u, postId, idemRef);
-      const res = await cfFetch('/wallet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Origin: SITE },
-        body: JSON.stringify({ user: u, spend: cost, action, ref: spendRef })
-      });
-      if (res.json && res.json.ok) {
-        return {
-          ok: true,
-          reused: false,
-          balance: res.json.balance != null ? Number(res.json.balance) : null,
-          coins: cost,
-          ref: spendRef,
-          user: u,
-          source: 'cf'
-        };
+  // --- Fast path: Supabase (typically <500ms) ---
+  let bestSb = { user: primary, balance: 0 };
+  const sbBalances = await Promise.all(
+    candidates.map(async (u) => {
+      try {
+        return { user: u, balance: await sbWalletBalance(u) };
+      } catch (_) {
+        return { user: u, balance: 0 };
       }
-    }
+    })
+  );
+  for (let i = 0; i < sbBalances.length; i++) {
+    if (sbBalances[i].balance > bestSb.balance) bestSb = sbBalances[i];
   }
-
-  // Supabase coin_wallets (header fallback) or CF soft-failure fallback.
-  for (let i = 0; i < candidates.length; i++) {
-    const u = candidates[i];
-    const spendRef = deleteSpendRef(u, postId, idemRef);
-    const sb = await spendSupabaseFc(u, cost, spendRef);
-    if (sb.ok) {
-      return Object.assign({ coins: cost, ref: spendRef }, sb);
-    }
+  if (bestSb.balance >= cost) {
+    const spendRef = deleteSpendRef(bestSb.user, postId, idemRef);
+    const sb = await spendSupabaseFc(bestSb.user, cost, spendRef);
+    if (sb.ok) return Object.assign({ coins: cost, ref: spendRef }, sb);
     if (sb.error && sb.error !== 'insufficient') {
       return Object.assign({ need: cost, ref: spendRef }, sb);
     }
   }
 
-  // Last resort: try CF anyway (e.g. race where resolve saw SB but CF was credited).
-  for (let i = 0; i < candidates.length; i++) {
-    const u = candidates[i];
-    const spendRef = deleteSpendRef(u, postId, idemRef);
-    const res = await cfFetch('/wallet', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: SITE },
-      body: JSON.stringify({ user: u, spend: cost, action, ref: spendRef })
-    });
+  // --- CF path (bounded by cfFetch timeouts) ---
+  // One ledger probe only (not per-candidate sequential 10s hits).
+  try {
+    const existing = await findLedgerSpend(primary, action, deleteSpendRef(primary, postId, idemRef), cost);
+    if (existing) {
+      return {
+        ok: true,
+        reused: true,
+        balance: null,
+        coins: cost,
+        ref: deleteSpendRef(primary, postId, idemRef),
+        user: primary,
+        source: 'ledger'
+      };
+    }
+  } catch (_) {}
+
+  let bestCf = { user: primary, balance: 0 };
+  const cfBalances = await Promise.all(
+    candidates.map(async (u) => {
+      try {
+        return { user: u, balance: await cfWalletBalance(u) };
+      } catch (_) {
+        return { user: u, balance: 0 };
+      }
+    })
+  );
+  for (let i = 0; i < cfBalances.length; i++) {
+    if (cfBalances[i].balance > bestCf.balance) bestCf = cfBalances[i];
+  }
+
+  if (bestCf.balance >= cost) {
+    const spendRef = deleteSpendRef(bestCf.user, postId, idemRef);
+    const res = await cfFetch(
+      '/wallet',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: SITE },
+        body: JSON.stringify({ user: bestCf.user, spend: cost, action, ref: spendRef })
+      },
+      4000
+    );
     if (res.json && res.json.ok) {
       return {
         ok: true,
@@ -481,21 +488,22 @@ async function spendDeleteFc(rawUser, postId, idemRef) {
         balance: res.json.balance != null ? Number(res.json.balance) : null,
         coins: cost,
         ref: spendRef,
-        user: u,
+        user: bestCf.user,
         source: 'cf'
       };
     }
   }
 
+  const have = Math.max(bestSb.balance, bestCf.balance);
   return {
     ok: false,
     error: 'insufficient',
     need: cost,
-    balance: resolved.balance,
-    have: resolved.balance,
+    balance: have,
+    have: have,
     ref,
-    user,
-    source: resolved.source
+    user: have === bestCf.balance ? bestCf.user : bestSb.user,
+    source: bestCf.balance >= bestSb.balance ? 'cf' : 'supabase'
   };
 }
 
