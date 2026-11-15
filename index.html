@@ -3111,6 +3111,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
 
           <div class="admin-sec" id="asec-pinned">
+            <div style="margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+              <button class="btn btn-secondary btn-sm" type="button" onclick="adminUnpinLoserFaggPins().catch(function(e){toast((e&&e.message)||'Unpin failed')})">Unpin @LoserFagg</button>
+              <span style="font-size:11px;color:var(--muted)">Clears pin state only — posts stay in the feed</span>
+            </div>
             <div class="admin-card" style="margin-bottom:10px">
               <strong>Pinned posts</strong>
               <p style="font-size:12px;color:var(--muted);margin:4px 0 8px">Active Spotlight pins. Unpin updates immediately.</p>
@@ -3172,8 +3176,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <div id="admin-users-count" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
               <div id="admin-users-panel" style="display:block;margin-top:12px">
                 <div style="display:flex;gap:8px;margin-bottom:10px">
-                  <input id="admin-user-search" type="search" placeholder="Search username, email or IP…" style="flex:1;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px"/>
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminUsers()">↻</button>
+                  <input id="admin-user-search" type="search" placeholder="Search username or IP…" style="flex:1;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px"/>
+                  <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminUsers(1)">↻</button>
+                </div>
+                <div id="admin-users-pager" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;font-size:11px;color:var(--muted)">
+                  <button class="btn btn-ghost btn-sm" type="button" id="admin-users-prev" onclick="loadAdminUsers((window.__adminUsersPage||1)-1)">‹ Prev</button>
+                  <span id="admin-users-page-label">Page 1</span>
+                  <button class="btn btn-ghost btn-sm" type="button" id="admin-users-next" onclick="loadAdminUsers((window.__adminUsersPage||1)+1)">Next ›</button>
                 </div>
                 <div id="admin-users-list"><div style="color:var(--muted);font-size:13px">Loading…</div></div>
               </div>
@@ -4058,7 +4067,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     // Admin auth: password is validated ONLY by Cloudflare Worker POST /admin/login.
     // No password plaintext, hash, or sealed credential is stored in this frontend.
-    var RS_ADMIN_SESSION_VER='3';
+    var RS_ADMIN_SESSION_VER='4';
     function purgeStaleAdminSession(){
       try{
         if(sessionStorage.getItem('rs_admin_session_ver')===RS_ADMIN_SESSION_VER) return;
@@ -4158,6 +4167,27 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       });
       return r.json().catch(function(){return {ok:false}});
     }
+    /** Anon-key REST patch — bypasses user-JWT RLS that silently returns 0 updated rows. */
+    async function adminSbAnonPatchPost(id, patch){
+      id=String(id||'');
+      if(!id||!SUPABASE_URL||!SUPABASE_KEY) return false;
+      var key=/^\d+$/.test(id)?id:encodeURIComponent(id);
+      var r=await fetch(SUPABASE_URL+'/rest/v1/posts?id=eq.'+key,{
+        method:'PATCH',
+        headers:{
+          apikey:SUPABASE_KEY,
+          Authorization:'Bearer '+SUPABASE_KEY,
+          'Content-Type':'application/json',
+          Prefer:'return=representation'
+        },
+        body:JSON.stringify(patch||{}),
+        cache:'no-store'
+      });
+      if(!r.ok) return false;
+      var rows=await r.json().catch(function(){return[]});
+      return Array.isArray(rows)&&rows.length>0;
+    }
+    window.adminSbAnonPatchPost=adminSbAnonPatchPost;
     async function createCfNotif(row){
       row=row||{};
       try{
@@ -4694,13 +4724,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return 'fallback_'+Math.abs(h).toString(16)+'_'+token.length.toString(16);
     }
     function canDeletePostAsOwner(post){
+      // Owner proof only — admin moderation is a separate path (never pretend admin is the publisher).
+      // Accidental admin session / leftover UI must not grant "free owner delete" on others' posts.
       if(!post)return false;
-      try{if(typeof isAdmin==='function'&&isAdmin())return true}catch(e){}
       try{
         if(typeof samePostOwner==='function' && samePostOwner(post, currentUser&&currentUser.name)) return true;
       }catch(e){}
       try{if(hasLocalOwnerToken(post.id)) return true}catch(e){}
       return false;
+    }
+    function canModerateDeletePost(){
+      try{return typeof isSiteAdmin==='function'&&isSiteAdmin()}catch(e){return false}
     }
     async function persistOwnerDeleteProof(postId, deletionTier){
       postId=String(postId||'');
@@ -5752,8 +5786,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){}
     }
     var VERIFIED_USERS = ['mastersan','mastersan01','master_san','loserfagg'];
-    // Spotlight-priority profiles — their active posts stay pinned / featured.
+    // Featured badge only — do NOT auto-pin their posts (admin must pin explicitly).
+    // Auto-pin previously made @LoserFagg posts reappear as Pinned after every UNPIN.
     var FEATURED_PROFILES = ['loserfagg'];
+    var FEATURED_PROFILE_AUTO_PIN = false;
     var FEATURED_PROFILE_PIN_MS = 30 * 24 * 3600 * 1000;
     function displayViews(n){
       n = Number(n)||0;
@@ -9888,7 +9924,7 @@ function openRoulette(){
           try{await loadAdminCoins()}catch(e){}
           try{await loadAdminInbox()}catch(e){}
         }
-        else if(sec==='users') await renderAdminUsers();
+        else if(sec==='users') await loadAdminUsers(window.__adminUsersPage||1);
       }catch(e){console.warn('openAdminSection',e)}
       try{refreshAdminBadges()}catch(e){}
     }
@@ -10974,7 +11010,10 @@ function openRoulette(){
       var api=document.getElementById('admin-pass-input');
       if(api)api.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(bau)bau.click()}});
       var aus=document.getElementById('admin-user-search');
-      if(aus)aus.addEventListener('input',renderAdminUsers);
+      if(aus)aus.addEventListener('input',function(){
+        clearTimeout(window.__adminUsersSearchT);
+        window.__adminUsersSearchT=setTimeout(function(){try{loadAdminUsers(1)}catch(e){}},280);
+      });
       document.getElementById('tab-login').onclick=function(){showAuth('login')};
       document.getElementById('tab-register').onclick=function(){showAuth('register')};
       document.getElementById('btn-forgot').onclick=function(){
@@ -20993,24 +21032,27 @@ function profileStatsHtml(userPosts, extra){
           if(row && String(row.id)===id) until=Math.max(until, Number(row.featuredUntil)||0);
         });
       }catch(e){}
-      // Featured profiles keep active posts in Spotlight without a separate admin pin.
+      // Featured-profile badge must NOT invent a pin window. Only real featured_until /
+      // pin-board / local admin pins count — otherwise UNPIN cannot stick for those users.
       try{
-        var who=(p&&(p.user||p.username))||'';
-        if(!who){
-          try{
-            var s2=getFeaturedSnaps()[id];
-            if(s2) who=s2.user||s2.username||'';
-          }catch(e){}
-        }
-        if(!who){
-          try{
-            (window.__pinBoard||[]).forEach(function(row){
-              if(row && String(row.id)===id) who=row.user||row.username||who;
-            });
-          }catch(e){}
-        }
-        if(who && typeof isFeaturedProfile==='function' && isFeaturedProfile(who)){
-          until=Math.max(until, Date.now()+FEATURED_PROFILE_PIN_MS);
+        if(FEATURED_PROFILE_AUTO_PIN){
+          var who=(p&&(p.user||p.username))||'';
+          if(!who){
+            try{
+              var s2=getFeaturedSnaps()[id];
+              if(s2) who=s2.user||s2.username||'';
+            }catch(e){}
+          }
+          if(!who){
+            try{
+              (window.__pinBoard||[]).forEach(function(row){
+                if(row && String(row.id)===id) who=row.user||row.username||who;
+              });
+            }catch(e){}
+          }
+          if(who && typeof isFeaturedProfile==='function' && isFeaturedProfile(who)){
+            until=Math.max(until, Date.now()+FEATURED_PROFILE_PIN_MS);
+          }
         }
       }catch(e){}
       return until>Date.now()?until:0;
@@ -22186,6 +22228,8 @@ function postCardHtml(p, compact){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
       }else if(isOwner){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>your post</i></button>';
+      }else if(typeof canModerateDeletePost==='function' && canModerateDeletePost()){
+        removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Admin delete</b><i>moderation</i></button>';
       }else{
         removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>$5 request</i></button>';
       }
@@ -25368,16 +25412,31 @@ async function onIdFace(e){
       if(!id){toast('Open the post first');return false}
       var user=(currentUser&&currentUser.name)||'';
       var ownerToken=opts.ownerToken||getOwnerToken(id)||'';
-      if(!user && !ownerToken){toast('Login required');try{showAuth('login')}catch(e){}return false}
-      if(!user) user='anon_token';
+      var moderation=String(opts.reason||'')==='moderation'||String(opts.reason||'')==='privacy';
+      if(!user && !ownerToken && !moderation){toast('Login required');try{showAuth('login')}catch(e){}return false}
+      if(!user) user=moderation?'admin':'anon_token';
       var reason=String(opts.reason||'owner');
       var body={user:user,postId:id,reason:reason,idempotencyKey:'delete-post:'+id+':'+String(user).toLowerCase()+':50'};
       if(ownerToken) body.ownerToken=ownerToken;
       if(opts.adminKey) body.adminKey=opts.adminKey;
+      var headers={'Content-Type':'application/json'};
+      if(moderation){
+        try{
+          var tok=sessionStorage.getItem('rs_cf_admin_token');
+          if(tok) headers.Authorization='Bearer '+tok;
+        }catch(e){}
+      }
+      // Local fallback only for proven publishers — never for "admin UI said so" or strangers.
+      var ownerProven=false;
+      try{
+        var postProbe=typeof findPostAnywhere==='function'?findPostAnywhere(id):null;
+        ownerProven=!!(ownerToken || (postProbe && typeof samePostOwner==='function' && samePostOwner(postProbe, currentUser&&currentUser.name)));
+      }catch(e){ownerProven=!!ownerToken}
+      var allowLocal=!!(opts.allowLocalFallback && ownerProven && !moderation);
       try{
         var r=await fetch('/api/delete-post',{
           method:'POST',
-          headers:{'Content-Type':'application/json'},
+          headers:headers,
           body:JSON.stringify(body),
           cache:'no-store'
         });
@@ -25405,15 +25464,14 @@ async function onIdFace(e){
           try{openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}
           return false;
         }
-        // Fallback: free owner delete if API unavailable and post does not require FC
-        if(opts.allowLocalFallback){
-          try{await deletePost(id);return true}catch(e){}
+        if(allowLocal){
+          try{await deletePost(id,{requireOwner:true});return true}catch(e){}
         }
         toast((j&&(j.detail||j.error))||'Could not delete');
         return false;
       }catch(e){
-        if(opts.allowLocalFallback){
-          try{await deletePost(id);return true}catch(err){}
+        if(allowLocal){
+          try{await deletePost(id,{requireOwner:true});return true}catch(err){}
         }
         toast('Could not delete');
         return false;
@@ -25429,20 +25487,25 @@ async function onIdFace(e){
         : (typeof samePostOwner==='function'
           ? samePostOwner(post, currentUser&&currentUser.name)
           : !!(post && currentUser && String(post.user||'')===String(currentUser.name||'')));
-      if(post && !owner){
+      var asAdmin=typeof canModerateDeletePost==='function'&&canModerateDeletePost();
+      if(post && !owner && !asAdmin){
         toast('Only the publisher can delete this post');
         return;
       }
-      if(post && typeof deletionRequiresFc==='function' && deletionRequiresFc(post) && !(typeof isAdmin==='function' && isAdmin())){
+      if(post && !owner && asAdmin){
+        if(!confirm('Admin delete post #'+id+'? This permanently removes it.')) return;
+        closeModals();
+        toast('Deleting…');
+        var okAdmin=await secureDeletePost(id,{reason:'moderation',allowLocalFallback:false});
+        if(!okAdmin){/* toast already shown */}
+        return;
+      }
+      if(post && typeof deletionRequiresFc==='function' && deletionRequiresFc(post) && !asAdmin){
         // Redirect paid tiers to confirm · 50 FC instead of free path
         return openRemove(id);
       }
       closeModals();
       toast('Deleting…');
-      if(typeof isAdmin==='function' && isAdmin() && !samePostOwner(post, currentUser&&currentUser.name) && !hasLocalOwnerToken(id)){
-        try{await deletePost(id)}catch(e){toast('Could not delete')}
-        return;
-      }
       var ok=await secureDeletePost(id,{reason:'owner',allowLocalFallback:true,ownerToken:getOwnerToken(id)});
       if(!ok){/* toast already shown */}
     };
@@ -25481,7 +25544,10 @@ async function onIdFace(e){
       var paidRemove=typeof isPaidRemovePost==='function'?isPaidRemovePost(post):needsFc;
       // Hard block only true Wall/normal free posts — never active Extend timers.
       if(post && !needsFc && !paidRemove){
-        if(owner || (typeof isAdmin==='function' && isAdmin())){
+        if(owner){
+          return deleteWallFree();
+        }
+        if(typeof canModerateDeletePost==='function' && canModerateDeletePost()){
           return deleteWallFree();
         }
         toast('Normal posts cannot be removed with coins');
@@ -26379,7 +26445,11 @@ async function onIdFace(e){
       }catch(e){console.error(e);toast('Open Profile to set new password')}
     }
     var adminUsersCache=[];
-    function adminIsUnlocked(){try{return sessionStorage.getItem('rs_admin')==='1'}catch(e){return false}}
+    var adminUsersTotal=0;
+    var adminUsersFiltered=0;
+    var ADMIN_USERS_PAGE_SIZE=50;
+    window.__adminUsersPage=1;
+    function adminIsUnlocked(){try{return typeof isSiteAdmin==='function'?isSiteAdmin():(sessionStorage.getItem('rs_admin')==='1'&&!!sessionStorage.getItem('rs_cf_admin_token'))}catch(e){return false}}
     function toggleAdminUsers(){
       var panel=document.getElementById('admin-users-panel');
       var chev=document.getElementById('admin-users-chevron');
@@ -26391,7 +26461,7 @@ async function onIdFace(e){
       } else {
         panel.style.display='block';
         if(chev)chev.textContent='▲';
-        try{loadAdminUsers()}catch(e){}
+        try{loadAdminUsers(1)}catch(e){}
       }
     }
     function adminEsc(v){return esc(v==null?'':String(v))}
@@ -26406,36 +26476,146 @@ async function onIdFace(e){
       if(st==='suspended')return 'color:#7c6ab5;background:rgba(217,70,239,.12);border-color:rgba(124,58,237,.35)';
       return 'color:#34c759;background:rgba(52,199,89,.10);border-color:rgba(52,199,89,.3)';
     }
-    async function loadAdminUsers(){
+    function adminUsersSearchQ(){
+      return ((document.getElementById('admin-user-search')||{}).value||'').trim();
+    }
+    /** Lean profiles fetch via anon key (avoids 14MB select(*) + user-JWT RLS empty lists). */
+    async function adminFetchProfilesPage(page, q){
+      page=Math.max(1, Number(page)||1);
+      var limit=ADMIN_USERS_PAGE_SIZE;
+      var from=(page-1)*limit;
+      var to=from+limit-1;
+      var token='';
+      try{token=sessionStorage.getItem('rs_cf_admin_token')||''}catch(e){}
+      // Prefer server API (exact DB totals + auth) when admin token exists.
+      if(token){
+        try{
+          var url='/api/admin-users?page='+page+'&limit='+limit+(q?('&q='+encodeURIComponent(q)):'');
+          var r=await fetch(url,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+          if(r.status===401){
+            try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
+            token=await cfAdminLogin();
+            r=await fetch(url,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+          }
+          if(r.ok){
+            var j=await r.json().catch(function(){return{}});
+            if(j&&j.ok){
+              return {
+                users:j.users||[],
+                total:Number(j.total||0)||0,
+                filtered:Number(j.filtered!=null?j.filtered:j.total)||0,
+                page:Number(j.page||page)||page,
+                pages:Number(j.pages||1)||1
+              };
+            }
+          }
+        }catch(e){console.warn('admin-users api',e)}
+      }
+      if(!SUPABASE_URL||!SUPABASE_KEY) throw new Error('Database offline');
+      var headers={
+        apikey:SUPABASE_KEY,
+        Authorization:'Bearer '+SUPABASE_KEY,
+        Accept:'application/json',
+        Prefer:'count=exact'
+      };
+      // Total registered accounts (unfiltered).
+      var total=0;
+      try{
+        var tr=await fetch(SUPABASE_URL+'/rest/v1/profiles?select=username',{
+          method:'HEAD',
+          headers:Object.assign({},headers,{'Range-Unit':'items','Range':'0-0'}),
+          cache:'no-store'
+        });
+        var cr=tr.headers.get('content-range')||'';
+        var m=cr.match(/\/(\d+|\*)/);
+        if(m&&m[1]!=='*') total=parseInt(m[1],10)||0;
+      }catch(e){}
+      if(!total){
+        try{
+          var tc=await fetch(SUPABASE_URL+'/rest/v1/profiles?select=username',{
+            headers:Object.assign({},headers,{'Range-Unit':'items','Range':'0-0',Prefer:'count=exact'}),
+            cache:'no-store'
+          });
+          var cr2=tc.headers.get('content-range')||'';
+          var m2=cr2.match(/\/(\d+|\*)/);
+          if(m2&&m2[1]!=='*') total=parseInt(m2[1],10)||0;
+        }catch(e){}
+      }
+      var cols='username,avatar_url,status,banned,suspended,ip_banned,ip_address,xp,updated_at';
+      var path='/rest/v1/profiles?select='+encodeURIComponent(cols)+'&order=username.asc';
+      if(q){
+        var like='*'+String(q).replace(/[*,]/g,'')+'*';
+        path+='&or='+encodeURIComponent('(username.ilike.'+like+',ip_address.ilike.'+like+')');
+      }
+      var lr=await fetch(SUPABASE_URL+path,{
+        headers:Object.assign({},headers,{'Range-Unit':'items','Range':from+'-'+to}),
+        cache:'no-store'
+      });
+      if(!lr.ok){
+        var errTxt=await lr.text().catch(function(){return''});
+        throw new Error(errTxt.slice(0,120)||('profiles HTTP '+lr.status));
+      }
+      var rows=await lr.json().catch(function(){return[]});
+      var filtered=total;
+      var cr3=lr.headers.get('content-range')||'';
+      var m3=cr3.match(/\/(\d+|\*)/);
+      if(m3&&m3[1]!=='*') filtered=parseInt(m3[1],10)||filtered;
+      if(!q) filtered=total||filtered;
+      return {
+        users:Array.isArray(rows)?rows:[],
+        total:total||filtered,
+        filtered:filtered,
+        page:page,
+        pages:Math.max(1, Math.ceil((filtered||1)/limit)||1)
+      };
+    }
+    async function loadAdminUsers(page){
       var box=document.getElementById('admin-users-list');
       if(!box)return;
       if(!adminIsUnlocked()){box.innerHTML='<div style="color:var(--muted);font-size:13px">Unlock admin first.</div>';return}
-      if(!sb){box.innerHTML='<div style="color:#ff6b6b;font-size:13px">Database offline.</div>';return}
+      page=Math.max(1, Number(page)||window.__adminUsersPage||1);
+      window.__adminUsersPage=page;
       box.innerHTML='<div style="color:var(--muted);font-size:13px">Loading users…</div>';
       try{
-        var r=await sb.from('profiles').select('*').order('username',{ascending:true});
-        if(r.error)throw r.error;
-        adminUsersCache=(r.data||[]).sort(function(a,b){return String(a.username||'').localeCompare(String(b.username||''),undefined,{sensitivity:'base'})});
+        var q=adminUsersSearchQ();
+        var data=await adminFetchProfilesPage(page, q);
+        adminUsersCache=data.users||[];
+        adminUsersTotal=Number(data.total||0)||0;
+        adminUsersFiltered=Number(data.filtered||0)||0;
+        window.__adminUsersPage=Number(data.page||page)||page;
+        window.__adminUsersPages=Number(data.pages||1)||1;
         renderAdminUsers();
       }catch(e){
         console.error('admin users',e);
-        box.innerHTML='<div style="color:#ff6b6b;font-size:13px;line-height:1.45">Could not load profiles. Add the management columns shown below or check RLS.</div>';
+        box.innerHTML='<div style="color:#ff6b6b;font-size:13px;line-height:1.45">Could not load profiles. '+(esc((e&&e.message)||'error'))+'</div>';
         var c=document.getElementById('admin-users-count');if(c)c.textContent='Load failed';
       }
     }
     function renderAdminUsers(){
       var box=document.getElementById('admin-users-list');if(!box)return;
-      var q=((document.getElementById('admin-user-search')||{}).value||'').trim().toLowerCase();
-      var list=adminUsersCache.filter(function(u){
-        if(!q)return true;
-        return [u.username,u.email,u.ip_address,u.ip,u.status].some(function(v){return String(v||'').toLowerCase().indexOf(q)>=0});
-      });
-      var c=document.getElementById('admin-users-count');if(c)c.textContent=list.length+' visible · '+adminUsersCache.length+' total';
-      if(!list.length){box.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px 2px">No users found.</div>';return}
+      var list=adminUsersCache||[];
+      var visible=list.length;
+      var total=adminUsersTotal||0;
+      var filtered=adminUsersFiltered||total;
+      var q=adminUsersSearchQ();
+      var c=document.getElementById('admin-users-count');
+      if(c){
+        if(q) c.textContent=visible+' visible · '+filtered+' filtered · '+total+' total registered';
+        else c.textContent=visible+' visible · '+total+' total registered';
+      }
+      var page=window.__adminUsersPage||1;
+      var pages=window.__adminUsersPages||1;
+      var lab=document.getElementById('admin-users-page-label');
+      if(lab) lab.textContent='Page '+page+' / '+pages;
+      var prev=document.getElementById('admin-users-prev');
+      var next=document.getElementById('admin-users-next');
+      if(prev) prev.disabled=page<=1;
+      if(next) next.disabled=page>=pages;
+      if(!list.length){box.innerHTML='<div style="color:var(--muted);font-size:13px;padding:10px 2px">'+(total===0?'No registered accounts found.':'No users match this search.')+'</div>';return}
       box.innerHTML=list.map(function(u){
         var st=adminStatus(u), ip=u.ip_address||u.ip||'Not recorded';
         var ipBanned=u.ip_banned===true;
-        var created=u.created_at?ago(new Date(u.created_at).getTime()):'';
+        var created=u.created_at?ago(new Date(u.created_at).getTime()):(u.updated_at?ago(new Date(u.updated_at).getTime()):'');
         var avatar=u.avatar_url?'<img src="'+adminEsc(u.avatar_url)+'" style="width:34px;height:34px;border-radius:50%;object-fit:cover"/>':'<div class="av" style="width:34px;height:34px;font-size:13px">'+adminEsc(String(u.username||'?').charAt(0).toUpperCase())+'</div>';
         var actions='';
         if(st==='active') actions+='<button class="btn btn-secondary btn-sm" type="button" onclick="adminSetUserStatus(\''+adminEsc(u.username).replace(/'/g,"\\'")+'\',\'suspended\')">Suspend</button><button class="btn btn-danger btn-sm" type="button" onclick="adminSetUserStatus(\''+adminEsc(u.username).replace(/'/g,"\\'")+'\',\'banned\')">Ban</button>';
@@ -26444,12 +26624,14 @@ async function onIdFace(e){
         return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px">'
           +'<div style="display:flex;gap:9px;align-items:flex-start">'+avatar+'<div style="flex:1;min-width:0">'
           +'<div style="display:flex;align-items:center;justify-content:space-between;gap:6px"><strong style="font-size:14px">@'+adminEsc(u.username||'unknown')+'</strong><span style="font-size:10px;font-weight:800;padding:3px 7px;border-radius:999px;border:1px solid;'+adminStatusStyle(st)+'">'+adminStatusLabel(st)+'</span></div>'
-          +'<div style="font-size:11px;color:var(--muted);margin-top:3px;word-break:break-all">'+adminEsc(u.email||'No email')+'</div>'
-          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">IP: '+adminEsc(ip)+(ipBanned?' · 🚫 IP BANNED':'')+(created?' · '+adminEsc(created):'')+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:3px;word-break:break-all">'+adminEsc(u.email||'No email on profile')+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">IP: '+adminEsc(ip)+(ipBanned?' · IP BANNED':'')+(created?' · '+adminEsc(created):'')+'</div>'
           +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">'+actions+'</div>'
           +'</div></div></div>';
       }).join('');
     }
+    window.loadAdminUsers=loadAdminUsers;
+    window.renderAdminUsers=renderAdminUsers;
     async function adminSetUserStatus(username,status){
       if(!adminIsUnlocked()||!sb)return;
       var action=status==='banned'?'ban':(status==='suspended'?'suspend':'unblock');
@@ -27050,15 +27232,94 @@ async function onIdFace(e){
       try{refreshAdminBadges()}catch(e){}
     }
     async function adminUnpinFromPanel(id){
+      id=String(normalizeAdminPostId(id)||id||'');
+      if(!id){toast('Missing post id');return}
+      if(!isSiteAdmin()){toast('Admin login required to unpin');return}
+      var btn=null;
+      try{btn=document.querySelector('#admin-pin-'+CSS.escape(String(id))+' button.btn-danger')}catch(e){
+        try{btn=document.querySelector('#admin-pin-'+String(id).replace(/"/g,'')+' button.btn-danger')}catch(e2){}
+      }
+      try{if(btn){btn.disabled=true;btn.textContent='Unpinning…'}}catch(e){}
       try{
-        await adminPin(String(normalizeAdminPostId(id)), false);
-        toast('Unpinned #'+id);
+        // Optimistic UI — remove card immediately so mobile/desktop feel responsive.
+        try{
+          clearFeaturedForPost(id);
+          var card=document.getElementById('admin-pin-'+id);
+          if(card) card.remove();
+        }catch(e){}
+        var token='';
+        try{token=sessionStorage.getItem('rs_cf_admin_token')||''}catch(e){}
+        if(!token){
+          try{token=await cfAdminLogin()}catch(e){throw new Error('Admin login required to unpin')}
+        }
+        var r=await fetch('/api/admin-unpin',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+          body:JSON.stringify({postId:id}),
+          cache:'no-store'
+        });
+        var j=await r.json().catch(function(){return{}});
+        if(r.status===401){
+          try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
+          token=await cfAdminLogin();
+          r=await fetch('/api/admin-unpin',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+            body:JSON.stringify({postId:id}),
+            cache:'no-store'
+          });
+          j=await r.json().catch(function(){return{}});
+        }
+        if(!r.ok || !j || j.ok===false){
+          // Fallback to legacy adminPin path (CF + SB) if the API is cold/missing.
+          try{await adminPin(id, false)}catch(e2){
+            throw new Error((j&&(j.detail||j.error))||(e2&&e2.message)||'Could not unpin');
+          }
+        }else{
+          try{await retirePinBoardNotifs(id,{skipDb:true})}catch(e){}
+          try{clearFeaturedForPost(id)}catch(e){}
+          try{
+            if(sb){
+              var key=/^\d+$/.test(id)?Number(id):id;
+              await sb.from('posts').update({featured_until:null, featured:false}).eq('id', key);
+            }
+          }catch(e){}
+          try{await patchCfPost(id,{featured_until:0})}catch(e){}
+        }
+        try{await loadPublicPins()}catch(e){}
+        try{await loadPosts()}catch(e){}
+        try{renderPosts()}catch(e){}
         await renderAdminPinnedList();
         try{refreshAdminBadges()}catch(e){}
-      }catch(e){toast((e&&e.message)||'Could not unpin')}
+        toast('✓ Unpinned #'+id);
+      }catch(e){
+        try{if(btn){btn.disabled=false;btn.textContent='Unpin'}}catch(e2){}
+        toast((e&&e.message)||'Could not unpin');
+      }
     }
     window.renderAdminPinnedList=renderAdminPinnedList;
     window.adminUnpinFromPanel=adminUnpinFromPanel;
+    /** One-shot: clear every @LoserFagg pin (DB + board) without deleting posts. */
+    async function adminUnpinLoserFaggPins(){
+      if(!isSiteAdmin()){toast('Admin login required');return}
+      var token='';
+      try{token=sessionStorage.getItem('rs_cf_admin_token')||''}catch(e){}
+      if(!token) token=await cfAdminLogin();
+      var r=await fetch('/api/admin-unpin',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({username:'LoserFagg', allForUser:true}),
+        cache:'no-store'
+      });
+      var j=await r.json().catch(function(){return{}});
+      if(!r.ok||!j||j.ok===false) throw new Error((j&&(j.detail||j.error))||'unpin failed');
+      (j.unpinned||[]).forEach(function(pid){try{clearFeaturedForPost(String(pid))}catch(e){}});
+      try{await loadPublicPins()}catch(e){}
+      try{await renderAdminPinnedList()}catch(e){}
+      toast('✓ LoserFagg unpinned ('+((j.unpinned&&j.unpinned.length)||0)+')');
+      return j;
+    }
+    window.adminUnpinLoserFaggPins=adminUnpinLoserFaggPins;
     async function approveCloudflarePinRequest(id){
       try{
         id=String(id);
@@ -27697,9 +27958,18 @@ async function onIdFace(e){
       try{
         if(window.sb){
           var iso=until?new Date(until).toISOString():null;
-          var up=await sb.from('posts').update({featured_until:iso, featured:!!pin}).eq('id',id);
-          if(up&&!up.error) ok=true;
-          else if(up&&up.error) err=up.error.message||err;
+          var key=/^\d+$/.test(String(id))?Number(id):id;
+          // Prefer return=representation so RLS "0 rows updated" is not mistaken for success.
+          var up=await sb.from('posts').update({featured_until:iso, featured:!!pin}).eq('id',key).select('id');
+          if(up&&!up.error && up.data && up.data.length) ok=true;
+          else if(up&&!up.error && (!up.data || !up.data.length)){
+            // Authenticated JWT RLS often silently no-ops — fall back to anon REST.
+            try{
+              var anonOk=await adminSbAnonPatchPost(key,{featured_until:iso, featured:!!pin});
+              if(anonOk) ok=true;
+              else err=err||'db_unpin_no_row';
+            }catch(e2){err=(e2&&e2.message)||err||'db_unpin_no_row'}
+          }else if(up&&up.error) err=up.error.message||err;
         }
       }catch(e){err=(e&&e.message)||err}
       // Fallback create only if patch failed — keep original id when possible to avoid feed dupes.
@@ -27820,10 +28090,22 @@ async function onIdFace(e){
       }catch(e){console.error(e);toast((e&&e.message)||'Could not delete photo')}
     }
 
-    async function deletePost(id){
+    async function deletePost(id, opts){
+      opts=opts||{};
       id=String(id);
       var post=(posts||[]).find(function(p){return String(p.id)===id})
         || (normalFeedPosts||[]).find(function(p){return String(p.id)===id});
+      try{if(!post && typeof findPostAnywhere==='function') post=findPostAnywhere(id)}catch(e){}
+      // Hard gate for local fallback — never wipe strangers' posts because a button was visible.
+      if(opts.requireOwner!==false){
+        var okOwner=false;
+        try{okOwner=typeof canDeletePostAsOwner==='function'?canDeletePostAsOwner(post):samePostOwner(post, currentUser&&currentUser.name)}catch(e){}
+        try{if(!okOwner && hasLocalOwnerToken(id)) okOwner=true}catch(e){}
+        if(!okOwner){
+          toast('Delete blocked — ownership not verified on server');
+          throw new Error('owner_required');
+        }
+      }
       var cfOk=false, sbOk=false, err='';
       try{
         var cf=await deleteCfPost(id);
