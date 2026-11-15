@@ -90,14 +90,28 @@
 
 ---
 
-## 7. Remaining / needs owner action
+## 7. Follow-up from agent audits (applied in same PR)
+
+From [Audit views media security](bc-a5b2b8ef-79e4-5df7-aa15-7aafe3a9a68d) + [Audit map and pins](bc-218a66bb-a20e-56ce-b20e-3a48b8bb0334):
+
+| Follow-up | Action |
+|-----------|--------|
+| Worker `/media` → R2 rewrite missing on Wall/ID | `mergePostImages` now maps every URL through `publicMediaUrl` |
+| Wall quiet refresh could lower views | `Math.max` + localViewsFloor on in-place merge |
+| Ungated `adminPin` / approve helpers | Client grant after FC spend / Triki server OK / admin session; `approveFeature` + `approvePinPublish` require `isSiteAdmin()` |
+| Hardcoded `kenny00` in `kenny-touchard.html` | Removed; device-local password bootstrap only |
+| Impression + detail both bump views | **Left as current product rule** (not artificial inflation change) |
+
+## 8. Remaining / needs owner action
 
 1. **Full physical DB backup** via Supabase Dashboard PITR / `pg_dump` (service_role) — anon export is incomplete.
-2. **Cloudflare Worker** should persist `/view` into the same store as the SPA (or proxy to Supabase) so non-browser clients also count.
-3. **Pin provenance**: store `source` (`fc` / `paypal` / `roulette` / `admin`) on `__PIN_BOARD__` messages for audits.
-4. **Existing street-address pins** on CF: display is sanitized; old raw messages remain until users re-save (do not mass-delete without approval).
-5. Optional: add `deletion_tier` column when ready (migration already exists locally; production missing).
-6. End-to-end payment confirmation flows need a staging PayPal/Throne sandbox run by the owner.
+2. **Cloudflare Worker** must reject unauthenticated writes to `__PIN_BOARD__` / `__PIN_REWARDS__` (client gate is defense-in-depth only).
+3. Worker should persist `/view` into Supabase (or shared store).
+4. **Pin provenance**: store `source` (`fc` / `paypal` / `triki` / `admin`) on board messages.
+5. Triki: server must verify session wins, not trust body `wins` alone.
+6. **Existing street-address pins** on CF: display sanitized; old raw messages remain until re-save.
+7. Optional: add `deletion_tier` column when ready.
+8. Staging PayPal/Throne sandbox run by the owner.
 
 ---
 

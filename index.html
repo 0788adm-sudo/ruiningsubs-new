@@ -4747,6 +4747,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var imgs=parseImages(base||'');
       unpackAlbumTags(tags).forEach(function(u){if(imgs.indexOf(u)<0)imgs.push(u)});
       (extra||[]).forEach(function(u){if(u&&imgs.indexOf(u)<0)imgs.push(u)});
+      // Worker /media/* is flaky (HEAD 404); rewrite to public R2 for Wall/ID cards.
+      try{
+        imgs=imgs.map(function(u){return typeof publicMediaUrl==='function'?publicMediaUrl(u):u}).filter(Boolean);
+        // de-dupe after rewrite
+        var seen={}, out=[];
+        imgs.forEach(function(u){var k=String(u); if(seen[k])return; seen[k]=1; out.push(u)});
+        imgs=out;
+      }catch(e){}
       return imgs.slice(0,5);
     }
     function extractTaskImg(body){
@@ -4813,25 +4821,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       // use loading=lazy / decoding=async / constrained CSS to avoid layout jank.
       return src;
     }
-    // Wall / Explore media: one retry via publicMediaUrl, then soft placeholder (never leave a dead black box).
+    // Wall / Explore media: retry via publicMediaUrl (Worker /media → R2), then soft placeholder.
     window.__nfImgRetry=function(img){
       try{
-        if(!img||img.getAttribute('data-nf-retry')==='1'){
-          if(img){
-            img.onerror=null;
-            img.style.background='#1a1a22';
-            img.style.minHeight='180px';
-            img.alt='Media unavailable';
-          }
-          return;
+        if(!img)return;
+        var step=Number(img.getAttribute('data-nf-retry')||0)||0;
+        var raw=img.getAttribute('data-orig')||img.getAttribute('src')||'';
+        if(!img.getAttribute('data-orig')) img.setAttribute('data-orig', raw);
+        if(step===0){
+          img.setAttribute('data-nf-retry','1');
+          var next=typeof publicMediaUrl==='function'?publicMediaUrl(raw):raw;
+          if(next && next!==img.getAttribute('src')){ img.src=next; return; }
+          step=1;
         }
-        img.setAttribute('data-nf-retry','1');
-        var raw=img.getAttribute('src')||'';
-        var next=typeof publicMediaUrl==='function'?publicMediaUrl(raw):raw;
-        if(next && next!==raw){ img.src=next; return; }
         img.onerror=null;
         img.style.background='#1a1a22';
         img.style.minHeight='180px';
+        img.alt='Media unavailable';
       }catch(e){}
     };
     function wallSkeletonHtml(n){
@@ -17177,8 +17183,10 @@ function openRoulette(){
               try{
                 var hit=(normalFeedPosts||[]).find(function(x){return String(x.id)===String(p.id)});
                 if(hit){
-                  hit.likes=p.likes; hit.views=p.views; hit.hotCount=p.hotCount;
-                  hit.commentCount=p.commentCount||hit.commentCount;
+                  hit.likes=Math.max(Number(hit.likes)||0, Number(p.likes)||0);
+                  hit.views=Math.max(Number(hit.views)||0, Number(p.views)||0, typeof localViewsFloor==='function'?localViewsFloor(hit.id):0);
+                  hit.hotCount=Math.max(Number(hit.hotCount)||0, Number(p.hotCount)||0);
+                  hit.commentCount=Math.max(Number(hit.commentCount)||0, Number(p.commentCount)||0);
                   hit.reactions=p.reactions||hit.reactions;
                 }
               }catch(e){}
@@ -20142,7 +20150,12 @@ function profileStatsHtml(userPosts, extra){
           user:coinUserId()
         });
       }catch(e){}
-      try{await adminPin(postId,true)}catch(e){}
+      // Only authorize client board write after server accepted the Triki result (or local fallback).
+      var serverOk=!!(j&&(j.ok||j.featured_until||j.featuredUntil||j.pinned||j.reward));
+      if(serverOk || !j){
+        try{authorizePinGrant(postId, 120000)}catch(e){}
+        try{await adminPin(postId,true)}catch(e){}
+      }
       ch.pinGranted=true;
       ch.done=true;
       try{
@@ -20152,7 +20165,7 @@ function profileStatsHtml(userPosts, extra){
           return arr.slice(0,40);
         })()));
       }catch(e){}
-      toast('REWARD: post pinned');
+      toast(serverOk||!j?'REWARD: post pinned':'Reward recorded — pin pending server confirm');
       return {postId:postId,api:j};
     }
     async function finishTtt(){
@@ -25507,6 +25520,7 @@ async function onIdFace(e){
       if(!src) try{src=(window.__gallery||[]).find(function(p){return String(p.id)===String(id)})}catch(e){}
       if(src){src.featuredUntil=until;try{saveFeaturedSnap(src,until)}catch(e){}}
       try{(posts||[]).forEach(function(p){if(String(p.id)===String(id))p.featuredUntil=until})}catch(e){}
+      try{authorizePinGrant(id, 120000)}catch(e){}
       try{await Promise.race([adminPin(id,true), new Promise(function(r){setTimeout(r,4000)})])}catch(e){}
       try{
         if(typeof ensureFeedPost==='function'){
@@ -25709,6 +25723,10 @@ async function onIdFace(e){
     }
     window.submitPinPublish=submitPinPublish;
     async function approvePinPublish(id){
+      if(typeof isSiteAdmin==='function' && !isSiteAdmin()){
+        toast('Admin login required');
+        return;
+      }
       id=String(id);
       var found=null;
       try{
@@ -25748,6 +25766,7 @@ async function onIdFace(e){
       posts.unshift(post);
       try{setLocalFeatured(newId,until)}catch(e){}
       try{saveFeaturedSnap(post,until)}catch(e){}
+      try{authorizePinGrant(newId, 120000)}catch(e){}
       try{await adminPin(newId,true)}catch(e){}
       try{
         var left=(JSON.parse(localStorage.getItem('rs_pin_publish_req')||'[]')||[]).filter(function(x){return String(x.id)!==id});
@@ -27335,6 +27354,10 @@ async function onIdFace(e){
     }
 
     function approveFeature(id){
+      if(typeof isSiteAdmin==='function' && !isSiteAdmin()){
+        toast('Admin login required');
+        return Promise.resolve({ok:false,error:'unauthorized'});
+      }
       id=normalizeAdminPostId(id)||String(id);
       toast('Pinning #'+id+'…');
       try{
@@ -27342,6 +27365,7 @@ async function onIdFace(e){
         localStorage.setItem('rs_feature_req',JSON.stringify(a));
       }catch(e){}
       markDismissed('rs_feature_dismissed', id);
+      try{authorizePinGrant(id, 120000)}catch(e){}
       return Promise.resolve(adminPin(id,true)).then(async function(res){
         // Clear matching CF pin payment requests so Approve does not leave orphans.
         try{
@@ -27360,9 +27384,39 @@ async function onIdFace(e){
         toast((e&&e.message)||'Could not approve pin');
       });
     }
+    // One-shot grants after FC spend / verified Triki / admin approve — stops casual console forging.
+    var __pinAuthGrants={};
+    function authorizePinGrant(id, ms){
+      id=String(id||'');
+      if(!id)return;
+      __pinAuthGrants[id]=Date.now()+(Number(ms)||90000);
+    }
+    function consumePinGrant(id){
+      id=String(id||'');
+      var t=__pinAuthGrants[id];
+      if(t && Date.now()<Number(t)){ delete __pinAuthGrants[id]; return true; }
+      return false;
+    }
+    function canAuthorizePin(id){
+      try{if(typeof isSiteAdmin==='function' && isSiteAdmin()) return true}catch(e){}
+      return consumePinGrant(id);
+    }
     async function adminPin(id, pin){
       id=String(id);
       var until=pin?(Date.now()+48*60*60*1000):0;
+      // Global Spotlight writes require admin session or a fresh payment/game grant.
+      if(pin && !canAuthorizePin(id)){
+        try{toast('Pin not authorized')}catch(e){}
+        return {ok:false,error:'unauthorized'};
+      }
+      if(!pin){
+        var adminOk=false;
+        try{adminOk=typeof isSiteAdmin==='function'&&isSiteAdmin()}catch(e){}
+        if(!adminOk){
+          try{toast('Admin login required to unpin')}catch(e){}
+          return {ok:false,error:'unauthorized'};
+        }
+      }
       try{setLocalFeatured(id, until)}catch(e){}
       var src=null;
       try{src=(posts||[]).find(function(p){return String(p.id)===String(id)})}catch(e){}
