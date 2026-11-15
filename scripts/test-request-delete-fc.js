@@ -73,6 +73,10 @@ assert(html.indexOf('DELETE FC REQUEST') < 0, 'no FC admin request message');
 assert(html.indexOf('Post deleted successfully') >= 0, 'exact success toast');
 assert(html.indexOf('submitRemoveRequest blocked FC path') >= 0, 'submitRemoveRequest redirects FC to auto-delete');
 assert(delApi.indexOf('sbRest') >= 0, 'delete-post REST fallback present');
+assert(delApi.indexOf('walletUserCandidates') >= 0, 'delete-post preserves wallet casing');
+assert(delApi.indexOf('resolveFcBalance') >= 0, 'delete-post resolves same balance as header');
+assert(delApi.indexOf('spendSupabaseFc') >= 0, 'delete-post can spend Supabase coin_wallets');
+assert(html.indexOf('Same numeric truth as /api/delete-post') >= 0 || html.indexOf('highest of CF') >= 0, 'header uses same balance resolution');
 assert(
   JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).dependencies['@supabase/supabase-js'],
   'package.json ships @supabase/supabase-js for Vercel'

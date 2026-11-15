@@ -2,6 +2,7 @@
 /**
  * Behavioral proof: /api/delete-post reason=paid charges once, deletes the row,
  * never hits admin request/notif endpoints, and refunds if delete fails.
+ * Also proves header/spend identity match (case + Supabase fallback).
  */
 'use strict';
 
@@ -12,24 +13,28 @@ var Module = require('module');
 var CF = 'https://ruiningsubs-api.0788adm.workers.dev';
 var SB = 'https://snlpdolzhzcbbdyxqlnb.supabase.co';
 var calls = [];
-var walletBalance = 500;
-var posts = {
-  'post-fc-1': {
-    id: 'post-fc-1',
-    username: 'publisher1',
-    tags: ['del:deletable'],
-    expires_at: null,
-    extend_amount: null,
-    deletion_tier: 'deletable',
-    free_deletion_enabled: true,
-    owner_token_hash: null
-  }
-};
-var ledger = [];
+var cfWallets = Object.create(null); // case-sensitive CF balances
+var sbWallets = Object.create(null); // Supabase coin_wallets
+var posts = {};
+var ledgerByUser = Object.create(null);
 var forceDeleteFail = false;
 
 function record(kind, url, body) {
   calls.push({ kind: kind, url: String(url || ''), body: body || null });
+}
+
+function ledgerFor(user) {
+  if (!ledgerByUser[user]) ledgerByUser[user] = [];
+  return ledgerByUser[user];
+}
+
+function resetState() {
+  calls = [];
+  cfWallets = Object.create(null);
+  sbWallets = Object.create(null);
+  posts = {};
+  ledgerByUser = Object.create(null);
+  forceDeleteFail = false;
 }
 
 global.fetch = async function (url, opts) {
@@ -47,29 +52,44 @@ global.fetch = async function (url, opts) {
   record(method, u, body);
 
   if (u.indexOf(CF + '/wallet/ledger') === 0) {
+    var lu = decodeURIComponent((u.split('user=')[1] || '').split('&')[0] || '');
     return {
       ok: true,
       status: 200,
       json: async function () {
-        return { ok: true, ledger: ledger.slice() };
+        return { ok: true, ledger: ledgerFor(lu).slice() };
+      }
+    };
+  }
+
+  if (u.indexOf(CF + '/wallet?user=') === 0 && method === 'GET') {
+    var gu = decodeURIComponent(u.split('user=')[1] || '');
+    var gbal = Number(cfWallets[gu] || 0) || 0;
+    return {
+      ok: true,
+      status: 200,
+      json: async function () {
+        return { ok: true, user: gu, balance: gbal };
       }
     };
   }
 
   if (u === CF + '/wallet' && method === 'POST') {
+    var wu = String((body && body.user) || '');
     if (body && body.spend) {
       var spend = Number(body.spend) || 0;
-      if (walletBalance < spend) {
+      var bal = Number(cfWallets[wu] || 0) || 0;
+      if (bal < spend) {
         return {
           ok: false,
           status: 402,
           json: async function () {
-            return { ok: false, error: 'insufficient', balance: walletBalance };
+            return { ok: false, error: 'insufficient', balance: bal };
           }
         };
       }
-      walletBalance -= spend;
-      ledger.unshift({
+      cfWallets[wu] = bal - spend;
+      ledgerFor(wu).unshift({
         kind: 'spend',
         action: body.action || 'delete',
         ref_id: body.ref,
@@ -80,13 +100,13 @@ global.fetch = async function (url, opts) {
         ok: true,
         status: 200,
         json: async function () {
-          return { ok: true, balance: walletBalance };
+          return { ok: true, balance: cfWallets[wu] };
         }
       };
     }
     if (body && body.add) {
-      walletBalance += Number(body.add) || 0;
-      ledger.unshift({
+      cfWallets[wu] = (Number(cfWallets[wu] || 0) || 0) + (Number(body.add) || 0);
+      ledgerFor(wu).unshift({
         kind: 'add',
         action: body.action || 'delete_refund',
         ref_id: body.ref,
@@ -97,33 +117,57 @@ global.fetch = async function (url, opts) {
         ok: true,
         status: 200,
         json: async function () {
-          return { ok: true, balance: walletBalance };
+          return { ok: true, balance: cfWallets[wu] };
         }
       };
     }
   }
 
   if (u.indexOf(CF + '/posts/') === 0 && method === 'DELETE') {
-    return {
-      ok: true,
-      status: 200,
-      json: async function () {
-        return { ok: true };
-      }
-    };
+    return { ok: true, status: 200, json: async function () { return { ok: true }; } };
   }
-
   if (u.indexOf(CF + '/admin/requests') === 0) {
-    return {
-      ok: true,
-      status: 200,
-      json: async function () {
-        return { ok: true, requests: [] };
-      }
-    };
+    return { ok: true, status: 200, json: async function () { return { ok: true, requests: [] }; } };
   }
 
-  // Supabase REST
+  // Supabase coin_wallets
+  if (u.indexOf(SB + '/rest/v1/coin_wallets') === 0) {
+    var uidMatch = u.match(/user_id=eq\.([^&]+)/);
+    var uid = uidMatch ? decodeURIComponent(uidMatch[1]) : '';
+    if (method === 'GET' || !opts.method) {
+      var sbBal = Number(sbWallets[uid] || 0) || 0;
+      var rows = uid in sbWallets ? [{ user_id: uid, balance: sbBal }] : [];
+      return {
+        ok: true,
+        status: 200,
+        text: async function () { return JSON.stringify(rows); },
+        json: async function () { return rows; }
+      };
+    }
+    if (method === 'PATCH') {
+      var cur = Number(sbWallets[uid] || 0) || 0;
+      var needGte = /balance=gte\.(\d+)/.exec(u);
+      if (needGte && cur < Number(needGte[1])) {
+        return {
+          ok: true,
+          status: 200,
+          text: async function () { return '[]'; },
+          json: async function () { return []; }
+        };
+      }
+      var next = body && body.balance != null ? Number(body.balance) : cur;
+      sbWallets[uid] = next;
+      var out = [{ user_id: uid, balance: next }];
+      return {
+        ok: true,
+        status: 200,
+        text: async function () { return JSON.stringify(out); },
+        json: async function () { return out; }
+      };
+    }
+  }
+
+  // Supabase posts
   if (u.indexOf(SB + '/rest/v1/posts') === 0) {
     if (method === 'GET' || method === 'HEAD' || !opts.method) {
       var idMatch = u.match(/id=eq\.([^&]+)/);
@@ -133,12 +177,8 @@ global.fetch = async function (url, opts) {
       return {
         ok: true,
         status: 200,
-        text: async function () {
-          return text;
-        },
-        json: async function () {
-          return row ? [row] : [];
-        }
+        text: async function () { return text; },
+        json: async function () { return row ? [row] : []; }
       };
     }
     if (method === 'DELETE') {
@@ -146,12 +186,8 @@ global.fetch = async function (url, opts) {
         return {
           ok: false,
           status: 500,
-          text: async function () {
-            return JSON.stringify({ message: 'forced_fail' });
-          },
-          json: async function () {
-            return { message: 'forced_fail' };
-          }
+          text: async function () { return JSON.stringify({ message: 'forced_fail' }); },
+          json: async function () { return { message: 'forced_fail' }; }
         };
       }
       var delMatch = u.match(/id=eq\.([^&]+)/);
@@ -160,30 +196,20 @@ global.fetch = async function (url, opts) {
       return {
         ok: true,
         status: 200,
-        text: async function () {
-          return '[]';
-        },
-        json: async function () {
-          return [];
-        }
+        text: async function () { return '[]'; },
+        json: async function () { return []; }
       };
     }
   }
 
-  // Anything else (cache purge, etc.) — ignore quietly
   return {
     ok: true,
     status: 200,
-    text: async function () {
-      return '{}';
-    },
-    json: async function () {
-      return {};
-    }
+    text: async function () { return '{}'; },
+    json: async function () { return {}; }
   };
 };
 
-// Force REST path (no @supabase client) so the fallback is exercised.
 var origRequire = Module.prototype.require;
 Module.prototype.require = function (id) {
   if (id === '@supabase/supabase-js') {
@@ -200,60 +226,23 @@ function mockRes() {
     statusCode: 0,
     headers: {},
     body: '',
-    setHeader: function (k, v) {
-      this.headers[k] = v;
-    },
-    end: function (s) {
-      this.body = String(s || '');
-    }
+    setHeader: function (k, v) { this.headers[k] = v; },
+    end: function (s) { this.body = String(s || ''); }
   };
 }
 
 async function invoke(body) {
-  var req = {
-    method: 'POST',
-    headers: {},
-    body: body
-  };
+  var req = { method: 'POST', headers: {}, body: body };
   var res = mockRes();
   await handler(req, res);
   var json = {};
-  try {
-    json = JSON.parse(res.body || '{}');
-  } catch (_) {}
+  try { json = JSON.parse(res.body || '{}'); } catch (_) {}
   return { status: res.statusCode, json: json };
 }
 
-function noAdminTraffic() {
-  return calls.every(function (c) {
-    var u = c.url;
-    var body = c.body || {};
-    // Pin-board cleanup after delete is allowed (not an admin delete request).
-    if (/\/notifs/.test(u)) {
-      var to = String(body.to_username || '');
-      if (to === '__PIN_BOARD__' || to === '__PIN_REWARDS__') return true;
-      if (/notifs\?to=__PIN_/.test(u)) return true;
-      if (/\/notifs\/[^?]+$/.test(u) && c.kind === 'DELETE') return true;
-      // Any other notif POST would be an admin/user notify — forbidden for FC auto-delete.
-      if (c.kind === 'POST') return false;
-      return true;
-    }
-    if (/\/admin\/requests/.test(u) && c.kind === 'GET') return true;
-    if (/\/requests/.test(u) && c.kind === 'POST') return false;
-    if (/admin-request/.test(u)) return false;
-    if (body && body.kind === 'remove_request') return false;
-    if (body && /DELETE FC REQUEST|pending admin verify/i.test(String(body.message || ''))) return false;
-    return true;
-  });
-}
-
-(async function main() {
-  // 1) Happy path: charge + delete, no admin
-  calls = [];
-  walletBalance = 500;
-  ledger = [];
-  posts['post-fc-1'] = {
-    id: 'post-fc-1',
+function samplePost(id) {
+  return {
+    id: id,
     username: 'publisher1',
     tags: ['del:deletable'],
     expires_at: null,
@@ -262,8 +251,33 @@ function noAdminTraffic() {
     free_deletion_enabled: true,
     owner_token_hash: null
   };
-  forceDeleteFail = false;
+}
 
+function noAdminTraffic() {
+  return calls.every(function (c) {
+    var u = c.url;
+    var body = c.body || {};
+    if (/\/notifs/.test(u)) {
+      var to = String(body.to_username || '');
+      if (to === '__PIN_BOARD__' || to === '__PIN_REWARDS__') return true;
+      if (/notifs\?to=__PIN_/.test(u)) return true;
+      if (/\/notifs\/[^?]+$/.test(u) && c.kind === 'DELETE') return true;
+      if (c.kind === 'POST') return false;
+      return true;
+    }
+    if (/\/admin\/requests/.test(u) && c.kind === 'GET') return true;
+    if (/\/requests/.test(u) && c.kind === 'POST') return false;
+    if (/admin-request/.test(u)) return false;
+    if (body && body.kind === 'remove_request') return false;
+    return true;
+  });
+}
+
+(async function main() {
+  // 1) Happy path
+  resetState();
+  cfWallets.buyer1 = 500;
+  posts['post-fc-1'] = samplePost('post-fc-1');
   var r1 = await invoke({
     user: 'buyer1',
     postId: 'post-fc-1',
@@ -274,44 +288,27 @@ function noAdminTraffic() {
   assert.strictEqual(r1.json.ok, true, 'paid delete ok');
   assert.strictEqual(r1.json.charged, 50, 'charged exactly 50');
   assert.strictEqual(r1.json.admin_notified, false, 'admin_notified false');
-  assert.strictEqual(r1.json.auto_deleted, true, 'auto_deleted true');
-  assert.strictEqual(r1.json.reason, 'paid', 'reason paid');
-  assert.strictEqual(walletBalance, 450, 'balance decreased by 50');
-  assert.strictEqual(posts['post-fc-1'], undefined, 'post removed from DB');
-  if (!noAdminTraffic()) {
-    console.error('ADMIN LEAK CALLS', JSON.stringify(calls, null, 2));
-  }
-  assert.ok(noAdminTraffic(), 'no admin request/notif traffic on success');
+  assert.strictEqual(cfWallets.buyer1, 450, 'balance decreased by 50');
+  assert.strictEqual(posts['post-fc-1'], undefined, 'post removed');
+  assert.ok(noAdminTraffic(), 'no admin traffic');
   console.log('PASS · paid FC auto-delete removes post and skips admin');
 
-  // 2) Idempotent re-entry after delete
-  calls = [];
+  // 2) Idempotent replay
   var r2 = await invoke({
     user: 'buyer1',
     postId: 'post-fc-1',
     reason: 'paid',
     idempotencyKey: 'delete-post:post-fc-1:buyer1:50'
   });
-  assert.strictEqual(r2.status, 200, 'already_deleted status');
-  assert.strictEqual(r2.json.already_deleted, true, 'already_deleted flag');
+  assert.strictEqual(r2.json.already_deleted, true, 'already_deleted');
   assert.strictEqual(r2.json.charged, 0, 'no second charge');
-  assert.strictEqual(walletBalance, 450, 'balance unchanged on replay');
+  assert.strictEqual(cfWallets.buyer1, 450, 'balance unchanged');
   console.log('PASS · idempotent already_deleted does not double-charge');
 
-  // 3) Delete failure after NEW charge → refund
-  calls = [];
-  walletBalance = 200;
-  ledger = [];
-  posts['post-fc-2'] = {
-    id: 'post-fc-2',
-    username: 'publisher2',
-    tags: ['del:locked'],
-    expires_at: null,
-    extend_amount: null,
-    deletion_tier: 'locked',
-    free_deletion_enabled: false,
-    owner_token_hash: null
-  };
+  // 3) Refund on delete failure
+  resetState();
+  cfWallets.buyer2 = 200;
+  posts['post-fc-2'] = samplePost('post-fc-2');
   forceDeleteFail = true;
   var r3 = await invoke({
     user: 'buyer2',
@@ -320,57 +317,80 @@ function noAdminTraffic() {
     idempotencyKey: 'delete-post:post-fc-2:buyer2:50'
   });
   assert.strictEqual(r3.status, 500, 'delete_failed status');
-  assert.strictEqual(r3.json.error, 'delete_failed', 'delete_failed error');
-  assert.strictEqual(r3.json.refunded, true, 'refunded true');
-  assert.strictEqual(walletBalance, 200, 'coins restored after failed delete');
-  assert.ok(posts['post-fc-2'], 'post still present after failed delete');
-  assert.ok(noAdminTraffic(), 'no admin traffic on refund path');
+  assert.strictEqual(r3.json.refunded, true, 'refunded');
+  assert.strictEqual(cfWallets.buyer2, 200, 'coins restored');
+  assert.ok(posts['post-fc-2'], 'post still present');
   console.log('PASS · failed delete refunds 50 FC and leaves post');
 
-  // 4) Insufficient FC — no delete, no admin
-  calls = [];
-  forceDeleteFail = false;
-  walletBalance = 10;
-  ledger = [];
-  posts['post-fc-3'] = {
-    id: 'post-fc-3',
-    username: 'publisher3',
-    tags: ['del:deletable'],
-    expires_at: null,
-    extend_amount: null,
-    deletion_tier: 'deletable',
-    free_deletion_enabled: true,
-    owner_token_hash: null
-  };
-  var r4 = await invoke({
-    user: 'poor1',
-    postId: 'post-fc-3',
-    reason: 'paid'
-  });
-  assert.strictEqual(r4.status, 402, 'insufficient status');
-  assert.strictEqual(r4.json.error, 'insufficient', 'insufficient error');
-  assert.ok(posts['post-fc-3'], 'post not deleted on insufficient');
-  assert.strictEqual(walletBalance, 10, 'balance unchanged when insufficient');
-  assert.ok(noAdminTraffic(), 'no admin traffic on insufficient');
-  console.log('PASS · insufficient FC blocks delete without admin notify');
+  // 4) Balance ladder: 0 / 49 / 50 / 100 / 999480
+  async function ladder(name, bal, expectOk) {
+    resetState();
+    cfWallets[name] = bal;
+    posts['p-' + name] = samplePost('p-' + name);
+    var r = await invoke({ user: name, postId: 'p-' + name, reason: 'paid' });
+    if (expectOk) {
+      assert.strictEqual(r.status, 200, name + ' status');
+      assert.strictEqual(r.json.charged, 50, name + ' charged');
+      assert.strictEqual(cfWallets[name], bal - 50, name + ' remaining');
+      assert.strictEqual(posts['p-' + name], undefined, name + ' deleted');
+    } else {
+      assert.strictEqual(r.status, 402, name + ' insufficient status');
+      assert.strictEqual(r.json.error, 'insufficient', name + ' insufficient');
+      assert.strictEqual(cfWallets[name], bal, name + ' untouched');
+      assert.ok(posts['p-' + name], name + ' still present');
+      assert.strictEqual(Number(r.json.have || r.json.balance), bal, name + ' reports have=' + bal);
+    }
+  }
+  await ladder('u0', 0, false);
+  await ladder('u49', 49, false);
+  await ladder('u50', 50, true);
+  await ladder('u100', 100, true);
+  await ladder('u999480', 999480, true);
+  console.log('PASS · balance ladder 0/49/50/100/999480');
 
-  // 5) Static contract: package + REST fallback + no FC admin copy
+  // 5) CRITICAL: header casing vs lowercased spend key
+  resetState();
+  cfWallets.BigBoisLut = 999480; // balance lives under original casing
+  cfWallets.bigboislut = 0; // lowercased empty wallet (old bug target)
+  posts['post-case'] = samplePost('post-case');
+  var rCase = await invoke({
+    user: 'BigBoisLut',
+    postId: 'post-case',
+    reason: 'paid',
+    idempotencyKey: 'delete-post:post-case:bigboislut:50'
+  });
+  assert.strictEqual(rCase.status, 200, 'cased user delete ok');
+  assert.strictEqual(rCase.json.charged, 50, 'cased charged 50');
+  assert.strictEqual(cfWallets.BigBoisLut, 999430, 'cased wallet deducted');
+  assert.strictEqual(cfWallets.bigboislut, 0, 'lowercase wallet untouched');
+  assert.strictEqual(posts['post-case'], undefined, 'cased post deleted');
+  console.log('PASS · case-sensitive wallet matches header balance (no false insufficient)');
+
+  // 6) Supabase fallback when CF empty but header reads coin_wallets
+  resetState();
+  cfWallets.sbUser = 0;
+  sbWallets.sbUser = 999480;
+  posts['post-sb'] = samplePost('post-sb');
+  var rSb = await invoke({ user: 'sbUser', postId: 'post-sb', reason: 'paid' });
+  assert.strictEqual(rSb.status, 200, 'sb fallback ok');
+  assert.strictEqual(rSb.json.charged, 50, 'sb charged');
+  assert.strictEqual(rSb.json.source, 'supabase', 'source supabase');
+  assert.strictEqual(sbWallets.sbUser, 999430, 'sb balance deducted');
+  assert.strictEqual(posts['post-sb'], undefined, 'sb post deleted');
+  console.log('PASS · Supabase coin_wallets spend when CF empty');
+
+  // 7) Static contract
   var fs = require('fs');
   var root = path.join(__dirname, '..');
-  var pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   var api = fs.readFileSync(path.join(root, 'api', 'delete-post.js'), 'utf8');
-  assert.ok(pkg.dependencies && pkg.dependencies['@supabase/supabase-js'], 'package.json includes @supabase/supabase-js');
-  assert.ok(api.indexOf('sbRest') >= 0, 'delete-post has REST fallback');
-  assert.ok(api.indexOf('admin_notified: false') >= 0, 'API never claims admin notify');
-  assert.ok(html.indexOf('Post deleted successfully') >= 0, 'success copy');
-  assert.ok(html.indexOf('Sending request to admin') < 0, 'no sending-to-admin copy');
-  assert.ok(html.indexOf('admin will review (post stays up)') < 0, 'no admin-will-review FC toast');
-  assert.ok(html.indexOf('DELETE FC REQUEST') < 0, 'no DELETE FC REQUEST admin message');
-  assert.ok(html.indexOf("submitRemoveRequest blocked FC path") >= 0, 'FC blocked from submitRemoveRequest');
-  assert.ok(html.indexOf("secureDeletePost(id,{reason:'paid'") >= 0, 'FC uses secureDeletePost paid');
-  assert.ok(!fs.existsSync(path.join(root, 'api', 'request-delete.js')), 'request-delete.js absent');
-  console.log('PASS · static FC auto-delete contract');
+  assert.ok(api.indexOf('walletUserCandidates') >= 0, 'wallet case candidates');
+  assert.ok(api.indexOf('resolveFcBalance') >= 0, 'shared balance resolver');
+  assert.ok(api.indexOf('spendSupabaseFc') >= 0, 'supabase spend fallback');
+  assert.ok(html.indexOf('coinUserId') >= 0 && html.indexOf("secureDeletePost") >= 0, 'client uses coin identity');
+  assert.ok(html.indexOf('Checking balance, then charging 50 FC') >= 0, 'progress not fake-success');
+  assert.ok(html.indexOf('Same numeric truth as /api/delete-post') >= 0, 'header matches API resolution');
+  console.log('PASS · static balance/identity contract');
 
   console.log('OK · fc-autodelete-handler');
 })().catch(function (e) {

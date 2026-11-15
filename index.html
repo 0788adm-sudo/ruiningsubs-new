@@ -8086,21 +8086,34 @@ async function claimPayPalPack(p){
       var el=document.getElementById('coin-balance');
       var uid=coinUserId();
       var n=0;
-      try{n=await cfWalletGet(uid)}catch(e){}
-      if(!n){
-        try{
-          var aliases=JSON.parse(localStorage.getItem('rs_wallet_alias')||'{}')||{};
-          var olds=Object.keys(aliases).filter(function(k){return aliases[k]===uid});
-          for(var ai=0;ai<olds.length && !n;ai++){
-            n=await cfWalletGet(olds[ai]);
-            if(n){try{await migrateCoinsOnRename(olds[ai],uid)}catch(e){}}
-          }
-        }catch(e){}
-      }
-      if(!n && window.sb){
+      // Same numeric truth as /api/delete-post: highest of CF (exact/lowercase/aliases) and Supabase.
+      function consider(v){v=Number(v)||0; if(v>n) n=v}
+      try{consider(await cfWalletGet(uid))}catch(e){}
+      try{
+        var low=String(uid||'').toLowerCase();
+        if(low && low!==String(uid||'')) consider(await cfWalletGet(low));
+      }catch(e){}
+      try{
+        var aliases=JSON.parse(localStorage.getItem('rs_wallet_alias')||'{}')||{};
+        var olds=Object.keys(aliases).filter(function(k){return aliases[k]===uid});
+        for(var ai=0;ai<olds.length;ai++){
+          try{
+            var ab=await cfWalletGet(olds[ai]);
+            if(ab){consider(ab); try{await migrateCoinsOnRename(olds[ai],uid)}catch(e){}}
+          }catch(e){}
+        }
+      }catch(e){}
+      if(window.sb){
         try{
           var r=await sb.from('coin_wallets').select('balance').eq('user_id',uid).maybeSingle();
-          if(r.data&&r.data.balance!=null) n=Number(r.data.balance)||0;
+          if(r.data&&r.data.balance!=null) consider(r.data.balance);
+        }catch(e){}
+        try{
+          var low2=String(uid||'').toLowerCase();
+          if(low2 && low2!==String(uid||'')){
+            var r2=await sb.from('coin_wallets').select('balance').eq('user_id',low2).maybeSingle();
+            if(r2.data&&r2.data.balance!=null) consider(r2.data.balance);
+          }
         }catch(e){}
       }
       try{
@@ -25417,7 +25430,9 @@ async function onIdFace(e){
       opts=opts||{};
       id=String(id||'');
       if(!id){toast('Open the post first');return false}
-      var user=(currentUser&&currentUser.name)||'';
+      // Must match header balance identity (coinUserId), not a lowercased / divergent key.
+      var user=(typeof coinUserId==='function'?coinUserId():'')||((currentUser&&currentUser.name)||'');
+      user=String(user||'').replace(/^@/,'').trim();
       var ownerToken=opts.ownerToken||getOwnerToken(id)||'';
       var moderation=String(opts.reason||'')==='moderation'||String(opts.reason||'')==='privacy';
       if(!user && !ownerToken && !moderation){toast('Login required');try{showAuth('login')}catch(e){}return false}
@@ -25467,7 +25482,10 @@ async function onIdFace(e){
           return true;
         }
         if(j && (j.error==='insufficient'||j.error==='insufficient_fc'||r.status===402)){
-          toast('Insufficient FC — need '+(j.need||j.cost||50)+' FC');
+          try{if(j.balance!=null) window.__fcLast=Number(j.balance)||0}catch(e){}
+          try{await loadFagBalance()}catch(e){}
+          var have=j.have!=null?j.have:(j.balance!=null?j.balance:window.__fcLast);
+          toast('Insufficient FC — need '+(j.need||j.cost||50)+' FC'+(have!=null?(' · have '+have):''));
           try{openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}
           return false;
         }
@@ -25598,7 +25616,7 @@ async function onIdFace(e){
         document.body.appendChild(ov);
       }
       var stages={
-        processing_payment:{title:'Delete · 50 FC',text:'Charging 50 FC and deleting the post…'},
+        processing_payment:{title:'Delete · 50 FC',text:'Checking balance, then charging 50 FC…'},
         completed:{title:'Post deleted successfully',text:'50 FC charged. The post is gone.'}
       };
       var s=stages[stage]||stages.processing_payment;
