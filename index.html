@@ -3135,7 +3135,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div class="admin-sec" id="asec-removereq" style="display:none">
             <div class="admin-card" style="margin-bottom:10px">
               <strong>DELETE REQUESTS</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending FC (50) and $5 remove requests, plus free rights / non-consensual reports. Shows requester, post ID, title, thumbnail, paid amount, and request time. <b>APPROVE &amp; DELETE</b> removes the post; <b>REJECT</b> can refund 50 FC once when paid with coins.</p>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending <b>$5 PayPal / Throne</b> remove requests (manual verify). FC deletions are automatic and do not appear here. Shows requester, post ID, title, thumbnail, amount, and request time. <b>APPROVE &amp; DELETE</b> removes the post; <b>REJECT</b> clears the request (legacy FC refund button still works once if needed).</p>
             </div>
             <div id="admin-req-remove"><div class="empty">Open to load…</div></div>
             <div class="admin-card" style="margin-top:12px">
@@ -3303,7 +3303,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </p>
       <p id="remove-post-id-label" style="display:none"></p>
       <a class="btn btn-primary" id="btn-remove-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5'})}catch(e){}">PayPal $5 · MartinJimenez205</a>
-      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Request instant deletion — 50 FC</button>
+      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete now — 50 FC</button>
       <div id="remove-request-status" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.35);color:#f5c518;font-size:13px;font-weight:700;line-height:1.4"></div>
       <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95">Pay $5 on Throne</a>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verify</button>
@@ -25389,15 +25389,14 @@ async function onIdFace(e){
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
       }else if(!owner){
-        // Anyone can request removal of someone else's post — $5 or FC (same spend path as Premium Pin).
-        // FC charges coins + creates an admin request; it does NOT auto-delete the post.
+        // FC = automatic immediate delete (no admin). PayPal / Throne / I paid = admin verify.
         // Rights / non-consensual reports go through the post-detail contact notice only.
         var delCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.delete)||50;
-        if(title) title.textContent='Request delete · $5';
-        if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. Pay <strong style="color:#f5c518">$5 USD</strong> or <strong style="color:#f5c518">'+delCost+' FC</strong>. Admin reviews before anything is removed — the post is not deleted automatically.';
+        if(title) title.textContent='Delete · '+delCost+' FC or $5';
+        if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. <strong style="color:#f5c518">'+delCost+' FC</strong> deletes it immediately. PayPal / Throne <strong style="color:#f5c518">$5</strong> needs admin verification after you tap <strong>I paid</strong>.';
         if(fc){
           fc.style.display='block';
-          fc.textContent='Request instant deletion — '+delCost+' FC';
+          fc.textContent='Delete now — '+delCost+' FC';
           fc.setAttribute('onclick','requestDeleteWithCoins()');
         }
         if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verify'}
@@ -25472,6 +25471,11 @@ async function onIdFace(e){
           try{openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}
           return false;
         }
+        if(j && j.refunded){
+          toast('Delete failed — 50 FC refunded');
+          try{await loadFagBalance()}catch(e){}
+          return false;
+        }
         if(allowLocal){
           try{await deletePost(id,{requireOwner:true});return true}catch(e){}
         }
@@ -25543,7 +25547,7 @@ async function onIdFace(e){
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):((posts||[]).find(function(p){return String(p.id)===String(id)}))}catch(e){}
       var owner=samePostOwner(post, currentUser&&currentUser.name);
-      // Non-owner Request Delete always goes through the FC→admin-request path (never auto-delete).
+      // Non-owner FC delete is automatic (charge 50 FC + delete) — never an admin request.
       if(post && !owner){
         return requestDeleteWithCoins();
       }
@@ -25564,11 +25568,16 @@ async function onIdFace(e){
       }
       // Owner paid delete (locked / permanent / active Extend) → secure API charges 50 FC then deletes.
       if(owner && (tier==='locked'||tier==='permanent'||needsFc||paidRemove)){
+        try{deleteRequestProgress(true,'processing_payment')}catch(e){}
         toast('Deleting…');
         var okSecure=await secureDeletePost(id,{reason:'owner'});
         closeModals();
         if(okSecure){
+          try{deleteRequestProgress(true,'completed')}catch(e){}
+          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},800);
           try{showPanel('feed');renderPosts()}catch(e){}
+        }else{
+          try{deleteRequestProgress(false)}catch(e){}
         }
         return;
       }
@@ -25576,9 +25585,8 @@ async function onIdFace(e){
       closeModals();
     }
     /**
-     * Request Delete with FC — atomic /api/request-delete.
-     * Server charges FC_COSTS.delete AND creates admin remove_request in one call.
-     * Never auto-deletes the post. Never trusts browser balance.
+     * Delete with FC — atomic /api/delete-post (charge + delete immediately).
+     * NO admin notification, NO pending request. PayPal / I paid stay on submitRemoveRequest.
      */
     function deleteRequestProgress(on, stage){
       var ov=document.getElementById('pay-progress');
@@ -25590,10 +25598,8 @@ async function onIdFace(e){
         document.body.appendChild(ov);
       }
       var stages={
-        processing_payment:{title:'Processing payment',text:'Charging 50 FC from your balance…'},
-        sending_request:{title:'Sending request',text:'Creating deletion request for the administrator…'},
-        request_submitted:{title:'Request submitted',text:'50 FC charged successfully. Your deletion request has been sent to the administrator.'},
-        completed:{title:'Completed',text:'Administrator completed your deletion request.'}
+        processing_payment:{title:'Processing payment',text:'Charging 50 FC and deleting the post…'},
+        completed:{title:'Completed',text:'Post successfully deleted. 50 FC charged.'}
       };
       var s=stages[stage]||stages.processing_payment;
       ov.innerHTML='<div style="width:100%;max-width:360px;background:#0c0c10;border:1px solid #2a2a32;border-radius:18px;padding:22px;text-align:center">'
@@ -25626,25 +25632,26 @@ async function onIdFace(e){
       }catch(e){}
     }
     function showRemoveRequestStatus(postId){
+      // Only for external $5 / I-paid admin requests — FC auto-delete has no pending state.
       var box=document.getElementById('remove-request-status');
       if(!box)return;
       postId=String(postId||window.__removePostId||currentDetailId||'');
       var hit=null;
       try{
         var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
-        hit=req.find(function(x){return String(x.id)===postId});
+        hit=req.find(function(x){return String(x.id)===postId && !x.paidWithFc});
       }catch(e){}
       var hist=null;
       try{
         var h=JSON.parse(localStorage.getItem('rs_remove_history')||'[]')||[];
-        hist=h.find(function(x){return String(x.id)===postId});
+        hist=h.find(function(x){return String(x.id)===postId && !x.paidWithFc});
       }catch(e){}
       var st=String((hist&&hist.status)||(hit&&hit.status)||'').toLowerCase();
       if(!st){box.style.display='none';box.textContent='';return}
-      var label='Solicitud enviada.';
-      if(st==='pending'||st==='submitted') label='Solicitud enviada. Pendiente de revisión.';
-      else if(st==='approved'||st==='completed') label='Eliminada — el administrador completó la solicitud.';
-      else if(st==='rejected') label='Rechazada — el administrador rechazó la solicitud.';
+      var label='Solicitud $5 enviada.';
+      if(st==='pending'||st==='submitted') label='Solicitud $5 enviada. Pendiente de revisión del administrador.';
+      else if(st==='approved'||st==='completed') label='Eliminada — el administrador completó la solicitud $5.';
+      else if(st==='rejected') label='Rechazada — el administrador rechazó la solicitud $5.';
       box.textContent=label;
       box.style.display='block';
     }
@@ -25660,68 +25667,29 @@ async function onIdFace(e){
         try{showAuth('login')}catch(e){}
         return false;
       }
-      var lockKey=String(uid).toLowerCase()+'|'+id;
+      var lockKey=String(uid).toLowerCase()+'|delete|'+id;
       if(__requestDeleteLocks[lockKey]){
-        toast('Your delete request is already being sent. Please wait.');
+        toast('Delete already in progress. Please wait.');
         return false;
       }
       __requestDeleteLocks[lockKey]=true;
       var btn=document.getElementById('btn-remove-fc');
       if(btn){btn.disabled=true;btn.setAttribute('aria-busy','true')}
       try{
-        // Server does spend + request atomically. UI only shows real stages from the response.
         deleteRequestProgress(true,'processing_payment');
-        var idem='remove-req:'+id+':'+String(uid).toLowerCase();
-        var r=await fetch('/api/request-delete',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','Idempotency-Key':idem},
-          body:JSON.stringify({user:uid,postId:id,idempotencyKey:idem}),
-          cache:'no-store'
-        });
-        var j=await r.json().catch(function(){return{}});
-        if(r.status===409 || (j&&j.error==='in_progress')){
+        // Atomic charge + delete on the server. Never creates an admin request.
+        var ok=await secureDeletePost(id,{reason:'paid',allowLocalFallback:false});
+        if(!ok){
           deleteRequestProgress(false);
-          toast('Your delete request is already being sent. Please wait.');
           return false;
         }
-        if(j&&(j.error==='insufficient'||j.error==='insufficient_fc'||r.status===402)){
-          deleteRequestProgress(false);
-          toast('Insufficient FC — need '+(j.need||cost)+' FC');
-          try{openNeedCoins({cost:j.need||cost,why:'delete'})}catch(e){try{openCoinShop()}catch(err){}}
-          return false;
-        }
-        if(!r.ok || !j || j.ok===false){
-          if(j&&j.stage) deleteRequestProgress(true,j.stage);
-          else deleteRequestProgress(false);
-          if(j&&j.refunded) toast('Could not send request — 50 FC refunded');
-          else toast((j&&(j.message||j.detail||j.error))||'Could not send the remove request. Please try again.');
-          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},700);
-          return false;
-        }
-        if(j.balance!=null) window.__fcLast=Number(j.balance)||window.__fcLast;
-        try{await loadFagBalance()}catch(e){}
-        rememberRemoveRequestLocal({
-          postId:id,
-          title:j.title||'',
-          user:uid,
-          publisher:j.publisher||'',
-          amount:j.amount||(cost+' FC'),
-          paidWithFc:true,
-          coins:cost,
-          status:'pending',
-          requestId:(j.request&&j.request.id)||'',
-          thumb:j.thumb_url||'',
-          at:j.requested_at?Date.parse(j.requested_at)||Date.now():Date.now()
-        });
-        deleteRequestProgress(true, j.stage||'request_submitted');
-        try{showRemoveRequestStatus(id)}catch(e){}
+        deleteRequestProgress(true,'completed');
         closeModals();
-        toast(j.message||'50 FC charged successfully. Your deletion request has been sent to the administrator.');
         setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
         return true;
       }catch(e){
         deleteRequestProgress(false);
-        toast('Could not send the remove request. Please try again.');
+        toast('Could not delete');
         console.warn('requestDeleteWithCoins',e);
         return false;
       }finally{

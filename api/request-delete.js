@@ -393,188 +393,20 @@ async function approveDeletePost(postId, adminUser, adminKey, adminToken) {
 }
 
 async function handleCreateRequest(req, res, body) {
-  var user = normUser(body.user || body.username || body.user_id);
-  var postId = String(body.postId || body.post_id || body.id || '').trim();
-  var idem =
-    String(
-      body.idempotencyKey ||
-        body.idempotency_key ||
-        body.ref ||
-        (req.headers && (req.headers['idempotency-key'] || req.headers['Idempotency-Key'])) ||
-        ''
-    ).trim() || spendRef(user, postId);
-
-  if (!user || user === 'anon' || user === 'guest') {
-    return json(res, 401, { ok: false, error: 'login_required' });
-  }
-  if (!postId) {
-    return json(res, 400, { ok: false, error: 'missing_post_id' });
-  }
-
-  var cacheKey = user + '|' + postId + '|' + idem;
-  var cached = recentRequests.get(cacheKey);
-  if (cached && Date.now() - cached.at < 10 * 60 * 1000) {
-    return json(res, 200, Object.assign({ ok: true, reused: true }, cached.body));
-  }
-  if (locks.get(cacheKey)) {
-    return json(res, 409, { ok: false, error: 'in_progress', message: 'Request already in progress' });
-  }
-  locks.set(cacheKey, Date.now());
-
-  try {
-    var postMeta = await loadPostMeta(postId);
-    var publisher = normUser((postMeta && (postMeta.username || postMeta.user)) || '');
-    var title = String((postMeta && postMeta.title) || '').slice(0, 120);
-    var thumb = String((postMeta && (postMeta.thumb_url || postMeta.media_url)) || '');
-    var createdAt = (postMeta && postMeta.created_at) || null;
-
-    // 1) Charge 50 FC (idempotent). Never trust client coins/balance.
-    var spend = await spendDeleteRequestFc(user, postId, idem);
-    if (!spend.ok) {
-      var code = spend.error || 'spend_failed';
-      var status = code === 'insufficient' ? 402 : spend.status || 400;
-      return json(res, status, {
-        ok: false,
-        error: code,
-        need: spend.need || DELETE_COST_FC,
-        balance: spend.balance,
-        cost: DELETE_COST_FC,
-        buyUrl: '/coins',
-        stage: 'processing_payment'
-      });
+  // FC deletion is automatic via /api/delete-post. Do not create admin pending
+  // requests for coin-paid removals — keeps payment reload / PayPal queues separate.
+  // Admin approve/reject/refund actions below remain for legacy pending rows.
+  return json(res, 410, {
+    ok: false,
+    error: 'fc_delete_is_automatic',
+    message:
+      'Use /api/delete-post with reason=paid for immediate 50 FC deletion. Admin requests are only for PayPal / external $5 payments.',
+    redirect: '/api/delete-post',
+    received: {
+      user: normUser(body.user || body.username || body.user_id),
+      postId: String(body.postId || body.post_id || body.id || '').trim()
     }
-
-    var amountLabel = DELETE_COST_FC + ' FC';
-    var requestedAt = new Date().toISOString();
-    var removeMsg =
-      '🚨 DELETE FC REQUEST · requester @' +
-      user +
-      ' · publisher @' +
-      (publisher || '?') +
-      ' · post #' +
-      postId +
-      ' · ' +
-      amountLabel +
-      ' charged · pending admin verify · DO NOT auto-delete' +
-      (title ? ' · ' + title.slice(0, 40) : '');
-
-    var payload = {
-      message: removeMsg,
-      post_id: String(postId),
-      product: 'Delete post',
-      reason: 'paid',
-      publisher: publisher,
-      requester: user,
-      payment: amountLabel,
-      paidWithFc: true,
-      coins: DELETE_COST_FC,
-      auto_delete: false,
-      status: 'PENDING',
-      title: title,
-      thumb_url: thumb,
-      post_created_at: createdAt,
-      requested_at: requestedAt,
-      spend_ref: spend.ref
-    };
-
-    // 2) Create admin request + fan-out notifs.
-    var requestOk = false;
-    var duplicate = false;
-    var request = null;
-    var requestError = null;
-    try {
-      var creq = await createRemoveRequest({
-        kind: 'remove_request',
-        user_id: user,
-        amount: amountLabel,
-        coins: DELETE_COST_FC,
-        post_id: String(postId),
-        provider: 'fc',
-        label: 'DELETE',
-        payload: payload
-      });
-      if (creq.ok) {
-        requestOk = true;
-        duplicate = !!creq.duplicate;
-        request = creq.request;
-      } else {
-        requestError = creq.error || 'request_failed';
-      }
-    } catch (e) {
-      requestError = String((e && e.message) || e).slice(0, 160);
-    }
-
-    var notifResults = await fanoutAdminNotifs(user, postId, removeMsg);
-    var notifOk = notifResults.some(function (x) {
-      return x && x.ok;
-    });
-
-    // 3) If BOTH channels failed after a NEW charge → refund so balance stays consistent.
-    if (!requestOk && !notifOk) {
-      var refund = null;
-      if (!spend.reused) {
-        try {
-          refund = await refundDeleteRequestFc(user, postId, null);
-        } catch (e) {
-          refund = { ok: false, error: String((e && e.message) || e) };
-        }
-      }
-      return json(res, 502, {
-        ok: false,
-        error: 'request_failed',
-        detail: requestError || 'all_channels_failed',
-        charged: spend.reused ? 0 : DELETE_COST_FC,
-        refunded: !!(refund && refund.ok),
-        refund: refund,
-        balance: refund && refund.balance != null ? refund.balance : spend.balance,
-        stage: 'sending_request'
-      });
-    }
-
-    var out = {
-      ok: true,
-      status: 'PENDING',
-      stage: 'request_submitted',
-      message:
-        '50 FC charged successfully. Your deletion request has been sent to the administrator.',
-      charged: spend.reused ? 0 : DELETE_COST_FC,
-      coins: DELETE_COST_FC,
-      reused: !!spend.reused,
-      balance: spend.balance,
-      postId: String(postId),
-      user: user,
-      publisher: publisher,
-      title: title,
-      thumb_url: thumb,
-      post_created_at: createdAt,
-      requested_at: requestedAt,
-      amount: amountLabel,
-      request: request,
-      duplicate: duplicate || !!spend.reused,
-      channels: { request: requestOk, notifs: notifOk },
-      notifs: notifResults,
-      request_error: requestError,
-      spend_ref: spend.ref
-    };
-
-    recentRequests.set(cacheKey, { at: Date.now(), body: out });
-    if (recentRequests.size > 400) {
-      var now = Date.now();
-      recentRequests.forEach(function (v, k) {
-        if (now - v.at > 15 * 60 * 1000) recentRequests.delete(k);
-      });
-    }
-    return json(res, 200, out);
-  } catch (e) {
-    console.error('request-delete', e);
-    return json(res, 500, {
-      ok: false,
-      error: 'request_delete_failed',
-      message: String((e && e.message) || e).slice(0, 200)
-    });
-  } finally {
-    locks.delete(cacheKey);
-  }
+  });
 }
 
 async function handleAdminAction(req, res, body) {
