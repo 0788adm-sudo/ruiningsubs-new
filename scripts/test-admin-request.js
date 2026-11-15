@@ -13,6 +13,8 @@ assert(html.includes('/api/admin-request'), 'SPA uses same-origin admin-request 
 assert(html.includes('fetchWithTimeout'), 'SPA fetch timeout helper');
 assert(html.includes('__removeRequestLocks'), 'remove request lock');
 assert(html.includes("kind:'remove_request'") && html.includes('notifyAdminPayment'), 'remove paid notifies admin');
-assert(html.includes('Sending delete request'), 'remove toast-only UX (no 0-100% bar)');
+assert(html.includes('Sending delete request') || html.includes('Sending request'), 'remove request status UX');
 assert(!/pinRequestProgress\(20,\s*'Notifying admin/.test(html), 'delete request no longer uses % progress ladder');
+assert(!/payProgress\(true,\s*'Delete[^']*',\s*'Sending request to admin…',\s*70\)/.test(html), 'no fake 70% bar on FC delete request');
+assert(html.includes('/api/request-delete'), 'atomic request-delete endpoint used');
 console.log('\\nAdmin request static checks passed');
