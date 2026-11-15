@@ -20835,6 +20835,9 @@ function profileStatsHtml(userPosts, extra){
       mode='ruiningsubs';
       var ch=getTrikiChallenge();
       if(ch.games>=3){toast('Maximum 3 games per session');startTicTacToeMenu();return}
+      // Vary AI strength each game so outcomes mix: player wins, Ruiningsubs wins, draws.
+      var roll=Math.random();
+      var difficulty=roll<0.28?'easy':(roll<0.62?'medium':'hard');
       __ttt={
         sessionId:ch.sessionId+'_g'+(ch.games+1),
         challengeId:ch.sessionId,
@@ -20845,7 +20848,9 @@ function profileStatsHtml(userPosts, extra){
         opponent:'Ruiningsubs',
         over:false,
         winner:null,
-        note:''
+        note:'',
+        difficulty:difficulty,
+        finishing:false
       };
       renderTtt();
     }
@@ -20858,30 +20863,117 @@ function profileStatsHtml(userPosts, extra){
       if(b.every(function(x){return !!x})) return 'draw';
       return null;
     }
-    function tttAiMove(){
-      if(!__ttt||__ttt.over)return;
-      var b=__ttt.board.slice();
-      // win / block / center / corner / side
-      function tryMark(mark){
-        for(var i=0;i<9;i++){
-          if(b[i])continue;
-          b[i]=mark;
-          if(tttWinner(b)===mark){b[i]='';return i}
-          b[i]='';
-        }
-        return -1;
+    function tttEmptyCells(b){
+      var out=[];
+      for(var i=0;i<9;i++){ if(!b[i]) out.push(i); }
+      return out;
+    }
+    function tttShuffle(arr){
+      var a=arr.slice();
+      for(var i=a.length-1;i>0;i--){
+        var j=Math.floor(Math.random()*(i+1));
+        var t=a[i]; a[i]=a[j]; a[j]=t;
       }
+      return a;
+    }
+    function tttWinningCells(b, mark){
+      var hits=[];
+      var empties=tttEmptyCells(b);
+      for(var i=0;i<empties.length;i++){
+        var idx=empties[i];
+        b[idx]=mark;
+        if(tttWinner(b)===mark) hits.push(idx);
+        b[idx]='';
+      }
+      return hits;
+    }
+    function tttForkCells(b, mark){
+      var forks=[];
+      var empties=tttEmptyCells(b);
+      for(var i=0;i<empties.length;i++){
+        var idx=empties[i];
+        b[idx]=mark;
+        if(tttWinningCells(b, mark).length>=2) forks.push(idx);
+        b[idx]='';
+      }
+      return forks;
+    }
+    function tttPickPreferred(b, preferred){
+      for(var i=0;i<preferred.length;i++){
+        var idx=preferred[i];
+        if(!b[idx]) return idx;
+      }
+      return -1;
+    }
+    function tttBestAiMove(b, ai, you){
+      var win=tttShuffle(tttWinningCells(b, ai));
+      if(win.length) return win[0];
+      var block=tttShuffle(tttWinningCells(b, you));
+      if(block.length) return block[0];
+      var fork=tttShuffle(tttForkCells(b, ai));
+      if(fork.length) return fork[0];
+      var blockFork=tttShuffle(tttForkCells(b, you));
+      if(blockFork.length) return blockFork[0];
+      if(!b[4]) return 4;
+      var oppCorner=tttPickPreferred(b, tttShuffle([0,2,6,8].filter(function(c){
+        return b[c]===you && !b[8-c];
+      }).map(function(c){ return 8-c; })));
+      if(oppCorner>=0) return oppCorner;
+      var corner=tttPickPreferred(b, tttShuffle([0,2,6,8]));
+      if(corner>=0) return corner;
+      var side=tttPickPreferred(b, tttShuffle([1,3,5,7]));
+      if(side>=0) return side;
+      var any=tttEmptyCells(b);
+      return any.length?any[0]:-1;
+    }
+    function tttAiMove(){
+      if(!__ttt||__ttt.over||__ttt.finishing)return;
+      var b=__ttt.board.slice();
       var ai=__ttt.you==='X'?'O':'X';
       var you=__ttt.you;
-      var idx=tryMark(ai);
-      if(idx<0) idx=tryMark(you);
-      if(idx<0&&!b[4]) idx=4;
-      if(idx<0){var corners=[0,2,6,8]; for(var c=0;c<corners.length;c++){if(!b[corners[c]]){idx=corners[c];break}}}
-      if(idx<0){for(var j=0;j<9;j++){if(!b[j]){idx=j;break}}}
+      var empties=tttEmptyCells(b);
+      if(!empties.length)return;
+      var diff=__ttt.difficulty||'medium';
+      var idx=-1;
+      var mustWin=tttWinningCells(b, ai);
+      var mustBlock=tttWinningCells(b, you);
+      // Always take an immediate win so Ruiningsubs can actually finish games.
+      if(mustWin.length){
+        idx=tttShuffle(mustWin)[0];
+      }else if(diff==='hard'){
+        // Hard still blunders rarely so patterns stay less predictable.
+        if(Math.random()<0.08 && empties.length>1){
+          var avoid=mustBlock.length?mustBlock:[];
+          var soft=empties.filter(function(i){ return avoid.indexOf(i)<0; });
+          idx=tttShuffle(soft.length?soft:empties)[0];
+        }else{
+          idx=tttBestAiMove(b, ai, you);
+        }
+      }else if(diff==='medium'){
+        if(mustBlock.length && Math.random()<0.82){
+          idx=tttShuffle(mustBlock)[0];
+        }else if(Math.random()<0.55){
+          idx=tttBestAiMove(b, ai, you);
+        }else{
+          var midPool=empties.slice();
+          if(mustBlock.length && Math.random()<0.5) midPool=mustBlock.slice();
+          idx=tttShuffle(midPool)[0];
+        }
+      }else{
+        // Easy: block often enough to stay credible, otherwise play from shuffled empties / light heuristics.
+        if(mustBlock.length && Math.random()<0.55){
+          idx=tttShuffle(mustBlock)[0];
+        }else if(Math.random()<0.35){
+          idx=tttBestAiMove(b, ai, you);
+        }else{
+          idx=tttShuffle(empties)[0];
+        }
+      }
+      if(idx<0) idx=tttShuffle(empties)[0];
       if(idx>=0) applyTttMove(idx, true);
     }
     function applyTttMove(idx, fromAi){
-      if(!__ttt||__ttt.over)return;
+      if(!__ttt||__ttt.over||__ttt.finishing)return;
       idx=Number(idx);
       if(idx<0||idx>8||__ttt.board[idx])return;
       if(!fromAi && __ttt.turn!==__ttt.you)return;
@@ -20891,6 +20983,9 @@ function profileStatsHtml(userPosts, extra){
       if(w){
         __ttt.over=true;
         __ttt.winner=w;
+        __ttt.finishing=true;
+        // Paint final board immediately so draws/wins are visible before async persist.
+        renderTtt();
         finishTtt();
         return;
       }
@@ -20902,6 +20997,12 @@ function profileStatsHtml(userPosts, extra){
     }
     function renderTtt(){
       if(!__ttt)return;
+      var isDraw=__ttt.over&&__ttt.winner==='draw';
+      var isLoss=__ttt.over&&__ttt.winner&&__ttt.winner!=='draw'&&__ttt.winner!==__ttt.you;
+      var isWin=__ttt.over&&__ttt.winner===__ttt.you;
+      var endMsg=isDraw?'DRAW / EMPATE':(isWin?'YOU WON':(isLoss?'YOU LOST':(__ttt.over?'Game over':'')));
+      // Keep RETRY on the board view for draws (finishTtt also offers RETRY on the result screen).
+      var showRetry=isDraw;
       var cells=__ttt.board.map(function(v,i){
         var disabled=__ttt.over||(__ttt.turn!==__ttt.you)||!!v;
         return '<button type="button" data-cell="'+i+'" class="ttt-cell" '+(disabled?'disabled ':'')+'style="width:100%;aspect-ratio:1;border-radius:14px;border:1px solid #2a2a32;background:#101014;color:#fff;font-size:28px;font-weight:900;opacity:'+(__ttt.over&&!v?'0.55':'1')+'">'+(v||'')+'</button>';
@@ -20912,7 +21013,8 @@ function profileStatsHtml(userPosts, extra){
         +'<div class="rs-games-meta">You '+__ttt.you+' · vs '+esc(__ttt.opponent)
         +(__ttt.over?'':(' · turn '+__ttt.turn))+'</div></div>'
         +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:320px;margin:0 auto 12px">'+cells+'</div>'
-        +'<div id="ttt-msg" style="text-align:center;min-height:28px;font-weight:800">'+( __ttt.over ? 'Game over' : '')+'</div>'
+        +'<div id="ttt-msg" style="text-align:center;min-height:28px;font-weight:800">'+(endMsg||'')+'</div>'
+        +(showRetry?'<button type="button" class="btn btn-primary" id="ttt-retry" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">RETRY</button>':'')
         +'<button type="button" class="btn btn-ghost" id="ttt-menu" style="width:100%">← Menu</button>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-cell]'),function(btn){
@@ -20922,6 +21024,12 @@ function profileStatsHtml(userPosts, extra){
           applyTttMove(btn.getAttribute('data-cell'), false);
         };
       });
+      var retry=document.getElementById('ttt-retry');
+      if(retry) retry.onclick=function(){
+        // If finishTtt already counted the draw, just start the next board.
+        if(getTrikiChallenge().games>=3){startTicTacToeMenu();return}
+        beginTicTacToe('ruiningsubs');
+      };
       var m=document.getElementById('ttt-menu'); if(m)m.onclick=function(){startTicTacToeMenu()};
     }
     function listTrikiRetoDefs(){
@@ -20999,9 +21107,18 @@ function profileStatsHtml(userPosts, extra){
     }
     async function finishTtt(){
       if(!__ttt)return;
+      // Snapshot immediately — UI must not wait on network before showing DRAW/RETRY.
+      var ended={
+        sessionId:__ttt.sessionId,
+        opponent:__ttt.opponent,
+        mode:__ttt.mode,
+        board:__ttt.board.slice(),
+        winner:__ttt.winner,
+        you:__ttt.you
+      };
       var result='draw';
-      if(__ttt.winner==='draw') result='draw';
-      else if(__ttt.winner===__ttt.you) result='win';
+      if(ended.winner==='draw') result='draw';
+      else if(ended.winner===ended.you) result='win';
       else result='loss';
       var ch=getTrikiChallenge();
       ch.games=Math.min(3,(ch.games||0)+1);
@@ -21009,13 +21126,13 @@ function profileStatsHtml(userPosts, extra){
       if(ch.games>=3) ch.done=true;
 
       var session={
-        id:__ttt.sessionId,
+        id:ended.sessionId,
         user:(currentUser&&currentUser.name)||coinUserId(),
-        opponent:__ttt.opponent,
+        opponent:ended.opponent,
         gameId:'tic_tac_toe',
-        mode:__ttt.mode,
+        mode:ended.mode,
         result:result,
-        board:__ttt.board.slice(),
+        board:ended.board.slice(),
         at:Date.now(),
         xpAwarded:0,
         xpGranted:false,
@@ -21024,30 +21141,13 @@ function profileStatsHtml(userPosts, extra){
         challengeGames:ch.games
       };
       var action=result==='win'?'game_ttt_win':(result==='draw'?'game_ttt_draw':'game_play');
-      var xp=isAnonPlayer()?0:awardGameXp(action, session.id);
+      var xp=0;
+      try{xp=isAnonPlayer()?0:awardGameXp(action, session.id)}catch(e){xp=0}
       session.xpAwarded=xp;
       session.xpGranted=xp>0;
-      persistGameResult(session);
-      try{
-        await apiGamePlay({
-          game:'tic_tac_toe',
-          action:'result',
-          play_id:session.id,
-          session_id:ch.sessionId,
-          wins:ch.wins,
-          games:ch.games,
-          result:result,
-          user:coinUserId()
-        });
-      }catch(e){}
-      try{unlockBadge('first_game')}catch(e){}
+      try{persistGameResult(session)}catch(e){}
 
-      var pinInfo=null;
-      if(ch.wins>=3 && !ch.pinGranted){
-        try{pinInfo=await grantTrikiPinReward(ch)}catch(e){}
-      }
-
-      var title=result==='win'?'YOU WON':(result==='draw'?'DRAW':'YOU LOST');
+      var title=result==='win'?'YOU WON':(result==='draw'?'DRAW / EMPATE':'YOU LOST');
       var spawnedId=null;
       // Draw is NOT a defeat — only losses auto-spawn a challenge.
       if(result==='loss'){
@@ -21055,16 +21155,17 @@ function profileStatsHtml(userPosts, extra){
       }
       var retosHtml=result==='loss'?showTrikiRetosSection():'';
       var spawnDef=spawnedId?getChallengeDef(spawnedId):null;
+      var canRetry=result==='draw' && ch.games<3;
       showGamePlay(
         '<div class="rs-games-hero"><div class="rs-games-kicker">⭕ TIC-TAC-TOE</div>'
         +'<div class="rs-games-title">'+title+'</div>'
         +'<div class="rs-games-meta">vs '+esc(session.opponent)+' · +'+xp+' XP · Game '+ch.games+'/3 · Wins '+ch.wins+'/3'
-        +(pinInfo?' · ⭐ PINNED':'')
         +(result==='loss'?' · defeat challenge assigned':'')
         +(result==='draw'?' · draw — not a defeat':'')+'</div></div>'
         +(spawnDef?('<div class="rs-game-card" style="border-color:rgba(255,106,0,.45);margin-bottom:10px"><div style="font-size:11px;letter-spacing:1px;color:#ffb35c;font-weight:900;margin-bottom:6px">YOUR DEFEAT CHALLENGE</div><div style="font-weight:900;margin-bottom:4px">'+(spawnDef.icon||'⚔️')+' '+esc(spawnDef.title)+'</div><div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">'+esc(spawnDef.desc||'')+'</div><div style="font-size:12px;color:#c4b5fd;margin-bottom:10px">Proof: '+esc((spawnDef.proof_type||spawnDef.validate||'photo').toUpperCase())+' · Publish on Wall or Feed</div><button type="button" class="btn btn-primary" id="ttt-open-spawn" style="width:100%;min-height:48px;font-weight:900">Accept &amp; fulfill</button></div>'):'')
         +retosHtml
         +'<div class="rs-game-card">'
+        +(canRetry?'<button type="button" class="btn btn-primary" id="ttt-retry" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">RETRY</button>':'')
         +(result==='loss'?'<button type="button" class="btn btn-secondary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">Open defeat challenge</button>':'')
         +(ch.games<3?'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">NEXT GAME ('+ch.games+'/3)</button>'
           :'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">SUMMARY / NEW</button>')
@@ -21085,9 +21186,40 @@ function profileStatsHtml(userPosts, extra){
       var d=document.getElementById('ttt-defeat'); if(d)d.onclick=function(){
         try{openChallenge(spawnedId||'defeat_response')}catch(e){}
       };
+      var retryBtn=document.getElementById('ttt-retry');
+      if(retryBtn) retryBtn.onclick=function(){
+        // Draw already recorded; restart board vs same opponent without touching other game records.
+        beginTicTacToe('ruiningsubs');
+      };
       var a=document.getElementById('ttt-again'); if(a)a.onclick=function(){startTicTacToeMenu()};
       var h=document.getElementById('ttt-hub'); if(h)h.onclick=function(){renderChallengesHub()};
       __ttt=null;
+
+      // Persist / rewards in background — never block DRAW · RETRY UI.
+      try{
+        await apiGamePlay({
+          game:'tic_tac_toe',
+          action:'result',
+          play_id:session.id,
+          session_id:ch.sessionId,
+          wins:ch.wins,
+          games:ch.games,
+          result:result,
+          user:coinUserId()
+        });
+      }catch(e){}
+      try{unlockBadge('first_game')}catch(e){}
+      if(ch.wins>=3 && !ch.pinGranted){
+        try{
+          var pinInfo=await grantTrikiPinReward(ch);
+          if(pinInfo){
+            var meta=document.querySelector('.rs-games-meta');
+            if(meta && /Game \d\/3/.test(meta.textContent||'') && meta.textContent.indexOf('PINNED')<0){
+              meta.textContent=(meta.textContent||'')+' · ⭐ PINNED';
+            }
+          }
+        }catch(e){}
+      }
       try{paintProfileRetention()}catch(e){}
     }
     window.RS_GAME_REGISTRY=RS_GAME_REGISTRY;
