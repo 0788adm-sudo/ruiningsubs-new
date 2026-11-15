@@ -93,11 +93,39 @@ async function sbRest(path, opts) {
   return { ok: r.ok, status: r.status, data: data };
 }
 
+/** Case-insensitive identity for ownership / admin checks. */
 function normUser(u) {
   return String(u || '')
     .trim()
     .replace(/^@+/, '')
     .toLowerCase();
+}
+
+/**
+ * Wallet identity must match the header /admin credit key.
+ * CF wallets are case-sensitive; lowercasing here caused "Insufficient FC"
+ * while the header still showed the real balance under the original casing.
+ * Same shape as /api/fc-spend + client coinUserId().
+ */
+function walletUser(u) {
+  return String(u || '')
+    .trim()
+    .replace(/^@+/, '')
+    .slice(0, 40);
+}
+
+function walletUserCandidates(raw) {
+  const primary = walletUser(raw);
+  const lower = primary.toLowerCase();
+  const out = [];
+  function push(v) {
+    v = walletUser(v);
+    if (!v) return;
+    if (out.indexOf(v) < 0) out.push(v);
+  }
+  push(primary);
+  push(lower);
+  return out;
 }
 
 function parseTags(raw) {
@@ -251,44 +279,225 @@ function deleteRefundRef(user, postId) {
   return String(`delete-refund:${postId}:${user}`).slice(0, 120);
 }
 
-/** Same atomic spend path as /api/fc-spend — never trust client price. */
-async function spendDeleteFc(user, postId, idemRef) {
+async function cfWalletBalance(user) {
+  const res = await cfFetch('/wallet?user=' + encodeURIComponent(user));
+  if (!(res.json && res.json.ok !== false) && !res.ok) return 0;
+  return Number((res.json && res.json.balance) || 0) || 0;
+}
+
+async function sbWalletBalance(user) {
+  const client = sbClient();
+  if (client) {
+    const q = await client.from('coin_wallets').select('balance').eq('user_id', user).maybeSingle();
+    if (q.error) return 0;
+    return Number((q.data && q.data.balance) || 0) || 0;
+  }
+  const rest = await sbRest(
+    '/rest/v1/coin_wallets?select=balance&user_id=eq.' + encodeURIComponent(user) + '&limit=1'
+  );
+  if (!rest.ok) return 0;
+  const rows = Array.isArray(rest.data) ? rest.data : [];
+  return Number((rows[0] && rows[0].balance) || 0) || 0;
+}
+
+/**
+ * Same numeric FC the header should show: pick the highest available wallet
+ * across CF case variants and Supabase coin_wallets (never hide SB coins
+ * behind a near-empty CF key).
+ */
+async function resolveFcBalance(rawUser) {
+  const candidates = walletUserCandidates(rawUser);
+  let best = { user: candidates[0] || walletUser(rawUser), balance: 0, source: 'cf' };
+  for (let i = 0; i < candidates.length; i++) {
+    const u = candidates[i];
+    let bal = 0;
+    try {
+      bal = await cfWalletBalance(u);
+    } catch (_) {
+      bal = 0;
+    }
+    if (bal > best.balance) best = { user: u, balance: bal, source: 'cf' };
+  }
+  for (let i = 0; i < candidates.length; i++) {
+    const u = candidates[i];
+    let bal = 0;
+    try {
+      bal = await sbWalletBalance(u);
+    } catch (_) {
+      bal = 0;
+    }
+    if (bal > best.balance) best = { user: u, balance: bal, source: 'supabase' };
+  }
+  return best;
+}
+
+async function spendSupabaseFc(user, cost, ref) {
+  const client = sbClient();
+  let bal = 0;
+  if (client) {
+    const q = await client.from('coin_wallets').select('balance').eq('user_id', user).maybeSingle();
+    if (q.error) return { ok: false, error: 'sb_load_failed', detail: q.error.message };
+    bal = Number((q.data && q.data.balance) || 0) || 0;
+    if (bal < cost) return { ok: false, error: 'insufficient', balance: bal, need: cost };
+    const next = bal - cost;
+    const upd = await client
+      .from('coin_wallets')
+      .update({ balance: next })
+      .eq('user_id', user)
+      .gte('balance', cost)
+      .select('balance')
+      .maybeSingle();
+    if (upd.error) return { ok: false, error: 'sb_spend_failed', detail: upd.error.message, balance: bal };
+    if (!upd.data) return { ok: false, error: 'insufficient', balance: bal, need: cost };
+    try {
+      await client.from('coin_ledger').insert({
+        user_id: user,
+        kind: 'spend',
+        action: 'delete',
+        coins: cost,
+        ref: ref || null
+      });
+    } catch (_) {}
+    return { ok: true, reused: false, balance: Number(upd.data.balance) || next, source: 'supabase', user };
+  }
+
+  bal = await sbWalletBalance(user);
+  if (bal < cost) return { ok: false, error: 'insufficient', balance: bal, need: cost };
+  const next = bal - cost;
+  const rest = await sbRest('/rest/v1/coin_wallets?user_id=eq.' + encodeURIComponent(user) + '&balance=gte.' + cost, {
+    method: 'PATCH',
+    headers: {
+      apikey: SB_KEY,
+      Authorization: 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation'
+    },
+    body: JSON.stringify({ balance: next })
+  });
+  if (!rest.ok) {
+    return { ok: false, error: 'sb_spend_failed', status: rest.status, balance: bal };
+  }
+  const rows = Array.isArray(rest.data) ? rest.data : [];
+  if (!rows.length) return { ok: false, error: 'insufficient', balance: bal, need: cost };
+  return {
+    ok: true,
+    reused: false,
+    balance: Number(rows[0].balance) || next,
+    source: 'supabase',
+    user
+  };
+}
+
+/**
+ * Charge 50 FC from the SAME wallet the header uses.
+ * Never trust client price. Tries CF case variants, then Supabase coin_wallets.
+ */
+async function spendDeleteFc(rawUser, postId, idemRef) {
   const action = 'delete';
   const cost = DELETE_COST_FC;
+  const resolved = await resolveFcBalance(rawUser);
+  const user = walletUser(resolved.user || rawUser);
   const ref = deleteSpendRef(user, postId, idemRef);
 
-  const existing = await findLedgerSpend(user, action, ref, cost);
-  if (existing) {
-    return { ok: true, reused: true, balance: null, coins: cost, ref };
+  // Idempotency across case variants of the same person.
+  const candidates = walletUserCandidates(rawUser);
+  for (let i = 0; i < candidates.length; i++) {
+    const existing = await findLedgerSpend(candidates[i], action, deleteSpendRef(candidates[i], postId, idemRef), cost);
+    if (existing) {
+      return {
+        ok: true,
+        reused: true,
+        balance: resolved.balance,
+        coins: cost,
+        ref: deleteSpendRef(candidates[i], postId, idemRef),
+        user: candidates[i],
+        source: 'ledger'
+      };
+    }
   }
 
-  const res = await cfFetch('/wallet', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: SITE },
-    body: JSON.stringify({ user, spend: cost, action, ref })
-  });
-
-  if (res.json && res.json.ok) {
-    return {
-      ok: true,
-      reused: false,
-      balance: res.json.balance != null ? Number(res.json.balance) : null,
-      coins: cost,
-      ref
-    };
-  }
-
-  const err = String((res.json && (res.json.error || res.json.message)) || '');
-  if (/insufficient|not enough|balance/i.test(err) || res.status === 402 || res.status === 400) {
+  if (resolved.balance < cost) {
     return {
       ok: false,
       error: 'insufficient',
       need: cost,
-      balance: Number((res.json && res.json.balance) || 0) || 0,
-      ref
+      balance: resolved.balance,
+      have: resolved.balance,
+      ref,
+      user,
+      source: resolved.source
     };
   }
-  return { ok: false, error: err || 'spend_failed', status: res.status, ref };
+
+  // Spend from the store that actually holds the funds (CF preferred when tied/higher).
+  if (resolved.source === 'cf' || resolved.source === 'ledger') {
+    for (let i = 0; i < candidates.length; i++) {
+      const u = candidates[i];
+      const spendRef = deleteSpendRef(u, postId, idemRef);
+      const res = await cfFetch('/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: SITE },
+        body: JSON.stringify({ user: u, spend: cost, action, ref: spendRef })
+      });
+      if (res.json && res.json.ok) {
+        return {
+          ok: true,
+          reused: false,
+          balance: res.json.balance != null ? Number(res.json.balance) : null,
+          coins: cost,
+          ref: spendRef,
+          user: u,
+          source: 'cf'
+        };
+      }
+    }
+  }
+
+  // Supabase coin_wallets (header fallback) or CF soft-failure fallback.
+  for (let i = 0; i < candidates.length; i++) {
+    const u = candidates[i];
+    const spendRef = deleteSpendRef(u, postId, idemRef);
+    const sb = await spendSupabaseFc(u, cost, spendRef);
+    if (sb.ok) {
+      return Object.assign({ coins: cost, ref: spendRef }, sb);
+    }
+    if (sb.error && sb.error !== 'insufficient') {
+      return Object.assign({ need: cost, ref: spendRef }, sb);
+    }
+  }
+
+  // Last resort: try CF anyway (e.g. race where resolve saw SB but CF was credited).
+  for (let i = 0; i < candidates.length; i++) {
+    const u = candidates[i];
+    const spendRef = deleteSpendRef(u, postId, idemRef);
+    const res = await cfFetch('/wallet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE },
+      body: JSON.stringify({ user: u, spend: cost, action, ref: spendRef })
+    });
+    if (res.json && res.json.ok) {
+      return {
+        ok: true,
+        reused: false,
+        balance: res.json.balance != null ? Number(res.json.balance) : null,
+        coins: cost,
+        ref: spendRef,
+        user: u,
+        source: 'cf'
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    error: 'insufficient',
+    need: cost,
+    balance: resolved.balance,
+    have: resolved.balance,
+    ref,
+    user,
+    source: resolved.source
+  };
 }
 
 /** Refund 50 FC if DB delete fails after a NEW charge — idempotent. */
@@ -496,14 +705,15 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { error: 'bad_json' });
   }
 
-  const user = normUser(body.user || body.username);
+  const rawUser = walletUser(body.user || body.username);
+  const userKey = normUser(rawUser); // ownership comparisons only
   const postId = String(body.postId || body.id || '').trim();
   const reason = String(body.reason || 'owner')
     .trim()
     .toLowerCase();
   const idempotencyKey = String(body.idempotencyKey || body.ref || '').trim() || null;
 
-  if (!user) return json(res, 400, { error: 'missing_user' });
+  if (!rawUser) return json(res, 400, { error: 'missing_user' });
   if (!postId) return json(res, 400, { error: 'missing_post_id' });
   if (!SB_URL || !SB_KEY) {
     return json(res, 500, { error: 'supabase_env', detail: 'Missing SUPABASE_URL / key' });
@@ -516,26 +726,31 @@ module.exports = async function handler(req, res) {
     return json(res, 500, { error: 'load_failed', detail: String(e && e.message ? e.message : e) });
   }
 
-  const spendRef = deleteSpendRef(
-    user,
-    postId,
-    idempotencyKey || `delete-post:${postId}:${user}:${DELETE_COST_FC}`
-  );
+  const spendIdem =
+    idempotencyKey || `delete-post:${postId}:${userKey}:${DELETE_COST_FC}`;
 
   // Idempotent re-entry after a successful delete (double-click / reload).
   if (!row) {
-    const priorSpend = await findLedgerSpend(user, 'delete', spendRef, DELETE_COST_FC);
-    if (priorSpend) {
-      return json(res, 200, {
-        ok: true,
-        postId,
-        already_deleted: true,
-        charged: 0,
-        reused: true,
-        balance: null,
-        free: false,
-        reason: 'already_deleted'
-      });
+    const candidates = walletUserCandidates(rawUser);
+    for (let i = 0; i < candidates.length; i++) {
+      const priorSpend = await findLedgerSpend(
+        candidates[i],
+        'delete',
+        deleteSpendRef(candidates[i], postId, spendIdem),
+        DELETE_COST_FC
+      );
+      if (priorSpend) {
+        return json(res, 200, {
+          ok: true,
+          postId,
+          already_deleted: true,
+          charged: 0,
+          reused: true,
+          balance: null,
+          free: false,
+          reason: 'already_deleted'
+        });
+      }
     }
     return json(res, 404, { error: 'not_found' });
   }
@@ -551,7 +766,7 @@ module.exports = async function handler(req, res) {
       tokenOk = false;
     }
   }
-  const isOwner = owner === user || tokenOk;
+  const isOwner = owner === userKey || tokenOk;
   let cfAdminOk = false;
   try {
     cfAdminOk = await verifyCfAdminToken(bearerToken(req));
@@ -589,7 +804,7 @@ module.exports = async function handler(req, res) {
       cost = ownerDeleteCost(row);
     }
     if (cost > 0) {
-      spend = await spendDeleteFc(user, postId, spendRef);
+      spend = await spendDeleteFc(rawUser, postId, spendIdem);
       if (!spend.ok) {
         const code = spend.error || 'spend_failed';
         const status = code === 'insufficient' ? 402 : spend.status || 400;
@@ -597,10 +812,12 @@ module.exports = async function handler(req, res) {
           error: code,
           detail: spend.detail || null,
           need: spend.need ?? cost,
-          have: spend.balance,
+          have: spend.have != null ? spend.have : spend.balance,
           balance: spend.balance,
           cost,
           tier,
+          wallet_user: spend.user || rawUser,
+          source: spend.source || null,
           buyUrl: '/coins'
         });
       }
@@ -613,7 +830,35 @@ module.exports = async function handler(req, res) {
     let refund = null;
     if (charged > 0 && spend && !spend.reused) {
       try {
-        refund = await refundDeleteFc(user, postId);
+        const refundUser = walletUser((spend && spend.user) || rawUser);
+        if (spend.source === 'supabase') {
+          // Restore Supabase wallet if that is where we charged.
+          const client = sbClient();
+          if (client) {
+            const q = await client.from('coin_wallets').select('balance').eq('user_id', refundUser).maybeSingle();
+            const bal = Number((q.data && q.data.balance) || 0) || 0;
+            const upd = await client
+              .from('coin_wallets')
+              .update({ balance: bal + DELETE_COST_FC })
+              .eq('user_id', refundUser)
+              .select('balance')
+              .maybeSingle();
+            refund = {
+              ok: !upd.error,
+              balance: upd.data ? Number(upd.data.balance) : bal + DELETE_COST_FC,
+              source: 'supabase'
+            };
+          } else {
+            const bal = await sbWalletBalance(refundUser);
+            const rest = await sbRest('/rest/v1/coin_wallets?user_id=eq.' + encodeURIComponent(refundUser), {
+              method: 'PATCH',
+              body: JSON.stringify({ balance: bal + DELETE_COST_FC })
+            });
+            refund = { ok: rest.ok, balance: bal + DELETE_COST_FC, source: 'supabase' };
+          }
+        } else {
+          refund = await refundDeleteFc(refundUser, postId);
+        }
       } catch (e) {
         refund = { ok: false, error: String(e && e.message ? e.message : e) };
       }
@@ -656,6 +901,8 @@ module.exports = async function handler(req, res) {
     charged,
     reason: deleteReason,
     balance: spend && spend.balance,
+    wallet_user: (spend && spend.user) || rawUser,
+    source: (spend && spend.source) || null,
     free: !!freeOverride || charged === 0,
     reused: !!(spend && spend.reused),
     via_owner_token: !!tokenOk,
