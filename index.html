@@ -9108,11 +9108,22 @@ async function claimPayPalPack(p){
       }
       var balEl=document.getElementById('roulette-fc-balance');
       if(balEl) balEl.textContent = bal+' FC';
+      var spinLabel = rouletteSpinning ? '...' : (freeLeft>0?'PLAY · free':(paidLeft>0?'PLAY · pack':'PLAY'));
       var btn = document.getElementById('btn-spin-roulette');
       if(btn){
-        btn.textContent = rouletteSpinning ? '...' : (freeLeft>0?'PLAY · free':(paidLeft>0?'PLAY · pack':'PLAY'));
+        btn.textContent = spinLabel;
         btn.disabled=!!rouletteSpinning;
       }
+      try{
+        var again=document.getElementById('btn-roulette-again');
+        if(again){ again.disabled=!!rouletteSpinning; again.textContent=rouletteSpinning?'Spinning…':'Spin again'; }
+        document.querySelectorAll('#panel-roulette > .roulette-wrap > button.btn-primary').forEach(function(b){
+          if(b.id==='btn-spin-roulette') return;
+          if(!/SPIN|SPINNING/i.test(b.textContent||'')) return;
+          b.disabled=!!rouletteSpinning;
+          b.textContent=rouletteSpinning?'SPINNING…':'SPIN';
+        });
+      }catch(e){}
       var showPay = freeLeft<=0 && paidLeft<=0 && !isAnonPlayer();
       var unlockBox = document.getElementById('roulette-unlock-box');
       if(unlockBox) unlockBox.style.display = showPay ? 'block' : 'none';
@@ -9743,6 +9754,19 @@ async function claimPayPalPack(p){
       if(window.__diceRolling) return;
       window.__diceRolling=true;
       try{updateDiceUI()}catch(e){}
+      var ids=['die-wear','die-pose','die-task'];
+      var resEl=document.getElementById('dice-result');
+      if(resEl) resEl.classList.remove('show');
+      // Animate immediately on first tap — settle after server returns.
+      ids.forEach(function(id){var el=document.getElementById(id);if(el){el.classList.add('spin');el.textContent=String(1+Math.floor(Math.random()*12))}});
+      if(window.__diceTickIv){try{clearInterval(window.__diceTickIv)}catch(e){}}
+      window.__diceTickIv=setInterval(function(){
+        ids.forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=String(1+Math.floor(Math.random()*12))});
+      },90);
+      function stopDiceTeaser(){
+        if(window.__diceTickIv){try{clearInterval(window.__diceTickIv)}catch(e){} window.__diceTickIv=null;}
+        ids.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('spin')});
+      }
       var s=updateDiceUI();
       var useFree=!!s.freeLeft && !opts.forcePaid;
       var usePaidCredit=!!s.paidLeft && !useFree;
@@ -9750,6 +9774,7 @@ async function claimPayPalPack(p){
         var bal=Number(window.__fcLast||0);
         try{bal=await loadFagBalance()}catch(e){}
         if(bal<10){
+          stopDiceTeaser();
           window.__diceRolling=false;
           toast('Insufficient FC — need 10 FC');
           var buy=document.getElementById('btn-dice-buy');
@@ -9771,6 +9796,7 @@ async function claimPayPalPack(p){
         });
       }catch(e){charged={ok:false}}
       if(!charged||!charged.ok){
+        stopDiceTeaser();
         window.__diceRolling=false;
         if(charged&&(charged.error==='free_exhausted'||charged.error==='insufficient')){
           if(charged.recovery_ends_at){
@@ -9812,30 +9838,39 @@ async function claimPayPalPack(p){
       var wearTxt=(serverDice&&serverDice.wear)||DICE_WEAR[w-1];
       var poseTxt=(serverDice&&serverDice.pose)||DICE_POSE[p-1];
       var proofTxt=(serverDice&&serverDice.proof)||DICE_TASK[t-1];
-      var ids=['die-wear','die-pose','die-task'];
-      ids.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.add('spin')});
-      var ticks=0;
-      var iv=setInterval(function(){
-        ids.forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=String(1+Math.floor(Math.random()*12))});
-        ticks++;
-        if(ticks>14){
-          clearInterval(iv);
-          document.getElementById('die-wear').textContent=String(w);
-          document.getElementById('die-pose').textContent=String(p);
-          document.getElementById('die-task').textContent=String(t);
-          ids.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('spin')});
-          window.lastDiceRoll={wear:wearTxt,pose:poseTxt,task:proofTxt,proof:proofTxt,where:DICE_WHERE[Math.floor(Math.random()*DICE_WHERE.length)],n:[w,p,t],playId:playId,game:'dice'};
-          try{localStorage.setItem('rs_dice_last',JSON.stringify(window.lastDiceRoll))}catch(e){}
-          document.getElementById('dice-wear-text').textContent=wearTxt;
-          document.getElementById('dice-pose-text').textContent=poseTxt;
-          document.getElementById('dice-task-text').textContent=proofTxt;
-          document.getElementById('dice-result').classList.add('show');
-          window.__diceRolling=false;
-          updateDiceUI();
-          try{loadFagBalance()}catch(e){}
-          try{if(isRegistered()) awardGameXp('game_play','dice_'+playId)}catch(e){}
-        }
-      },90);
+      // Keep spinning briefly so the settle feels like a real toss even when API is fast.
+      var settleAt=Date.now()+700;
+      var waitMore=Math.max(0, settleAt-Date.now());
+      setTimeout(function(){
+        stopDiceTeaser();
+        var dw=document.getElementById('die-wear'); if(dw) dw.textContent=String(w);
+        var dp=document.getElementById('die-pose'); if(dp) dp.textContent=String(p);
+        var dt=document.getElementById('die-task'); if(dt) dt.textContent=String(t);
+        window.lastDiceRoll={wear:wearTxt,pose:poseTxt,task:proofTxt,proof:proofTxt,where:DICE_WHERE[Math.floor(Math.random()*DICE_WHERE.length)],n:[w,p,t],playId:playId,game:'dice'};
+        try{localStorage.setItem('rs_dice_last',JSON.stringify(window.lastDiceRoll))}catch(e){}
+        var wt=document.getElementById('dice-wear-text'); if(wt) wt.textContent=wearTxt;
+        var pt=document.getElementById('dice-pose-text'); if(pt) pt.textContent=poseTxt;
+        var tt=document.getElementById('dice-task-text'); if(tt) tt.textContent=proofTxt;
+        if(resEl) resEl.classList.add('show');
+        window.__diceRolling=false;
+        updateDiceUI();
+        try{loadFagBalance()}catch(e){}
+        try{if(isRegistered()) awardGameXp('game_play','dice_'+playId)}catch(e){}
+        // Register active challenge so Accept/Post proof can complete the challenge store.
+        try{
+          if(isRegistered()){
+            var spawnId=spawnDefeatChallenge({
+              id:playId,
+              gameId:'dice',
+              user:(currentUser&&currentUser.name)||coinUserId(),
+              result:'loss',
+              at:Date.now(),
+              opt:{title:'Exposure Dice',desc:'WEAR: '+wearTxt+' · POSE: '+poseTxt+' · PROOF: '+proofTxt}
+            });
+            window.__pendingDiceChallengeId=spawnId||null;
+          }
+        }catch(e){}
+      }, waitMore);
     }
     window.rollExposureDice=rollExposureDice;
     function publishDiceProof(){
@@ -9844,24 +9879,32 @@ async function claimPayPalPack(p){
         try{r=JSON.parse(localStorage.getItem('rs_dice_last')||'null')}catch(e){r=null}
       }
       if(!r){toast('Roll first');return}
+      if(!isRegistered()){toast('Login to publish proof');try{showAuth('login')}catch(e){}return}
+      var title='Dice '+((r.n||[]).join('-')||'roll')+' · exposed';
+      var body='WEAR: '+r.wear+'\nPOSE: '+r.pose+'\nPROOF: '+(r.proof||r.task)+(r.where?('\nWHERE: '+r.where):'');
+      var badgeTag=(RS_GAME_BADGES.dice&&RS_GAME_BADGES.dice.tag)||'game_badge_dice';
+      var rollTag=r.playId?('dice:'+String(r.playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
+      var tags='dice, exposure_dice, normal_feed, exposed, '+badgeTag+(rollTag?', '+rollTag:'');
+      window.__pendingGamePublish={game:'dice',playId:r.playId||'',badge:'dice',challengeId:window.__pendingDiceChallengeId||null};
+      window.__pendingDicePublish={playId:r.playId||'',at:Date.now()};
+      window.__pendingChallengePublish={
+        challengeId:window.__pendingDiceChallengeId||null,
+        gameId:'dice',
+        sessionId:r.playId||'',
+        at:Date.now()
+      };
+      window.__pendingComposerPrefill={
+        title:title,
+        desc:body,
+        tags:tags,
+        note:'Dice proof · Wall · badge 🎲 EXPOSURE DICE',
+        btn:'Post dice proof'
+      };
       try{openNormalPostComposer()}catch(e){
         try{setExposurePostMode()}catch(e2){}
         showPanel('post');
       }
-      try{
-        var titleEl=document.getElementById('new-title')||document.getElementById('post-title')||document.querySelector('#panel-post input[name="title"],#panel-post input');
-        var descEl=document.getElementById('new-desc')||document.getElementById('post-desc')||document.querySelector('#panel-post textarea');
-        var tagsEl=document.getElementById('new-tags');
-        if(titleEl) titleEl.value='Dice '+((r.n||[]).join('-')||'roll')+' · exposed';
-        if(descEl) descEl.value='WEAR: '+r.wear+'\nPOSE: '+r.pose+'\nPROOF: '+(r.proof||r.task)+(r.where?('\nWHERE: '+r.where):'');
-        if(tagsEl){
-          var badgeTag=(RS_GAME_BADGES.dice&&RS_GAME_BADGES.dice.tag)||'game_badge_dice';
-          var rollTag=r.playId?('dice:'+String(r.playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
-          tagsEl.value='dice, exposure_dice, normal_feed, exposed, '+badgeTag+(rollTag?', '+rollTag:'');
-        }
-        window.__pendingGamePublish={game:'dice',playId:r.playId||'',badge:'dice'};
-        window.__pendingDicePublish={playId:r.playId||'',at:Date.now()};
-      }catch(e){}
+      try{applyPendingComposerPrefill()}catch(e){}
       toast('Add your proof photos and publish — badge 🎲 EXPOSURE DICE');
     }
     window.publishDiceProof=publishDiceProof;
@@ -9900,16 +9943,72 @@ function openRoulette(){
         return '<div class="roulette-hist-item"><span>'+esc(h.title||'')+'</span><span style="color:var(--muted);white-space:nowrap">'+ago(h.at)+'</span></div>';
       }).join('');
     }
+    var __rouletteTeaserRaf=null;
+    function stopRouletteTeaser(){
+      if(__rouletteTeaserRaf){
+        try{cancelAnimationFrame(__rouletteTeaserRaf)}catch(e){}
+        __rouletteTeaserRaf=null;
+      }
+      if(window.__rouletteTeaserAngle!=null && isFinite(window.__rouletteTeaserAngle)){
+        rouletteAngle=Number(window.__rouletteTeaserAngle)||rouletteAngle;
+      }
+      window.__rouletteTeaserAngle=null;
+    }
+    function startRouletteTeaser(){
+      stopRouletteTeaser();
+      var wheel=document.getElementById('roulette-wheel');
+      if(!wheel) return;
+      wheel.style.transition='none';
+      wheel.style.willChange='transform';
+      var base=Number(rouletteAngle)||0;
+      if(!isFinite(base)) base=0;
+      var t0=(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
+      function frame(now){
+        var elapsed=(now||Date.now())-t0;
+        var deg=base+(elapsed/1000)*900; // 2.5 rev/s while waiting on server
+        window.__rouletteTeaserAngle=deg;
+        wheel.style.transform='rotate('+deg+'deg)';
+        __rouletteTeaserRaf=requestAnimationFrame(frame);
+      }
+      __rouletteTeaserRaf=requestAnimationFrame(frame);
+    }
+    function settleRouletteOnIndex(idx, onDone){
+      stopRouletteTeaser();
+      var n=ROULETTE_OPTIONS.length||1;
+      var seg=360/n;
+      idx=((Number(idx)||0)%n+n)%n;
+      var targetCenter=idx*seg+seg/2;
+      var extraTurns=4+Math.floor(Math.random()*3);
+      var finalAngle=extraTurns*360+(360-targetCenter);
+      var current=Number(rouletteAngle)||0;
+      if(!isFinite(current)) current=0;
+      var currentMod=((current%360)+360)%360;
+      var delta=finalAngle-currentMod;
+      if(delta<360*3) delta+=360*3;
+      rouletteAngle=current+delta;
+      var wheel=document.getElementById('roulette-wheel');
+      if(wheel){
+        wheel.style.transition='none';
+        wheel.style.transform='rotate('+current+'deg)';
+        void wheel.offsetWidth;
+        wheel.style.willChange='transform';
+        wheel.style.transition='transform 4.2s cubic-bezier(0.12, 0.75, 0.18, 1)';
+        wheel.style.transform='rotate('+rouletteAngle+'deg)';
+      }
+      setTimeout(function(){ try{onDone&&onDone()}catch(e){} }, 4300);
+    }
     window.spinRoulette=async function spinRoulette(opts){
       opts=opts||{};
       if(rouletteSpinning) return;
       if(window.__spinLock && Date.now()-window.__spinLock<800) return;
-      // Lock immediately so overlapping SPIN taps / awaits cannot double-spin.
+      // Lock + visual spin immediately so one tap feels instant (API may still be in flight).
       rouletteSpinning = true;
       window.__spinLock=Date.now();
       try{updateRouletteSpinsUI()}catch(e){}
-      try{await loadFagBalance()}catch(e){}
-      try{await syncRouletteServerState()}catch(e){}
+      var resBox = document.getElementById('roulette-result');
+      if(resBox) resBox.classList.remove('show');
+      startRouletteTeaser();
+
       var state = {freeLeft:ROULETTE_FREE_PER_DAY,paidLeft:0,bal:0};
       try{state = updateRouletteSpinsUI()||state}catch(e){}
       var freeLeft = Number(state.freeLeft)||0;
@@ -9917,7 +10016,19 @@ function openRoulette(){
       var bal = Number(state.bal||window.__fcLast||0);
       var forcePaid=!!opts.forcePaid;
       var useFree=freeLeft>0 && !forcePaid;
+      // Soft pre-check (authoritative charge still happens server-side). Keep teaser running.
       if(!useFree && paidLeft<=0){
+        // Refresh once before aborting — free left may have recovered.
+        try{await syncRouletteServerState()}catch(e){}
+        try{await loadFagBalance()}catch(e){}
+        try{state = updateRouletteSpinsUI()||state}catch(e){}
+        freeLeft = Number(state.freeLeft)||0;
+        paidLeft = Number(state.paidLeft)||0;
+        bal = Number(state.bal||window.__fcLast||0);
+        useFree=freeLeft>0 && !forcePaid;
+      }
+      if(!useFree && paidLeft<=0){
+        stopRouletteTeaser();
         rouletteSpinning=false;
         if(isAnonPlayer()){
           toast('Free uses exhausted. Wait 24h recovery or register to buy spins with FC.');
@@ -9943,6 +10054,7 @@ function openRoulette(){
         });
       }catch(e){charged={ok:false}}
       if(!charged||!charged.ok){
+        stopRouletteTeaser();
         rouletteSpinning=false;
         if(charged&&charged.recovery_ends_at){
           window.__gameFreeRecovery=window.__gameFreeRecovery||{};
@@ -9975,37 +10087,15 @@ function openRoulette(){
       else if(charged.pack===true || charged.paid===true) useFree=false;
       if(!isFinite(rouletteAngle)) rouletteAngle=0;
       try{updateRouletteSpinsUI()}catch(e){}
-      var resBox = document.getElementById('roulette-result');
-      if(resBox) resBox.classList.remove('show');
 
       var n = ROULETTE_OPTIONS.length||1;
-      var seg = 360 / n;
       // Server-authoritative landing index (fallback only if missing)
       var idx = (charged.result_idx!=null && isFinite(Number(charged.result_idx)))
         ? (Math.floor(Number(charged.result_idx)) % n)
         : Math.floor(Math.random() * n);
       if(idx<0) idx=0;
-      var targetCenter = idx * seg + seg / 2;
-      var extraTurns = 4 + Math.floor(Math.random()*3);
-      var finalAngle = extraTurns * 360 + (360 - targetCenter);
-      var currentMod = ((rouletteAngle % 360) + 360) % 360;
-      if(!isFinite(currentMod)) currentMod=0;
-      var delta = finalAngle - currentMod;
-      if(delta < 360*3) delta += 360 * 3;
-      rouletteAngle = Number(rouletteAngle)||0;
-      rouletteAngle += delta;
 
-      var wheel = document.getElementById('roulette-wheel');
-      if(wheel){
-        wheel.style.transition='none';
-        wheel.style.transform='rotate('+((rouletteAngle-delta)%360)+'deg)';
-        void wheel.offsetWidth;
-        wheel.style.willChange='transform';
-        wheel.style.transition = 'transform 4.2s cubic-bezier(0.12, 0.75, 0.18, 1)';
-        wheel.style.transform = 'rotate(' + rouletteAngle + 'deg)';
-      }
-
-      setTimeout(function(){
+      settleRouletteOnIndex(idx, function(){
         rouletteSpinning = false;
         var opt = ROULETTE_OPTIONS[idx];
         var d = getRouletteSpins();
@@ -10030,6 +10120,7 @@ function openRoulette(){
         var payBox = document.getElementById('roulette-pay-box');
         var payLink = document.getElementById('roulette-pay-link');
         var pubBtn = document.getElementById('btn-roulette-publish');
+        var acceptBtn = document.getElementById('btn-roulette-accept');
         if(titleEl) titleEl.textContent = opt.title;
         if(descEl) descEl.textContent = opt.desc;
         if(payBox) payBox.style.display = 'none';
@@ -10037,9 +10128,14 @@ function openRoulette(){
           payLink.href = (typeof THRONE_PACK_5!=='undefined'?THRONE_PACK_5:(typeof THRONE_PACK_10!=='undefined'?THRONE_PACK_10:'https://throne.com/mastersan'));
           payLink.textContent = 'Buy Fag Coins ($5 → 60 FC)';
         }
+        var isPrize=!!(opt && (opt.pin || opt.pin_prize || opt.extend_10d));
         if(pubBtn){
-          pubBtn.style.display = (opt && (opt.pin || opt.pin_prize || opt.extend_10d)) ? 'none' : 'block';
+          pubBtn.style.display = isPrize ? 'none' : 'block';
           pubBtn.textContent = opt && opt.permanent ? 'Publish PERMANENT proof' : (opt && opt.free_delete ? 'Publish (free delete)' : 'Publish this to the feed');
+        }
+        if(acceptBtn){
+          acceptBtn.style.display = isPrize ? 'none' : 'block';
+          acceptBtn.textContent = 'I accept — do it';
         }
         if(resBox) resBox.classList.add('show');
         try{ resBox.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){}
@@ -10050,17 +10146,17 @@ function openRoulette(){
           try{grantRouletteExtendReward(playId, opt)}catch(e){console.warn(e)}
           toast('📅 +10 DAYS — pick a timed post to extend');
         }else if(opt && opt.permanent){
-          toast('🔒 PERMANENT — confirm before publishing proof');
+          toast('🔒 PERMANENT — accept & publish proof');
         }else if(opt && opt.free_delete){
-          toast('🗑️ FREE DELETE enabled on the proof post');
+          toast('🗑️ FREE DELETE — accept & publish proof');
         }else{
-          toast('Obey the result — accept & publish proof');
+          toast('Challenge ready — accept & publish proof');
         }
         try{if(isRegistered()) awardGameXp('game_play','roulette_'+playId)}catch(e){}
-        // Defeat-style challenge when landing a task (not a pure win prize)
-        if(opt && !opt.pin && !opt.pin_prize && !opt.extend_10d){
+        // Register active game challenge for Accept → Wall publish → complete.
+        if(opt && !isPrize){
           try{
-            spawnDefeatChallenge({
+            var spawnId=spawnDefeatChallenge({
               id:playId,
               gameId:'roulette',
               user:(currentUser&&currentUser.name)||coinUserId(),
@@ -10068,9 +10164,10 @@ function openRoulette(){
               at:Date.now(),
               opt:opt
             });
+            window.__pendingRouletteChallengeId=spawnId||null;
           }catch(e){}
         }
-      }, 4300);
+      });
     };
     async function grantRouletteExtendReward(playId, opt){
       if(isAnonPlayer()){toast('Register to claim the +10 days reward');return null}
@@ -10546,8 +10643,19 @@ function openRoulette(){
             toast('Spin first to get a task');
             return;
           }
-          window.__rouletteAccepted={playId:lastRoulettePlayId, title:lastRouletteOpt.title, at:Date.now()};
+          window.__rouletteAccepted={playId:lastRoulettePlayId, title:lastRouletteOpt.title, at:Date.now(), challengeId:window.__pendingRouletteChallengeId||null};
           localStorage.setItem('rs_roulette_accepted', JSON.stringify(window.__rouletteAccepted));
+          // Mark spawned defeat/game challenge accepted in the challenge store.
+          try{
+            var cid=window.__pendingRouletteChallengeId;
+            if(cid && currentUser && currentUser.name){
+              var st=challengeUserState();
+              var day=rsDayKey();
+              st.accepted[day]=st.accepted[day]||{};
+              st.accepted[day][cid]={at:Date.now(),from:'roulette',gameId:'roulette',sessionId:lastRoulettePlayId,status:'accepted'};
+              persistChallengeUser(st);
+            }
+          }catch(e){}
         }catch(e){}
         toast('Challenge accepted — upload proof and publish to Roulette');
         try{ publishRouletteToFeed(); }catch(e){}
@@ -10562,7 +10670,7 @@ function openRoulette(){
       try{
         if(!opt){
           var saved=JSON.parse(localStorage.getItem('rs_roulette_last_challenge')||'null');
-          if(saved&&saved.title){ opt={title:saved.title,desc:saved.desc||''}; playId=saved.playId||playId; }
+          if(saved&&saved.title){ opt={title:saved.title,desc:saved.desc||'',permanent:!!saved.permanent,free_delete:!!saved.free_delete}; playId=saved.playId||playId; }
         }
       }catch(e){}
       if(!opt){
@@ -10571,6 +10679,7 @@ function openRoulette(){
         if(!t || t==='—'){ toast('Spin and accept a challenge first'); return; }
         opt = {title:t, desc:d};
       }
+      if(!isRegistered()){toast('Login to publish proof');try{showAuth('login')}catch(e){}return}
       // Must accept the obtained challenge before publishing.
       try{
         var acc=window.__rouletteAccepted||JSON.parse(localStorage.getItem('rs_roulette_accepted')||'null');
@@ -10588,28 +10697,24 @@ function openRoulette(){
         }
         window.__pendingRoulettePublish={playId:playId, title:opt.title, at:Date.now()};
       }catch(e){}
-      // Roulette proofs go on The Wall under the Roulette category (existing Wall publisher)
-      try{ openNormalPostComposer(); }catch(e){
-        try{ setProfilePostMode(); }catch(e2){}
-        showPanel('post');
-      }
-      var titleEl = document.getElementById('new-title');
-      var descEl = document.getElementById('new-desc');
-      var tagsEl = document.getElementById('new-tags');
       var cleanTitle = String(opt.title||'').replace(/^[^\w]+/,'').trim();
       if(cleanTitle.length>60) cleanTitle = cleanTitle.slice(0,57)+'…';
-      if(titleEl) titleEl.value = cleanTitle || 'Roulette task';
-      if(descEl){
-        var body = String(opt.desc||'').trim();
-        var caption = 'Roulette task: '+(opt.title||'')+(body?'\n'+body:'');
-        if(caption.length>280) caption = caption.slice(0,277)+'…';
-        descEl.value = caption;
-      }
-      if(tagsEl){
-        var spinTag=playId?('spin:'+String(playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
-        var badgeTag=(RS_GAME_BADGES.roulette&&RS_GAME_BADGES.roulette.tag)||'game_badge_roulette';
-        tagsEl.value = 'roulette, roulette_task, normal_feed, exposed, '+badgeTag+(spinTag?', '+spinTag:'');
-      }
+      var body = String(opt.desc||'').trim();
+      var caption = 'Roulette task: '+(opt.title||'')+(body?'\n'+body:'');
+      if(caption.length>280) caption = caption.slice(0,277)+'…';
+      var spinTag=playId?('spin:'+String(playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
+      var badgeTag=(RS_GAME_BADGES.roulette&&RS_GAME_BADGES.roulette.tag)||'game_badge_roulette';
+      var tags = 'roulette, roulette_task, normal_feed, exposed, '+badgeTag+(spinTag?', '+spinTag:'');
+      var permNote=opt.permanent?' · <strong style="color:#fecaca">PERMANENT</strong>':'';
+      var freeNote=opt.free_delete?' · <strong style="color:#86efac">FREE DELETE</strong>':'';
+      window.__pendingComposerPrefill={
+        title:cleanTitle || 'Roulette task',
+        desc:caption,
+        tags:tags,
+        note:'Roulette proof · Wall → <strong>Roulette</strong> · badge 🏆'+permNote+freeNote,
+        btn:'Post roulette challenge',
+        requireMedia:true
+      };
       // Enforce permanent vs free-delete from the spin outcome (never mix).
       try{
         if(opt.permanent || (opt.deletion_tier==='permanent')){
@@ -10617,26 +10722,29 @@ function openRoulette(){
             toast('Permanent publish cancelled');
             return;
           }
-          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'permanent',permanent:true,free_delete:false,badge:'roulette'};
+          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'permanent',permanent:true,free_delete:false,badge:'roulette',challengeId:window.__pendingRouletteChallengeId||null};
           try{if(typeof selectDeletionTier==='function')selectDeletionTier('permanent')}catch(e){}
           try{selectedDeletionTier='permanent'}catch(e){}
         }else if(opt.free_delete || opt.deletion_tier==='deletable'){
-          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'deletable',permanent:false,free_delete:true,badge:'roulette'};
+          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'deletable',permanent:false,free_delete:true,badge:'roulette',challengeId:window.__pendingRouletteChallengeId||null};
           try{if(typeof selectDeletionTier==='function')selectDeletionTier('deletable')}catch(e){}
           try{selectedDeletionTier='deletable'}catch(e){}
         }else{
-          window.__pendingGamePublish={game:'roulette',playId:playId,badge:'roulette'};
+          window.__pendingGamePublish={game:'roulette',playId:playId,badge:'roulette',challengeId:window.__pendingRouletteChallengeId||null};
         }
       }catch(e){}
-      var note=document.getElementById('profile-post-note');
-      if(note){
-        note.style.display='block';
-        var permNote=opt.permanent?' · <strong style="color:#fecaca">PERMANENT</strong>':'';
-        var freeNote=opt.free_delete?' · <strong style="color:#86efac">FREE DELETE</strong>':'';
-        note.innerHTML='Roulette proof · Wall → <strong>Roulette</strong> · badge 🏆'+permNote+freeNote;
+      window.__pendingChallengePublish={
+        challengeId:window.__pendingRouletteChallengeId||(window.__rouletteAccepted&&window.__rouletteAccepted.challengeId)||null,
+        gameId:'roulette',
+        sessionId:playId,
+        at:Date.now()
+      };
+      // Roulette proofs go on The Wall under the Roulette category (existing Wall publisher)
+      try{ openNormalPostComposer(); }catch(e){
+        try{ setProfilePostMode(); }catch(e2){}
+        showPanel('post');
       }
-      var btn=document.getElementById('btn-publish');
-      if(btn)btn.textContent='Post roulette challenge';
+      try{applyPendingComposerPrefill()}catch(e){}
       try{ window.scrollTo(0,0); }catch(e){}
       toast('Add your photo/video proof · publishes under Roulette');
     }
@@ -18001,6 +18109,30 @@ function openRoulette(){
     }
 
 
+    function applyPendingComposerPrefill(){
+      var pre=window.__pendingComposerPrefill;
+      if(!pre) return;
+      try{
+        var titleEl=document.getElementById('new-title')||document.getElementById('post-title');
+        var descEl=document.getElementById('new-desc')||document.getElementById('post-desc');
+        var tagsEl=document.getElementById('new-tags');
+        var note=document.getElementById('profile-post-note');
+        var btn=document.getElementById('btn-publish');
+        if(titleEl && pre.title!=null) titleEl.value=String(pre.title);
+        if(descEl && pre.desc!=null) descEl.value=String(pre.desc);
+        if(tagsEl && pre.tags!=null) tagsEl.value=String(pre.tags);
+        if(note && pre.note){
+          note.style.display='block';
+          note.innerHTML=String(pre.note);
+        }
+        if(btn && pre.btn) btn.textContent=String(pre.btn);
+        var up=document.getElementById('media-upload');
+        if(up && pre.requireMedia) up.textContent='📸 Required — tap to add proof photos/videos';
+        var pl=document.getElementById('post-photos-label');
+        if(pl && pre.requireMedia) pl.textContent='Proof media (required)';
+      }catch(e){}
+    }
+    window.applyPendingComposerPrefill=applyPendingComposerPrefill;
     function openNormalPostComposer(){
       if(!isRegistered()){toast('Register to create a normal post');try{showAuth('login')}catch(e){}return}
       window.__fromNormalFeed=true;
@@ -18022,6 +18154,8 @@ function openRoulette(){
       var pl=document.getElementById('post-photos-label'); if(pl)pl.textContent='Photos (optional)';
       // Hide Extend-only fields again after panel paint (defensive against route races).
       showPanel('post');
+      // Apply game/challenge prefill immediately and again after the defensive panel paint.
+      try{applyPendingComposerPrefill()}catch(e){}
       setTimeout(function(){
         try{
           if(!window.__wallComposer) return;
@@ -18031,12 +18165,17 @@ function openRoulette(){
           hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
           var t=document.getElementById('post-panel-title');
           if(t)t.textContent='Wall post';
-          var b=document.getElementById('btn-publish');
-          if(b)b.textContent='Post on the wall';
-          var note=document.getElementById('profile-post-note');
-          if(note){
-            note.style.display='block';
-            note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
+          // Do not wipe game/challenge captions — restore pending prefill if present.
+          if(window.__pendingComposerPrefill){
+            applyPendingComposerPrefill();
+          }else{
+            var b=document.getElementById('btn-publish');
+            if(b)b.textContent='Post on the wall';
+            var note2=document.getElementById('profile-post-note');
+            if(note2){
+              note2.style.display='block';
+              note2.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
+            }
           }
         }catch(e){}
       },0);
@@ -20132,22 +20271,27 @@ function profileStatsHtml(userPosts, extra){
         html+='</div></div>';
       });
 
-      // Spawned defeat response (if any)
+      // Spawned defeat / game challenges (only real challenge ids — skip composite keys)
       try{
         var spawned=st.spawned||{};
+        var seenSpawn={};
         Object.keys(spawned).forEach(function(sid){
           var sp=spawned[sid];
           if(!sp||sp.day!==rsDayKey())return;
-          var def=getChallengeDef(sid)||getChallengeDef('defeat_response');
+          var openId=getChallengeDef(sid)?sid:(sp.challengeId||'');
+          if(!openId||!getChallengeDef(openId)) return;
+          if(seenSpawn[openId]) return;
+          seenSpawn[openId]=1;
+          var def=getChallengeDef(openId)||getChallengeDef('defeat_response');
           if(!def)return;
-          var status2=challengeStatusFor(Object.assign({},def,{id:sid}));
+          var status2=challengeStatusFor(Object.assign({},def,{id:openId}));
           if(status2==='completed')return;
           html+='<div class="rs-game-card" style="border-color:rgba(248,113,113,.45)">';
-          html+='<div class="rs-game-cat">⚔️ DEFEAT</div>';
+          html+='<div class="rs-game-cat">⚔️ '+(sp.gameId==='roulette'?'ROULETTE':(sp.gameId==='dice'?'DICE':'DEFEAT'))+'</div>';
           html+='<div class="rs-game-name">'+esc(def.title)+'</div>';
           html+='<div class="rs-game-desc">'+esc(def.desc)+'</div>';
           html+='<div class="rs-game-foot"><span class="rs-game-xp">+'+challengeXpFor(def)+' XP</span>';
-          html+='<button type="button" class="btn rs-game-btn" data-open-ch="'+esc(sid)+'">SUBMIT PROOF</button></div></div>';
+          html+='<button type="button" class="btn rs-game-btn" data-open-ch="'+esc(openId)+'">'+(status2==='accepted'?'PUBLISH PROOF':'ACCEPT &amp; FULFILL')+'</button></div></div>';
         });
       }catch(e){}
       } // end registered-only challenges block
@@ -20250,18 +20394,31 @@ function profileStatsHtml(userPosts, extra){
       }
       // evidence form
       if(ch.prompt) html+='<div class="rs-game-play-sub">'+esc(ch.prompt)+'</div>';
-      if(ch.prompt||ch.evidence==='TEXT'||ch.evidence==='COMMUNITY_ACTION'||ch.validate==='text'||ch.validate==='engage'){
+      var isWallPost=ch.evidence==='WALL_POST'||ch.spawn==='defeat';
+      var wantsVideo=ch.validate==='video'||ch.proof_type==='video';
+      var wantsPhoto=ch.evidence==='PHOTO'||ch.evidence==='SCREENSHOT'||ch.validate==='photo'||(isWallPost&&!wantsVideo&&ch.validate!=='text');
+      if(isWallPost){
+        html+='<div class="rs-game-desc" style="margin-bottom:10px">Publish your proof on Wall (or Feed). Attach the photos/videos required, then publish. Completing the post marks this challenge done.</div>';
+        html+='<button type="button" class="btn btn-primary" id="ch-publish-wall" style="width:100%;min-height:52px;font-weight:900;margin-bottom:10px">Accept &amp; publish proof</button>';
+      }
+      if(ch.prompt||ch.evidence==='TEXT'||ch.evidence==='COMMUNITY_ACTION'||ch.validate==='text'||ch.validate==='engage'||(isWallPost&&ch.validate==='text')){
         html+='<textarea id="ch-text" placeholder="Write your response…" style="width:100%;min-height:120px;border-radius:14px;border:1px solid #2a2a32;background:#0c0c10;color:#fff;padding:12px;font-size:15px"></textarea>';
       }
-      if(ch.evidence==='PHOTO'||ch.evidence==='SCREENSHOT'||ch.validate==='photo'){
+      if(wantsPhoto){
         html+='<label class="btn btn-secondary" style="display:block;width:100%;text-align:center;margin:10px 0;min-height:48px;line-height:48px;padding:0">Upload photo / screenshot<input type="file" id="ch-file" accept="image/*" capture="environment" style="display:none"/></label>';
+        html+='<div id="ch-file-name" style="font-size:12px;color:#9a9aa3;margin-bottom:8px">No file selected</div>';
+      }
+      if(wantsVideo){
+        html+='<label class="btn btn-secondary" style="display:block;width:100%;text-align:center;margin:10px 0;min-height:48px;line-height:48px;padding:0">Upload video proof<input type="file" id="ch-file" accept="video/*,image/*" capture="environment" style="display:none"/></label>';
         html+='<div id="ch-file-name" style="font-size:12px;color:#9a9aa3;margin-bottom:8px">No file selected</div>';
       }
       if(ch.evidence==='PROFILE_ACTION'){
         html+='<div class="rs-game-desc">Make the profile change first, then tap submit. We check that something actually changed.</div>';
         html+='<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:10px;min-height:48px" onclick="showPanel(\'profile\')">Open profile</button>';
       }
-      html+='<button type="button" class="btn rs-game-btn" id="ch-submit" style="width:100%;min-height:52px;font-weight:900">SUBMIT EVIDENCE</button>';
+      if(!isWallPost || wantsPhoto || wantsVideo || ch.validate==='text'){
+        html+='<button type="button" class="btn rs-game-btn" id="ch-submit" style="width:100%;min-height:52px;font-weight:900">'+(isWallPost?'SUBMIT SCREENSHOT / NOTE':'SUBMIT EVIDENCE')+'</button>';
+      }
       html+='<div id="ch-msg" class="rs-game-result"></div>';
       el.innerHTML=html;
       document.getElementById('ch-back').onclick=function(){renderChallengesHub()};
@@ -20271,8 +20428,90 @@ function profileStatsHtml(userPosts, extra){
         var lab=document.getElementById('ch-file-name');
         if(lab) lab.textContent=__rsEvidenceFile?(__rsEvidenceFile.name+' · '+Math.round((__rsEvidenceFile.size||0)/1024)+' KB'):'No file selected';
       };
-      document.getElementById('ch-submit').onclick=function(){submitChallengeEvidence(ch)};
+      var wallBtn=document.getElementById('ch-publish-wall');
+      if(wallBtn) wallBtn.onclick=function(){ openChallengeWallPublish(ch); };
+      var subBtn=document.getElementById('ch-submit');
+      if(subBtn) subBtn.onclick=function(){submitChallengeEvidence(ch)};
     }
+    function openChallengeWallPublish(ch){
+      if(!ch){toast('Challenge missing');return}
+      if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
+      var st=challengeUserState();
+      var day=rsDayKey();
+      st.accepted[day]=st.accepted[day]||{};
+      st.accepted[day][ch.id]={at:Date.now(),from:'challenge_wall',gameId:(st.spawned[ch.id]&&st.spawned[ch.id].gameId)||'',sessionId:(st.spawned[ch.id]&&st.spawned[ch.id].sessionId)||'',status:'accepted'};
+      persistChallengeUser(st);
+      var spawn=st.spawned&&st.spawned[ch.id];
+      var title=(ch.title||'Challenge proof');
+      var desc=(ch.desc||'')+(ch.prompt?('\n\n'+ch.prompt):'');
+      var tags='challenge, challenge_proof, normal_feed, exposed';
+      if(spawn&&spawn.gameId==='roulette') tags+=', roulette, roulette_task, game_badge_roulette';
+      if(spawn&&spawn.gameId==='dice') tags+=', dice, exposure_dice, game_badge_dice';
+      if(spawn&&(spawn.gameId==='tic_tac_toe'||spawn.gameId==='triki')) tags+=', tic_tac_toe, ttt_challenge, game_badge_ttt';
+      window.__pendingChallengePublish={
+        challengeId:ch.id,
+        gameId:(spawn&&spawn.gameId)||'',
+        sessionId:(spawn&&spawn.sessionId)||'',
+        at:Date.now()
+      };
+      window.__pendingGamePublish={
+        game:(spawn&&spawn.gameId)||'challenge',
+        playId:(spawn&&spawn.sessionId)||'',
+        badge:(spawn&&spawn.gameId==='roulette')?'roulette':(spawn&&spawn.gameId==='dice')?'dice':(spawn&&(spawn.gameId==='tic_tac_toe'||spawn.gameId==='triki'))?'ttt':null,
+        challengeId:ch.id
+      };
+      window.__pendingComposerPrefill={
+        title:title,
+        desc:desc,
+        tags:tags,
+        note:'Challenge proof · <strong>'+esc(ch.title||'Challenge')+'</strong> · publish on Wall',
+        btn:'Publish challenge proof',
+        requireMedia:ch.validate!=='text'
+      };
+      try{openNormalPostComposer()}catch(e){showPanel('post')}
+      try{applyPendingComposerPrefill()}catch(e){}
+      toast('Add your proof and publish — challenge stays active until published');
+    }
+    window.openChallengeWallPublish=openChallengeWallPublish;
+    function completeChallengeFromPublish(postId, meta){
+      meta=meta||{};
+      if(!isRegistered()) return false;
+      var chId=meta.challengeId||(window.__pendingChallengePublish&&window.__pendingChallengePublish.challengeId)||null;
+      if(!chId){
+        // Fall back to any pending spawned challenge for this game session.
+        try{
+          var st0=challengeUserState();
+          var gpub=window.__pendingGamePublish||{};
+          var sid=gpub.playId||meta.sessionId||'';
+          Object.keys(st0.spawned||{}).forEach(function(k){
+            var sp=st0.spawned[k];
+            if(!sp) return;
+            if(getChallengeDef(k) && (!sid || String(sp.sessionId||'')===String(sid))) chId=chId||k;
+          });
+        }catch(e){}
+      }
+      if(!chId) return false;
+      var ch=getChallengeDef(chId);
+      if(!ch) return false;
+      var st=challengeUserState();
+      var day=rsDayKey();
+      var spawnMeta=(st.spawned&&st.spawned[chId])||null;
+      var key=challengeCompletedId(chId, day);
+      if(spawnMeta&&spawnMeta.sessionId) key=key+'|'+spawnMeta.sessionId;
+      if(st.completions[key]&&st.completions[key].status==='completed') return true;
+      var awarded=0;
+      try{awarded=awardChallengeXp(ch)}catch(e){awarded=0}
+      st.completions[key]={status:'completed',day:day,xp:awarded,at:Date.now(),challengeId:chId,evidenceStatus:'WALL_PUBLISHED',postId:String(postId||''),sessionId:spawnMeta&&spawnMeta.sessionId};
+      st.completions[chId]={status:'completed',day:day,xp:awarded,at:Date.now(),postId:String(postId||'')};
+      st.stats.completed=(Number(st.stats.completed)||0)+1;
+      if(spawnMeta){ try{delete st.spawned[chId]}catch(e){} if(spawnMeta.key) try{delete st.spawned[spawnMeta.key]}catch(e2){} }
+      persistChallengeUser(st);
+      window.__pendingChallengePublish=null;
+      try{pushNotif(currentUser.name,'system','badge',null,'✓ Challenge complete · '+ch.title+(awarded?(' · +'+awarded+' XP'):''))}catch(e){}
+      try{toast('Challenge complete'+(awarded?(' · +'+awarded+' XP'):''))}catch(e){}
+      return true;
+    }
+    window.completeChallengeFromPublish=completeChallengeFromPublish;
 
     async function submitChallengeEvidence(ch){
       if(!isRegistered()||!ch)return;
@@ -20295,12 +20534,14 @@ function profileStatsHtml(userPosts, extra){
       var text=String((document.getElementById('ch-text')||{}).value||'').trim();
       var evidence={type:ch.evidence,text:text,url:'',at:Date.now(),validate:ch.validate};
       try{
-        if((ch.evidence==='PHOTO'||ch.evidence==='SCREENSHOT'||ch.validate==='photo') && __rsEvidenceFile){
-          if(__rsEvidenceFile.size<1200) throw new Error('Image too small');
-          if(__rsEvidenceFile.size>12*1024*1024) throw new Error('Image too large');
+        var needsFile=ch.evidence==='PHOTO'||ch.evidence==='SCREENSHOT'||ch.evidence==='WALL_POST'||ch.validate==='photo'||ch.validate==='video'||ch.proof_type==='video'||ch.proof_type==='photo';
+        if(needsFile && __rsEvidenceFile){
+          var isVid=/^video\//i.test(__rsEvidenceFile.type||'');
+          if(!isVid && __rsEvidenceFile.size<1200) throw new Error('Image too small');
+          if(__rsEvidenceFile.size>(isVid?80:12)*1024*1024) throw new Error(isVid?'Video too large':'Image too large');
           var file=__rsEvidenceFile;
           try{
-            if(typeof compressImage==='function'){
+            if(!isVid && typeof compressImage==='function'){
               var compressed=await compressImage(file, 1600, 900000, 0.82);
               if(compressed) file=compressed;
             }
@@ -20309,6 +20550,7 @@ function profileStatsHtml(userPosts, extra){
           try{url=await uploadCfFile(file)}catch(e){url=null}
           if(!url) throw new Error('Upload failed — try again');
           evidence.url=url;
+          evidence.mediaType=isVid?'video':'image';
         }
       }catch(e){
         if(msg) msg.innerHTML='<div class="rs-game-fail">'+(e&&e.message?esc(e.message):'Upload error')+'</div>';
@@ -20387,6 +20629,13 @@ function profileStatsHtml(userPosts, extra){
         if(!evidence.text||evidence.text.length<minLen) return {status:'rejected',reason:'Write at least '+minLen+' characters.'};
         if(evidence.text.length>4000) return {status:'rejected',reason:'Response too long.'};
         return {status:'completed'};
+      }
+      if(v==='video'||ch.proof_type==='video'){
+        if(!evidence.url) return {status:'rejected',reason:'Upload a video (or photo still) first.'};
+        if(ch.prompt&&(!evidence.text||evidence.text.length<12)){
+          return {status:'rejected',reason:'Add a short note with your upload (12+ characters).'};
+        }
+        return {status:'completed',auto:true};
       }
       if(v==='photo'||ch.evidence==='PHOTO'||ch.evidence==='SCREENSHOT'||ch.evidence==='IMAGE'||ch.evidence==='WALL_POST'){
         if(!evidence.url) return {status:'rejected',reason:'Upload a photo or screenshot first.'};
@@ -20540,18 +20789,18 @@ function profileStatsHtml(userPosts, extra){
       return pool[h%pool.length];
     }
     function spawnDefeatChallenge(session){
-      if(!session)return;
+      if(!session)return null;
       if(!currentUser||!currentUser.name){
         toast('Login to accept the defeat challenge');
-        return;
+        return null;
       }
       var st=challengeUserState();
       st.spawned=st.spawned||{};
       var spawnId=pickDefeatChallengeId(session);
       var key=completionKeyGame(currentUser.name, session.gameId||'ttt', session.id)+'|'+spawnId;
-      if(st.spawned[key]) return;
+      if(st.spawned[key] && st.spawned[spawnId]) return spawnId;
       var doneKey=challengeCompletedId(spawnId, rsDayKey())+'|'+session.id;
-      if(st.completions[doneKey]) return;
+      if(st.completions[doneKey]) return spawnId;
       var def=getChallengeDef(spawnId)||getChallengeDef('defeat_response');
       st.spawned[key]={
         day:rsDayKey(),
@@ -20568,11 +20817,16 @@ function profileStatsHtml(userPosts, extra){
         day:rsDayKey(),
         sessionId:session.id,
         gameId:session.gameId||'tic_tac_toe',
+        challengeId:spawnId,
+        proof_type:(def&&def.proof_type)||'photo',
         at:Date.now(),
         key:key
       };
       st.accepted[rsDayKey()]=st.accepted[rsDayKey()]||{};
-      st.accepted[rsDayKey()][spawnId]={at:Date.now(),from:'defeat',gameId:session.gameId||'tic_tac_toe',sessionId:session.id,status:'pending'};
+      // Keep as available until user explicitly accepts via Accept & fulfill / Wall publish.
+      if(!st.accepted[rsDayKey()][spawnId]){
+        st.accepted[rsDayKey()][spawnId]={at:Date.now(),from:'defeat',gameId:session.gameId||'tic_tac_toe',sessionId:session.id,status:'pending'};
+      }
       persistChallengeUser(st);
       try{
         fetch((window.CF_API||'https://ruiningsubs-api.0788adm.workers.dev')+'/notifs',{
@@ -21180,11 +21434,32 @@ function profileStatsHtml(userPosts, extra){
       });
       var os=document.getElementById('ttt-open-spawn');
       if(os) os.onclick=function(){
+        var cid=spawnedId||'defeat_response';
         if(!confirm('Accept this challenge voluntarily? You will publish proof on Wall or Feed.')) return;
-        try{openChallenge(spawnedId||'defeat_response')}catch(e){toast('Open Games → challenge')}
+        try{
+          var def=getChallengeDef(cid);
+          // WALL_POST defeat challenges open the existing Wall composer directly.
+          if(def && (def.evidence==='WALL_POST' || def.spawn==='defeat')){
+            openChallenge(cid).then(function(){
+              try{openChallengeWallPublish(Object.assign({},def,{id:cid}))}catch(e){}
+            }).catch(function(){
+              try{openChallenge(cid)}catch(e2){}
+            });
+          }else{
+            openChallenge(cid);
+          }
+        }catch(e){toast('Open Games → challenge')}
       };
       var d=document.getElementById('ttt-defeat'); if(d)d.onclick=function(){
-        try{openChallenge(spawnedId||'defeat_response')}catch(e){}
+        var cid=spawnedId||'defeat_response';
+        try{
+          var def=getChallengeDef(cid);
+          if(def && (def.evidence==='WALL_POST' || def.spawn==='defeat')){
+            openChallengeWallPublish(Object.assign({},def,{id:cid}));
+          }else{
+            openChallenge(cid);
+          }
+        }catch(e){}
       };
       var retryBtn=document.getElementById('ttt-retry');
       if(retryBtn) retryBtn.onclick=function(){
@@ -24503,18 +24778,28 @@ async function onIdFace(e){
                   game:gpub.game||'',
                   play_id:gpub.playId||'',
                   post_id:String(row.id),
+                  challenge_id:gpub.challengeId||(window.__pendingChallengePublish&&window.__pendingChallengePublish.challengeId)||'',
                   deletion_tier:delTier,
                   permanent:!!gpub.permanent,
                   free_delete:!!gpub.free_delete,
-                  status:'pending',
+                  status:'published',
                   at:Date.now()
                 })
               })
             }).catch(function(){});
             try{if(isRegistered()) grantXp('challenge_xp_20', 'game_evidence:'+row.id, true)}catch(eX){}
           }
+          // Mark active game/defeat challenge completed when proof is published on Wall.
+          try{
+            completeChallengeFromPublish(row&&row.id, {
+              challengeId:(gpub&&gpub.challengeId)||(window.__pendingChallengePublish&&window.__pendingChallengePublish.challengeId)||null,
+              sessionId:(gpub&&gpub.playId)||(window.__pendingChallengePublish&&window.__pendingChallengePublish.sessionId)||''
+            });
+          }catch(eC){}
           window.__pendingGamePublish=null;
           window.__pendingDicePublish=null;
+          window.__pendingChallengePublish=null;
+          window.__pendingComposerPrefill=null;
         }catch(e){}
         if(!profileMode){
           toast(isRoulettePub
