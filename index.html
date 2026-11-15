@@ -3103,7 +3103,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div class="admin-tabs" id="admin-tabs">
             <button type="button" class="tab active" data-asec="pinned">Pins<span class="admin-badge" id="ab-pinned" hidden>0</span></button>
             <button type="button" class="tab" data-asec="pinreq">Pin req<span class="admin-badge" id="ab-pinreq" hidden>0</span></button>
-            <button type="button" class="tab" data-asec="removereq">Delete<span class="admin-badge" id="ab-removereq" hidden>0</span></button>
+            <button type="button" class="tab" data-asec="removereq">DELETE REQUESTS<span class="admin-badge" id="ab-removereq" hidden>0</span></button>
             <button type="button" class="tab" data-asec="print">Print<span class="admin-badge" id="ab-print" hidden>0</span></button>
             <button type="button" class="tab" data-asec="coins">Reloads<span class="admin-badge" id="ab-coins" hidden>0</span></button>
             <button type="button" class="tab" data-asec="users">Users</button>
@@ -3134,8 +3134,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
           <div class="admin-sec" id="asec-removereq" style="display:none">
             <div class="admin-card" style="margin-bottom:10px">
-              <strong>Delete requests</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending $5 remove requests and free rights / non-consensual reports. Thumbnails + post ID + requester. Approve deletes the post; Reject clears the request only. History below keeps Approved / Rejected rows.</p>
+              <strong>DELETE REQUESTS</strong>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending FC (50) and $5 remove requests, plus free rights / non-consensual reports. Shows requester, post ID, title, thumbnail, paid amount, and request time. <b>APPROVE &amp; DELETE</b> removes the post; <b>REJECT</b> can refund 50 FC once when paid with coins.</p>
             </div>
             <div id="admin-req-remove"><div class="empty">Open to load…</div></div>
             <div class="admin-card" style="margin-top:12px">
@@ -3303,7 +3303,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </p>
       <p id="remove-post-id-label" style="display:none"></p>
       <a class="btn btn-primary" id="btn-remove-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5'})}catch(e){}">PayPal $5 · MartinJimenez205</a>
-      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete now — 50 FC</button>
+      <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Request instant deletion — 50 FC</button>
+      <div id="remove-request-status" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.35);color:#f5c518;font-size:13px;font-weight:700;line-height:1.4"></div>
       <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95">Pay $5 on Throne</a>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verify</button>
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" id="btn-remove-buycoins" onclick="closeModals();openCoinShop()">Buy Fag Coins</button>
@@ -9875,14 +9876,16 @@ function openRoulette(){
         var id=hit.getAttribute('data-id')||'';
         var user=hit.getAttribute('data-user')||'';
         var paid=hit.getAttribute('data-paid')==='1';
+        var paidFc=hit.getAttribute('data-fc')==='1';
         var inputId=hit.getAttribute('data-input')||'';
         try{
           if(act==='pin') return (window.approveFeature||approveFeature)(id);
           if(act==='cf-pin-approve') return (window.approveCloudflarePinRequest||approveCloudflarePinRequest)(id);
           if(act==='cf-pin-reject') return (window.rejectCloudflareRequest||rejectCloudflareRequest)(id);
           if(act==='unpin-dismiss') return (window.dismissFeatureReq||dismissFeatureReq)(id);
-          if(act==='delete') return (window.approveRemoveReq||approveRemoveReq)(id);
-          if(act==='remove-dismiss') return (window.dismissRemoveReq||dismissRemoveReq)(id);
+          if(act==='delete') return (window.approveRemoveReq||approveRemoveReq)(id,{requester:user});
+          if(act==='remove-dismiss') return (window.dismissRemoveReq||dismissRemoveReq)(id,{requester:user,paidWithFc:paidFc});
+          if(act==='remove-refund') return (window.refundRemoveReqFc||refundRemoveReqFc)(id,user);
           if(act==='pin-remind') return (window.remindPinPayment||remindPinPayment)(id,user);
           if(act==='remove-remind') return (window.remindRemovePayment||remindRemovePayment)(id,user);
           if(act==='print-approve') return (window.approveCloudflarePrintRequest||approveCloudflarePrintRequest)(id);
@@ -25355,6 +25358,10 @@ async function onIdFace(e){
       var paid=document.getElementById('btn-remove-paid');
       var cancel=document.getElementById('btn-cancel-rm');
       if(cancel) cancel.textContent='Cancel';
+      try{
+        var stBox=document.getElementById('remove-request-status');
+        if(stBox){stBox.style.display='none';stBox.textContent=''}
+      }catch(e){}
       // Free deletion chosen at publish time → author deletes with no payment UI.
       if(owner && freeDel && !needsFc){
         if(title) title.textContent='Delete post';
@@ -25390,11 +25397,12 @@ async function onIdFace(e){
         if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. Pay <strong style="color:#f5c518">$5 USD</strong> or <strong style="color:#f5c518">'+delCost+' FC</strong>. Admin reviews before anything is removed — the post is not deleted automatically.';
         if(fc){
           fc.style.display='block';
-          fc.textContent='Delete now — '+delCost+' FC';
+          fc.textContent='Request instant deletion — '+delCost+' FC';
           fc.setAttribute('onclick','requestDeleteWithCoins()');
         }
         if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verify'}
         setRemoveModalExternalPay(true);
+        try{showRemoveRequestStatus(id)}catch(e){}
       }else{
         if(title) title.textContent='Remove this post';
         if(pEl) pEl.innerHTML='Delete · <strong style="color:#f5c518">$5 / 50 FC</strong>. Or pay outside and tap <strong>I paid</strong>.';
@@ -25568,42 +25576,162 @@ async function onIdFace(e){
       closeModals();
     }
     /**
-     * Request Delete with FC — same spendFagCoins path as Premium Pin.
-     * Charges FC_COSTS.delete, then creates an admin remove_request.
-     * Never auto-deletes the post.
+     * Request Delete with FC — atomic /api/request-delete.
+     * Server charges FC_COSTS.delete AND creates admin remove_request in one call.
+     * Never auto-deletes the post. Never trusts browser balance.
      */
+    function deleteRequestProgress(on, stage){
+      var ov=document.getElementById('pay-progress');
+      if(!on){if(ov)ov.remove();return}
+      if(!ov){
+        ov=document.createElement('div');
+        ov.id='pay-progress';
+        ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px';
+        document.body.appendChild(ov);
+      }
+      var stages={
+        processing_payment:{title:'Processing payment',text:'Charging 50 FC from your balance…'},
+        sending_request:{title:'Sending request',text:'Creating deletion request for the administrator…'},
+        request_submitted:{title:'Request submitted',text:'50 FC charged successfully. Your deletion request has been sent to the administrator.'},
+        completed:{title:'Completed',text:'Administrator completed your deletion request.'}
+      };
+      var s=stages[stage]||stages.processing_payment;
+      ov.innerHTML='<div style="width:100%;max-width:360px;background:#0c0c10;border:1px solid #2a2a32;border-radius:18px;padding:22px;text-align:center">'
+        +'<div style="font-size:18px;font-weight:900;margin-bottom:8px">'+s.title+'</div>'
+        +'<div style="font-size:13px;color:#9a9aa8;margin-bottom:8px">'+s.text+'</div>'
+        +'<div style="font-size:12px;color:#f5c518;font-weight:800">Status: '+esc(String(stage||'processing_payment').replace(/_/g,' '))+'</div></div>';
+    }
+    function rememberRemoveRequestLocal(meta){
+      meta=meta||{};
+      try{
+        var id=String(meta.postId||meta.id||'');
+        if(!id)return;
+        var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+        req=req.filter(function(x){return !(String(x.id)===id && String(x.kind||'paid')===String(meta.kind||'paid'))});
+        req.unshift({
+          id:id,
+          title:meta.title||'',
+          user:meta.user||meta.requester||'',
+          publisher:meta.publisher||'',
+          at:meta.at||Date.now(),
+          kind:meta.kind||'paid',
+          amount:meta.amount||((meta.coins||50)+' FC'),
+          status:meta.status||'pending',
+          paidWithFc:!!meta.paidWithFc,
+          coins:Number(meta.coins||0)||0,
+          requestId:meta.requestId||'',
+          thumb:meta.thumb||meta.thumb_url||''
+        });
+        localStorage.setItem('rs_remove_req',JSON.stringify(req.slice(0,60)));
+      }catch(e){}
+    }
+    function showRemoveRequestStatus(postId){
+      var box=document.getElementById('remove-request-status');
+      if(!box)return;
+      postId=String(postId||window.__removePostId||currentDetailId||'');
+      var hit=null;
+      try{
+        var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+        hit=req.find(function(x){return String(x.id)===postId});
+      }catch(e){}
+      var hist=null;
+      try{
+        var h=JSON.parse(localStorage.getItem('rs_remove_history')||'[]')||[];
+        hist=h.find(function(x){return String(x.id)===postId});
+      }catch(e){}
+      var st=String((hist&&hist.status)||(hit&&hit.status)||'').toLowerCase();
+      if(!st){box.style.display='none';box.textContent='';return}
+      var label='Solicitud enviada.';
+      if(st==='pending'||st==='submitted') label='Solicitud enviada. Pendiente de revisión.';
+      else if(st==='approved'||st==='completed') label='Eliminada — el administrador completó la solicitud.';
+      else if(st==='rejected') label='Rechazada — el administrador rechazó la solicitud.';
+      box.textContent=label;
+      box.style.display='block';
+    }
+    var __requestDeleteLocks={};
     async function requestDeleteWithCoins(){
       var id=String(window.__removePostId||currentDetailId||'');
       if(!id){toast('Open the post first');return false}
       var cost=(typeof FC_COSTS!=='undefined' && FC_COSTS.delete)||50;
       var uid=typeof coinUserId==='function'?coinUserId():((currentUser&&currentUser.name)||'');
+      uid=String(uid||'').replace(/^@/,'').trim();
       if(!uid || uid==='anon' || uid==='guest'){
         toast('Login required');
         try{showAuth('login')}catch(e){}
         return false;
       }
-      try{payProgress(true,'Delete · '+cost+' FC','Charging coins…',25)}catch(e){}
-      // Reuse Premium Pin's spend path (atomic /api/fc-spend → wallet → openNeedCoins on insufficient).
-      var ok=await spendFagCoins('delete', 'remove-req:'+String(id));
-      if(!ok){
-        try{payProgress(false)}catch(e){}
-        try{openNeedCoins({cost:cost,why:'delete'})}catch(e){try{openCoinShop()}catch(err){}}
+      var lockKey=String(uid).toLowerCase()+'|'+id;
+      if(__requestDeleteLocks[lockKey]){
+        toast('Your delete request is already being sent. Please wait.');
         return false;
       }
-      try{payProgress(true,'Delete · '+cost+' FC','Sending request to admin…',70)}catch(e){}
-      var sent=false;
+      __requestDeleteLocks[lockKey]=true;
+      var btn=document.getElementById('btn-remove-fc');
+      if(btn){btn.disabled=true;btn.setAttribute('aria-busy','true')}
       try{
-        sent=!!(await submitRemoveRequest({
+        // Server does spend + request atomically. UI only shows real stages from the response.
+        deleteRequestProgress(true,'processing_payment');
+        var idem='remove-req:'+id+':'+String(uid).toLowerCase();
+        var r=await fetch('/api/request-delete',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Idempotency-Key':idem},
+          body:JSON.stringify({user:uid,postId:id,idempotencyKey:idem}),
+          cache:'no-store'
+        });
+        var j=await r.json().catch(function(){return{}});
+        if(r.status===409 || (j&&j.error==='in_progress')){
+          deleteRequestProgress(false);
+          toast('Your delete request is already being sent. Please wait.');
+          return false;
+        }
+        if(j&&(j.error==='insufficient'||j.error==='insufficient_fc'||r.status===402)){
+          deleteRequestProgress(false);
+          toast('Insufficient FC — need '+(j.need||cost)+' FC');
+          try{openNeedCoins({cost:j.need||cost,why:'delete'})}catch(e){try{openCoinShop()}catch(err){}}
+          return false;
+        }
+        if(!r.ok || !j || j.ok===false){
+          if(j&&j.stage) deleteRequestProgress(true,j.stage);
+          else deleteRequestProgress(false);
+          if(j&&j.refunded) toast('Could not send request — 50 FC refunded');
+          else toast((j&&(j.message||j.detail||j.error))||'Could not send the remove request. Please try again.');
+          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},700);
+          return false;
+        }
+        if(j.balance!=null) window.__fcLast=Number(j.balance)||window.__fcLast;
+        try{await loadFagBalance()}catch(e){}
+        rememberRemoveRequestLocal({
           postId:id,
-          kind:'paid',
+          title:j.title||'',
+          user:uid,
+          publisher:j.publisher||'',
+          amount:j.amount||(cost+' FC'),
           paidWithFc:true,
-          coins:cost
-        }));
-      }catch(e){sent=false}
-      try{payProgress(false)}catch(e){}
-      return sent;
+          coins:cost,
+          status:'pending',
+          requestId:(j.request&&j.request.id)||'',
+          thumb:j.thumb_url||'',
+          at:j.requested_at?Date.parse(j.requested_at)||Date.now():Date.now()
+        });
+        deleteRequestProgress(true, j.stage||'request_submitted');
+        try{showRemoveRequestStatus(id)}catch(e){}
+        closeModals();
+        toast(j.message||'50 FC charged successfully. Your deletion request has been sent to the administrator.');
+        setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
+        return true;
+      }catch(e){
+        deleteRequestProgress(false);
+        toast('Could not send the remove request. Please try again.');
+        console.warn('requestDeleteWithCoins',e);
+        return false;
+      }finally{
+        __requestDeleteLocks[lockKey]=false;
+        if(btn){btn.disabled=false;btn.removeAttribute('aria-busy')}
+      }
     }
     window.requestDeleteWithCoins=requestDeleteWithCoins;
+    window.deleteRequestProgress=deleteRequestProgress;
+    window.showRemoveRequestStatus=showRemoveRequestStatus;
     window.removeWithCoins=removeWithCoins;
     window.secureDeletePost=secureDeletePost;
     window.openRemove=openRemove;
@@ -27381,16 +27509,54 @@ async function onIdFace(e){
     async function renderAdminRemoves(box){
       box=box||document.getElementById('admin-req-remove');
       if(!box)return;
-      box.innerHTML='<div class="empty">Loading delete requests…</div>';
+      box.innerHTML='<div class="empty">Loading DELETE REQUESTS…</div>';
       var remDismissed=dismissedSet('rs_remove_dismissed');
       var rreq=[];
       try{
         (JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[]).forEach(function(x){
           var pid=normalizeAdminPostId(x.id);
           if(!pid) return;
-          rreq.push({id:pid,title:x.title||'',user:x.user||'',at:Number(x.at||Date.now()),source:'local'});
+          rreq.push({
+            id:pid,
+            title:x.title||'',
+            user:x.user||'',
+            publisher:x.publisher||'',
+            at:Number(x.at||Date.now()),
+            amount:x.amount||'',
+            coins:Number(x.coins||0)||0,
+            paidWithFc:!!x.paidWithFc || /FC/i.test(String(x.amount||'')),
+            requestId:x.requestId||'',
+            status:x.status||'pending',
+            source:'local'
+          });
         });
       }catch(e){}
+      // Official CF /admin/requests queue (includes FC amount + payload).
+      try{
+        var cfRows=await cfAdminRequests('pending','remove_request');
+        (cfRows||[]).forEach(function(row){
+          var pid=normalizeAdminPostId(row.post_id||(row.payload&&row.payload.post_id));
+          if(!pid) return;
+          var payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+          var coins=Number(row.coins||payload.coins||0)||0;
+          var paidFc=!!payload.paidWithFc || coins>=50 || /FC/i.test(String(row.amount||''));
+          rreq.push({
+            id:pid,
+            title:payload.title||row.label||'',
+            user:row.user_id||payload.requester||'',
+            publisher:payload.publisher||'',
+            at:row.created_at?Date.parse(row.created_at)||Date.now():Date.now(),
+            amount:row.amount||payload.payment||(paidFc?(coins||50)+' FC':'$5'),
+            coins:coins||(paidFc?50:0),
+            paidWithFc:paidFc,
+            requestId:row.id||'',
+            thumb:payload.thumb_url||'',
+            postCreatedAt:payload.post_created_at||'',
+            status:row.status||'PENDING',
+            source:'cf-request'
+          });
+        });
+      }catch(e){console.warn('load CF remove_request queue',e)}
       try{
         var cfR=[];
         var cfRemoveTargets=['admin','MasterSan','mastersan'];
@@ -27404,7 +27570,21 @@ async function onIdFace(e){
           var pid=normalizeAdminPostId(n.post_id);
           if(!pid){var mm=String(n.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);if(mm)pid=normalizeAdminPostId(mm[1]);}
           if(!pid) return;
-          rreq.push({id:pid,title:(n.message||'').slice(0,80),user:n.from_username||'',at:Number(n.created_at)||Date.now(),nid:n.id,nids:[n.id],cf:true,source:'cf'});
+          var msg=String(n.message||'');
+          var paidFc=/FC charged|DELETE FC|paidWithFc/i.test(msg);
+          rreq.push({
+            id:pid,
+            title:msg.slice(0,80),
+            user:n.from_username||'',
+            at:Number(n.created_at)||Date.now(),
+            nid:n.id,
+            nids:[n.id],
+            paidWithFc:paidFc,
+            amount:paidFc?'50 FC':'$5',
+            coins:paidFc?50:0,
+            cf:true,
+            source:'cf'
+          });
         });
       }catch(e){console.warn('load CF remove requests',e)}
       if(sb){
@@ -27417,22 +27597,46 @@ async function onIdFace(e){
               if(mm)pid=normalizeAdminPostId(mm[1]);
             }
             if(!pid) return;
-            rreq.push({id:pid,title:(n.message||'').slice(0,80),user:n.from_username||'',at:n.created_at?new Date(n.created_at).getTime():Date.now(),nid:n.id,nids:[n.id],source:'sb'});
+            var msg=String(n.message||'');
+            var paidFc=/FC charged|DELETE FC|paidWithFc/i.test(msg);
+            rreq.push({
+              id:pid,
+              title:msg.slice(0,80),
+              user:n.from_username||'',
+              at:n.created_at?new Date(n.created_at).getTime():Date.now(),
+              nid:n.id,
+              nids:[n.id],
+              paidWithFc:paidFc,
+              amount:paidFc?'50 FC':'$5',
+              coins:paidFc?50:0,
+              source:'sb'
+            });
           });
         }catch(e){}
       }
-      // Merge nids for same post before dedupe loss.
+      // Merge nids / FC flags for same post before dedupe loss.
       var nidBag={};
+      var mergeMap={};
       rreq.forEach(function(r){
         var pid=normalizeAdminPostId(r.id);
         if(!pid) return;
         nidBag[pid]=nidBag[pid]||[];
         (r.nids||[]).concat(r.nid?[r.nid]:[]).forEach(function(n){if(nidBag[pid].indexOf(n)<0)nidBag[pid].push(n)});
+        var prev=mergeMap[pid];
+        if(!prev){mergeMap[pid]=r;return}
+        if(r.paidWithFc) prev.paidWithFc=true;
+        if(r.coins && !prev.coins) prev.coins=r.coins;
+        if(r.amount && (!prev.amount || prev.amount==='$5') && /FC/i.test(r.amount)) prev.amount=r.amount;
+        if(r.requestId && !prev.requestId) prev.requestId=r.requestId;
+        if(r.publisher && !prev.publisher) prev.publisher=r.publisher;
+        if(r.thumb && !prev.thumb) prev.thumb=r.thumb;
+        if(r.user && !prev.user) prev.user=r.user;
+        if((r.at||0)>(prev.at||0)) prev.at=r.at;
       });
-      rreq=dedupeAdminRequests(rreq).filter(function(x){return remDismissed.indexOf(normalizeAdminPostId(x.id))<0});
+      rreq=dedupeAdminRequests(Object.keys(mergeMap).map(function(k){return mergeMap[k]})).filter(function(x){return remDismissed.indexOf(normalizeAdminPostId(x.id))<0});
       rreq.forEach(function(r){r.nids=nidBag[normalizeAdminPostId(r.id)]||r.nids||[]});
       rreq.sort(function(a,b){return (b.at||0)-(a.at||0)});
-      if(!rreq.length){box.innerHTML='<div class="empty">No remove requests</div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
+      if(!rreq.length){box.innerHTML='<div class="empty">No DELETE REQUESTS</div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
       var thumbMap=await batchFetchAdminThumbs(rreq.map(function(r){return r.id}));
       var toolbar='<div class="admin-toolbar">'
         +'<button class="btn btn-danger btn-sm" type="button" onclick="purgeSelectedAdminRequests(\'remove\')">Delete selected</button>'
@@ -27440,7 +27644,7 @@ async function onIdFace(e){
         +'<span style="font-size:11px;color:var(--muted)">'+rreq.length+' unique</span></div>';
       box.innerHTML=toolbar+rreq.slice(0,40).map(function(r){
         var meta=thumbMap[normalizeAdminPostId(r.id)]||{};
-        var src=meta.src||'';
+        var src=r.thumb||meta.src||'';
         var msg=String(r.title||'');
         var isRights=/RIGHTS|NON-CONSENSUAL|FREE REVIEW/i.test(msg);
         var requester=r.user||'';
@@ -27448,22 +27652,26 @@ async function onIdFace(e){
           var rm=msg.match(/requester\s*@([A-Za-z0-9._-]+)/i); if(rm) requester=rm[1];
           else {var rm2=msg.match(/@([A-Za-z0-9._-]+)/); if(rm2) requester=rm2[1];}
         }catch(e){}
-        var publisher=meta.user||'';
+        var publisher=r.publisher||meta.user||'';
         try{var pm=msg.match(/publisher\s*@([A-Za-z0-9._-]+)/i); if(pm) publisher=pm[1]}catch(e){}
-        var payLabel=isRights?'NO PAYMENT · rights':'PAYMENT CLAIMED · $5';
-        var statusLabel=isRights?'RIGHTS REVIEW · Pending':'DELETE REQUEST · Pending';
-        var item=encodeAdminItem({id:r.id,nid:r.nid||'',nids:r.nids||[],at:r.at||0});
+        var paidFc=!!r.paidWithFc || Number(r.coins||0)>=50 || /FC/i.test(String(r.amount||''));
+        var payLabel=isRights?'NO PAYMENT · rights':(paidFc?('PAID · '+(r.amount||((r.coins||50)+' FC'))):('PAYMENT CLAIMED · '+(r.amount||'$5')));
+        var statusLabel=isRights?'RIGHTS REVIEW · PENDING':'DELETE REQUEST · PENDING';
+        var whenLabel=r.at?ago(r.at):'';
+        var reqAt=r.at?new Date(r.at).toLocaleString():'';
+        var item=encodeAdminItem({id:r.id,nid:r.nid||'',nids:r.nids||[],at:r.at||0,requestId:r.requestId||'',user:requester,paidWithFc:paidFc,coins:r.coins||0});
         return '<div class="admin-card"><div class="admin-card-row">'
           +'<input class="admin-check admin-req-check" type="checkbox" data-item="'+item+'"/>'
           +adminThumbHtml(src,r.id)
           +'<div style="flex:1;min-width:0"><div style="font-weight:900">Post #'+esc(String(r.id))+' · @'+esc(publisher||meta.user||'?')+'</div>'
-          +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(requester||'?')+' · '+esc((meta.title||r.title||'').slice(0,50))+(r.at?' · '+ago(r.at):'')+'</div>'
-          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Status: Pending</div>'
+          +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(requester||'?')+' · '+esc((meta.title||r.title||'').slice(0,50))+(whenLabel?' · '+whenLabel:'')+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Status: PENDING'+(reqAt?' · Requested '+esc(reqAt):'')+'</div>'
           +'<span class="admin-status pending">'+esc(statusLabel)+'</span></div></div>'
           +'<div class="admin-actions">'
-          +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'">Approve & delete post</button>'
+          +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">APPROVE &amp; DELETE</button>'
           +'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-remind" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Remind</button>'
-          +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'">Reject</button>'
+          +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-fc="'+(paidFc?'1':'0')+'">REJECT</button>'
+          +(paidFc?'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-refund" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Refund 50 FC</button>':'')
           +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">View post</button>'
           +'</div></div>';
       }).join('');
@@ -27775,6 +27983,8 @@ async function onIdFace(e){
           requester:String(entry&&entry.requester||''),
           publisher:String(entry&&entry.publisher||''),
           kind:String(entry&&entry.kind||'paid'),
+          paidWithFc:!!(entry&&entry.paidWithFc),
+          amount:String(entry&&entry.amount||''),
           at:Number(entry&&entry.at)||Date.now(),
           by:String((entry&&entry.by)||(currentUser&&currentUser.name)||'admin')
         });
@@ -27789,28 +27999,90 @@ async function onIdFace(e){
       if(!Array.isArray(h)||!h.length){box.innerHTML='<div class="empty">No history yet</div>';return}
       box.innerHTML=h.slice(0,30).map(function(row){
         var st=String(row.status||'').toLowerCase();
-        var label=st==='approved'?'Approved':(st==='rejected'?'Rejected':'Pending');
-        var cls=st==='approved'?'ok':(st==='rejected'?'bad':'pending');
+        var label=st==='completed'||st==='approved'?'COMPLETED':(st==='rejected'?'REJECTED':'PENDING');
+        var cls=st==='completed'||st==='approved'?'ok':(st==='rejected'?'bad':'pending');
+        var payBits=row.kind==='rights'?'rights':(row.paidWithFc?'50 FC':(row.amount||'paid $5'));
         return '<div class="admin-card" style="margin-bottom:8px"><div style="font-weight:800">Post #'+esc(String(row.id))+' · <span class="admin-status '+cls+'">'+esc(label)+'</span></div>'
-          +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(row.requester||'?')+' · Publisher @'+esc(row.publisher||'?')+' · '+(row.kind==='rights'?'rights':'paid $5')+(row.at?' · '+ago(row.at):'')+' · by @'+esc(row.by||'admin')+'</div>'
+          +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(row.requester||'?')+' · Publisher @'+esc(row.publisher||'?')+' · '+esc(payBits)+(row.at?' · '+ago(row.at):'')+' · by @'+esc(row.by||'admin')+'</div>'
           +'<div class="admin-actions" style="margin-top:6px"><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(row.id))+')">View post</button></div></div>';
       }).join('');
     }
-    async function dismissRemoveReq(id){
+    async function adminRequestDeleteAction(action, postId, opts){
+      opts=opts||{};
+      var headers={'Content-Type':'application/json'};
+      try{
+        var tok=sessionStorage.getItem('rs_cf_admin_token');
+        if(tok) headers.Authorization='Bearer '+tok;
+      }catch(e){}
+      var body={
+        action:action,
+        postId:String(postId||''),
+        requester:opts.requester||'',
+        refund:!!opts.refund,
+        adminUser:(currentUser&&currentUser.name)||'admin'
+      };
+      var r=await fetch('/api/request-delete',{
+        method:'POST',
+        headers:headers,
+        body:JSON.stringify(body),
+        cache:'no-store'
+      });
+      var j=await r.json().catch(function(){return{}});
+      if(r.status===401){
+        try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
+        toast('Admin password required to continue');
+        try{await cfAdminLogin()}catch(e){}
+        return {ok:false,error:'admin_required',detail:j};
+      }
+      return Object.assign({http:r.status}, j||{});
+    }
+    async function refundRemoveReqFc(id, requester){
       id=normalizeAdminPostId(id)||String(id);
-      try{var el=document.getElementById('rmreq-'+id);if(el){el.style.opacity='0.35';el.style.pointerEvents='none'}}catch(e){}
-      markDismissed('rs_remove_dismissed', id);
-      var histMeta={id:id,status:'rejected',requester:'',publisher:'',kind:'paid'};
+      requester=String(requester||'').replace(/^@/,'').trim();
+      if(!requester){toast('Missing requester for refund');return false}
+      if(!confirm('Refund 50 FC to @'+requester+' for post #'+id+'? This can only succeed once.')) return false;
+      toast('Refunding 50 FC…');
+      var res=await adminRequestDeleteAction('refund', id, {requester:requester,refund:true});
+      if(res&&res.ok){
+        toast(res.refund_reused?'Already refunded (no double credit)':'50 FC refunded to @'+requester);
+        try{await renderAdminReqTab('remove')}catch(e){}
+        return true;
+      }
+      toast((res&&(res.detail&&res.detail.error||res.error))||'Refund failed');
+      return false;
+    }
+    window.refundRemoveReqFc=refundRemoveReqFc;
+    async function dismissRemoveReq(id, opts){
+      opts=opts||{};
+      id=normalizeAdminPostId(id)||String(id);
+      var histMeta={id:id,status:'rejected',requester:opts.requester||'',publisher:'',kind:'paid',paidWithFc:!!opts.paidWithFc};
       try{
         var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
         var hit=a.find(function(x){return normalizeAdminPostId(x.id)===id});
         if(hit){
-          histMeta.requester=hit.user||hit.requester||'';
+          histMeta.requester=histMeta.requester||hit.user||hit.requester||'';
           histMeta.publisher=hit.publisher||'';
           histMeta.kind=hit.kind||'paid';
+          histMeta.paidWithFc=histMeta.paidWithFc||!!hit.paidWithFc||Number(hit.coins||0)>=50;
         }
-        a=a.filter(function(x){return normalizeAdminPostId(x.id)!==id});
-        localStorage.setItem('rs_remove_req',JSON.stringify(a));
+      }catch(e){}
+      if(!confirm('REJECT delete request for post #'+id+'?')) return;
+      var doRefund=false;
+      if(histMeta.paidWithFc && histMeta.requester){
+        doRefund=!!confirm('Also refund 50 FC to @'+histMeta.requester+'? (refund is idempotent — cannot double-credit)');
+      }
+      try{var el=document.getElementById('rmreq-'+id);if(el){el.style.opacity='0.35';el.style.pointerEvents='none'}}catch(e){}
+      try{
+        var a2=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+        a2=a2.filter(function(x){return normalizeAdminPostId(x.id)!==id});
+        localStorage.setItem('rs_remove_req',JSON.stringify(a2));
+      }catch(e){}
+      markDismissed('rs_remove_dismissed', id);
+      try{
+        await adminRequestDeleteAction('reject', id, {
+          requester:histMeta.requester,
+          refund:doRefund
+        });
       }catch(e){}
       try{recordRemoveHistory(histMeta)}catch(e){}
       if(sb){
@@ -27836,34 +28108,55 @@ async function onIdFace(e){
           }
         }
       }catch(e){}
-      toast('Rejected');
+      toast(doRefund?'Rejected · refund processed':'Rejected');
       try{await renderAdminReqTab('remove')}catch(e){}
       try{refreshAdminBadges()}catch(e){}
     }
-    async function approveRemoveReq(id){
+    async function approveRemoveReq(id, opts){
+      opts=opts||{};
       id=normalizeAdminPostId(id)||String(id);
+      if(!confirm('APPROVE & DELETE post #'+id+'? This permanently removes it from the database, feed, wall, search, and pins.')) return false;
       toast('Deleting #'+id+'…');
-      markDismissed('rs_remove_dismissed', id);
-      var histMeta={id:id,status:'approved',requester:'',publisher:'',kind:'paid'};
+      var histMeta={id:id,status:'approved',requester:opts.requester||'',publisher:'',kind:'paid',by:(currentUser&&currentUser.name)||'admin'};
       try{
         var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
         var hit=a.find(function(x){return normalizeAdminPostId(x.id)===id});
         if(hit){
-          histMeta.requester=hit.user||hit.requester||'';
+          histMeta.requester=histMeta.requester||hit.user||hit.requester||'';
           histMeta.publisher=hit.publisher||'';
           histMeta.kind=hit.kind||'paid';
         }
         a=a.filter(function(x){return normalizeAdminPostId(x.id)!==id});
         localStorage.setItem('rs_remove_req',JSON.stringify(a));
       }catch(e){}
+      // Prefer atomic admin API (moderated /api/delete-post + request status).
+      var apiRes=null;
+      try{
+        apiRes=await adminRequestDeleteAction('approve', id, {requester:histMeta.requester});
+      }catch(e){apiRes=null}
+      var delOk=!!(apiRes&&apiRes.ok);
+      if(!delOk){
+        // Fallback: secure moderation delete (requires admin session / key on server).
+        try{
+          delOk=!!(await secureDeletePost(id,{reason:'moderation',allowLocalFallback:false}));
+        }catch(e){delOk=false}
+      }
+      if(!delOk){
+        toast((apiRes&&(apiRes.error||apiRes.detail&&apiRes.detail.error))||'Could not delete post');
+        return false;
+      }
+      markDismissed('rs_remove_dismissed', id);
+      histMeta.status='completed';
       try{recordRemoveHistory(histMeta)}catch(e){}
       if(sb){
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',id)}catch(e){}
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',Number(id)||id)}catch(e){}
       }
-      var del=await deletePost(id);
+      try{purgePostEverywhere(id)}catch(e){}
       try{await renderAdminReqTab('remove')}catch(e){}
-      return del;
+      try{refreshAdminBadges()}catch(e){}
+      toast('COMPLETED · post #'+id+' deleted');
+      return true;
     }
 
     function approveFeature(id){

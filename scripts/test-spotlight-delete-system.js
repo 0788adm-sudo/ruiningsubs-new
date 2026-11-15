@@ -25,7 +25,7 @@ assert(/id="btn-remove-led-label"/.test(html), 'Delete remains in post detail');
 assert(html.indexOf('btn-remove-paypal') >= 0, 'PayPal $5 remove kept');
 assert(html.indexOf('btn-remove-throne') >= 0, 'Throne $5 remove kept');
 assert(html.indexOf('btn-remove-paid') >= 0, 'I paid remove kept');
-assert(html.indexOf('Approve & delete post') >= 0, 'admin approve label');
+assert(html.indexOf('APPROVE &amp; DELETE') >= 0 || html.indexOf('APPROVE & DELETE') >= 0 || html.indexOf('Approve & delete post') >= 0, 'admin approve label');
 assert(html.indexOf('RIGHTS REVIEW') >= 0, 'admin rights badge for legacy requests');
 assert(/retirePinBoardNotifs\(id,\s*\{\s*skipDb:\s*true\s*\}\)/.test(html), 'unpin clears pin board');
 assert(html.indexOf('function recordRemoveHistory') >= 0, 'remove history recorder');
