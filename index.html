@@ -2337,22 +2337,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             </div>
             <span style="font-size:20px;color:#ff2d55">›</span>
           </div>
-          <div class="tasks-entry" id="btn-explore-roulette" role="button" style="margin:0">
-            <span class="entry-ico roulette"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg></span>
-            <div class="entry-body">
-              <strong>Ruin Roulette</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">30 tasks · 3 spins a day</div>
-            </div>
-            <span style="font-size:20px;color:#5b21b6">›</span>
-          </div>
-          <div class="tasks-entry" id="btn-explore-dice" role="button" style="margin:0" onclick="window.__gamesToolReturn=null;openDiceGame()">
-            <span class="entry-ico pin" style="color:#f5c518;border-color:rgba(245,197,24,.5)">🎲</span>
-            <div class="entry-body">
-              <strong>Exposure Dice</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">Wear · pose · task · 1 free / day</div>
-            </div>
-            <span style="font-size:20px;color:#f5c518">›</span>
-          </div>
           <div class="tasks-entry" id="btn-explore-videos" role="button" style="margin:0" onclick="showPanel('videos')">
             <span class="entry-ico print" style="color:#fbbf24">▶</span>
             <div class="entry-body">
@@ -2885,7 +2869,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <div id="panel-roulette" class="panel">
         <div class="panel-h"><button class="back" id="btn-roulette-back" type="button">←</button><h2>Ruin Roulette</h2><button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('roulette','Ruin Roulette')">Share</button></div>
         <div class="roulette-wrap">
-          <p style="font-size:13px;color:var(--muted);text-align:center;line-height:1.45;margin:0 8px 14px;max-width:320px">30 tasks on the wheel. 3 spins every day. Land, obey, post proof.</p>
+          <p style="font-size:13px;color:var(--muted);text-align:center;line-height:1.45;margin:0 8px 14px;max-width:320px">30 tasks on the wheel. 3 free spins per cycle · then 24h recovery. Land, obey, post proof.</p>
           <div class="roulette-pointer"></div>
           <div class="roulette-wheel-box">
             <div class="roulette-wheel" id="roulette-wheel"></div>
@@ -2897,9 +2881,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock" onclick="checkRouletteUnlock()" style="width:100%;max-width:280px;margin:6px auto 0">Check for approved unlock</button>
 
           <div id="roulette-unlock-box" style="display:none;width:100%;max-width:360px;background:var(--card);border:1px solid var(--orange);border-radius:16px;padding:16px;margin-top:14px;text-align:center;box-shadow:0 0 18px rgba(217,70,239,.12)">
-            <div style="font-size:18px;font-weight:900;color:var(--orange);margin-bottom:6px">Today’s free spins used</div>
+            <div style="font-size:18px;font-weight:900;color:var(--orange);margin-bottom:6px">Free spins exhausted</div>
             <div style="font-size:14px;line-height:1.45;color:var(--muted);margin-bottom:12px">
-              You have used today’s free spins. Get <strong style="color:#fff">10 additional spins</strong> for <strong style="color:#f5c518">50 FC ($5)</strong>.
+              Your 3 free spins are used. Wait <strong style="color:#fff">24 hours</strong> to recover them, or get <strong style="color:#fff">10 additional spins</strong> for <strong style="color:#f5c518">50 FC ($5)</strong>.
             </div>
             <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:800" onclick="buyRoulettePack()">GET 10 SPINS — 50 FC</button>
             <a class="btn btn-secondary" id="btn-roulette-paypal-pack" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800" onclick="requestRoulettePackPayPal();return true">PayPal $5 · MartinJimenez205</a>
@@ -7945,9 +7929,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       {title:'Sorry video', desc:'20s video apologizing for being online. On your knees. Post it.', pay:false, color:'#4c1d95'},
       {title:'Chest writing 2', desc:'Write PIG on your stomach. Photo, face in frame. Post it.', pay:false, color:'#7048e8'},
       {title:'Doorway wait', desc:'Stand in a bedroom doorway, hands at sides, underwear only. Photo. Post it.', pay:false, color:'#ae3ec9'},
-      {title:'Proof of roll', desc:'Screenshot the dice or spin and include it with your kneeling photo. Post both.', pay:false, color:'#c2255c'},
-      {title:'Final pose', desc:'Naked kneel, hands on thighs, 10 seconds on video, then freeze for a photo. Post both.', pay:false, color:'#4263eb'},
+      {title:'🔒 PERMANENT POST', desc:'Publish your proof as a PERMANENT Wall post. You must confirm permanence before posting. Free deletion will NOT be available for that post.', pay:false, color:'#7f1d1d', permanent:true, deletion_tier:'permanent'},
+      {title:'🗑️ FREE DELETE', desc:'Publish your proof with FREE DELETION enabled. You may remove that post later without paying the usual 50 FC.', pay:false, color:'#0ca678', free_delete:true, deletion_tier:'deletable'},
       {title:'🏆 PINNED 48h', desc:'Lucky spin — your latest post is pinned on Spotlight for 48 hours with the roulette badge.', pay:false, color:'#f5c518', pin:true, pin_prize:true},
+      {title:'📅 +10 DAYS', desc:'Win reward — extend one of your timed posts by +10 real days (server updates expires_at).', pay:false, color:'#f5c518', extend_10d:true},
     ];
     var FC_PACKS = [
       {usd:5, coins:60, url:THRONE_PACK_5, paypal:PAYPAL_ME+'/5'},
@@ -7958,11 +7943,50 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       {usd:99, coins:1200, url:THRONE_PACK_99, paypal:PAYPAL_ME+'/99'}
     ];
     var FC_COSTS = {pin:50, pin7:150, pin30:400, print:350, roulette:10, roulette_spin:10, roulette_pack:50, delete:50, vanish:200, page:1000, dice:10, dice_roll:10, custom_roulette:250, custom_dice:250};
-    var ROULETTE_FREE_PER_DAY=3; // legacy name — lifetime free uses per game (not daily reset)
+    var ROULETTE_FREE_PER_DAY=3; // legacy alias — 3 free uses per recovery cycle
     var GAME_FREE_USES=3;
+    var GAME_FREE_RECOVERY_MS=24*60*60*1000; // 24h after the 3rd free use
     var ROULETTE_PACK_SPINS=10;
     var ROULETTE_PACK_FC=50;
     var RS_LIVE_GAMES={roulette:1,dice:1,tic_tac_toe:1};
+    var RS_GAME_BADGES={
+      roulette:{label:'🏆 RUIN ROULETTE',tag:'game_badge_roulette',panel:'roulette'},
+      dice:{label:'🎲 EXPOSURE DICE',tag:'game_badge_dice',panel:'dice'},
+      tic_tac_toe:{label:'⭕ TIC-TAC-TOE',tag:'game_badge_ttt',panel:'challenges'}
+    };
+    function detectGameOrigin(p){
+      if(!p) return '';
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg)) tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('game_badge_roulette')>=0||tg.indexOf('roulette_task')>=0) return 'roulette';
+      if(tg.indexOf('game_badge_dice')>=0||tg.indexOf('exposure_dice')>=0) return 'dice';
+      if(tg.indexOf('game_badge_ttt')>=0||tg.indexOf('ttt_challenge')>=0) return 'tic_tac_toe';
+      if(tg.indexOf('roulette')>=0 && typeof isRouletteWallPost==='function' && isRouletteWallPost(p)) return 'roulette';
+      return '';
+    }
+    function gameOriginBadgeHtml(p){
+      var id=detectGameOrigin(p);
+      if(!id||!RS_GAME_BADGES[id]) return '';
+      var b=RS_GAME_BADGES[id];
+      return '<button type="button" class="game-origin-badge" data-open-game-badge="'+esc(id)+'" style="margin-left:6px;font-size:10px;font-weight:900;letter-spacing:.4px;color:#111;background:linear-gradient(135deg,#f5c518,#ff6a00);border:0;border-radius:999px;padding:3px 8px;cursor:pointer;min-height:28px">'+esc(b.label)+'</button>';
+    }
+    function openGameFromBadge(id){
+      id=String(id||'');
+      if(id==='roulette'){ try{window.__gamesToolReturn=null;openRoulette()}catch(e){showPanel('roulette')} return; }
+      if(id==='dice'){ try{window.__gamesToolReturn=null;openDiceGame()}catch(e){showPanel('dice')} return; }
+      if(id==='tic_tac_toe'){ try{openChallengesHub();startTicTacToeMenu()}catch(e){showPanel('challenges')} return; }
+    }
+    window.detectGameOrigin=detectGameOrigin;
+    window.gameOriginBadgeHtml=gameOriginBadgeHtml;
+    window.openGameFromBadge=openGameFromBadge;
+    document.addEventListener('click',function(ev){
+      var t=ev.target&&ev.target.closest&&ev.target.closest('[data-open-game-badge]');
+      if(!t) return;
+      try{ev.preventDefault();ev.stopPropagation()}catch(e){}
+      openGameFromBadge(t.getAttribute('data-open-game-badge'));
+    },true);
     function getAnonSessionId(){
       try{
         var id=String(localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48);
@@ -7982,8 +8006,34 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     window.getAnonSessionId=getAnonSessionId;
     window.isAnonPlayer=isAnonPlayer;
     window.GAME_FREE_USES=GAME_FREE_USES;
+    window.GAME_FREE_RECOVERY_MS=GAME_FREE_RECOVERY_MS;
     window.__gameFreeLeft=window.__gameFreeLeft||{roulette:GAME_FREE_USES,dice:GAME_FREE_USES,tic_tac_toe:GAME_FREE_USES};
+    window.__gameFreeRecovery=window.__gameFreeRecovery||{roulette:0,dice:0,tic_tac_toe:0};
     window.__fcLast=0;
+    function formatGameRecoveryLeft(ms){
+      ms=Math.max(0,Number(ms)||0);
+      if(ms<=0) return '';
+      var h=Math.floor(ms/3600000);
+      var m=Math.floor((ms%3600000)/60000);
+      var s=Math.floor((ms%60000)/1000);
+      if(h>0) return h+'h '+m+'m';
+      if(m>0) return m+'m '+s+'s';
+      return s+'s';
+    }
+    function gameRecoveryEnds(id){
+      var m=window.__gameFreeRecovery||{};
+      return Math.max(0,Number(m[id])||0);
+    }
+    function gameRecoveryLabel(id){
+      var ends=gameRecoveryEnds(id);
+      if(!ends) return '';
+      var left=ends-Date.now();
+      if(left<=0) return '';
+      return 'Recovers in '+formatGameRecoveryLeft(left);
+    }
+    window.formatGameRecoveryLeft=formatGameRecoveryLeft;
+    window.gameRecoveryEnds=gameRecoveryEnds;
+    window.gameRecoveryLabel=gameRecoveryLabel;
     window.__fcSpendLocks=window.__fcSpendLocks||{};
     function openNeedCoins(opts){
       opts=opts||{};
@@ -8536,6 +8586,12 @@ async function claimPayPalPack(p){
           window.__gameFreeLeft=window.__gameFreeLeft||{};
           window.__gameFreeLeft[j.game]=Number(j.free_left)||0;
         }
+        if(j&&j.recovery_ends_at_map){
+          window.__gameFreeRecovery=Object.assign({},window.__gameFreeRecovery||{},j.recovery_ends_at_map);
+        }else if(j&&j.game!=null&&j.recovery_ends_at!=null){
+          window.__gameFreeRecovery=window.__gameFreeRecovery||{};
+          window.__gameFreeRecovery[j.game]=Number(j.recovery_ends_at)||0;
+        }
       }catch(e){}
       return j;
     }
@@ -8549,6 +8605,9 @@ async function claimPayPalPack(p){
         var j=await r.json().catch(function(){return{}});
         if(j&&j.ok&&j.free_left){
           window.__gameFreeLeft=Object.assign({roulette:GAME_FREE_USES,dice:GAME_FREE_USES,tic_tac_toe:GAME_FREE_USES},j.free_left);
+        }
+        if(j&&j.ok&&j.recovery_ends_at){
+          window.__gameFreeRecovery=Object.assign({roulette:0,dice:0,tic_tac_toe:0},j.recovery_ends_at);
         }
         if(j&&j.pack_spins!=null) window.__roulettePackSpins=Number(j.pack_spins)||0;
         return j;
@@ -9038,18 +9097,22 @@ async function claimPayPalPack(p){
         paidLeft = Math.max(paidLeft, Number(window.__roulettePackSpins)||0);
       }
       var bal = Number(window.__fcLast||0);
+      var recLbl=gameRecoveryLabel('roulette');
       var el = document.getElementById('roulette-spins-left');
       if(el){
-        if(freeLeft>0) el.textContent = freeLeft+' free spin'+(freeLeft===1?'':'s')+' left · then 50 FC for 10 spins';
+        if(freeLeft>0) el.textContent = freeLeft+' free spin'+(freeLeft===1?'':'s')+' left · 24h recovery after 3';
+        else if(recLbl) el.textContent = 'Free exhausted · '+recLbl+(paidLeft>0?(' · '+paidLeft+' pack left'):'');
         else if(paidLeft>0) el.textContent = 'Free uses exhausted · '+paidLeft+' pack spin'+(paidLeft===1?'':'s')+' left · '+bal+' FC';
-        else if(isAnonPlayer()) el.textContent = 'Free uses exhausted · register to buy more spins with FC';
-        else if(bal>=ROULETTE_PACK_FC) el.textContent = 'Free uses exhausted · get 10 spins for '+ROULETTE_PACK_FC+' FC ($5)';
-        else el.textContent = 'Free uses exhausted · get 10 spins for '+ROULETTE_PACK_FC+' FC ($5)';
+        else if(isAnonPlayer()) el.textContent = 'Free uses exhausted · wait 24h or register to buy spins with FC';
+        else el.textContent = 'Free uses exhausted · wait 24h or get 10 spins for '+ROULETTE_PACK_FC+' FC ($5)';
       }
       var balEl=document.getElementById('roulette-fc-balance');
       if(balEl) balEl.textContent = bal+' FC';
       var btn = document.getElementById('btn-spin-roulette');
-      if(btn) btn.textContent = rouletteSpinning ? '...' : (freeLeft>0?'PLAY · free':(paidLeft>0?'PLAY · pack':'PLAY'));
+      if(btn){
+        btn.textContent = rouletteSpinning ? '...' : (freeLeft>0?'PLAY · free':(paidLeft>0?'PLAY · pack':'PLAY'));
+        btn.disabled=!!rouletteSpinning;
+      }
       var showPay = freeLeft<=0 && paidLeft<=0 && !isAnonPlayer();
       var unlockBox = document.getElementById('roulette-unlock-box');
       if(unlockBox) unlockBox.style.display = showPay ? 'block' : 'none';
@@ -9205,61 +9268,75 @@ async function claimPayPalPack(p){
     }
 
     var DICE_WEAR=[
-      'Underwear only. Nothing else.',
-      'Fully naked.',
-      'Socks and nothing else.',
-      'Top only. No bottoms.',
-      'A towel that keeps slipping.',
-      'Tape or a hand covering only.',
-      'Collar + underwear.',
-      'Just a t-shirt pulled up.',
-      'Hoodie, nothing under it.',
-      'Mirror selfie. Clothes halfway off.',
-      'One sock, one shoe, rest bare.',
-      'Blindfold + underwear.'
+      'T-shirt pulled up to the chest',
+      'Hoodie only — nothing underneath',
+      'Underwear only',
+      'Socks and underwear',
+      'Shirt open, chest bare',
+      'Towel wrapped loosely',
+      'Collar or belt around the neck + underwear',
+      'Just a tank top, bottoms off',
+      'Pants down to the knees',
+      'Blindfold + underwear',
+      'Mirror selfie, clothes halfway off',
+      'Hands covering only — otherwise bare'
     ];
     var DICE_POSE=[
-      'Standing inspection. Hands behind your head.',
-      'On your knees. Look up at the camera.',
-      'On all fours. Ass to camera.',
-      'On your back. Legs up.',
-      'Bent over a chair or bed.',
-      'Face to the wall. Ass out.',
-      'Nadu. Kneel. Hands on thighs. Chest out.',
-      'Humble. Forehead down. Ass up.',
-      'Spread. Sit and open your legs to the lens.',
-      'Wait. Stand in a doorway. Hands at sides.',
-      'Present. Hold yourself for inspection.',
-      'Table. Flat on your back on the bed, still.'
+      'Kneel. Hands on thighs. Look at the camera.',
+      'Stand for inspection. Hands behind your head.',
+      'On all fours on the bed or floor. Look back at the camera.',
+      'Sit on the edge of the bed. Hands on thighs.',
+      'Bent over a chair or bed edge. Steady pose.',
+      'Face the wall. Hands at your sides. Ass toward camera.',
+      'Lie on your back. Knees bent. Still.',
+      'Nadu: kneel, chest out, palms on thighs.',
+      'Humble: forehead down, hips up — hold still.',
+      'Wait in a doorway. Hands at your sides.',
+      'Present: hold the pose for inspection.',
+      'Table: flat on your back on the bed, still.'
     ];
     var DICE_TASK=[
-      'Confession video. 20s. Name + “I pay to be exposed.”',
-      'Humiliation video. 15s on your knees.',
-      'Naked kneel photo. Hands on thighs.',
-      'Front + back of the same pose.',
-      'Write RUINED on your chest. Photo.',
-      'Count to 20 out loud on video.',
-      'Sorry video. 15s. Kneeling.',
-      'Three angles. Post all three.',
-      'Hold the pose 30s, then shoot.',
-      'Screenshot this roll and post it with the proof.',
-      'Shirt up, then stripped. Same pose.',
-      'Caption: exposed pig on RuiningSubs.'
+      'Hold the pose 20 seconds, then take one clear photo and publish it.',
+      'Hold the pose 30 seconds on video, then publish the clip.',
+      'Front photo of the pose. Publish it.',
+      'Front and side photos of the same pose. Publish both.',
+      'Write RUINED on paper, hold it in frame with the pose, photo, publish.',
+      'Count out loud to 15 while holding the pose on video. Publish.',
+      '15s kneeling/standing apology video in this outfit and pose. Publish.',
+      'Three angles of the same pose. Publish all three.',
+      'Screenshot this roll and include it with your proof photo. Publish both.',
+      'Hold 30s, then freeze for a still photo. Publish photo (video optional).',
+      'Caption the post: exposed on RuiningSubs — include wear + pose. Publish.',
+      'Mirror proof: same pose in a mirror selfie. Publish.'
+    ];
+    var DICE_PROOF=DICE_TASK;
+    var DICE_COMPAT=[
+      [0,1,3,7,9,10],[0,1,3,7,9,10],[0,1,2,3,4,5,6,7,8,9,10,11],
+      [0,1,3,7,9,10],[0,1,3,7,9,10],[0,1,3,7,9],
+      [0,1,7,9,10],[0,1,3,7,9,10],[0,1,2,4,5,9],
+      [0,1,7,9,10],[0,1,3,7,9,10],[0,1,2,3,7,9,10]
     ];
     var DICE_WHERE=[
-      'Post it on the Feed.',
       'Post it on the Wall.',
-      'Put it on your Profile gallery.',
-      'Generate an ID card with the photo.',
-      'Upload it as a Video if you filmed.',
-      'Keep it private. Send only to Admin.',
-      'Feed + Profile. Both.',
-      'Wall only. No timer.',
-      'Reply under someone else’s post with the proof.',
-      'Post and pin request after.',
-      'Print request with this photo.',
-      'Your choice. Still has to be posted somewhere on the site.'
+      'Post it on the Feed (timed exposure).',
+      'Post it on the Wall with the Exposure Dice badge.',
+      'Publish a photo proof on Wall.',
+      'Publish a video proof on Wall or Feed.',
+      'Wall only — keep the dice roll caption.',
+      'Feed + Wall if you want both.',
+      'Wall only. Confirm permanence if the roll requires it.',
+      'Publish under your profile gallery, then link from Wall.',
+      'Post proof and keep the game badge tags.',
+      'Photo proof on Wall — include wear + pose + proof lines.',
+      'Your choice of Wall or Feed — still must be published on the site.'
     ];
+    function pickCoherentDiceLocal(){
+      var wearIdx=Math.floor(Math.random()*12);
+      var compat=DICE_COMPAT[wearIdx]||[0,1,3,7];
+      var poseIdx=compat[Math.floor(Math.random()*compat.length)];
+      var proofIdx=Math.floor(Math.random()*12);
+      return {wearIdx:wearIdx,poseIdx:poseIdx,proofIdx:proofIdx};
+    }
     function diceDayKey(){
       var u=((currentUser&&currentUser.name)||'guest').replace(/^@/,'');
       var d=new Date();
@@ -9290,15 +9367,20 @@ async function claimPayPalPack(p){
       var buy=document.getElementById('btn-dice-buy');
       var roll=document.getElementById('btn-roll-dice');
       var balEl=document.getElementById('dice-fc-balance');
+      var recLbl=gameRecoveryLabel('dice');
       if(balEl) balEl.textContent=bal+' FC';
       if(el){
-        if(s.freeLeft>0) el.textContent=s.freeLeft+' free roll'+(s.freeLeft===1?'':'s')+' left';
-        else if(isAnonPlayer()) el.textContent='Free uses exhausted · register to buy rolls with FC';
+        if(s.freeLeft>0) el.textContent=s.freeLeft+' free roll'+(s.freeLeft===1?'':'s')+' left · 24h recovery after 3';
+        else if(recLbl) el.textContent='Free exhausted · '+recLbl+(bal>=10||s.paidLeft?' · extra 10 FC':'');
+        else if(isAnonPlayer()) el.textContent='Free uses exhausted · wait 24h or register to buy rolls with FC';
         else if(bal>=10 || s.paidLeft) el.textContent='Free uses exhausted · '+bal+' FC · extra roll 10 FC';
-        else el.textContent='Free uses exhausted · need 10 FC';
+        else el.textContent='Free uses exhausted · wait 24h or need 10 FC';
       }
       if(buy) buy.style.display = (!s.freeLeft && !isAnonPlayer() && bal<10 && !s.paidLeft)?'block':'none';
-      if(roll) roll.textContent = s.freeLeft? 'PLAY · free' : ((bal>=10 || s.paidLeft)? 'PLAY · 10 FC' : 'Exhausted');
+      if(roll){
+        roll.textContent = s.freeLeft? 'PLAY · free' : ((bal>=10 || s.paidLeft)? 'PLAY · 10 FC' : 'Exhausted');
+        roll.disabled=!!window.__diceRolling;
+      }
       s.bal=bal;
       return s;
     }
@@ -9659,6 +9741,8 @@ async function claimPayPalPack(p){
     async function rollExposureDice(opts){
       opts=opts||{};
       if(window.__diceRolling) return;
+      window.__diceRolling=true;
+      try{updateDiceUI()}catch(e){}
       var s=updateDiceUI();
       var useFree=!!s.freeLeft && !opts.forcePaid;
       var usePaidCredit=!!s.paidLeft && !useFree;
@@ -9666,14 +9750,15 @@ async function claimPayPalPack(p){
         var bal=Number(window.__fcLast||0);
         try{bal=await loadFagBalance()}catch(e){}
         if(bal<10){
+          window.__diceRolling=false;
           toast('Insufficient FC — need 10 FC');
           var buy=document.getElementById('btn-dice-buy');
           if(buy) buy.style.display='block';
           try{openNeedCoins({cost:10,why:'dice'})}catch(e){}
+          try{updateDiceUI()}catch(e){}
           return;
         }
       }
-      window.__diceRolling=true;
       var playId='dice_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
       var charged=null;
       try{
@@ -9688,26 +9773,23 @@ async function claimPayPalPack(p){
       if(!charged||!charged.ok){
         window.__diceRolling=false;
         if(charged&&(charged.error==='free_exhausted'||charged.error==='insufficient')){
+          if(charged.recovery_ends_at){
+            window.__gameFreeRecovery=window.__gameFreeRecovery||{};
+            window.__gameFreeRecovery.dice=Number(charged.recovery_ends_at)||0;
+          }
           if(isAnonPlayer()||charged.error==='free_exhausted'){
-            toast('Free uses exhausted'+(isAnonPlayer()?'. Register to buy rolls with FC.':'. Need 10 FC.'));
+            toast('Free uses exhausted'+(gameRecoveryLabel('dice')?(' · '+gameRecoveryLabel('dice')):(isAnonPlayer()?'. Register to buy rolls with FC.':'. Need 10 FC.')));
           }else{
             toast('Insufficient FC — need 10 FC');
             try{openNeedCoins({cost:10,why:'dice'})}catch(e){}
           }
           try{updateDiceUI()}catch(e){}
           return;
-        }else if(!useFree){
-          if(isAnonPlayer()){toast('Free uses exhausted');try{updateDiceUI()}catch(e){}return}
-          // Fallback local spend if API unavailable
-          if(!usePaidCredit){
-            var ok=await spendFagCoins('dice', playId);
-            if(!ok){return}
-          }else{
-            consumePaidDice();
-          }
-        }else{
-          saveDiceUsed();
         }
+        // Do not roll without a recorded server attempt when free was expected.
+        toast('Could not record roll on server — try again');
+        try{updateDiceUI()}catch(e){}
+        return;
       }else{
         if(charged.free||!charged.paid) saveDiceUsed();
         else if(usePaidCredit) consumePaidDice();
@@ -9715,8 +9797,21 @@ async function claimPayPalPack(p){
           window.__gameFreeLeft=window.__gameFreeLeft||{};
           window.__gameFreeLeft.dice=Number(charged.free_left)||0;
         }
+        if(charged.recovery_ends_at){
+          window.__gameFreeRecovery=window.__gameFreeRecovery||{};
+          window.__gameFreeRecovery.dice=Number(charged.recovery_ends_at)||0;
+        }
         if(charged.label) toast(charged.label);
       }
+      var serverDice=charged&&charged.dice;
+      var localPick=pickCoherentDiceLocal();
+      var w=serverDice&&serverDice.wear_idx?Number(serverDice.wear_idx):(localPick.wearIdx+1);
+      var p=serverDice&&serverDice.pose_idx?Number(serverDice.pose_idx):(localPick.poseIdx+1);
+      var t=serverDice&&serverDice.proof_idx?Number(serverDice.proof_idx):(localPick.proofIdx+1);
+      w=Math.max(1,Math.min(12,w)); p=Math.max(1,Math.min(12,p)); t=Math.max(1,Math.min(12,t));
+      var wearTxt=(serverDice&&serverDice.wear)||DICE_WEAR[w-1];
+      var poseTxt=(serverDice&&serverDice.pose)||DICE_POSE[p-1];
+      var proofTxt=(serverDice&&serverDice.proof)||DICE_TASK[t-1];
       var ids=['die-wear','die-pose','die-task'];
       ids.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.add('spin')});
       var ticks=0;
@@ -9725,37 +9820,49 @@ async function claimPayPalPack(p){
         ticks++;
         if(ticks>14){
           clearInterval(iv);
-          var w=1+Math.floor(Math.random()*12);
-          var p=1+Math.floor(Math.random()*12);
-          var t=1+Math.floor(Math.random()*12);
           document.getElementById('die-wear').textContent=String(w);
           document.getElementById('die-pose').textContent=String(p);
           document.getElementById('die-task').textContent=String(t);
           ids.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('spin')});
-          window.lastDiceRoll={wear:DICE_WEAR[w-1],pose:DICE_POSE[p-1],task:DICE_TASK[t-1],where:'',n:[w,p,t],playId:playId};
-          document.getElementById('dice-wear-text').textContent=DICE_WEAR[w-1];
-          document.getElementById('dice-pose-text').textContent=DICE_POSE[p-1];
-          document.getElementById('dice-task-text').textContent=DICE_TASK[t-1];
+          window.lastDiceRoll={wear:wearTxt,pose:poseTxt,task:proofTxt,proof:proofTxt,where:DICE_WHERE[Math.floor(Math.random()*DICE_WHERE.length)],n:[w,p,t],playId:playId,game:'dice'};
+          try{localStorage.setItem('rs_dice_last',JSON.stringify(window.lastDiceRoll))}catch(e){}
+          document.getElementById('dice-wear-text').textContent=wearTxt;
+          document.getElementById('dice-pose-text').textContent=poseTxt;
+          document.getElementById('dice-task-text').textContent=proofTxt;
           document.getElementById('dice-result').classList.add('show');
           window.__diceRolling=false;
           updateDiceUI();
           try{loadFagBalance()}catch(e){}
+          try{if(isRegistered()) awardGameXp('game_play','dice_'+playId)}catch(e){}
         }
       },90);
     }
     window.rollExposureDice=rollExposureDice;
     function publishDiceProof(){
       var r=window.lastDiceRoll;
+      if(!r){
+        try{r=JSON.parse(localStorage.getItem('rs_dice_last')||'null')}catch(e){r=null}
+      }
       if(!r){toast('Roll first');return}
-      try{setExposurePostMode()}catch(e){}
-      showPanel('post');
+      try{openNormalPostComposer()}catch(e){
+        try{setExposurePostMode()}catch(e2){}
+        showPanel('post');
+      }
       try{
-        var title=document.getElementById('post-title')||document.querySelector('#panel-post input[name="title"],#panel-post input');
-        var desc=document.getElementById('post-desc')||document.querySelector('#panel-post textarea');
-        if(title) title.value='Dice roll '+r.n.join('-')+' · exposed';
-        if(desc) desc.value='WEAR: '+r.wear+'\nPOSE: '+r.pose+'\nPROOF: '+r.task;
+        var titleEl=document.getElementById('new-title')||document.getElementById('post-title')||document.querySelector('#panel-post input[name="title"],#panel-post input');
+        var descEl=document.getElementById('new-desc')||document.getElementById('post-desc')||document.querySelector('#panel-post textarea');
+        var tagsEl=document.getElementById('new-tags');
+        if(titleEl) titleEl.value='Dice '+((r.n||[]).join('-')||'roll')+' · exposed';
+        if(descEl) descEl.value='WEAR: '+r.wear+'\nPOSE: '+r.pose+'\nPROOF: '+(r.proof||r.task)+(r.where?('\nWHERE: '+r.where):'');
+        if(tagsEl){
+          var badgeTag=(RS_GAME_BADGES.dice&&RS_GAME_BADGES.dice.tag)||'game_badge_dice';
+          var rollTag=r.playId?('dice:'+String(r.playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
+          tagsEl.value='dice, exposure_dice, normal_feed, exposed, '+badgeTag+(rollTag?', '+rollTag:'');
+        }
+        window.__pendingGamePublish={game:'dice',playId:r.playId||'',badge:'dice'};
+        window.__pendingDicePublish={playId:r.playId||'',at:Date.now()};
       }catch(e){}
-      toast('Add your proof photos and publish');
+      toast('Add your proof photos and publish — badge 🎲 EXPOSURE DICE');
     }
     window.publishDiceProof=publishDiceProof;
 
@@ -9797,7 +9904,10 @@ function openRoulette(){
       opts=opts||{};
       if(rouletteSpinning) return;
       if(window.__spinLock && Date.now()-window.__spinLock<800) return;
+      // Lock immediately so overlapping SPIN taps / awaits cannot double-spin.
+      rouletteSpinning = true;
       window.__spinLock=Date.now();
+      try{updateRouletteSpinsUI()}catch(e){}
       try{await loadFagBalance()}catch(e){}
       try{await syncRouletteServerState()}catch(e){}
       var state = {freeLeft:ROULETTE_FREE_PER_DAY,paidLeft:0,bal:0};
@@ -9808,14 +9918,16 @@ function openRoulette(){
       var forcePaid=!!opts.forcePaid;
       var useFree=freeLeft>0 && !forcePaid;
       if(!useFree && paidLeft<=0){
+        rouletteSpinning=false;
         if(isAnonPlayer()){
-          toast('Free uses exhausted. Register to buy more spins with FC.');
+          toast('Free uses exhausted. Wait 24h recovery or register to buy spins with FC.');
           try{updateRouletteSpinsUI()}catch(e){}
           return;
         }
         try{openRoulettePayment()}catch(e){}
-        toast('Free uses exhausted. Get 10 additional spins for 50 FC ($5).');
+        toast('Free uses exhausted. Wait 24h or get 10 spins for 50 FC ($5).');
         try{if(bal<ROULETTE_PACK_FC) openNeedCoins({cost:ROULETTE_PACK_FC,why:'roulette_pack'})}catch(e){}
+        try{updateRouletteSpinsUI()}catch(e){}
         return;
       }
       var playId='roulette_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
@@ -9826,13 +9938,19 @@ function openRoulette(){
           play_id:playId,
           force_paid:!useFree,
           paid:!useFree,
+          option_count:ROULETTE_OPTIONS.length||30,
           user:coinUserId()
         });
       }catch(e){charged={ok:false}}
       if(!charged||!charged.ok){
+        rouletteSpinning=false;
+        if(charged&&charged.recovery_ends_at){
+          window.__gameFreeRecovery=window.__gameFreeRecovery||{};
+          window.__gameFreeRecovery.roulette=Number(charged.recovery_ends_at)||0;
+        }
         if(charged&&(charged.error==='free_exhausted'||charged.error==='insufficient')){
           if(isAnonPlayer()||charged.error==='free_exhausted'){
-            toast('Free uses exhausted'+(isAnonPlayer()?'. Register to buy more spins with FC.':'. Get 10 spins for 50 FC ($5).'));
+            toast('Free uses exhausted'+(gameRecoveryLabel('roulette')?(' · '+gameRecoveryLabel('roulette')):(isAnonPlayer()?'. Register to buy more spins with FC.':'. Get 10 spins for 50 FC ($5).')));
           }else{
             toast('Free uses exhausted. Get 10 additional spins for 50 FC ($5).');
             try{openRoulettePayment()}catch(e){}
@@ -9848,18 +9966,25 @@ function openRoulette(){
       }
       if(charged.free_left!=null) window.__rouletteFreeLeft=Number(charged.free_left)||0;
       if(charged.pack_spins!=null) window.__roulettePackSpins=Number(charged.pack_spins)||0;
+      if(charged.recovery_ends_at){
+        window.__gameFreeRecovery=window.__gameFreeRecovery||{};
+        window.__gameFreeRecovery.roulette=Number(charged.recovery_ends_at)||0;
+      }
       // Prefer server free/pack accounting over localStorage.
       if(charged.free===true) useFree=true;
       else if(charged.pack===true || charged.paid===true) useFree=false;
       if(!isFinite(rouletteAngle)) rouletteAngle=0;
-      rouletteSpinning = true;
       try{updateRouletteSpinsUI()}catch(e){}
       var resBox = document.getElementById('roulette-result');
       if(resBox) resBox.classList.remove('show');
 
       var n = ROULETTE_OPTIONS.length||1;
       var seg = 360 / n;
-      var idx = Math.floor(Math.random() * n);
+      // Server-authoritative landing index (fallback only if missing)
+      var idx = (charged.result_idx!=null && isFinite(Number(charged.result_idx)))
+        ? (Math.floor(Number(charged.result_idx)) % n)
+        : Math.floor(Math.random() * n);
+      if(idx<0) idx=0;
       var targetCenter = idx * seg + seg / 2;
       var extraTurns = 4 + Math.floor(Math.random()*3);
       var finalAngle = extraTurns * 360 + (360 - targetCenter);
@@ -9913,19 +10038,78 @@ function openRoulette(){
           payLink.textContent = 'Buy Fag Coins ($5 → 60 FC)';
         }
         if(pubBtn){
-          pubBtn.style.display = 'block';
-          pubBtn.textContent = 'Publish this to the feed';
+          pubBtn.style.display = (opt && (opt.pin || opt.pin_prize || opt.extend_10d)) ? 'none' : 'block';
+          pubBtn.textContent = opt && opt.permanent ? 'Publish PERMANENT proof' : (opt && opt.free_delete ? 'Publish (free delete)' : 'Publish this to the feed');
         }
         if(resBox) resBox.classList.add('show');
         try{ resBox.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){}
         if(opt && (opt.pin || opt.pin_prize)){
           try{grantRoulettePinReward(playId, opt)}catch(e){console.warn(e)}
-          toast('🏆 Fijada ganada en la ruleta');
+          toast('🏆 PINNED reward — claim on your post');
+        }else if(opt && opt.extend_10d){
+          try{grantRouletteExtendReward(playId, opt)}catch(e){console.warn(e)}
+          toast('📅 +10 DAYS — pick a timed post to extend');
+        }else if(opt && opt.permanent){
+          toast('🔒 PERMANENT — confirm before publishing proof');
+        }else if(opt && opt.free_delete){
+          toast('🗑️ FREE DELETE enabled on the proof post');
         }else{
-          toast(opt.free ? 'Lucky spin 🎲' : 'Obey the result 😈');
+          toast('Obey the result — accept & publish proof');
+        }
+        try{if(isRegistered()) awardGameXp('game_play','roulette_'+playId)}catch(e){}
+        // Defeat-style challenge when landing a task (not a pure win prize)
+        if(opt && !opt.pin && !opt.pin_prize && !opt.extend_10d){
+          try{
+            spawnDefeatChallenge({
+              id:playId,
+              gameId:'roulette',
+              user:(currentUser&&currentUser.name)||coinUserId(),
+              result:'loss',
+              at:Date.now(),
+              opt:opt
+            });
+          }catch(e){}
         }
       }, 4300);
     };
+    async function grantRouletteExtendReward(playId, opt){
+      if(isAnonPlayer()){toast('Register to claim the +10 days reward');return null}
+      var mine=(posts||[]).concat(normalFeedPosts||[]).filter(function(p){
+        return p&&currentUser&&String(p.user||'')===String(currentUser.name||'')
+          && Number(p.expires||0)>Date.now();
+      });
+      var postId='';
+      if(mine.length){
+        mine.sort(function(a,b){return (Number(b.created||0)||0)-(Number(a.created||0)||0)});
+        postId=String(mine[0].id||'');
+      }else{
+        postId=String(prompt('+10 days! Paste a timed post ID to extend:')||'').trim();
+      }
+      if(!postId){toast('You need a timed post for the +10 days reward');return null}
+      var j=null;
+      try{
+        j=await apiGamePlay({
+          game:'roulette',
+          action:'claim_extend',
+          play_id:String(playId||('roulette_ext_'+Date.now())),
+          post_id:postId,
+          user:coinUserId()
+        });
+      }catch(e){}
+      if(j&&j.ok&&j.expires_at){
+        try{
+          var p=typeof findPostAnywhere==='function'?findPostAnywhere(postId):null;
+          if(p) p.expires=Number(j.expires_at)||p.expires;
+        }catch(e){}
+        toast('+10 days applied to post #'+postId);
+        try{renderPosts()}catch(e){}
+        try{renderNormalFeed()}catch(e){}
+      }else{
+        toast((j&&j.label)||'Extend reward pending — try again');
+      }
+      return j;
+    }
+    window.grantRouletteExtendReward=grantRouletteExtendReward;
     async function grantRoulettePinReward(playId, opt){
       if(isAnonPlayer()){toast('Register to claim the pin reward on your post');return null}
       var mine=(posts||[]).concat(normalFeedPosts||[]).filter(function(p){
@@ -10323,7 +10507,6 @@ function openRoulette(){
         el.onclick=fn;
       }
       softClick('btn-open-roulette', function(){ window.__gamesToolReturn=null; openRoulette(); });
-      softClick('btn-explore-roulette', function(){ window.__gamesToolReturn=null; openRoulette(); });
       softClick('btn-explore-print', function(){ openPrintDirty(); });
       var exT = document.getElementById('btn-explore-tasks');
       var exC = document.getElementById('btn-explore-custom');
@@ -10424,12 +10607,33 @@ function openRoulette(){
       }
       if(tagsEl){
         var spinTag=playId?('spin:'+String(playId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)):'';
-        tagsEl.value = 'roulette, roulette_task, normal_feed, exposed'+(spinTag?', '+spinTag:'');
+        var badgeTag=(RS_GAME_BADGES.roulette&&RS_GAME_BADGES.roulette.tag)||'game_badge_roulette';
+        tagsEl.value = 'roulette, roulette_task, normal_feed, exposed, '+badgeTag+(spinTag?', '+spinTag:'');
       }
+      // Enforce permanent vs free-delete from the spin outcome (never mix).
+      try{
+        if(opt.permanent || (opt.deletion_tier==='permanent')){
+          if(!confirm('This spin requires a PERMANENT publication. Free deletion will NOT be available. Continue?')){
+            toast('Permanent publish cancelled');
+            return;
+          }
+          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'permanent',permanent:true,free_delete:false,badge:'roulette'};
+          try{if(typeof selectDeletionTier==='function')selectDeletionTier('permanent')}catch(e){}
+          try{selectedDeletionTier='permanent'}catch(e){}
+        }else if(opt.free_delete || opt.deletion_tier==='deletable'){
+          window.__pendingGamePublish={game:'roulette',playId:playId,deletion_tier:'deletable',permanent:false,free_delete:true,badge:'roulette'};
+          try{if(typeof selectDeletionTier==='function')selectDeletionTier('deletable')}catch(e){}
+          try{selectedDeletionTier='deletable'}catch(e){}
+        }else{
+          window.__pendingGamePublish={game:'roulette',playId:playId,badge:'roulette'};
+        }
+      }catch(e){}
       var note=document.getElementById('profile-post-note');
       if(note){
         note.style.display='block';
-        note.innerHTML='Roulette proof · appears in Wall → <strong>Roulette</strong> · keep the challenge title.';
+        var permNote=opt.permanent?' · <strong style="color:#fecaca">PERMANENT</strong>':'';
+        var freeNote=opt.free_delete?' · <strong style="color:#86efac">FREE DELETE</strong>':'';
+        note.innerHTML='Roulette proof · Wall → <strong>Roulette</strong> · badge 🏆'+permNote+freeNote;
       }
       var btn=document.getElementById('btn-publish');
       if(btn)btn.textContent='Post roulette challenge';
@@ -10482,10 +10686,8 @@ function openRoulette(){
         ['btn-explore-idcard', function(){openIdCard('id')}],
         ['btn-explore-pea', function(){openIdCard('pea')}],
         ['btn-explore-print', function(){openPrintDirty()}],
-        ['btn-explore-roulette', function(){openRoulette()}],
         ['btn-explore-randomcam', function(){openRandomCam()}],
         ['btn-explore-goontok', function(){openGoonTok()}],
-        ['btn-explore-dice', function(){openDiceGame()}],
         ['btn-explore-games', function(){openChallengesHub()}],
         ['btn-explore-videos', function(){showPanel('videos')}],
         ['btn-wall-generate-id', function(){openIdCard('id')}],
@@ -15595,8 +15797,10 @@ function openRoulette(){
           kindBadge=String(p.title||'').toLowerCase().indexOf('pea')>=0||(p.tags||[]).indexOf('generated_pea')>=0||(p.tags||[]).indexOf('pea')>=0
             ?'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#34d399;border-radius:999px;padding:2px 7px;margin-left:6px">PEA</span>'
             :'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#60a5fa;border-radius:999px;padding:2px 7px;margin-left:6px">ID</span>';
+        }else if(typeof gameOriginBadgeHtml==='function'&&gameOriginBadgeHtml(p)){
+          kindBadge=gameOriginBadgeHtml(p);
         }else if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)){
-          kindBadge='<span class="roulette-wall-badge" style="margin-left:6px">🎲 Roulette</span>';
+          kindBadge='<button type="button" class="game-origin-badge" data-open-game-badge="roulette" style="margin-left:6px">🏆 RUIN ROULETTE</button>';
         }else if(vsrc||(typeof isVideoPost==='function'&&isVideoPost(p))){
           kindBadge='<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#fbbf24;border-radius:999px;padding:2px 7px;margin-left:6px">VIDEO</span>';
         }
@@ -19451,7 +19655,10 @@ function profileStatsHtml(userPosts, extra){
       // GAMES defs (hub shows live games above daily list)
       {id:'game_word',cat:'GAMES',icon:'🔤',title:'WORD SCRAMBLE',desc:'Disabled.',difficulty:'EASY',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'word_challenge',hidden:true},
       {id:'game_ttt',cat:'GAMES',icon:'🎯',title:'TIC-TAC-TOE',desc:'Play Tic-Tac-Toe. Auto-verified result.',difficulty:'MEDIUM',evidence:'GAME_RESULT',validate:'game',hours:24,gameId:'tic_tac_toe'},
-      {id:'defeat_response',cat:'GAMES',icon:'⚔️',title:'DEFEAT RESPONSE',desc:'You lost. Post your response on Wall and upload a screenshot.',difficulty:'MEDIUM',evidence:'WALL_POST',validate:'photo',hours:48,prompt:'What was your response?',spawn:'defeat',xp:20},
+      {id:'defeat_response',cat:'GAMES',icon:'⚔️',title:'DEFEAT RESPONSE',desc:'You lost. Post your response on Wall and upload a screenshot.',difficulty:'MEDIUM',evidence:'WALL_POST',validate:'photo',hours:48,prompt:'What was your response?',spawn:'defeat',xp:20,proof_type:'photo'},
+      {id:'defeat_text',cat:'GAMES',icon:'✍️',title:'DEFEAT CONFESSION',desc:'Write a short confession or reflection about your loss and publish it on Wall or Feed.',difficulty:'EASY',evidence:'WALL_POST',validate:'text',hours:48,prompt:'Write your confession (min 40 characters).',spawn:'defeat',xp:15,proof_type:'text'},
+      {id:'defeat_photo',cat:'GAMES',icon:'📷',title:'DEFEAT POSE',desc:'Kneel, hands on thighs, hold a paper that says I LOST. Photograph it and publish proof.',difficulty:'MEDIUM',evidence:'WALL_POST',validate:'photo',hours:48,prompt:'Upload the photo proof.',spawn:'defeat',xp:20,proof_type:'photo'},
+      {id:'defeat_video',cat:'GAMES',icon:'🎥',title:'DEFEAT HOLD',desc:'Hold a kneeling pose for 20 seconds on video, then publish the clip as proof.',difficulty:'HARD',evidence:'WALL_POST',validate:'video',hours:48,prompt:'Upload the video proof.',spawn:'defeat',xp:25,proof_type:'video'},
       // ELITE
       {id:'eli_profile_overhaul',cat:'PROFILE',icon:'🎯',title:'PERFIL COMPLETO',desc:'Rehaz bio y avatar para que ambos encajen. Luego presenta evidencia.',difficulty:'ELITE',evidence:'PROFILE_ACTION',validate:'bio',hours:24},
       {id:'eli_wall_series',cat:'EXPOSURE',icon:'📸',title:'SERIE PRESENCIA',desc:'Publica en Wall, sube captura y una nota corta de qué mostraste.',difficulty:'ELITE',evidence:'SCREENSHOT',validate:'photo',hours:24,prompt:'¿Qué mostraste y por qué?'},
@@ -19851,7 +20058,7 @@ function profileStatsHtml(userPosts, extra){
           +' · '+Number(st.stats.completed||0)+' challenges · today '+completedToday
           +' · XP today '+(RS_CHALLENGE_XP_CAP-remain)+'/'+RS_CHALLENGE_XP_CAP+'</div>';
       }else{
-        html+='<div class="rs-games-meta">Guest play · 3 free uses per game · XP only when registered</div>';
+        html+='<div class="rs-games-meta">Guest play · 3 free uses per game · 24h recovery · XP only when registered</div>';
       }
       html+='</div>';
 
@@ -19863,7 +20070,7 @@ function profileStatsHtml(userPosts, extra){
         });
       }
 
-      // Games: exactly Roulette, Dice, Tic-Tac-Toe
+      // Games: exactly Roulette, Dice, Tic-Tac-Toe (single Explore entry → this hub)
       html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:4px 0 10px">GAMES</div>';
       var gameOrder={roulette:0,dice:1,tic_tac_toe:2};
       var allowedGames={roulette:1,dice:1,tic_tac_toe:1};
@@ -19871,21 +20078,22 @@ function profileStatsHtml(userPosts, extra){
         return (gameOrder[a.id]!=null?gameOrder[a.id]:9)-(gameOrder[b.id]!=null?gameOrder[b.id]:9);
       }).slice(0,3);
       featuredGames.forEach(function(g){
-        var ico=g.id==='tic_tac_toe'?'🎯':g.id==='roulette'?'🎰':g.id==='dice'?'🎲':'🎮';
+        var ico=g.id==='tic_tac_toe'?'⭕':g.id==='roulette'?'🏆':g.id==='dice'?'🎲':'🎮';
         var border=g.id==='tic_tac_toe'?' style="border-color:rgba(124,58,237,.55)"':(g.id==='roulette'?' style="border-color:rgba(255,106,0,.45)"':(g.id==='dice'?' style="border-color:rgba(245,197,24,.4)"':''));
         var left=gameFreeLeft(g.id);
-        var freeTxt=left>0?(left+' free left'):'Free uses exhausted';
+        var rec=gameRecoveryLabel(g.id);
+        var freeTxt=left>0?(left+' free left'):(rec||'Free uses exhausted · 24h recovery');
         html+='<div class="rs-game-card rs-game-live"'+border+'>';
         html+='<div class="rs-game-cat">'+esc(ico+' '+g.category)+'</div>';
         html+='<div class="rs-game-name">'+esc(g.name)+'</div>';
         html+='<div class="rs-game-desc">'+esc(g.desc)+'</div>';
         html+='<div class="rs-free-left'+(left<=0?' exhausted':'')+'">'+esc(freeTxt)+'</div>';
-        html+='<div class="rs-game-foot" style="margin-top:12px"><span class="rs-game-xp">'+(registered&&g.xp?('+'+g.xp+' XP'):'3 free uses')+'</span>';
+        html+='<div class="rs-game-foot" style="margin-top:12px"><span class="rs-game-xp">'+(registered&&g.xp?('+'+g.xp+' XP'):'3 free · 24h')+'</span>';
         html+='<button type="button" class="btn rs-game-btn" data-open-game="'+esc(g.id)+'">PLAY</button></div></div>';
       });
 
       html+=rsPromoStripHtml({
-        title:'🎮 PLAY · 3 FREE EACH',
+        title:'🎮 PLAY · 3 FREE EACH · 24h RECOVERY',
         sub:'RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'
       });
 
@@ -20263,9 +20471,9 @@ function profileStatsHtml(userPosts, extra){
       return RS_WORD_BANK_DEFAULT.slice();
     }
     var RS_GAME_REGISTRY=[
-      {id:'roulette',name:'RUIN ROULETTE',desc:'Spin the wheel. 3 free spins · then 50 FC for 10 more. Win a pin badge.',category:'GAMES',difficulty:'EASY',xp:0,duration:'spin',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openRoulette()}catch(e){showPanel('roulette')}}},
-      {id:'dice',name:'EXPOSURE DICE',desc:'3 dice · Wear · Pose · Proof. 3 free rolls · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:0,duration:'roll',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openDiceGame()}catch(e){showPanel('dice')}}},
-      {id:'tic_tac_toe',name:'TIC-TAC-TOE',desc:'Quick duel. 3 free challenge sessions. Win XP when registered.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'PVP',status:'live',open:function(){startTicTacToeMenu()}},
+      {id:'roulette',name:'RUIN ROULETTE',desc:'Spin the wheel. 3 free spins · 24h recovery · pack 50 FC for 10 more.',category:'GAMES',difficulty:'EASY',xp:10,duration:'spin',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openRoulette()}catch(e){showPanel('roulette')}}},
+      {id:'dice',name:'EXPOSURE DICE',desc:'Wear · Pose · Proof. 3 free rolls · 24h recovery · extra 10 FC.',category:'GAMES',difficulty:'EASY',xp:10,duration:'roll',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openDiceGame()}catch(e){showPanel('dice')}}},
+      {id:'tic_tac_toe',name:'TIC-TAC-TOE',desc:'Play vs Ruiningsubs only. 3 free sessions · 24h recovery.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'VS_RS',status:'live',open:function(){startTicTacToeMenu()}},
       {id:'word_challenge',name:'WORD SCRAMBLE',desc:'Disabled.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'disabled',open:function(){toast('Game not available')}}
     ];
     function getGameDef(id){
@@ -20325,28 +20533,65 @@ function profileStatsHtml(userPosts, extra){
       }
       return grantXp(action, String(sessionId||''), true);
     }
+    function pickDefeatChallengeId(session){
+      var pool=['defeat_text','defeat_photo','defeat_video','defeat_response'];
+      var seed=String((session&&session.id)||Date.now());
+      var h=0; for(var i=0;i<seed.length;i++) h=(h*31+seed.charCodeAt(i))>>>0;
+      return pool[h%pool.length];
+    }
     function spawnDefeatChallenge(session){
-      if(!session||!currentUser||!currentUser.name)return;
+      if(!session)return;
+      if(!currentUser||!currentUser.name){
+        toast('Login to accept the defeat challenge');
+        return;
+      }
       var st=challengeUserState();
       st.spawned=st.spawned||{};
-      // Unique: game_id + challenge_id + user_id
-      var spawnId='defeat_response';
-      var key=completionKeyGame(currentUser.name, session.gameId||'ttt', session.id)+'|defeat_response';
-      if(st.spawned[spawnId]&&st.spawned[spawnId].sessionId===session.id) return;
-      // Idempotent: one defeat response per session
+      var spawnId=pickDefeatChallengeId(session);
+      var key=completionKeyGame(currentUser.name, session.gameId||'ttt', session.id)+'|'+spawnId;
+      if(st.spawned[key]) return;
       var doneKey=challengeCompletedId(spawnId, rsDayKey())+'|'+session.id;
       if(st.completions[doneKey]) return;
+      var def=getChallengeDef(spawnId)||getChallengeDef('defeat_response');
+      st.spawned[key]={
+        day:rsDayKey(),
+        sessionId:session.id,
+        gameId:session.gameId||'tic_tac_toe',
+        challengeId:spawnId,
+        proof_type:(def&&def.proof_type)||'photo',
+        status:'pending',
+        at:Date.now(),
+        key:key
+      };
+      // Also index by challenge id for openChallenge compatibility
       st.spawned[spawnId]={
         day:rsDayKey(),
         sessionId:session.id,
-        gameId:session.gameId,
+        gameId:session.gameId||'tic_tac_toe',
         at:Date.now(),
         key:key
       };
       st.accepted[rsDayKey()]=st.accepted[rsDayKey()]||{};
-      st.accepted[rsDayKey()][spawnId]={at:Date.now(),from:'defeat'};
+      st.accepted[rsDayKey()][spawnId]={at:Date.now(),from:'defeat',gameId:session.gameId||'tic_tac_toe',sessionId:session.id,status:'pending'};
       persistChallengeUser(st);
-      toast('Defeat Response unlocked — post on Wall, then submit evidence');
+      try{
+        fetch((window.CF_API||'https://ruiningsubs-api.0788adm.workers.dev')+'/notifs',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            to_username:'__GAME_CHALLENGES__',
+            from_username:currentUser.name,
+            type:'game_defeat_challenge',
+            post_id:String(session.id||''),
+            message:JSON.stringify({
+              user:currentUser.name,gameId:session.gameId,sessionId:session.id,
+              challengeId:spawnId,proof_type:(def&&def.proof_type)||'photo',
+              status:'pending',at:Date.now()
+            })
+          })
+        }).catch(function(){});
+      }catch(e){}
+      toast(((def&&def.title)||'Defeat challenge')+' unlocked — accept & publish proof');
+      return spawnId;
     }
     function openRegisteredGame(id){
       id=String(id||'');
@@ -20557,73 +20802,39 @@ function profileStatsHtml(userPosts, extra){
       var ch=getTrikiChallenge();
       var left=gameFreeLeft('tic_tac_toe');
       var exhausted=left<=0 && !(ch.freeConsumed && ch.games<3);
+      var recLbl=gameRecoveryLabel('tic_tac_toe');
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TIC-TAC-TOE</div>'
-        +'<div class="rs-games-title">Challenge ×3</div>'
-        +'<div class="rs-games-meta">3 free challenge sessions · '+(isAnonPlayer()?'guest play · no XP':'XP when you win')+'</div>'
+        '<div class="rs-games-hero"><div class="rs-games-kicker">⭕ TIC-TAC-TOE</div>'
+        +'<div class="rs-games-title">vs Ruiningsubs</div>'
+        +'<div class="rs-games-meta">3 free sessions · then 24h recovery · '+(isAnonPlayer()?'guest play · no XP':'XP when you win')+'</div>'
         +'<div style="margin-top:8px;font-size:13px;color:#f5c518;font-weight:800">Games '+ch.games+'/'+ch.max+' · Wins '+ch.wins+'/3 · Free left '+left+'</div>'
-        +(exhausted?'<div style="margin-top:8px;font-size:12px;color:#ff8a8a;font-weight:800">Free uses exhausted</div>':'')
+        +(exhausted?'<div style="margin-top:8px;font-size:12px;color:#ff8a8a;font-weight:800">Free uses exhausted'+(recLbl?(' · '+recLbl):'')+'</div>':'')
         +'</div>'
         +'<div class="rs-game-card">'
-        +'<button type="button" class="btn btn-primary" data-ttt="ai" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3||exhausted?' disabled':'')+'>PLAY · VS AI</button>'
-        +'<button type="button" class="btn btn-secondary" data-ttt="friend" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3||exhausted?' disabled':'')+'>PLAY · VS FRIEND</button>'
-        +'<button type="button" class="btn btn-secondary" data-ttt="random" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3||exhausted?' disabled':'')+'>PLAY · VS RANDOM</button>'
+        +'<button type="button" class="btn btn-primary" id="ttt-vs-rs" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900"'+(ch.games>=3||exhausted?' disabled':'')+'>PLAY VS RUININGSUBS</button>'
         +(ch.games>=3?'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Session complete.</div><button type="button" class="btn btn-primary" id="ttt-reset-ch" style="width:100%;margin-bottom:8px"'+(left<=0?' disabled':'')+'>New challenge ×3</button>':'')
         +'<button type="button" class="btn btn-ghost" id="ttt-back" style="width:100%">← Back</button>'
         +'</div>'
       );
-      Array.prototype.forEach.call(document.querySelectorAll('[data-ttt]'),function(btn){
-        btn.onclick=async function(){
-          if(getTrikiChallenge().games>=3){toast('Maximum 3 games per session');return}
-          var ok=await ensureTttFreeUse();
-          if(!ok){startTicTacToeMenu();return}
-          beginTicTacToe(btn.getAttribute('data-ttt'));
-        };
-      });
+      var playBtn=document.getElementById('ttt-vs-rs');
+      if(playBtn) playBtn.onclick=async function(){
+        if(getTrikiChallenge().games>=3){toast('Maximum 3 games per session');return}
+        var ok=await ensureTttFreeUse();
+        if(!ok){startTicTacToeMenu();return}
+        beginTicTacToe('ruiningsubs');
+      };
       var reset=document.getElementById('ttt-reset-ch');
       if(reset) reset.onclick=async function(){
-        if(gameFreeLeft('tic_tac_toe')<=0){toast('Free Tic-Tac-Toe uses exhausted');return}
+        if(gameFreeLeft('tic_tac_toe')<=0){toast('Free Tic-Tac-Toe uses exhausted'+(gameRecoveryLabel('tic_tac_toe')?(' · '+gameRecoveryLabel('tic_tac_toe')):''));return}
         __tttChallenge=null;
         startTicTacToeMenu();
       };
       var b=document.getElementById('ttt-back'); if(b)b.onclick=function(){renderChallengesHub()};
     }
     function beginTicTacToe(mode){
-      mode=String(mode||'ai');
+      mode='ruiningsubs';
       var ch=getTrikiChallenge();
       if(ch.games>=3){toast('Maximum 3 games per session');startTicTacToeMenu();return}
-      var opponent='AI';
-      var note='';
-      if(mode==='random'){
-        var lobby=null;
-        try{
-          var lobbies=JSON.parse(localStorage.getItem('rs_ttt_lobby')||'[]')||[];
-          var meName=(currentUser&&currentUser.name)||('guest_'+getAnonSessionId().slice(0,8));
-          lobbies=lobbies.filter(function(x){return x&&x.at>Date.now()-120000&&x.user!==meName});
-          if(lobbies.length){
-            lobby=lobbies.shift();
-            localStorage.setItem('rs_ttt_lobby',JSON.stringify(lobbies));
-            opponent=lobby.user||'Player';
-            mode='random';
-          }else{
-            lobbies.push({user:meName,at:Date.now()});
-            localStorage.setItem('rs_ttt_lobby',JSON.stringify(lobbies.slice(-20)));
-            note='No rival available — playing AI';
-            mode='ai';
-            opponent='AI';
-            toast(note);
-          }
-        }catch(e){
-          note='No rival available — playing AI';
-          mode='ai';
-          opponent='AI';
-          toast(note);
-        }
-      }else if(mode==='friend'){
-        opponent='Friend';
-      }else{
-        opponent='AI';
-      }
       __ttt={
         sessionId:ch.sessionId+'_g'+(ch.games+1),
         challengeId:ch.sessionId,
@@ -20631,10 +20842,10 @@ function profileStatsHtml(userPosts, extra){
         board:['','','','','','','','',''],
         turn:'X',
         you:'X',
-        opponent:opponent,
+        opponent:'Ruiningsubs',
         over:false,
         winner:null,
-        note:note
+        note:''
       };
       renderTtt();
     }
@@ -20673,7 +20884,7 @@ function profileStatsHtml(userPosts, extra){
       if(!__ttt||__ttt.over)return;
       idx=Number(idx);
       if(idx<0||idx>8||__ttt.board[idx])return;
-      if(!fromAi && __ttt.turn!==__ttt.you && __ttt.mode!=='friend')return;
+      if(!fromAi && __ttt.turn!==__ttt.you)return;
       var mark=__ttt.turn;
       __ttt.board[idx]=mark;
       var w=tttWinner(__ttt.board);
@@ -20685,34 +20896,30 @@ function profileStatsHtml(userPosts, extra){
       }
       __ttt.turn=(__ttt.turn==='X')?'O':'X';
       renderTtt();
-      if(__ttt.mode!=='friend' && __ttt.turn!==__ttt.you && !__ttt.over){
+      if(__ttt.turn!==__ttt.you && !__ttt.over){
         setTimeout(tttAiMove, 280);
       }
     }
     function renderTtt(){
       if(!__ttt)return;
       var cells=__ttt.board.map(function(v,i){
-        return '<button type="button" data-cell="'+i+'" class="ttt-cell" style="width:100%;aspect-ratio:1;border-radius:14px;border:1px solid #2a2a32;background:#101014;color:#fff;font-size:28px;font-weight:900">'+(v||'')+'</button>';
+        var disabled=__ttt.over||(__ttt.turn!==__ttt.you)||!!v;
+        return '<button type="button" data-cell="'+i+'" class="ttt-cell" '+(disabled?'disabled ':'')+'style="width:100%;aspect-ratio:1;border-radius:14px;border:1px solid #2a2a32;background:#101014;color:#fff;font-size:28px;font-weight:900;opacity:'+(__ttt.over&&!v?'0.55':'1')+'">'+(v||'')+'</button>';
       }).join('');
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TIC-TAC-TOE</div>'
-        +'<div class="rs-games-title">Duel</div>'
+        '<div class="rs-games-hero"><div class="rs-games-kicker">⭕ TIC-TAC-TOE</div>'
+        +'<div class="rs-games-title">vs Ruiningsubs</div>'
         +'<div class="rs-games-meta">You '+__ttt.you+' · vs '+esc(__ttt.opponent)
-        +(__ttt.note?(' · '+esc(__ttt.note)):'')
         +(__ttt.over?'':(' · turn '+__ttt.turn))+'</div></div>'
         +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:320px;margin:0 auto 12px">'+cells+'</div>'
-        +'<div id="ttt-msg" style="text-align:center;min-height:28px;font-weight:800"></div>'
-        +'<button type="button" class="btn btn-ghost" id="ttt-menu" style="width:100%">← Modes</button>'
+        +'<div id="ttt-msg" style="text-align:center;min-height:28px;font-weight:800">'+( __ttt.over ? 'Game over' : '')+'</div>'
+        +'<button type="button" class="btn btn-ghost" id="ttt-menu" style="width:100%">← Menu</button>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-cell]'),function(btn){
         btn.onclick=function(){
-          if(__ttt.mode==='friend'){
-            applyTttMove(btn.getAttribute('data-cell'), false);
-            // friend: alternate marks already handled via turn
-          }else{
-            if(__ttt.turn!==__ttt.you)return;
-            applyTttMove(btn.getAttribute('data-cell'), false);
-          }
+          if(!__ttt||__ttt.over)return;
+          if(__ttt.turn!==__ttt.you)return;
+          applyTttMove(btn.getAttribute('data-cell'), false);
         };
       });
       var m=document.getElementById('ttt-menu'); if(m)m.onclick=function(){startTicTacToeMenu()};
@@ -20841,32 +21048,42 @@ function profileStatsHtml(userPosts, extra){
       }
 
       var title=result==='win'?'YOU WON':(result==='draw'?'DRAW':'YOU LOST');
+      var spawnedId=null;
+      // Draw is NOT a defeat — only losses auto-spawn a challenge.
+      if(result==='loss'){
+        try{spawnedId=spawnDefeatChallenge(session)}catch(e){}
+      }
       var retosHtml=result==='loss'?showTrikiRetosSection():'';
+      var spawnDef=spawnedId?getChallengeDef(spawnedId):null;
       showGamePlay(
-        '<div class="rs-games-hero"><div class="rs-games-kicker">🎯 TIC-TAC-TOE</div>'
+        '<div class="rs-games-hero"><div class="rs-games-kicker">⭕ TIC-TAC-TOE</div>'
         +'<div class="rs-games-title">'+title+'</div>'
         +'<div class="rs-games-meta">vs '+esc(session.opponent)+' · +'+xp+' XP · Game '+ch.games+'/3 · Wins '+ch.wins+'/3'
         +(pinInfo?' · ⭐ PINNED':'')
-        +(result==='loss'?' · pick a challenge (explicit accept)':'')+'</div></div>'
+        +(result==='loss'?' · defeat challenge assigned':'')
+        +(result==='draw'?' · draw — not a defeat':'')+'</div></div>'
+        +(spawnDef?('<div class="rs-game-card" style="border-color:rgba(255,106,0,.45);margin-bottom:10px"><div style="font-size:11px;letter-spacing:1px;color:#ffb35c;font-weight:900;margin-bottom:6px">YOUR DEFEAT CHALLENGE</div><div style="font-weight:900;margin-bottom:4px">'+(spawnDef.icon||'⚔️')+' '+esc(spawnDef.title)+'</div><div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">'+esc(spawnDef.desc||'')+'</div><div style="font-size:12px;color:#c4b5fd;margin-bottom:10px">Proof: '+esc((spawnDef.proof_type||spawnDef.validate||'photo').toUpperCase())+' · Publish on Wall or Feed</div><button type="button" class="btn btn-primary" id="ttt-open-spawn" style="width:100%;min-height:48px;font-weight:900">Accept &amp; fulfill</button></div>'):'')
         +retosHtml
         +'<div class="rs-game-card">'
-        +(result==='loss'?'<button type="button" class="btn btn-primary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">DEFEAT RESPONSE</button>':'')
+        +(result==='loss'?'<button type="button" class="btn btn-secondary" id="ttt-defeat" style="width:100%;margin-bottom:8px;min-height:48px;font-weight:900">Open defeat challenge</button>':'')
         +(ch.games<3?'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">NEXT GAME ('+ch.games+'/3)</button>'
           :'<button type="button" class="btn btn-secondary" id="ttt-again" style="width:100%;min-height:48px;font-weight:900">SUMMARY / NEW</button>')
-        +'<button type="button" class="btn btn-ghost" id="ttt-hub" style="width:100%;margin-top:8px">← Challenges</button></div>'
+        +'<button type="button" class="btn btn-ghost" id="ttt-hub" style="width:100%;margin-top:8px">← Games</button></div>'
       );
       Array.prototype.forEach.call(document.querySelectorAll('[data-accept-reto]'),function(btn){
         btn.onclick=function(){
           var id=btn.getAttribute('data-accept-reto');
           if(!confirm('Do you explicitly accept this challenge? Nothing posts automatically.')) return;
-          try{spawnDefeatChallenge(session)}catch(e){}
           try{openChallenge(id)}catch(e){toast('Challenge accepted: '+id)}
         };
       });
+      var os=document.getElementById('ttt-open-spawn');
+      if(os) os.onclick=function(){
+        if(!confirm('Accept this challenge voluntarily? You will publish proof on Wall or Feed.')) return;
+        try{openChallenge(spawnedId||'defeat_response')}catch(e){toast('Open Games → challenge')}
+      };
       var d=document.getElementById('ttt-defeat'); if(d)d.onclick=function(){
-        if(!confirm('Accept the defeat response?')) return;
-        spawnDefeatChallenge(session);
-        openChallenge('defeat_response');
+        try{openChallenge(spawnedId||'defeat_response')}catch(e){}
       };
       var a=document.getElementById('ttt-again'); if(a)a.onclick=function(){startTicTacToeMenu()};
       var h=document.getElementById('ttt-hub'); if(h)h.onclick=function(){renderChallengesHub()};
@@ -23979,7 +24196,20 @@ async function onIdFace(e){
         toast('Publishing… step 2/3 saving');
         var albumTag=packAlbumTag(uploaded);
         var delTier=normalizeDeletionTier(selectedDeletionTier)||'deletable';
-        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
+        // Game challenge outcomes override deletion policy (permanent vs free-delete never mix).
+        try{
+          var gp=window.__pendingGamePublish;
+          if(gp&&gp.deletion_tier){
+            if(gp.permanent||gp.deletion_tier==='permanent'){
+              delTier='permanent';
+            }else if(gp.free_delete||gp.deletion_tier==='deletable'){
+              delTier='deletable';
+            }else{
+              delTier=normalizeDeletionTier(gp.deletion_tier)||delTier;
+            }
+          }
+        }catch(e){}
+        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');}catch(eG){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
         var payload={
           username:currentUser.name,
           title:title,
@@ -24126,6 +24356,34 @@ async function onIdFace(e){
             window.__pendingRoulettePublish=null;
           }catch(e){}
         }
+        try{
+          var gpub=window.__pendingGamePublish;
+          if(gpub&&row&&row.id){
+            fetch((window.CF_API||'https://ruiningsubs-api.0788adm.workers.dev')+'/notifs',{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({
+                to_username:'__GAME_EVIDENCE__',
+                from_username:(currentUser&&currentUser.name)||'guest',
+                type:'game_evidence',
+                post_id:String(row.id),
+                message:JSON.stringify({
+                  user:(currentUser&&currentUser.name)||'',
+                  game:gpub.game||'',
+                  play_id:gpub.playId||'',
+                  post_id:String(row.id),
+                  deletion_tier:delTier,
+                  permanent:!!gpub.permanent,
+                  free_delete:!!gpub.free_delete,
+                  status:'pending',
+                  at:Date.now()
+                })
+              })
+            }).catch(function(){});
+            try{if(isRegistered()) grantXp('challenge_xp_20', 'game_evidence:'+row.id, true)}catch(eX){}
+          }
+          window.__pendingGamePublish=null;
+          window.__pendingDicePublish=null;
+        }catch(e){}
         if(!profileMode){
           toast(isRoulettePub
             ? ('Published to Wall → Roulette · ID '+(row&&row.id?row.id:''))
@@ -25761,6 +26019,14 @@ async function onIdFace(e){
       try{
         var stBox=document.getElementById('remove-request-status');
         if(stBox){stBox.style.display='none';stBox.textContent=''}
+      }catch(e){}
+      // Game permanent outcomes never offer free deletion (even on Wall).
+      try{
+        if(owner && post && (normalizeDeletionTier(post.deletionTier||post.deletion_tier)==='permanent' || detectGameOrigin(post)==='roulette' && post.permanent)){
+          if(normalizeDeletionTier(post.deletionTier||post.deletion_tier)==='permanent'){
+            freeDel=false; needsFc=true; tier='permanent';
+          }
+        }
       }catch(e){}
       // Free deletion chosen at publish time → author deletes with no payment UI.
       if(owner && freeDel && !needsFc){
