@@ -68,5 +68,14 @@ assert(html.indexOf("deleteRequestProgress(true,'processing_payment')") >= 0, 'p
 assert(html.indexOf("deleteRequestProgress(true,'completed')") >= 0, 'completed stage');
 assert(html.indexOf('Sending request to admin') < 0, 'no sending-to-admin progress for FC');
 assert(html.indexOf('Your deletion request has been sent to the administrator') < 0, 'no admin-request success toast on FC path');
+assert(html.indexOf('admin will review (post stays up)') < 0, 'no admin-will-review FC toast');
+assert(html.indexOf('DELETE FC REQUEST') < 0, 'no FC admin request message');
+assert(html.indexOf('Post deleted successfully') >= 0, 'exact success toast');
+assert(html.indexOf('submitRemoveRequest blocked FC path') >= 0, 'submitRemoveRequest redirects FC to auto-delete');
+assert(delApi.indexOf('sbRest') >= 0, 'delete-post REST fallback present');
+assert(
+  JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).dependencies['@supabase/supabase-js'],
+  'package.json ships @supabase/supabase-js for Vercel'
+);
 
 console.log('OK · request-delete-fc (auto-delete)');

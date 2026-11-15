@@ -27,7 +27,10 @@ assert(delApi.indexOf('admin_notified: false') >= 0, 'no admin notify on FC dele
 assert(/paidForce|reason === 'paid'/.test(delApi), 'paid removal path');
 assert(delApi.indexOf('DELETE_COST_FC') >= 0, 'server price constant');
 assert(delApi.indexOf('insufficient') >= 0, 'insufficient FC');
+assert(delApi.indexOf('sbRest') >= 0, 'REST fallback when package missing');
+assert(delApi.indexOf('loadPostRow') >= 0, 'loadPostRow helper');
 assert(html.indexOf('function adminRequestDeleteAction') >= 0, 'admin actions use local helper');
 assert(html.indexOf('adminAcceptCoins') >= 0, 'legacy FC refund uses adminAcceptCoins');
+assert(html.indexOf('admin will review (post stays up)') < 0, 'no FC pending-admin toast');
 
 console.log('OK · request-delete-api / delete-post auto');
