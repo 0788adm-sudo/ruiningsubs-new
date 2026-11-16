@@ -387,6 +387,8 @@ function noAdminTraffic() {
   assert.ok(api.indexOf('walletUserCandidates') >= 0, 'wallet case candidates');
   assert.ok(api.indexOf('resolveFcBalance') >= 0, 'shared balance resolver');
   assert.ok(api.indexOf('spendSupabaseFc') >= 0, 'supabase spend fallback');
+  assert.ok(api.indexOf('15000') >= 0, 'CF wallet spend uses long timeout like Pin');
+  assert.ok(api.indexOf('Do NOT pre-probe CF balance') >= 0 || api.indexOf('attempt spend directly') >= 0, 'CF spend does not rely on short balance GET');
   assert.ok(api.indexOf('fast_invalidate') >= 0, 'pin cleanup is fast (no full board scan)');
   assert.ok(api.indexOf('withTimeout') >= 0, 'cleanup timeouts');
   assert.ok(api.indexOf('DELETE_NOOP') >= 0 || api.indexOf('delete_blocked_or_noop') >= 0, 'detect silent delete failure');
@@ -394,6 +396,7 @@ function noAdminTraffic() {
   assert.ok(html.indexOf('Checking balance, then charging 50 FC') >= 0, 'progress not fake-success');
   assert.ok(html.indexOf('Same numeric truth as /api/delete-post') >= 0, 'header matches API resolution');
   assert.ok(html.indexOf("fetchWithTimeout('/api/delete-post'") >= 0, 'client uses timed delete fetch');
+  assert.ok(html.indexOf('function shortDisplayUser') >= 0, 'anon display names shortened');
   console.log('PASS · static balance/identity contract');
 
   console.log('OK · fc-autodelete-handler');

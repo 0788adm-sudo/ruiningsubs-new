@@ -239,9 +239,9 @@ async function readBody(req) {
   }
 }
 
-/** CF wallet/ledger currently takes ~10s per call — always bound it so delete stays mobile-safe. */
+/** CF wallet/ledger currently takes ~10s per call. Bound every call; wallet spend uses a longer default. */
 async function cfFetch(path, opts, timeoutMs) {
-  const ms = timeoutMs == null ? 2800 : Number(timeoutMs) || 2800;
+  const ms = timeoutMs == null ? 12000 : Number(timeoutMs) || 12000;
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   let timer = null;
   if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (_) {} }, ms);
@@ -402,9 +402,10 @@ async function spendSupabaseFc(user, cost, ref) {
 }
 
 /**
- * Charge 50 FC from the SAME wallet the header uses.
- * Prefer Supabase coin_wallets first — CF /wallet currently takes ~10s/call and
- * was making delete-post exceed mobile timeouts even after pin-scan removal.
+ * Charge 50 FC from the SAME wallet the header / Pin path uses.
+ * Prefer Supabase coin_wallets first (fast). Then spend on CF directly —
+ * same pattern as /api/fc-spend (Pin). Do NOT pre-probe CF balance: a short
+ * GET timeout used to return have:0 while the real wallet still held coins.
  */
 async function spendDeleteFc(rawUser, postId, idemRef) {
   const action = 'delete';
@@ -436,48 +437,40 @@ async function spendDeleteFc(rawUser, postId, idemRef) {
     }
   }
 
-  // --- CF path (bounded by cfFetch timeouts) ---
-  // One ledger probe only (not per-candidate sequential 10s hits).
-  try {
-    const existing = await findLedgerSpend(primary, action, deleteSpendRef(primary, postId, idemRef), cost);
-    if (existing) {
-      return {
-        ok: true,
-        reused: true,
-        balance: null,
-        coins: cost,
-        ref: deleteSpendRef(primary, postId, idemRef),
-        user: primary,
-        source: 'ledger'
-      };
-    }
-  } catch (_) {}
+  // --- CF path: attempt spend directly (Pin /api/fc-spend style) ---
+  let bestCfHave = 0;
+  let bestCfUser = primary;
+  let lastCfError = null;
 
-  let bestCf = { user: primary, balance: 0 };
-  const cfBalances = await Promise.all(
-    candidates.map(async (u) => {
-      try {
-        return { user: u, balance: await cfWalletBalance(u) };
-      } catch (_) {
-        return { user: u, balance: 0 };
+  for (let i = 0; i < candidates.length; i++) {
+    const u = candidates[i];
+    const spendRef = deleteSpendRef(u, postId, idemRef);
+
+    try {
+      const existing = await findLedgerSpend(u, action, spendRef, cost);
+      if (existing) {
+        return {
+          ok: true,
+          reused: true,
+          balance: null,
+          coins: cost,
+          ref: spendRef,
+          user: u,
+          source: 'ledger'
+        };
       }
-    })
-  );
-  for (let i = 0; i < cfBalances.length; i++) {
-    if (cfBalances[i].balance > bestCf.balance) bestCf = cfBalances[i];
-  }
+    } catch (_) {}
 
-  if (bestCf.balance >= cost) {
-    const spendRef = deleteSpendRef(bestCf.user, postId, idemRef);
     const res = await cfFetch(
       '/wallet',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Origin: SITE },
-        body: JSON.stringify({ user: bestCf.user, spend: cost, action, ref: spendRef })
+        body: JSON.stringify({ user: u, spend: cost, action, ref: spendRef })
       },
-      4000
+      15000
     );
+
     if (res.json && res.json.ok) {
       return {
         ok: true,
@@ -485,22 +478,34 @@ async function spendDeleteFc(rawUser, postId, idemRef) {
         balance: res.json.balance != null ? Number(res.json.balance) : null,
         coins: cost,
         ref: spendRef,
-        user: bestCf.user,
+        user: u,
         source: 'cf'
       };
     }
+
+    const err = String((res.json && (res.json.error || res.json.message)) || '');
+    const reported = Number((res.json && res.json.balance) || 0) || 0;
+    if (reported > bestCfHave) {
+      bestCfHave = reported;
+      bestCfUser = u;
+    }
+    if (/insufficient|not enough|balance/i.test(err) || res.status === 402 || res.status === 400) {
+      lastCfError = 'insufficient';
+      continue;
+    }
+    lastCfError = err || (res.json && res.json.error) || 'spend_failed';
   }
 
-  const have = Math.max(bestSb.balance, bestCf.balance);
+  const have = Math.max(bestSb.balance, bestCfHave);
   return {
     ok: false,
-    error: 'insufficient',
+    error: lastCfError === 'insufficient' || have < cost ? 'insufficient' : lastCfError || 'insufficient',
     need: cost,
     balance: have,
     have: have,
     ref,
-    user: have === bestCf.balance ? bestCf.user : bestSb.user,
-    source: bestCf.balance >= bestSb.balance ? 'cf' : 'supabase'
+    user: have === bestCfHave && bestCfHave >= bestSb.balance ? bestCfUser : bestSb.user,
+    source: bestCfHave >= bestSb.balance ? 'cf' : 'supabase'
   };
 }
 
@@ -514,17 +519,21 @@ async function refundDeleteFc(user, postId) {
     return { ok: true, reused: true, balance: null, coins: DELETE_COST_FC, ref };
   }
 
-  const res = await cfFetch('/wallet', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: SITE },
-    body: JSON.stringify({
-      user,
-      add: DELETE_COST_FC,
-      action: 'delete_refund',
-      ref,
-      admin: true
-    })
-  });
+  const res = await cfFetch(
+    '/wallet',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE },
+      body: JSON.stringify({
+        user,
+        add: DELETE_COST_FC,
+        action: 'delete_refund',
+        ref,
+        admin: true
+      })
+    },
+    15000
+  );
 
   if (res.json && res.json.ok) {
     return {

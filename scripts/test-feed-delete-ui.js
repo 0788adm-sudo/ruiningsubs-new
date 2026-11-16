@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Feed/wall cards restore Delete for authorized users; Comment stays;
+ * Feed/wall cards hide Delete (detail-only); Comment stays;
  * detail keeps Delete + $5 / 50 FC flow (PayPal · Throne · FC · admin verify).
  */
 'use strict';
@@ -16,12 +16,23 @@ function assert(cond, msg) {
   console.log('PASS · ' + msg);
 }
 
-assert(html.indexOf('data-nf-act="delete"') >= 0, 'feed/wall delete action attribute restored');
-assert(/function postCardActionButtons[\s\S]*?data-nf-act="delete"/.test(html), 'postCardActionButtons includes Delete');
-assert(/function normalFeedPostHtml[\s\S]*?data-nf-act="delete"/.test(html), 'Wall normalFeedPostHtml includes Delete');
+function fnBody(name) {
+  var re = new RegExp('function ' + name + '\\([\\s\\S]*?\\n    function ');
+  var m = html.match(re);
+  return m ? m[0] : '';
+}
+
+var cardBtns = fnBody('postCardActionButtons');
+var normalFeed = fnBody('normalFeedPostHtml');
+
+assert(cardBtns.indexOf('universalDeleteButtonHtml') < 0, 'postCardActionButtons has no Delete');
+assert(cardBtns.indexOf('openRemove') < 0, 'postCardActionButtons does not openRemove');
+assert(normalFeed.indexOf('universalDeleteButtonHtml') < 0, 'normalFeedPostHtml has no Delete');
+assert(normalFeed.indexOf('openRemove') < 0, 'normalFeedPostHtml does not openRemove');
 assert(/function postCardActionButtons[\s\S]*?feed-cmt-span/.test(html), 'Comment centering helper in postCardActionButtons');
 assert(/nf-feed-comment/.test(html), 'normal feed Comment marked for balanced layout');
 assert(/id="btn-remove-led-label"/.test(html), 'detail Delete button id present');
+assert(/universalDeleteButtonHtml\(post,\s*\{\s*style:\s*'dx'\s*\}/.test(html), 'Delete remains inside post detail');
 assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal + Throne kept');
 assert(html.indexOf('I paid $5 — pending admin verify') >= 0, 'I paid kept');
 assert(html.indexOf('id="btn-remove-rights"') < 0, 'rights button element removed');
@@ -32,5 +43,7 @@ assert(html.indexOf('Telegram: @mastersan01') >= 0, 'contact Telegram');
 assert(html.indexOf('universalDeleteButtonHtml') >= 0, 'universal Delete helper');
 assert(html.indexOf('$5 / 50 FC') >= 0 || html.indexOf('FC or $5') >= 0, 'third-party paid delete path');
 assert(html.indexOf('You already have a pending delete request') >= 0, 'duplicate remove request blocked');
+assert(html.indexOf('function shortDisplayUser') >= 0, 'anon names shortened for display');
+assert(html.indexOf("return 'Anon_'+num") >= 0 || /Anon_\d{3,6}/.test(html), 'anon display uses Anon_#### numbers');
 
 console.log('\nFeed delete UI checks passed');

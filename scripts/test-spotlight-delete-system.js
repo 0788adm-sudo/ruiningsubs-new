@@ -19,9 +19,10 @@ assert(html.indexOf('function setRemoveModalRights') < 0, 'rights modal toggle h
 assert(html.indexOf('Delete · ') >= 0 && (html.indexOf('FC or $5') >= 0 || html.indexOf('Request delete · $5') >= 0), 'third-party FC/$5 delete copy');
 assert(html.indexOf('$5 request') >= 0 || html.indexOf('I paid $5') >= 0 || html.indexOf('pending admin verify') >= 0, 'detail Delete for non-owners keeps $5 admin path');
 assert(html.indexOf('$5 request · or rights') < 0, 'detail Delete no longer advertises rights shortcut');
-assert(html.indexOf('data-nf-act="delete"') >= 0, 'Wall/feed delete shortcut restored');
 assert(html.indexOf('openRemove(') >= 0, 'openRemove available for Delete');
+assert(/universalDeleteButtonHtml\(post,\s*\{\s*style:\s*'dx'\s*\}/.test(html), 'Delete remains in post detail only');
 assert(/id="btn-remove-led-label"/.test(html), 'Delete remains in post detail');
+assert(html.indexOf('Delete is detail-only') >= 0 || html.indexOf('Delete lives only inside the post detail') >= 0, 'feed cards hide Delete');
 assert(html.indexOf('universalDeleteButtonHtml') >= 0 || html.indexOf('$5 / 50 FC') >= 0 || html.indexOf('FC or $5') >= 0, 'paid third-party delete restored');
 assert(html.indexOf('btn-remove-paypal') >= 0, 'PayPal $5 remove kept');
 assert(html.indexOf('btn-remove-throne') >= 0, 'Throne $5 remove kept');

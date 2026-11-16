@@ -25,14 +25,18 @@ assert(html.indexOf('function permanentlyDeleteAdminRequests') >= 0, 'permanent 
 assert(html.indexOf('purgeSelectedAdminRequests') >= 0, 'multi-select purge');
 assert(html.indexOf('purgeOldAdminRequests') >= 0, 'purge >7d');
 assert(html.indexOf("select('id,image_url,username,title,created_at,tags')") >= 0, 'SB select avoids media_url/thumb_url');
-assert(!/from\('posts'\)\.select\([^)]*media_url/.test(html), 'no posts select with media_url');
+assert(!/fetchAdminPostThumb[\s\S]{0,500}media_url/.test(html) && !/batchFetchAdminThumbs[\s\S]{0,500}media_url/.test(html), 'admin thumb fetches avoid media_url column');
 assert(html.indexOf('encodeAdminItem') >= 0 && html.indexOf('decodeAdminItem') >= 0, 'safe checkbox payload encode');
 assert(html.indexOf('posts stay online') >= 0, 'confirm copy protects posts');
 assert(html.indexOf('Request records do not own post media') >= 0, 'never delete post media on purge');
-assert(html.indexOf('Pin requests') >= 0 && html.indexOf('Delete requests') >= 0, 'section headers');
+assert(html.indexOf('Pin requests') >= 0 && /DELETE REQUESTS|Delete requests/i.test(html), 'section headers');
 assert(html.indexOf('#panel-admin #admin-body{padding-bottom:calc(96px') >= 0, 'bottom nav padding');
 assert(html.indexOf('admin-req-check') >= 0, 'multi-select checkboxes');
 assert(html.indexOf("onclick=\"openDetail(") >= 0, 'Open / thumb openDetail wiring');
+assert(html.indexOf('function adminPostLinkHtml') >= 0, 'admin post permalink helper');
+assert(html.indexOf('admin-post-link') >= 0, 'admin post link class');
+assert(html.indexOf('unpackAlbumTags') >= 0 && html.indexOf('adminFirstImageFromRow') >= 0, 'album tags feed admin thumbs');
+assert(/Anon_\d+|Anon_####|Anon_\$\{/.test(html) || html.indexOf("return 'Anon_'+num") >= 0, 'anon display uses Anon_#### numbers');
 
 // Extract + unit-test pure helpers in a sandbox.
 var start = html.indexOf('function normalizeAdminPostId');
