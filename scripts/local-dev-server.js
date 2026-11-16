@@ -16,15 +16,20 @@ function send(res, code, body, headers) {
 
 function asVercelRes(res) {
   var headers = {};
-  return {
+  var self = {
     statusCode: 200,
     setHeader: function (k, v) { headers[k] = v; },
+    writeHead: function (code, h) {
+      self.statusCode = code;
+      if (h) Object.keys(h).forEach(function (k) { headers[k] = h[k]; });
+    },
     end: function (body) {
       var out = {};
       Object.keys(headers).forEach(function (k) { out[k] = headers[k]; });
-      send(res, this.statusCode || 200, body, out);
+      send(res, self.statusCode || 200, body, out);
     }
   };
+  return self;
 }
 
 function asVercelReq(req, bodyObj, query) {
@@ -56,7 +61,8 @@ var apiMap = {
   '/api/game-play': '../api/game-play.js',
   '/api/fc-spend': '../api/fc-spend.js',
   '/api/admin-request': '../api/admin-request.js',
-  '/api/videos': '../api/videos.js'
+  '/api/videos': '../api/videos.js',
+  '/api/media': '../api/media.js'
 };
 
 var server = http.createServer(async function (req, res) {

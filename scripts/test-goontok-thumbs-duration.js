@@ -21,7 +21,8 @@ assert(html.includes('Finding playable videos'), 'empty state while finding play
 // 2) Thumbnails
 assert(html.includes('cacheVideoPosterUrl'), 'poster cache helper');
 assert(html.includes('capturePosterFromVideoEl'), 'frame capture from video element');
-assert(html.includes('scheduleVideoPosterFill'), 'async poster fill for missing thumbs');
+assert(html.includes('scheduleVideoPosterFill'), 'poster fill helper retained (cache-only)');
+assert(/function scheduleVideoPosterFill[\s\S]{0,600}Never spin up a secondary/.test(html), 'poster fill does not download remote MP4');
 assert(html.includes('rs_vposter'), 'persists posters in rs_vposter');
 assert(html.includes('applyPosterToGtSlide'), 'applies generated poster onto GoonTok slides');
 

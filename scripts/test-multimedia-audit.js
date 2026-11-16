@@ -66,7 +66,15 @@ function fetchableMediaUrl(u) {
 var sample =
   'https://ruiningsubs-api.0788adm.workers.dev/media/1794799610248-033f50c8-86d0-4b44-9e02-acbc8b0554ab.mp4';
 assert(publicMediaUrl(sample).indexOf('r2.dev') >= 0, 'playback URL → R2');
-assert(fetchableMediaUrl(sample).indexOf('workers.dev/media/') >= 0, 'fetch URL → Worker');
+// fetchableMediaUrl prefers same-origin /api/media (Range+CORS); Worker path remains as fallback in source.
+assert(
+  html.includes('/api/media?key=') || html.includes("CF_API+'/media/'"),
+  'fetchableMediaUrl uses /api/media or Worker CORS path'
+);
+assert(
+  fetchableMediaUrl(sample).indexOf('/media') >= 0 || fetchableMediaUrl(sample).indexOf('workers.dev') >= 0,
+  'fetch helper maps object keys to a media path'
+);
 assert(
   publicMediaUrl(publicMediaUrl(sample)) === publicMediaUrl(sample),
   'publicMediaUrl idempotent'
@@ -74,13 +82,32 @@ assert(
 
 (async function () {
   var play = publicMediaUrl(sample);
-  var fetchUrl = fetchableMediaUrl(sample);
   var r2 = await fetch(play, { headers: { Range: 'bytes=0-1', 'User-Agent': 'Mozilla/5.0' } });
   assert(r2.status === 206 || r2.status === 200, 'R2 range/playable status ' + r2.status);
   assert((r2.headers.get('Accept-Ranges') || '').toLowerCase() === 'bytes' || r2.status === 206, 'R2 Accept-Ranges');
-  var w = await fetch(fetchUrl, { headers: { Origin: 'https://www.ruinexpose.com', 'User-Agent': 'Mozilla/5.0' } });
-  assert(w.status === 200, 'Worker media GET 200');
-  assert(w.headers.get('Access-Control-Allow-Origin') === '*', 'Worker CORS * for fetch');
+  // Same-origin /api/media handler is the CORS+Range fetch path (Worker /media currently 404s).
+  var handler = require('../api/media.js');
+  var statusCode = 0, headers = {}, body = Buffer.alloc(0);
+  await handler(
+    {
+      method: 'GET',
+      query: { key: mediaObjectKey(sample) },
+      headers: { range: 'bytes=0-1', origin: 'https://www.ruinexpose.com' },
+      url: '/api/media?key=' + encodeURIComponent(mediaObjectKey(sample))
+    },
+    {
+      writeHead: function (c, h) {
+        statusCode = c;
+        headers = h || {};
+      },
+      end: function (b) {
+        if (b) body = Buffer.isBuffer(b) ? b : Buffer.from(String(b));
+      }
+    }
+  );
+  assert(statusCode === 206, 'api/media Range → 206');
+  assert(headers['Access-Control-Allow-Origin'] === '*', 'api/media CORS * for fetch');
+  assert(body.length === 2, 'api/media ranged body');
   console.log('\nMultimedia audit checks passed');
 })().catch(function (e) {
   console.error(e);
