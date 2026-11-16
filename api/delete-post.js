@@ -552,50 +552,142 @@ async function refundDeleteFc(user, postId) {
   };
 }
 
+/**
+ * Canonicalize a client/request post id to the Supabase posts.id form.
+ * Never treat request IDs, video keys, or storage object names as post ids.
+ * Numeric posts are bigint — reject "3065.0" junk and non-id strings early.
+ */
+function canonicalPostId(raw) {
+  if (raw == null || raw === '') return '';
+  if (typeof raw === 'number' && isFinite(raw)) return String(Math.trunc(raw));
+  var s = String(raw).trim();
+  if (!s) return '';
+  if (/^\d+\.0+$/.test(s)) return String(parseInt(s, 10));
+  if (/^\d+$/.test(s)) return s;
+  var m = s.match(/^(?:post\s*#|id[=:]\s*)([A-Za-z0-9_-]+)/i);
+  if (m) return canonicalPostId(m[1]);
+  // Opaque CF / legacy string ids (keep short test ids like p-u0).
+  if (/^[A-Za-z0-9_-]{1,80}$/.test(s)) return s;
+  return '';
+}
+
+function postIdLookupVariants(postId) {
+  var id = canonicalPostId(postId);
+  var out = [];
+  function push(v) {
+    if (v == null || v === '') return;
+    var s = String(v);
+    if (out.indexOf(s) < 0) out.push(s);
+  }
+  push(id);
+  if (/^\d+$/.test(id)) push(Number(id));
+  return out;
+}
+
 async function loadPostRow(postId) {
   // Live DB may lack deletion_tier / free_deletion_enabled / owner_token_hash —
   // select only columns that exist so we don't burn a failed round-trip.
   const colsBase = 'id,username,tags,expires_at,extend_amount';
+  const variants = postIdLookupVariants(postId);
+  if (!variants.length) return null;
   const client = sbClient();
   if (client) {
-    const q = await client.from('posts').select(colsBase).eq('id', postId).maybeSingle();
-    if (q.error) throw new Error(q.error.message || 'load_failed');
-    return q.data || null;
+    for (let i = 0; i < variants.length; i++) {
+      const q = await client.from('posts').select(colsBase).eq('id', variants[i]).maybeSingle();
+      if (q.error) throw new Error(q.error.message || 'load_failed');
+      if (q.data) return q.data;
+    }
+    return null;
   }
-  const rest = await sbRest(
-    '/rest/v1/posts?select=' + encodeURIComponent(colsBase) + '&id=eq.' + encodeURIComponent(postId) + '&limit=1'
-  );
-  if (!rest.ok) throw new Error('load_failed_http_' + rest.status);
-  const rows = Array.isArray(rest.data) ? rest.data : [];
-  return rows[0] || null;
+  for (let i = 0; i < variants.length; i++) {
+    const rest = await sbRest(
+      '/rest/v1/posts?select=' +
+        encodeURIComponent(colsBase) +
+        '&id=eq.' +
+        encodeURIComponent(String(variants[i])) +
+        '&limit=1'
+    );
+    if (!rest.ok) throw new Error('load_failed_http_' + rest.status);
+    const rows = Array.isArray(rest.data) ? rest.data : [];
+    if (rows[0]) return rows[0];
+  }
+  return null;
 }
 
 async function deletePostRow(postId) {
+  const variants = postIdLookupVariants(postId);
+  if (!variants.length) return { message: 'missing_post_id', code: 'MISSING_ID' };
   const client = sbClient();
+  let deleted = false;
   if (client) {
-    const { data, error } = await client.from('posts').delete().eq('id', postId).select('id');
-    if (error) return error;
+    for (let i = 0; i < variants.length && !deleted; i++) {
+      const { data, error } = await client.from('posts').delete().eq('id', variants[i]).select('id');
+      if (error) return error;
+      if (data && data.length) deleted = true;
+    }
     // RLS can return success with 0 rows — treat that as failure so we refund.
-    if (!data || !data.length) {
+    if (!deleted) {
       const still = await loadPostRow(postId);
       if (still) return { message: 'delete_blocked_or_noop', code: 'DELETE_NOOP' };
     }
   } else {
-    const rest = await sbRest('/rest/v1/posts?id=eq.' + encodeURIComponent(String(postId)), {
-      method: 'DELETE'
-    });
-    if (!rest.ok) {
-      return { message: 'delete_failed_http_' + rest.status, details: rest.data };
+    for (let i = 0; i < variants.length && !deleted; i++) {
+      const rest = await sbRest('/rest/v1/posts?id=eq.' + encodeURIComponent(String(variants[i])), {
+        method: 'DELETE'
+      });
+      if (!rest.ok) {
+        return { message: 'delete_failed_http_' + rest.status, details: rest.data };
+      }
+      const rows = Array.isArray(rest.data) ? rest.data : [];
+      if (rows.length) deleted = true;
     }
     const still = await loadPostRow(postId).catch(() => null);
     if (still) return { message: 'delete_blocked_or_noop', code: 'DELETE_NOOP' };
   }
   // Also drop CF mirror so feed/search cannot resurrect the post.
+  // Best-effort only — never fails the Supabase delete. Do not broad-scan R2.
   try {
-    await cfFetch('/posts/' + encodeURIComponent(String(postId)), {
+    await cfFetch('/posts/' + encodeURIComponent(String(canonicalPostId(postId) || postId)), {
       method: 'DELETE',
       headers: { Origin: SITE }
     });
+  } catch (_) {}
+  return null;
+}
+
+/** Supabase coin_ledger may hold the delete spend when CF ledger does not. */
+async function findSbDeleteSpend(user, ref, minCoins) {
+  const client = sbClient();
+  const need = Number(minCoins || 0) || 0;
+  if (client) {
+    try {
+      const q = await client
+        .from('coin_ledger')
+        .select('user_id,kind,action,coins,ref')
+        .eq('user_id', user)
+        .eq('kind', 'spend')
+        .eq('action', 'delete')
+        .eq('ref', String(ref || ''))
+        .limit(5);
+      const rows = (q && q.data) || [];
+      for (let i = 0; i < rows.length; i++) {
+        if (Number(rows[i].coins || 0) >= need) return rows[i];
+      }
+    } catch (_) {}
+    return null;
+  }
+  try {
+    const rest = await sbRest(
+      '/rest/v1/coin_ledger?select=user_id,kind,action,coins,ref&user_id=eq.' +
+        encodeURIComponent(user) +
+        '&kind=eq.spend&action=eq.delete&ref=eq.' +
+        encodeURIComponent(String(ref || '')) +
+        '&limit=5'
+    );
+    const rows = Array.isArray(rest.data) ? rest.data : [];
+    for (let i = 0; i < rows.length; i++) {
+      if (Number(rows[i].coins || 0) >= need) return rows[i];
+    }
   } catch (_) {}
   return null;
 }
@@ -723,7 +815,8 @@ module.exports = async function handler(req, res) {
 
   const rawUser = walletUser(body.user || body.username);
   const userKey = normUser(rawUser); // ownership comparisons only
-  const postId = String(body.postId || body.id || '').trim();
+  // Prefer explicit postId. Never fall back to requestId / notification id fields.
+  const postId = canonicalPostId(body.postId || body.post_id || body.id);
   const reason = String(body.reason || 'owner')
     .trim()
     .toLowerCase();
@@ -742,33 +835,38 @@ module.exports = async function handler(req, res) {
     return json(res, 500, { error: 'load_failed', detail: String(e && e.message ? e.message : e) });
   }
 
+  // Always operate on the canonical DB id when the row exists.
+  const canonicalId = row && row.id != null ? canonicalPostId(row.id) || postId : postId;
   const spendIdem =
-    idempotencyKey || `delete-post:${postId}:${userKey}:${DELETE_COST_FC}`;
+    idempotencyKey || `delete-post:${canonicalId}:${userKey}:${DELETE_COST_FC}`;
 
-  // Idempotent re-entry after a successful delete (double-click / reload).
+  // Idempotent DELETE: missing post ⇒ success, never charge again.
+  // (Production has no coin_ledger table; CF ledger alone cannot prove a prior SB spend.
+  //  Returning not_found here caused APPROVE & DELETE / double-click to look broken
+  //  after the first successful removal.)
   if (!row) {
+    let reused = false;
     const candidates = walletUserCandidates(rawUser);
     for (let i = 0; i < candidates.length; i++) {
-      const priorSpend = await findLedgerSpend(
-        candidates[i],
-        'delete',
-        deleteSpendRef(candidates[i], postId, spendIdem),
-        DELETE_COST_FC
-      );
+      const spendRef = deleteSpendRef(candidates[i], canonicalId, spendIdem);
+      const priorSpend =
+        (await findLedgerSpend(candidates[i], 'delete', spendRef, DELETE_COST_FC)) ||
+        (await findSbDeleteSpend(candidates[i], spendRef, DELETE_COST_FC));
       if (priorSpend) {
-        return json(res, 200, {
-          ok: true,
-          postId,
-          already_deleted: true,
-          charged: 0,
-          reused: true,
-          balance: null,
-          free: false,
-          reason: 'already_deleted'
-        });
+        reused = true;
+        break;
       }
     }
-    return json(res, 404, { error: 'not_found' });
+    return json(res, 200, {
+      ok: true,
+      postId: canonicalId,
+      already_deleted: true,
+      charged: 0,
+      reused: reused,
+      balance: null,
+      free: !reused,
+      reason: 'already_deleted'
+    });
   }
 
   const owner = normUser(row.username);
@@ -826,11 +924,19 @@ module.exports = async function handler(req, res) {
   // Non-owners may delete ONLY by paying 50 FC (automatic — no admin queue).
   // Free owner deletes and admin moderation stay unchanged.
   if (!freeOverride && !isOwner && !paidForce) {
-    // Legacy clients that omit reason=paid still get the paid path when not owner.
-    // (FC button always sends reason=paid; bare calls without ownership stay forbidden.)
+    // Distinguish expired admin sessions from plain ownership failures —
+    // APPROVE & DELETE used to surface a generic "Could not delete post".
+    if (FREE_REASONS.has(reason) && !adminCredOk) {
+      return json(res, 401, {
+        error: 'admin_auth_required',
+        detail: 'Admin session expired or missing. Unlock the admin panel and retry APPROVE & DELETE.',
+        postId: canonicalId
+      });
+    }
     return json(res, 403, {
       error: 'forbidden',
-      detail: 'Only the owner, a paid FC removal, or admin moderation/privacy can delete.'
+      detail: 'Only the owner, a paid FC removal, or admin moderation/privacy can delete.',
+      postId: canonicalId
     });
   }
 
@@ -848,7 +954,7 @@ module.exports = async function handler(req, res) {
       cost = ownerDeleteCost(row);
     }
     if (cost > 0) {
-      spend = await spendDeleteFc(rawUser, postId, spendIdem);
+      spend = await spendDeleteFc(rawUser, canonicalId, spendIdem);
       if (!spend.ok) {
         const code = spend.error || 'spend_failed';
         const status = code === 'insufficient' ? 402 : spend.status || 400;
@@ -862,14 +968,15 @@ module.exports = async function handler(req, res) {
           tier,
           wallet_user: spend.user || rawUser,
           source: spend.source || null,
-          buyUrl: '/coins'
+          buyUrl: '/coins',
+          postId: canonicalId
         });
       }
       charged = cost;
     }
   }
 
-  const delErr = await deletePostRow(postId);
+  const delErr = await deletePostRow(canonicalId);
   if (delErr) {
     let refund = null;
     if (charged > 0 && spend && !spend.reused) {
@@ -901,7 +1008,7 @@ module.exports = async function handler(req, res) {
             refund = { ok: rest.ok, balance: bal + DELETE_COST_FC, source: 'supabase' };
           }
         } else {
-          refund = await refundDeleteFc(refundUser, postId);
+          refund = await refundDeleteFc(refundUser, canonicalId);
         }
       } catch (e) {
         refund = { ok: false, error: String(e && e.message ? e.message : e) };
@@ -920,23 +1027,24 @@ module.exports = async function handler(req, res) {
 
   // Best-effort cleanup with hard caps — never block the client past a few seconds.
   // (Full pin-board scans previously made this endpoint ~30s and mobile aborted.)
+  // Media/R2 objects are NOT bulk-deleted here — ownership is not re-verified in this path.
   const pinCleanup = await withTimeout(
-    retirePinsForDeletedPost(postId),
+    retirePinsForDeletedPost(canonicalId),
     2500,
     { skipped: true, reason: 'pin_cleanup_timeout', mode: 'fast_invalidate' }
   );
   const cachePurge = await withTimeout(
-    purgeDeletedPostCaches(postId),
+    purgeDeletedPostCaches(canonicalId),
     1500,
     { skipped: true, reason: 'cache_purge_timeout' }
   );
 
   // Hint for Google Search Console Removals (manual): list the URL that must drop.
-  const removalUrl = SITE + '/post/' + encodeURIComponent(String(postId));
+  const removalUrl = SITE + '/post/' + encodeURIComponent(String(canonicalId));
 
   return json(res, 200, {
     ok: true,
-    postId,
+    postId: canonicalId,
     tier,
     free_deletion_enabled: freeDeletionEnabled(row),
     charged,
