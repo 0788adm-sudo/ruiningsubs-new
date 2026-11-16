@@ -768,7 +768,31 @@ module.exports = async function handler(req, res) {
       tokenOk = false;
     }
   }
-  const isOwner = owner === userKey || tokenOk;
+  // Anonymous visitors may publish but never delete — even with a local owner token.
+  function isAnonymousIdentity(u) {
+    const n = normUser(u);
+    return (
+      !n ||
+      n === 'guest' ||
+      n === 'anon' ||
+      n.indexOf('anon_') === 0 ||
+      n.indexOf('anon:') === 0 ||
+      /^anon\d*$/i.test(n)
+    );
+  }
+  const accountType = String(body.account_type || body.accountType || '').toLowerCase();
+  const requesterAnon =
+    accountType === 'anonymous' ||
+    isAnonymousIdentity(rawUser) ||
+    String(body.role || '').toLowerCase() === 'guest';
+  const isOwner = !requesterAnon && (owner === userKey || tokenOk);
+  // Block anonymous delete attempts explicitly (owner-token spoofing included).
+  if (requesterAnon) {
+    return json(res, 403, {
+      error: 'anonymous_cannot_delete',
+      detail: 'Anonymous accounts can publish proofs but cannot delete posts. Register to manage your own posts.'
+    });
+  }
   let cfAdminOk = false;
   try {
     cfAdminOk = await verifyCfAdminToken(bearerToken(req));
