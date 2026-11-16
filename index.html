@@ -3937,8 +3937,20 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       pin:{throne:THRONE_PACK_5,paypal:PAYPAL_ME+'/5'}
     };
     var CF_MEDIA='https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
-    // Videos live on Cloudflare R2. Worker /media/* often 404s; rewrite to public R2 keys.
+    // Dual-host media strategy (verified live):
+    // - R2 public host: Accept-Ranges + HTTP 206 (required for Safari progressive MP4 / moov-at-end).
+    // - Worker /media: CORS * (required for fetch/canvas), but NO Range (Safari hangs) and HEAD→404.
+    // Playback/img tags → R2. fetch()/canvas/download → Worker (fetchableMediaUrl).
     // Some rows store image_url as a JSON array string — unpack before rewrite.
+    function mediaObjectKey(u){
+      u=String(u||'').trim();
+      if(!u)return '';
+      var m=u.match(/^https?:\/\/(?:ruiningsubs-api\.0788adm\.workers\.dev\/media\/|pub-b65c88e28c02405ba88db599e7c80d0f\.r2\.dev\/)([^?#]+)/i);
+      if(m&&m[1]){
+        try{return decodeURIComponent(m[1])}catch(e){return m[1]}
+      }
+      return '';
+    }
     function publicMediaUrl(u){
       if(Array.isArray(u)){
         for(var ai=0;ai<u.length;ai++){
@@ -3955,13 +3967,38 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           if(Array.isArray(arr)) return publicMediaUrl(arr);
         }catch(e){}
       }
+      var key=mediaObjectKey(u);
+      if(key) return CF_MEDIA+'/'+key;
       var m=u.match(/^https?:\/\/ruiningsubs-api\.0788adm\.workers\.dev\/media\/([^?#]+)/i);
       if(m&&m[1]){
         try{return CF_MEDIA+'/'+decodeURIComponent(m[1])}catch(e){return CF_MEDIA+'/'+m[1]}
       }
       return u;
     }
+    // CORS-capable URL for fetch/XHR/canvas. Prefer Worker; fall back to original.
+    function fetchableMediaUrl(u){
+      if(Array.isArray(u)){
+        for(var ai=0;ai<u.length;ai++){
+          var got=fetchableMediaUrl(u[ai]);
+          if(got) return got;
+        }
+        return '';
+      }
+      u=String(u||'').trim();
+      if(!u)return '';
+      if(u.charAt(0)==='['){
+        try{
+          var arr=JSON.parse(u);
+          if(Array.isArray(arr)) return fetchableMediaUrl(arr);
+        }catch(e){}
+      }
+      var key=mediaObjectKey(u);
+      if(key) return CF_API+'/media/'+key;
+      return u;
+    }
     window.publicMediaUrl=publicMediaUrl;
+    window.fetchableMediaUrl=fetchableMediaUrl;
+    window.mediaObjectKey=mediaObjectKey;
     var SUPABASE_URL='https://snlpdolzhzcbbdyxqlnb.supabase.co';
     var SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
 
@@ -5131,9 +5168,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(!urls.length)return '';
       var h=big?70:42;
       function imgTag(u){
-        var vid=/\.mp4|\.webm|\.mov|video\//i.test(u);
-        if(vid) return '<video class="task-cover" src="'+u+'" controls playsinline preload="none" style="width:100%;max-height:'+(big?70:42)+'vh;background:#000"></video>';
-        return '<img class="task-cover task-photo" src="'+u+'" data-full="'+u+'" alt="" loading="lazy" onclick="event.stopPropagation();openTaskPhoto(this)" onerror="this.style.display=\'none\'" style="width:100%;max-height:'+h+'vh;object-fit:cover;display:block;background:#111"/>';
+        u=typeof publicMediaUrl==='function'?publicMediaUrl(u):u;
+        var vid=/\.mp4|\.webm|\.mov|video\//i.test(u)||(typeof isVideoUrl==='function'&&isVideoUrl(u));
+        if(vid) return typeof lazyVideoHtml==='function'?lazyVideoHtml(u,'',0,''):('<video class="task-cover" src="'+u+'" controls playsinline preload="metadata" style="width:100%;max-height:'+(big?70:42)+'vh;background:#000"></video>');
+        return '<img class="task-cover task-photo" src="'+u+'" data-full="'+u+'" data-orig="'+u+'" alt="" loading="lazy" onclick="event.stopPropagation();openTaskPhoto(this)" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)" style="width:100%;max-height:'+h+'vh;object-fit:cover;display:block;background:#111"/>';
       }
       if(urls.length===1) return imgTag(urls[0]);
       return '<div class="task-photo-grid">'+urls.map(imgTag).join('')+'</div>';
@@ -5159,7 +5197,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       // use loading=lazy / decoding=async / constrained CSS to avoid layout jank.
       return src;
     }
-    // Wall / Explore media: retry via publicMediaUrl (Worker /media → R2), then soft placeholder.
+    // Wall / Explore media: retry R2 → Worker → soft placeholder.
     window.__nfImgRetry=function(img){
       try{
         if(!img)return;
@@ -5171,6 +5209,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           var next=typeof publicMediaUrl==='function'?publicMediaUrl(raw):raw;
           if(next && next!==img.getAttribute('src')){ img.src=next; return; }
           step=1;
+        }
+        if(step===1){
+          img.setAttribute('data-nf-retry','2');
+          var alt=typeof fetchableMediaUrl==='function'?fetchableMediaUrl(raw):raw;
+          if(alt && alt!==img.getAttribute('src')){ img.src=alt; return; }
         }
         img.onerror=null;
         img.style.background='#1a1a22';
@@ -5191,82 +5234,254 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       // an <img> src: that would still trigger a video request on mobile.
       return fallback || '';
     }
+    function lvSetStatus(el, mode, detail){
+      if(!el)return;
+      var loadEl=el.querySelector('.lv-loading');
+      var playBtn=el.querySelector('.lv-play');
+      var errEl=el.querySelector('.lv-error');
+      if(mode==='ready'||mode==='playing'){
+        if(loadEl){loadEl.hidden=true;loadEl.setAttribute('data-lv-state','ready')}
+        if(errEl) errEl.hidden=true;
+        if(playBtn && mode==='ready') playBtn.style.display='';
+        if(playBtn && mode==='playing') playBtn.style.display='none';
+        return;
+      }
+      if(mode==='loading'){
+        if(errEl) errEl.hidden=true;
+        if(loadEl){
+          loadEl.hidden=false;
+          loadEl.setAttribute('data-lv-state','loading');
+          loadEl.textContent=detail||'Preparing video…';
+        }
+        return;
+      }
+      if(mode==='error'){
+        if(loadEl) loadEl.hidden=true;
+        if(playBtn) playBtn.style.display='none';
+        if(!errEl){
+          errEl=document.createElement('div');
+          errEl.className='lv-error';
+          errEl.style.cssText='position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(0,0,0,.72);color:#eee;padding:16px;text-align:center';
+          el.appendChild(errEl);
+        }
+        errEl.hidden=false;
+        var msg=String(detail||'Video failed to load');
+        errEl.innerHTML='<div style="font-size:13px;font-weight:800;max-width:90%">'+esc(msg)+'</div>'
+          +'<button type="button" class="lv-retry btn btn-secondary btn-sm" style="pointer-events:auto;min-height:36px;padding:8px 14px;font-weight:800">Retry</button>';
+        var btn=errEl.querySelector('.lv-retry');
+        if(btn){
+          btn.onclick=function(ev){
+            try{ev.preventDefault();ev.stopPropagation()}catch(e){}
+            el.removeAttribute('data-lv-active');
+            el.removeAttribute('data-warmed');
+            el.classList.remove('lv-playing');
+            try{errEl.hidden=true}catch(e){}
+            try{activateLazyVideo(el)}catch(e){}
+          };
+        }
+      }
+    }
+    function bindLazyVideoEvents(v, el, opts){
+      opts=opts||{};
+      var tries=0;
+      var done=false;
+      var waitTimer=null;
+      var lastT=0;
+      function hideReady(){
+        if(done&&opts.onceReady)return;
+        done=true;
+        lvSetStatus(el,'ready');
+        if(typeof opts.onReady==='function') try{opts.onReady()}catch(e){}
+      }
+      function onPlaying(){
+        try{clearTimeout(waitTimer)}catch(e){}
+        lvSetStatus(el,'playing');
+        if(typeof opts.onPlaying==='function') try{opts.onPlaying()}catch(e){}
+      }
+      function onWaiting(){
+        if(el.getAttribute('data-lv-active')!=='1') return;
+        try{clearTimeout(waitTimer)}catch(e){}
+        // Debounce: brief stalls are normal; only flash Buffering after 900ms.
+        waitTimer=setTimeout(function(){
+          if(el.getAttribute('data-lv-active')!=='1') return;
+          if(v.paused && v.readyState>=2){ lvSetStatus(el,'ready'); return; }
+          if(!v.paused && v.readyState>=3){ lvSetStatus(el,'playing'); return; }
+          lvSetStatus(el,'loading','Buffering…');
+        }, 900);
+      }
+      function onError(){
+        var code=(v.error&&v.error.code)||0;
+        var detail='media_error'+(code?(' #'+code):'');
+        console.warn('[lv]', detail, v.currentSrc||v.src, v.error);
+        if(tries++<1 && opts.src){
+          try{
+            v.removeAttribute('src');
+            v.src=opts.src;
+            v.load();
+            if(opts.autoplay) try{v.play().catch(function(){})}catch(e){}
+          }catch(e){}
+          return;
+        }
+        lvSetStatus(el,'error', opts.errorLabel||('Playback failed · '+detail));
+        if(typeof opts.onError==='function') try{opts.onError(detail)}catch(e){}
+      }
+      // Avoid stacking duplicate listeners on re-activate.
+      if(v.getAttribute('data-lv-bound')==='1'){
+        try{ if(v.readyState>=1) hideReady(); }catch(e){}
+      }else{
+        v.setAttribute('data-lv-bound','1');
+        v.addEventListener('loadedmetadata', hideReady);
+        v.addEventListener('loadeddata', hideReady);
+        v.addEventListener('canplay', hideReady);
+        v.addEventListener('playing', onPlaying);
+        v.addEventListener('waiting', onWaiting);
+        v.addEventListener('timeupdate', function(){
+          try{
+            if(v.currentTime>0.15 && Math.abs(v.currentTime-lastT)>0.05){
+              lastT=v.currentTime;
+              try{clearTimeout(waitTimer)}catch(e){}
+              if(el.getAttribute('data-lv-active')==='1') lvSetStatus(el,'playing');
+              else lvSetStatus(el,'ready');
+            }
+          }catch(e){}
+        });
+        v.addEventListener('ended', function(){
+          try{clearTimeout(waitTimer)}catch(e){}
+          lvSetStatus(el,'ready');
+        });
+        v.addEventListener('stalled', function(){
+          if(tries++<1 && opts.src && el.getAttribute('data-lv-active')==='1'){
+            try{ if(opts.autoplay) v.play().catch(function(){}) }catch(e){}
+            return;
+          }
+          onWaiting();
+        });
+        v.addEventListener('error', onError);
+      }
+      // Race: metadata may already be available before listeners attach.
+      try{
+        if(v.readyState>=1) hideReady();
+      }catch(e){}
+      try{clearTimeout(el.__lvTimer)}catch(e){}
+      el.__lvTimer=setTimeout(function(){
+        if(el.getAttribute('data-lv-active')==='1'){
+          if(!v.paused && (v.readyState>=2 || v.currentTime>0)){ lvSetStatus(el,'playing'); return; }
+          if(v.readyState>=1 && v.paused){ lvSetStatus(el,'ready'); return; }
+          if(v.readyState>=1){ lvSetStatus(el,'ready'); return; }
+          lvSetStatus(el,'error', (v.error?'Decode/network error':'Timed out loading video')+' · tap Retry');
+          return;
+        }
+        // Warm/preview path: never leave Preparing forever.
+        lvSetStatus(el,'ready');
+        var playBtn=el.querySelector('.lv-play');
+        if(playBtn) playBtn.style.display='';
+      }, opts.timeoutMs||10000);
+    }
     function activateLazyVideo(el){
       if(!el)return;
       try{
+        var v0=el.querySelector('video.lv-player')||el.querySelector('video');
         if(el.getAttribute('data-lv-active')==='1'){
-          var existing=el.querySelector('video');
-          if(existing){try{existing.play().catch(function(){})}catch(e){} }
+          if(v0){
+            // If a prior activate left an empty src, recover instead of no-op.
+            var have=String(v0.currentSrc||v0.src||'').split('#')[0];
+            if(have && have.indexOf('http')===0){
+              lvSetStatus(el,'playing');
+              try{v0.play().catch(function(){})}catch(e){}
+              return;
+            }
+            el.removeAttribute('data-lv-active');
+          }else{
+            el.removeAttribute('data-lv-active');
+          }
+        }
+        var raw=el.getAttribute('data-video-src')||(v0&&v0.getAttribute('data-src'))||'';
+        var src=typeof publicMediaUrl==='function'?publicMediaUrl(String(raw).split('#')[0]):String(raw).split('#')[0];
+        if(!src||src.indexOf('http')!==0){
+          console.warn('[lv] missing video src', raw);
+          lvSetStatus(el,'error','Missing video URL · tap Retry');
           return;
         }
-        var src=el.getAttribute('data-video-src')||'';
-        if(!src)return;
-        src=typeof publicMediaUrl==='function'?publicMediaUrl(src.split('#')[0]):src.split('#')[0];
-        if(!src)return;
         var poster=el.getAttribute('data-video-poster')||'';
         poster=typeof publicMediaUrl==='function'?publicMediaUrl(poster):poster;
         if(poster && typeof isVideoUrl==='function' && isVideoUrl(poster)) poster='';
         el.setAttribute('data-lv-active','1');
         el.classList.add('lv-playing');
-        var loadEl=el.querySelector('.lv-loading');
-        if(loadEl) loadEl.hidden=false;
+        lvSetStatus(el,'loading','Starting…');
         var playBtn=el.querySelector('.lv-play');
         if(playBtn) playBtn.style.display='none';
-        var v=el.querySelector('video.lv-player')||el.querySelector('video');
+        var v=v0;
         if(!v){
           v=document.createElement('video');
           v.className='lv-player';
           el.insertBefore(v, el.firstChild);
         }
-        // Safari/WebKit: playsInline + Range-friendly progressive src (no fragment).
+        // Safari/WebKit: playsInline + Range-friendly progressive src on R2 (no # fragment).
         v.classList.add('lv-player');
         v.controls=true;
         v.playsInline=true;
         v.setAttribute('playsinline','');
         v.setAttribute('webkit-playsinline','true');
         v.setAttribute('x-webkit-airplay','allow');
+        v.setAttribute('data-src',src);
         v.preload='auto';
         v.muted=false;
         v.removeAttribute('loop');
         v.style.cssText='position:relative;z-index:1;width:100%;max-height:70vh;min-height:180px;background:#000;display:block;object-fit:contain';
         if(poster){ try{v.setAttribute('poster',poster);v.poster=poster}catch(e){} }
-        // Drop the #t= preview fragment so the original file plays from the start.
+        // Assign playback URL before binding events / calling load.
+        try{ v.pause(); }catch(e){}
         try{
-          if(v.getAttribute('src')!==src){
-            v.setAttribute('src',src);
-            v.src=src;
-          }
-        }catch(e){ try{v.src=src}catch(e2){} }
-        var tries=0;
-        function hideLoad(){ if(loadEl) loadEl.hidden=true; }
+          v.src=src;
+          v.setAttribute('src',src);
+        }catch(e){
+          console.warn('[lv] src assign failed', e);
+          lvSetStatus(el,'error','Could not attach video URL · tap Retry');
+          return;
+        }
+        if(!(v.getAttribute('src')||v.src)){
+          console.warn('[lv] src empty after assign', src);
+          lvSetStatus(el,'error','Could not attach video URL · tap Retry');
+          return;
+        }
+        v.removeAttribute('data-lv-bound');
+        bindLazyVideoEvents(v, el, {
+          src:src,
+          autoplay:true,
+          timeoutMs:16000,
+          onceReady:false,
+          errorLabel:'Could not play this video'
+        });
         function kick(){
           try{
             var p=v.play();
             if(p&&p.then){
-              p.then(hideLoad).catch(function(){
-                // User-gesture retry: stay unmuted first (tap already happened).
-                try{v.muted=false;v.play().then(hideLoad).catch(function(){v.muted=true;v.play().then(hideLoad).catch(function(){})})}catch(e){}
+              p.then(function(){ lvSetStatus(el,'playing'); }).catch(function(){
+                try{
+                  v.muted=true;
+                  v.play().then(function(){ lvSetStatus(el,'playing'); }).catch(function(){
+                    if(v.readyState>=1) lvSetStatus(el,'ready');
+                    else lvSetStatus(el,'error','Autoplay blocked · tap ▶ on the player');
+                  });
+                }catch(e){}
               });
-            }else hideLoad();
+            }else if(v.readyState>=1) lvSetStatus(el,'playing');
           }catch(e){}
         }
-        v.addEventListener('loadeddata', function(){ hideLoad(); kick(); }, {once:true});
-        v.addEventListener('playing', hideLoad);
-        v.addEventListener('stalled', function(){ if(tries++<2){ try{v.load();kick()}catch(e){} } });
-        v.addEventListener('error', function(){
-          if(tries++<1){ try{v.removeAttribute('src');v.src=src;v.load();kick()}catch(e){} return; }
-          hideLoad();
-          if(poster){
-            el.innerHTML='<img src="'+esc(poster)+'" alt="" style="width:100%;max-height:70vh;object-fit:contain;display:block;background:#000"/>';
-          }
-        });
         try{v.load()}catch(e){}
+        // load() can race; re-assert src then play.
+        if(!(v.currentSrc||v.getAttribute('src'))){
+          try{v.src=src;v.setAttribute('src',src)}catch(e){}
+        }
         kick();
-      }catch(e){}
+      }catch(e){
+        console.warn('[lv] activate failed', e);
+        try{lvSetStatus(el,'error','Player error · tap Retry')}catch(e2){}
+      }
     }
     function warmVideoThumb(el){
-      // Arm a Safari-safe first-frame preview without downloading the full MP4.
-      // R2 has no CORS → canvas export often fails; #t=0.1 paints a real frame instead.
+      // Prefetch metadata from R2 (Range/206). Avoid media-fragment seeks:
+      // fragment seeks hang on moov-at-end MP4s and left Wall stuck on Preparing.
       if(!el||el.getAttribute('data-warmed')==='1'||el.getAttribute('data-lv-active')==='1')return;
       el.setAttribute('data-warmed','1');
       try{
@@ -5274,16 +5489,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         src=typeof publicMediaUrl==='function'?publicMediaUrl(String(src).split('#')[0]):String(src).split('#')[0];
         if(!src)return;
         var poster=el.getAttribute('data-video-poster')||'';
+        poster=typeof publicMediaUrl==='function'?publicMediaUrl(poster):poster;
+        if(poster && typeof isVideoUrl==='function' && isVideoUrl(poster)) poster='';
         var v=el.querySelector('video.lv-player')||el.querySelector('video');
         if(!v)return;
         if(poster){
           try{v.setAttribute('poster',poster);v.poster=poster}catch(e){}
+          lvSetStatus(el,'ready');
           return;
         }
-        // No stored thumb: load a media-fragment preview so Safari never shows a black card.
-        var preview=src+(src.indexOf('#')>=0?'':'#t=0.1');
-        if(!v.getAttribute('src')){
-          v.setAttribute('src',preview);
+        lvSetStatus(el,'loading','Preparing video…');
+        if(!v.getAttribute('src') || String(v.getAttribute('src')).indexOf('#')>=0){
+          v.setAttribute('src',src);
+          v.src=src;
           v.preload='metadata';
           v.muted=true;
           v.playsInline=true;
@@ -5291,23 +5509,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           v.setAttribute('webkit-playsinline','true');
           try{v.load()}catch(e){}
         }
-        var loadEl=el.querySelector('.lv-loading');
-        function ready(){
-          if(loadEl) loadEl.hidden=true;
-          try{
-            if(v.videoWidth){
-              // Best-effort canvas cache when same-origin / CORS allows it.
-              var data=typeof capturePosterFromVideoEl==='function'?capturePosterFromVideoEl(v,src):'';
-              if(data){
-                el.setAttribute('data-video-poster',data);
-                try{v.setAttribute('poster',data)}catch(e){}
+        bindLazyVideoEvents(v, el, {
+          src:src,
+          autoplay:false,
+          timeoutMs:10000,
+          onceReady:true,
+          onReady:function(){
+            try{
+              if(v.videoWidth){
+                var data=typeof capturePosterFromVideoEl==='function'?capturePosterFromVideoEl(v,src):'';
+                if(data){
+                  el.setAttribute('data-video-poster',data);
+                  try{v.setAttribute('poster',data)}catch(e){}
+                }
               }
-            }
-          }catch(e){}
-        }
-        v.addEventListener('loadeddata', ready, {once:true});
-        v.addEventListener('seeked', ready, {once:true});
-        v.addEventListener('error', function(){ if(loadEl) loadEl.hidden=true; }, {once:true});
+            }catch(e){}
+          }
+        });
       }catch(e){}
     }
     function warmVisibleLazyVideos(root){
@@ -5340,21 +5558,35 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     window.warmVideoThumb=warmVideoThumb;
     window.activateLazyVideo=activateLazyVideo;
     window.warmVisibleLazyVideos=warmVisibleLazyVideos;
+    window.lvSetStatus=lvSetStatus;
 
     function lazyVideoHtml(src, poster, i, pid){
       src=typeof publicMediaUrl==='function'?publicMediaUrl(String(src||'').split('#')[0]):String(src||'').split('#')[0];
       poster=typeof publicMediaUrl==='function'?publicMediaUrl(String(poster||'')):String(poster||'');
       if(poster && typeof isVideoUrl==='function' && isVideoUrl(poster)) poster='';
-      // Safari iOS paints the first decoded frame from a media fragment when no poster exists.
-      // Do NOT leave preload=none with an empty src — that is the black-rectangle bug.
-      var preview=src?(src+(src.indexOf('#')>=0?'':'#t=0.1')):'';
+      // Do NOT attach src on every card up front. moov-at-end MP4s make preload=metadata
+      // pull most of the file; many Wall cards then starve each other and stick on Preparing.
+      // Poster (if any) paints immediately; otherwise show Tap-to-play until warm/activate.
       var posterAttr=poster?' poster="'+esc(poster)+'"':'';
-      var vSrc=poster?'':' src="'+esc(preview)+'"';
-      return '<div class="lazy-video" data-video-src="'+esc(src)+'" data-video-poster="'+esc(poster)+'" data-pid="'+esc(String(pid||''))+'" onclick="event.stopPropagation();activateLazyVideo(this)" style="position:relative;width:100%;min-height:180px;background:#0a0a0a;border-radius:12px;overflow:hidden;cursor:pointer">'+
-        '<video class="lv-player" muted playsinline webkit-playsinline preload="metadata"'+posterAttr+vSrc+' data-src="'+esc(src)+'" style="position:relative;z-index:1;width:100%;min-height:180px;max-height:70vh;object-fit:contain;display:block;background:#0a0a0a"></video>'+
-        '<div class="lv-loading" '+(poster?'hidden':'')+' style="position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);color:#ddd;font-size:12px;font-weight:700;letter-spacing:.4px;pointer-events:none">Preparing video…</div>'+
+      return '<div class="lazy-video" data-video-src="'+esc(src)+'" data-video-poster="'+esc(poster)+'" data-pid="'+esc(String(pid||''))+'" data-lv-born="'+Date.now()+'" onclick="event.stopPropagation();activateLazyVideo(this)" style="position:relative;width:100%;min-height:180px;background:#0a0a0a;border-radius:12px;overflow:hidden;cursor:pointer">'+
+        '<video class="lv-player" muted playsinline webkit-playsinline preload="none"'+posterAttr+' data-src="'+esc(src)+'" style="position:relative;z-index:1;width:100%;min-height:180px;max-height:70vh;object-fit:contain;display:block;background:#0a0a0a"></video>'+
+        '<div class="lv-loading" hidden style="position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);color:#ddd;font-size:12px;font-weight:700;letter-spacing:.4px;pointer-events:none">Preparing video…</div>'+
         '<div class="lv-play" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:23px;box-shadow:0 6px 25px rgba(0,0,0,.4);z-index:3;pointer-events:none">▶</div>'+
       '</div>';
+    }
+    // Safety net: never leave Preparing visible on idle cards.
+    if(!window.__lvPrepSweep){
+      window.__lvPrepSweep=setInterval(function(){
+        try{
+          document.querySelectorAll('.lazy-video:not([data-lv-active="1"]) .lv-loading:not([hidden])').forEach(function(loadEl){
+            var el=loadEl.parentNode;
+            var v=el&&el.querySelector('video');
+            if(v && v.readyState>=1){ loadEl.hidden=true; return; }
+            var born=Number(el&&el.getAttribute('data-lv-born')||0);
+            if(born && Date.now()-born>8000) loadEl.hidden=true;
+          });
+        }catch(e){}
+      }, 2000);
     }
 
     function limitMediaVideos(images, maxVideos){
@@ -5421,8 +5653,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }
         var thumb=feedThumb(src, 420);
         var orig=src;
-        var onerr="this.onerror=null;if(this.dataset.orig&&this.src!==this.dataset.orig)this.src=this.dataset.orig;";
-        return '<img src="'+esc(thumb)+'" data-orig="'+esc(orig)+'" alt="'+altAttr+'" decoding="async" loading="eager" onerror="'+onerr+'"/>';
+        return '<img src="'+esc(thumb)+'" data-orig="'+esc(orig)+'" alt="'+altAttr+'" decoding="async" loading="eager" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>';
       }).join('')+(list.length>1?'<div class="more-photos">'+list.length+' photos</div>':'')+'</div>';
     }
     function pickDetailPhoto(btn, src, i, pid){
@@ -7842,9 +8073,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         +'<div id="task-comments-box">'+(resps.length?resps.map(function(r){
           var media='';
           if(r.media_url){
-            if((r.media_type||'').indexOf('video')>=0||/\.mp4|\.webm|\.mov/i.test(r.media_url))
-              media='<video src="'+r.media_url+'" controls playsinline style="max-width:100%;max-height:220px;border-radius:8px;margin-top:6px"></video>';
-            else media='<img src="'+r.media_url+'" style="max-width:100%;max-height:220px;border-radius:8px;margin-top:6px"/>';
+            var evUrl=typeof publicMediaUrl==='function'?publicMediaUrl(r.media_url):r.media_url;
+            if((r.media_type||'').indexOf('video')>=0||/\.mp4|\.webm|\.mov/i.test(evUrl))
+              media=typeof lazyVideoHtml==='function'?lazyVideoHtml(evUrl,'',0,''):('<video src="'+evUrl+'" controls playsinline preload="metadata" style="max-width:100%;max-height:220px;border-radius:8px;margin-top:6px"></video>');
+            else media='<img src="'+evUrl+'" data-orig="'+evUrl+'" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)" style="max-width:100%;max-height:220px;border-radius:8px;margin-top:6px"/>';
           }
           var isRespOwner=currentUser&&r.username&&String(r.username)===String(currentUser.name);
           return '<div class="task-resp"><strong style="color:var(--orange)" '+(userClickable(r.username)?'onclick="openUser(\''+String(r.username).replace(/'/g,'')+'\')"':'')+'>@'+esc(r.username||'anon')+'</strong><div style="margin-top:4px">'+esc(r.body||'')+'</div>'+media
@@ -13875,9 +14107,9 @@ function openRoulette(){
         return '<div class="vid-card" data-pid="'+String(p.id).replace(/"/g,'')+'" onclick="openDetail('+jsId(p.id)+')">'+media+'<span class="vid-play" style="position:absolute;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none">▶</span></div>';
       }
       media=poster
-        ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" src="'+esc(feedThumb(poster,640))+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var v=this.nextElementSibling;if(v){v.style.display=\'block\';try{v.play()}catch(e){}}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'')+'#t=0.1')+'" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"></video></div>')
+        ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" src="'+esc(feedThumb(poster,640))+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var v=this.nextElementSibling;if(v){v.style.display=\'block\';try{v.play()}catch(e){}}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'').split('#')[0])+'" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"></video></div>')
         :(vid
-          ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" alt="" decoding="async" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'')+'#t=0.1')+'" style="width:100%;height:100%;object-fit:cover;display:block;background:#111" onloadeddata="try{var d=capturePosterFromVideoEl(this,\''+String(it.src||'').replace(/'/g,'')+'\');if(d){var i=this.previousElementSibling;if(i){i.src=d;i.style.display=\'block\';this.style.display=\'none\'}}}catch(e){}"></video></div>')
+          ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" alt="" decoding="async" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'').split('#')[0])+'" style="width:100%;height:100%;object-fit:cover;display:block;background:#111" onloadeddata="try{var d=capturePosterFromVideoEl(this,\''+String(it.src||'').replace(/'/g,'')+'\');if(d){var i=this.previousElementSibling;if(i){i.src=d;i.style.display=\'block\';this.style.display=\'none\'}}}catch(e){}"></video></div>')
           :('<img class="vid-thumb-img" src="'+esc(it.src||'')+'" alt="" loading="lazy"/>'));
       var liked=false,saved=false;
       try{liked=!!(typeof getMyReaction==='function'&&getMyReaction(p))}catch(e){}
@@ -14411,22 +14643,23 @@ function openRoulette(){
     function grabVideoPosterFromUrl(url){
       return new Promise(function(resolve){
         try{
-          url=typeof publicMediaUrl==='function'?publicMediaUrl(url):url;
+          // Prefer Worker URL for canvas (CORS *). R2 public host has no ACAO → tainted canvas.
+          var playUrl=typeof publicMediaUrl==='function'?publicMediaUrl(url):url;
+          url=(typeof fetchableMediaUrl==='function'?fetchableMediaUrl(url):'')||playUrl;
           var v=document.createElement('video');
           v.muted=true;v.playsInline=true;v.preload='auto';
-          // Try CORS first (Supabase Vids). If R2 has no ACAO, retry without crossOrigin
-          // and accept that canvas export may fail — caller keeps video-frame poster fallback.
+          // Try CORS first (Worker /media). If that fails, retry R2 without crossOrigin.
           var triedNoCors=false;
-          function arm(cross){
+          function arm(cross, usePlay){
             try{if(cross)v.crossOrigin='anonymous';else v.removeAttribute('crossorigin')}catch(e){}
-            try{v.src=url}catch(e){}
+            try{v.src=usePlay?playUrl:url}catch(e){}
           }
           var done=false;
           function fail(){
             if(done)return;
             if(!triedNoCors){
               triedNoCors=true;
-              arm(false);
+              arm(false, true);
               try{v.load()}catch(e){}
               return;
             }
@@ -14445,7 +14678,7 @@ function openRoulette(){
               c.toBlob(function(blob){done=true;resolve(blob&&blob.size>400?blob:null)},'image/jpeg',0.72);
             }catch(e){fail()}
           };
-          arm(true);
+          arm(true, false);
         }catch(e){resolve(null)}
       });
     }
@@ -15328,11 +15561,11 @@ function openRoulette(){
       var alreadyExt=alreadyCd>0;
       var extAmt=typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360);
       // R2 public host has no CORS — never set crossorigin on the player (breaks CF clips).
-      // When no stored thumb exists, use a muted #t=0.1 video frame as the poster shell
-      // so the card is never blank black while the main player arms.
+      // When no stored thumb exists, arm a muted metadata preload (no media-fragment seek:
+      // fragments hang on moov-at-end MP4s). Main player still uses clean R2 src.
       var posterHtml=pst
         ?('<img class="gt-poster" src="'+esc(pst)+'" alt="" decoding="async" fetchpriority="high"/>')
-        :('<video class="gt-poster gt-poster-vid" muted playsinline preload="metadata" src="'+esc(m.src)+(String(m.src).indexOf('#')>=0?'':'#t=0.1')+'" aria-hidden="true"></video>');
+        :('<video class="gt-poster gt-poster-vid" muted playsinline preload="metadata" src="'+esc(String(m.src||'').split('#')[0])+'" aria-hidden="true"></video>');
       var album='<div class="gt-media" data-i="0">'
         +posterHtml
         +'<video playsinline webkit-playsinline loop muted preload="metadata" poster="'+(pst?esc(pst):'')+'" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#000"></video>'
@@ -16167,17 +16400,28 @@ function openRoulette(){
       // Prefer original media for repair even if currently hidden from GoonTok as broken
       var src=post.media_url||post.video||parseOptTag(post.tags)||post.optimized_url||'';
       if(!src||!isVideoUrl(src))return;
-      // Light existence probe via Range — never full download for probing
+      // fetch() needs Worker (CORS). Element playback uses R2 (Range). Probe both carefully.
+      var fetchSrc=typeof fetchableMediaUrl==='function'?fetchableMediaUrl(src):src;
+      var playSrc=typeof publicMediaUrl==='function'?publicMediaUrl(src):src;
+      // Light existence probe via Range on R2 — never full download for probing
       var cl=0;
       try{
-        var hr=await fetch(src,{method:'GET',headers:{Range:'bytes=0-0'},cache:'force-cache'});
+        var hr=await fetch(playSrc,{method:'GET',headers:{Range:'bytes=0-0'},mode:'cors',cache:'force-cache'}).catch(function(){return null});
+        if(!hr || !(hr.ok||hr.status===206)){
+          // R2 has no CORS → browser fetch fails. Fall back to Worker GET (full OK, no Range).
+          hr=await fetch(fetchSrc,{method:'GET',headers:{Range:'bytes=0-0'},mode:'cors',cache:'force-cache'});
+        }
         if(!(hr.ok||hr.status===206)){
-          markVideoBroken(job.id,'origin_missing',src);
+          markVideoBroken(job.id,'origin_missing',playSrc);
           return;
         }
         var cr=hr.headers.get('Content-Range')||'';
         var m=/\/(\d+)$/.exec(cr);
         if(m) cl=Number(m[1])||0;
+        if(!cl){
+          var clHdr=hr.headers.get('Content-Length');
+          if(clHdr) cl=Number(clHdr)||0;
+        }
       }catch(e){
         markVideoNeedsOpt(job.id,'probe_network');
         return;
@@ -16192,7 +16436,7 @@ function openRoulette(){
         localStorage.setItem('rs_video_opt_last',String(Date.now()));
       }catch(e){}
       try{
-        var blob=await fetch(src,{cache:'force-cache'}).then(function(r){
+        var blob=await fetch(fetchSrc,{mode:'cors',cache:'force-cache'}).then(function(r){
           if(!r.ok)throw new Error('fetch '+r.status);
           return r.blob();
         });
@@ -16547,7 +16791,7 @@ function openRoulette(){
           imgSrc=typeof publicMediaUrl==='function'?publicMediaUrl(imgSrc):imgSrc;
           media='<div class="normal-feed-post-media" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'
             +'<div class="normal-feed-view-badge"><span class="eye">👁</span><span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+esc(String(viewLabel))+'</span> VIEWS</div>'
-            +'<img src="'+esc(imgSrc)+'" loading="lazy" decoding="async" alt="" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>'
+            +'<img src="'+esc(imgSrc)+'" data-orig="'+esc(imgs[0]||imgSrc)+'" loading="lazy" decoding="async" alt="" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>'
             +'</div>';
         }
       }
@@ -19644,15 +19888,16 @@ function openRoulette(){
       }
       var ok=0;
       for(var i=0;i<imgs.length;i++){
-        var src=imgs[i];
+        var src=typeof publicMediaUrl==='function'?publicMediaUrl(imgs[i]):imgs[i];
+        var fetchSrc=typeof fetchableMediaUrl==='function'?fetchableMediaUrl(imgs[i]):src;
         try{
-          var res=await fetch(src,{mode:'cors'});
+          var res=await fetch(fetchSrc,{mode:'cors'});
           if(!res.ok)throw new Error('fetch');
           var blob=await res.blob();
           var url=URL.createObjectURL(blob);
           var a=document.createElement('a');
           a.href=url;
-          a.download='ruiningsubs-'+id+'-'+(i+1)+'.jpg';
+          a.download='ruiningsubs-'+id+'-'+(i+1)+( /\.mp4/i.test(src)?'.mp4':'.jpg');
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
