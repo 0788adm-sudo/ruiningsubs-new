@@ -217,14 +217,14 @@ function bearerToken(req) {
 /** Verify Cloudflare Worker admin session — never trust client isAdmin flags alone. */
 async function verifyCfAdminToken(token) {
   if (!token) return false;
-  // Cold starts + CF latency used to return a single false negative → APPROVE & DELETE
-  // looked like "nothing happened" (admin_auth_required) even with a valid unlock.
-  for (let attempt = 0; attempt < 3; attempt++) {
+  // Keep this short: APPROVE & DELETE used to stall 45s+ on CF cold starts.
+  // Two quick probes beat three long ones; client also has a direct SB delete fallback.
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await cfFetch(
         '/admin/requests?limit=1',
         { headers: { Authorization: 'Bearer ' + token, Origin: SITE } },
-        15000
+        6000
       );
       if (res.ok && res.json && res.json.ok !== false) return true;
       if (res.status === 401 || res.status === 403) return false;
