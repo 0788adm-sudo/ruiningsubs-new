@@ -8006,7 +8006,24 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function listGameTasksForUser(){
       var m=loadGameTasks();
       var u=gameTaskUserKey();
-      var arr=Array.isArray(m[u])?m[u]:[];
+      var arr=Array.isArray(m[u])?m[u].slice():[];
+      // Merge alternate identity keys so pending tasks survive login/anon quirks.
+      try{
+        var alts=[];
+        try{alts.push(String(coinUserId()||'').replace(/^@/,'').toLowerCase())}catch(e){}
+        try{alts.push(String(localStorage.getItem('rs_uid')||'').replace(/^@/,'').toLowerCase())}catch(e){}
+        alts.push('guest');
+        var seen={};
+        arr.forEach(function(t){ if(t&&t.id) seen[t.id]=1; });
+        alts.forEach(function(k){
+          if(!k||k===u||!Array.isArray(m[k])) return;
+          m[k].forEach(function(t){
+            if(!t||!t.id||seen[t.id]) return;
+            seen[t.id]=1;
+            arr.push(t);
+          });
+        });
+      }catch(e){}
       return arr.filter(Boolean);
     }
     function persistGameTasksForUser(arr){
