@@ -5882,11 +5882,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{existing=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48)}catch(e){}
       var j=null;
       try{
-        var r=await fetch('/api/anon-identity',{
+        var r=await fetch('/api/game-play',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           credentials:'include',
-          body:JSON.stringify({anon_id:existing||undefined}),
+          body:JSON.stringify({action:'anon_identity',anon_id:existing||undefined}),
           cache:'no-store'
         });
         j=await r.json().catch(function(){return null});
@@ -28159,11 +28159,11 @@ async function onIdFace(e){
         try{
           if(prevAnon){
             localStorage.setItem('rs_linked_anon', prevAnon);
-            fetch('/api/anon-identity',{
+            fetch('/api/game-play',{
               method:'POST',
               headers:{'Content-Type':'application/json'},
               credentials:'include',
-              body:JSON.stringify({action:'link',anon_id:prevAnon,registered_user:username})
+              body:JSON.stringify({action:'link_anon',anon_id:prevAnon,registered_user:username})
             }).catch(function(){});
           }
           if(prevName && prevName!==username && (isAnonymousAccountName(prevName) || String(prevName).indexOf('anon_')===0)){

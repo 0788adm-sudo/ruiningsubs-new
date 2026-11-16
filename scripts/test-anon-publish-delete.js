@@ -4,16 +4,19 @@ var fs = require('fs');
 var path = require('path');
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 var del = fs.readFileSync(path.join(__dirname, '..', 'api/delete-post.js'), 'utf8');
-var anon = fs.readFileSync(path.join(__dirname, '..', 'api/anon-identity.js'), 'utf8');
+var gamePlay = fs.readFileSync(path.join(__dirname, '..', 'api/game-play.js'), 'utf8');
 function assert(c, m) {
   if (!c) throw new Error(m);
   console.log('PASS · ' + m);
 }
 
-assert(anon.includes('anonymous_user_id'), 'anon-identity API returns anonymous_user_id');
-assert(anon.includes('Set-Cookie') || anon.includes('rs_anon_id'), 'anon-identity sets cookie');
-assert(anon.includes("action === 'link'"), 'anon-identity supports link to registered');
+assert(!fs.existsSync(path.join(__dirname, '..', 'api/anon-identity.js')), 'no separate anon-identity route (Hobby 12-fn cap)');
+assert(fs.readdirSync(path.join(__dirname, '..', 'api')).filter(function(f){return f.endsWith('.js')}).length<=12, 'api/ has ≤12 serverless functions');
+assert(gamePlay.includes('anonymous_user_id'), 'game-play returns anonymous_user_id');
+assert(gamePlay.includes('handleAnonIdentity'), 'game-play hosts anon identity');
+assert(gamePlay.includes("action === 'link_anon'") || gamePlay.includes("action === 'anon_identity'"), 'game-play supports anon actions');
 assert(html.includes('function ensureAnonIdentity'), 'ensureAnonIdentity helper');
+assert(html.includes("action:'anon_identity'"), 'client calls game-play anon_identity');
 assert(html.includes('function isAnonymousAccount'), 'isAnonymousAccount helper');
 assert(html.includes("Login to publish proof") === false || !/openGameTaskPublish[\s\S]{0,200}Login to publish proof/.test(html), 'openGameTaskPublish no login gate');
 assert(!/function publishRouletteToFeed\(\)\{[\s\S]{0,800}Login to publish proof/.test(html), 'roulette publish no login gate');

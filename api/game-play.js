@@ -100,14 +100,122 @@ function pickCoherentDiceRoll() {
 var locks = new Map();
 var recent = new Map();
 
-function json(res, code, body) {
+function json(res, code, body, extraHeaders) {
   res.statusCode = code;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (extraHeaders && typeof extraHeaders === 'object') {
+    Object.keys(extraHeaders).forEach(function (k) {
+      res.setHeader(k, extraHeaders[k]);
+    });
+  }
   res.end(JSON.stringify(body));
+}
+
+var ANON_COOKIE = 'rs_anon_id';
+var ANON_MAX_AGE = 60 * 60 * 24 * 365;
+var BOARD_ANON_LINKS = '__ANON_LINKS__';
+
+function parseCookies(req) {
+  var raw = String((req.headers && (req.headers.cookie || req.headers.Cookie)) || '');
+  var out = {};
+  raw.split(';').forEach(function (part) {
+    var i = part.indexOf('=');
+    if (i < 0) return;
+    var k = part.slice(0, i).trim();
+    var v = part.slice(i + 1).trim();
+    if (k) {
+      try { out[k] = decodeURIComponent(v || ''); } catch (e) { out[k] = v || ''; }
+    }
+  });
+  return out;
+}
+
+function sanitizeAnonId(v) {
+  return String(v || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+}
+
+function mintAnonId() {
+  return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 8);
+}
+
+function isValidAnonId(id) {
+  id = sanitizeAnonId(id);
+  return id.length >= 8 && id.length <= 48;
+}
+
+function anonCookieHeader(id, secure) {
+  var parts = [
+    ANON_COOKIE + '=' + encodeURIComponent(id),
+    'Path=/',
+    'Max-Age=' + ANON_MAX_AGE,
+    'HttpOnly',
+    'SameSite=Lax'
+  ];
+  if (secure) parts.push('Secure');
+  return parts.join('; ');
+}
+
+function resolveAnonIdentity(req, body, query) {
+  body = body || {};
+  query = query || {};
+  var cookies = parseCookies(req);
+  var fromCookie = sanitizeAnonId(cookies[ANON_COOKIE]);
+  var fromClient = sanitizeAnonId(
+    body.anon_id || body.anonId || body.anonymous_user_id || query.anon_id || query.anonId || ''
+  );
+  var id = '';
+  if (isValidAnonId(fromCookie)) id = fromCookie;
+  else if (isValidAnonId(fromClient)) id = fromClient;
+  else id = mintAnonId();
+  var created = !(isValidAnonId(fromCookie) || isValidAnonId(fromClient));
+  return { id: id, created: created, username: 'anon_' + id };
+}
+
+function isSecureReq(req) {
+  var proto = String((req.headers && (req.headers['x-forwarded-proto'] || req.headers['X-Forwarded-Proto'])) || '').toLowerCase();
+  return proto.indexOf('https') === 0 || String(process.env.VERCEL || '') === '1';
+}
+
+async function handleAnonIdentity(req, res, body, query) {
+  body = body || {};
+  query = query || {};
+  var action = String(body.action || query.action || '').toLowerCase();
+  var resolved = resolveAnonIdentity(req, body, query);
+  var cookie = anonCookieHeader(resolved.id, isSecureReq(req));
+  if (action === 'link_anon') {
+    var registered = String(body.registered_user || body.user || body.username || '')
+      .replace(/^@/, '')
+      .replace(/[^a-zA-Z0-9_]/g, '')
+      .slice(0, 40);
+    if (!registered || isAnonUser(normUser(registered))) {
+      return json(res, 400, { ok: false, error: 'invalid_registered_user' }, { 'Set-Cookie': cookie });
+    }
+    try {
+      await postBoard(BOARD_ANON_LINKS, registered, 'anon_link', resolved.id, {
+        anonymous_user_id: resolved.id,
+        registered_user: registered,
+        at: Date.now()
+      });
+    } catch (e) {}
+    return json(res, 200, {
+      ok: true,
+      anonymous_user_id: resolved.id,
+      account_type: 'anonymous',
+      linked_to: registered,
+      username: resolved.username
+    }, { 'Set-Cookie': cookie });
+  }
+  return json(res, 200, {
+    ok: true,
+    anonymous_user_id: resolved.id,
+    account_type: 'anonymous',
+    username: resolved.username,
+    created: !!resolved.created
+  }, { 'Set-Cookie': cookie });
 }
 
 function readBody(req) {
@@ -409,6 +517,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
 
   if (req.method === 'GET') {
+    var qAction = String((req.query && req.query.action) || '').toLowerCase();
+    if (qAction === 'anon_identity' || qAction === 'anon' || qAction === 'identity') {
+      return handleAnonIdentity(req, res, null, req.query || {});
+    }
     var player = resolvePlayer(null, req.query || {});
     var qGame = normalizeGame((req.query && req.query.game) || '');
     try {
@@ -476,6 +588,10 @@ module.exports = async function handler(req, res) {
   var wins = Number(body.wins || 0) || 0;
   var gamesPlayed = Number(body.games || body.games_played || 0) || 0;
   var action = String(body.action || '').toLowerCase();
+  if (action === 'anon_identity' || action === 'link_anon') {
+    return handleAnonIdentity(req, res, body, null);
+  }
+
 
   if (!user) {
     return json(res, 401, { ok: false, error: 'session_required', message: 'Missing anonymous session or login' });
