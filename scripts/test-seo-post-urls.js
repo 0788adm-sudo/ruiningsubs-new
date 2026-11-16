@@ -27,7 +27,7 @@ assert(/postShareUrl[\s\S]{0,180}postPermalink/.test(html), 'share URLs use perm
 assert(html.includes("parseSharedPostId"), 'legacy #p= / ?p= parser kept');
 assert(/\/(?:post|p)\/([^\/?#]+)/.test(html), 'path parser accepts /post/:id');
 
-assert(robots.indexOf('Sitemap: https://www.ruinexpose.com/sitemap.xml') >= 0, 'robots lists sitemap');
+assert(robots.indexOf('Sitemap: https://ruinexpose.com/sitemap.xml') >= 0, 'robots lists canonical sitemap');
 assert(robots.indexOf('Disallow: /admin') >= 0, 'robots blocks admin');
 assert(robots.indexOf('Allow: /post/') >= 0, 'robots allows /post/');
 
@@ -41,6 +41,9 @@ assert(/statusCode\s*=\s*410/.test(og), 'OG uses HTTP 410 for gone/blocked');
 assert(sitemap.indexOf('urlset') >= 0, 'sitemap builder present');
 assert(sitemap.indexOf('isIndexableRow') >= 0, 'sitemap eligibility gate');
 assert(sitemap.indexOf("'/post/'") >= 0 || sitemap.indexOf('"/post/"') >= 0, 'sitemap emits /post/ URLs');
+assert(sitemap.indexOf('ruinexpose.com') >= 0 && sitemap.indexOf("www.ruinexpose.com") < 0, 'sitemap canonical host has no www');
+assert(sitemap.indexOf('buildSitemapXml') >= 0, 'sitemap uses XML builder');
+assert(sitemap.indexOf('application/xml; charset=utf-8') >= 0, 'sitemap sets XML content-type');
 
 var sources = (vercel.rewrites || []).map(function (r) {
   return r.source;

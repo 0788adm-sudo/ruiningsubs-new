@@ -6,7 +6,10 @@
     },
     {
       "source": "/sitemap.xml",
-      "headers": [{ "key": "Cache-Control", "value": "public, s-maxage=120, stale-while-revalidate=600" }]
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, s-maxage=120, stale-while-revalidate=600" }
+      ]
     },
     {
       "source": "/post/:id",
