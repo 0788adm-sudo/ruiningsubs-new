@@ -454,10 +454,20 @@
     .wall-head-row .wall-live{font-size:10px;color:#ff6a00;font-weight:800;text-shadow:0 0 10px rgba(255,106,0,.45)}
     .wall-head-row .btn{padding:6px 10px;min-height:32px;font-size:12px}
     #btn-create-normal-post-explore{width:min(320px,92%);padding:11px 16px!important;font-weight:900;font-size:15px!important;border-radius:14px;box-shadow:0 0 18px rgba(124,58,237,.4);min-height:44px;margin:0 auto}
-    .wall-tagline{text-align:center;font-size:11px;color:#9a9aa3;margin:0 8px 6px;line-height:1.35}
-    .wall-filter-bar{padding:2px 4px 6px;margin:0 0 2px}
-    .wall-stories{margin:0 0 6px!important;padding:2px 2px 4px}
-    #wall-hot-slot{margin:0 0 2px}
+    /* Hierarchy: Stories → day photos → tagline → nav filters */
+    .wall-stories{margin:0 0 8px!important;padding:4px 2px 6px}
+    #wall-hot-slot,.wall-day-photos{margin:0 0 8px}
+    .wall-day-photos-label{width:100%;padding:0 6px 6px;font-size:11px;font-weight:900;letter-spacing:1.2px;color:#cfcfd6;text-transform:uppercase}
+    .wall-day-photos-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 4px 2px}
+    .wall-day-photo{border:1px solid rgba(255,179,92,.28);border-radius:14px;overflow:hidden;padding:0;background:linear-gradient(160deg,#16161e,#101016);color:#fff;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;min-height:0;transition:transform .18s ease,border-color .18s ease}
+    .wall-day-photo:active{transform:scale(.98)}
+    .wall-day-photo .nf-media-frame,.wall-day-photo img,.wall-day-photo .wall-day-ph{width:100%;height:96px;object-fit:cover;display:block;background:linear-gradient(110deg,#1a1a22 25%,#24242e 40%,#1a1a22 55%);background-size:200% 100%}
+    .wall-day-photo .nf-media-frame{background:#121218}
+    .wall-day-photo .nf-media-ph{font-size:10px}
+    .wall-day-photo-meta{padding:6px 7px;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#e8e8ee}
+    .wall-tagline{text-align:center;font-size:12px;color:#9a9aa3;margin:2px 10px 10px;line-height:1.4}
+    .wall-filter-bar{padding:2px 4px 8px;margin:0 0 4px}
+    .wall-quick-actions{padding:0 2px 8px}
     .rs-level-title{font-size:15px;font-weight:900;letter-spacing:.3px;margin-bottom:4px}
     .rs-level-meta{font-size:12px;color:#cfcfd6;margin-bottom:8px}
     .rs-xp-bar{height:8px;border-radius:999px;background:#1b1b22;overflow:hidden;border:1px solid #2a2a32}
@@ -2462,10 +2472,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               </div>
               <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" onclick="openNormalPostComposer();return false">＋ Post</button>
             </div>
-            <div class="wall-quick-actions">
-              <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
-              <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
-            </div>
+            <!-- Stories above sections/panels (social-app hierarchy) -->
+            <div id="wall-stories" class="wall-stories"></div>
+            <!-- 3 photos of the day -->
+            <div id="wall-hot-slot" class="wall-day-photos"></div>
             <div class="wall-tagline">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
               <button type="button" class="wall-filter-chip on" data-wall-filter="normal" role="tab" aria-selected="true">Post</button>
@@ -2478,8 +2488,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="width:100%;padding:12px 16px;font-weight:900;font-size:14px;border-radius:14px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);border:0;box-shadow:0 0 18px rgba(255,106,0,.4)" onclick="openRoulette()">SPIN ROULETTE</button>
               <div style="font-size:11px;color:#9a9aa3;text-align:center;margin-top:6px;line-height:1.35">Challenge proofs from Ruin Roulette · newest first</div>
             </div>
-            <div id="wall-stories" class="wall-stories"></div>
-            <div id="wall-hot-slot"></div>
+            <div class="wall-quick-actions">
+              <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
+              <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
+            </div>
             <div id="wall-sort-bar" class="wall-sort-bar" role="group" aria-label="Wall sorting">
               <button type="button" class="wall-sort-chip on" data-wall-sort="recent" aria-pressed="true">Most Recent</button>
               <button type="button" class="wall-sort-chip" data-wall-sort="interaction" aria-pressed="false">Most Interaction</button>
@@ -4747,7 +4759,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(!sb)return;
       try{
         var r=await sbQueryTimeout(
-          sb.from('profiles').select('username,status,banned,suspended').or('banned.eq.true,status.eq.banned,status.eq.suspended,suspended.eq.true'),
+          sb.from('profiles').select('username,status,banned,suspended').or('banned.eq.true,status.eq.banned,status.eq.suspended,suspended.eq.true').limit(500),
           5000,
           {data:[]}
         );
@@ -4762,7 +4774,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         bannedUsers=map;
       }catch(e){
         try{
-          var r2=await sbQueryTimeout(sb.from('profiles').select('username,banned').eq('banned',true),4000,{data:[]});
+          var r2=await sbQueryTimeout(sb.from('profiles').select('username,banned').eq('banned',true).limit(500),4000,{data:[]});
           var map2={};
           (r2&&r2.data||[]).forEach(function(u){if(u&&u.username)map2[String(u.username).toLowerCase()]=true});
           bannedUsers=map2;
@@ -6354,11 +6366,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var box=document.getElementById('follow-list-box');if(!box||!sb||!isRegistered())return;
       try{
         if(kind==='followers'){
-          var r=await sb.from('follows').select('follower').eq('following',currentUser.name);
+          var r=await sb.from('follows').select('follower').eq('following',currentUser.name).limit(200);
           var rows=r.data||[];
           box.innerHTML=rows.length?rows.map(function(x){return '<div class="notif-item" style="cursor:pointer;padding:8px" onclick="openUser(\''+String(x.follower).replace(/'/g,'')+'\')">@'+esc(x.follower)+'</div>'}).join(''):'<div class="empty" style="padding:16px">No followers yet</div>';
         }else{
-          var r2=await sb.from('follows').select('following').eq('follower',currentUser.name);
+          var r2=await sb.from('follows').select('following').eq('follower',currentUser.name).limit(200);
           var rows2=r2.data||[];
           box.innerHTML=rows2.length?rows2.map(function(x){return '<div class="notif-item" style="cursor:pointer;padding:8px" onclick="openUser(\''+String(x.following).replace(/'/g,'')+'\')">@'+esc(x.following)+'</div>'}).join(''):'<div class="empty" style="padding:16px">Not following anyone</div>';
         }
@@ -6681,11 +6693,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(names.indexOf(u)<0)names.push(u);
       });
       if(!names.length)return Promise.resolve();
-      var cfP=fetch(CF_API+'/avatars?users='+encodeURIComponent(names.join(',')),{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){
-        var map=(j&&j.avatars)||{};
-        Object.keys(map).forEach(function(u){if(map[u])rememberAvatar(u,map[u])});
-      }).catch(function(){});
-      var sbP=(!sb)?Promise.resolve():sb.from('profiles').select('username,avatar_url,bio,twitter,telegram,link').in('username',names)
+      // If CF /avatars keeps 404ing, skip further CF storms this session (SB still fills avatars).
+      var cfP=Promise.resolve();
+      if(!window.__cfAvatarsDead){
+        cfP=fetch(CF_API+'/avatars?users='+encodeURIComponent(names.slice(0,40).join(',')),{cache:'force-cache'}).then(function(r){
+          if(r && (r.status===404||r.status===501||r.status===502)){ window.__cfAvatarsDead=1; return null; }
+          return r&&r.ok?r.json():null;
+        }).then(function(j){
+          if(!j)return;
+          var map=(j&&j.avatars)||{};
+          Object.keys(map).forEach(function(u){if(map[u])rememberAvatar(u,map[u])});
+        }).catch(function(){ window.__cfAvatarsDead=1; });
+      }
+      var sbP=(!sb)?Promise.resolve():sb.from('profiles').select('username,avatar_url,bio,twitter,telegram,link').in('username',names.slice(0,40))
         .then(function(r){
           (r.data||[]).forEach(function(row){
             profileCache[row.username]=row;
@@ -13981,7 +14001,7 @@ function openRoulette(){
       try{
         if(slug==='spotlight'){ try{scrollToSpotlight()}catch(e){showPanel('feed')} return true; }
         if(slug==='extend'||slug==='feed'||slug==='home'){ showPanel('feed'); return true; }
-        if(slug==='normal'||slug==='wall'||slug==='thewall'){ showPanel('wall'); try{loadNormalFeed()}catch(e){} return true; }
+        if(slug==='normal'||slug==='wall'||slug==='thewall'){ showPanel('wall'); return true; }
         if(slug==='coins'||slug==='buy'||slug==='fagcoins'||slug==='packages'){ try{openCoinShop()}catch(e){showPanel('coins')} return true; }
         if(slug==='goontok'||slug==='goon'||slug==='tiktok'){ try{openGoonTok()}catch(e){showPanel('goontok')} return true; }
         if(slug==='randomcam'||slug==='random'||slug==='ome'||slug==='chat'){ try{openRandomCam()}catch(e){showPanel('randomcam')} return true; }
@@ -14492,7 +14512,9 @@ function openRoulette(){
             mergeVideoRow(v);
           });
         }
-        // Race /api/videos with a direct *.mp4* scan so a slow API never leaves us with ~2 clips.
+        // Prefer /api/videos (already scans SB). Only fan out extra REST when the catalog is thin.
+        // posts.media_url does NOT exist — never put it in filters (400 kills the scan
+        // and Videos/GoonTok shrink to ~1–2 tagged leftovers).
         var sbHeaders={
           apikey:SUPABASE_KEY,
           Authorization:'Bearer '+SUPABASE_KEY,
@@ -14518,6 +14540,10 @@ function openRoulette(){
             }
           }
           return [];
+        }
+        function countServerIds(){
+          var n=0;try{Object.keys(serverIds).forEach(function(){n++})}catch(e){}
+          return n;
         }
         // PRIMARY: *.mp4* works (~78 rows / <1s). *http%.mp4% / */media% currently 500.
         var primaryMp4='/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.mp4*&order=created_at.desc&limit=100';
@@ -14553,36 +14579,35 @@ function openRoulette(){
           }).catch(function(){});
         }catch(e){}
 
-        // posts.media_url does NOT exist — never put it in filters (400 kills the scan
-        // and Videos/GoonTok shrink to ~1–2 tagged leftovers).
-        // Only ~2 rows carry tags={video}; the real library lives in image_url mp4/webm/mov.
-        try{
-          var sbPaths=[
-            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.webm*&order=created_at.desc&limit=40',
-            '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.mov*&order=created_at.desc&limit=40',
-            '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bvideo%7D&order=created_at.desc&limit=80',
-            '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80'
-          ];
-          var sbRest=await Promise.all(sbPaths.map(sbRestGet));
-          sbRest.forEach(ingestSbVideoRows);
-          var got=0; try{Object.keys(serverIds).forEach(function(){got++})}catch(e){}
-          if(got<8){
-            // Last-resort fallback if primary somehow failed
-            ingestSbVideoRows(await sbRestGet(primaryMp4));
-          }
-        }catch(e){console.warn('sb video rest batch',e)}
-        if(sb){
+        // Skip duplicate webm/mov/tag + supabase-js triple query when primary catalog is healthy.
+        var gotPrimary=countServerIds();
+        if(gotPrimary<24){
           try{
-            var sbColsJs='id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
-            var sbJs=await Promise.all([
-              sb.from('posts').select(sbColsJs).ilike('image_url','%.mp4%').order('created_at',{ascending:false}).limit(100),
-              sb.from('posts').select(sbColsJs).contains('tags',['video']).order('created_at',{ascending:false}).limit(80),
-              sb.from('posts').select(sbColsJs).contains('tags',['goontok']).order('created_at',{ascending:false}).limit(80)
-            ].map(function(p){
-              return Promise.resolve(p).then(function(r){return (r&&!r.error&&r.data)||[]}).catch(function(){return []});
-            }));
-            sbJs.forEach(ingestSbVideoRows);
-          }catch(e){}
+            var sbPaths=[
+              '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.webm*&order=created_at.desc&limit=40',
+              '/rest/v1/posts?select='+sbCols+'&image_url=ilike.*.mov*&order=created_at.desc&limit=40',
+              '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bvideo%7D&order=created_at.desc&limit=80',
+              '/rest/v1/posts?select='+sbCols+'&tags=cs.%7Bgoontok%7D&order=created_at.desc&limit=80'
+            ];
+            var sbRest=await Promise.all(sbPaths.map(sbRestGet));
+            sbRest.forEach(ingestSbVideoRows);
+            if(countServerIds()<8){
+              ingestSbVideoRows(await sbRestGet(primaryMp4));
+            }
+          }catch(e){console.warn('sb video rest batch',e)}
+          if(sb && countServerIds()<24){
+            try{
+              var sbColsJs='id,username,title,tags,image_url,created_at,expires_at,views,likes_count';
+              var sbJs=await Promise.all([
+                sb.from('posts').select(sbColsJs).ilike('image_url','%.mp4%').order('created_at',{ascending:false}).limit(100),
+                sb.from('posts').select(sbColsJs).contains('tags',['video']).order('created_at',{ascending:false}).limit(80),
+                sb.from('posts').select(sbColsJs).contains('tags',['goontok']).order('created_at',{ascending:false}).limit(80)
+              ].map(function(p){
+                return Promise.resolve(p).then(function(r){return (r&&!r.error&&r.data)||[]}).catch(function(){return []});
+              }));
+              sbJs.forEach(ingestSbVideoRows);
+            }catch(e){}
+          }
         }
 
         try{
@@ -15212,6 +15237,55 @@ function openRoulette(){
         });
       }catch(e){}
     }
+    var WALL_CACHE_TTL_MS=45000; // reuse in-memory Wall for 45s between section hops
+    function wallCacheFresh(){
+      var at=Number(window.__wallFetchedAt||0)||0;
+      if(!at) return false;
+      if(Date.now()-at>WALL_CACHE_TTL_MS) return false;
+      if(!(typeof normalFeedPosts!=='undefined' && normalFeedPosts && normalFeedPosts.length)) return false;
+      return true;
+    }
+    function refreshWallSection(opts){
+      opts=opts||{};
+      var quiet=opts.quiet!==false;
+      var force=!!opts.force;
+      try{renderWallStories()}catch(e){}
+      try{renderWallHot()}catch(e){}
+      if(!force && wallCacheFresh()){
+        try{renderNormalFeed({keepVisible:true})}catch(e){}
+        return false;
+      }
+      try{
+        loadNormalFeed(false,{quiet:quiet && !!(normalFeedPosts&&normalFeedPosts.length)});
+      }catch(e){}
+      return true;
+    }
+    function scheduleSectionPrefetch(which){
+      which=String(which||'');
+      try{
+        if(window.__sectionPrefetchT) clearTimeout(window.__sectionPrefetchT);
+      }catch(e){}
+      window.__sectionPrefetchT=setTimeout(function(){
+        try{
+          if(document.hidden) return;
+          var act=document.querySelector('.panel.active');
+          var pid=act&&act.id||'';
+          if(which==='goontok'){
+            if(pid==='panel-goontok') return;
+            var n=0;try{n=(window.__videoCache&&window.__videoCache.length)||0}catch(e){}
+            if(n>=12 && window.__vidFetchAt && Date.now()-(window.__vidFetchAt||0)<60000) return;
+            if(typeof fetchVideoPosts==='function') fetchVideoPosts().catch(function(){});
+          }else if(which==='wall'){
+            if(pid==='panel-wall'||pid==='panel-explore') return;
+            if(wallCacheFresh()) return;
+            if(typeof loadNormalFeed==='function') loadNormalFeed(false,{quiet:true});
+          }
+        }catch(e){}
+      }, 900);
+    }
+    window.refreshWallSection=refreshWallSection;
+    window.scheduleSectionPrefetch=scheduleSectionPrefetch;
+    window.wallCacheFresh=wallCacheFresh;
     function showPanel(name, opts){
       opts=opts||{};
       if(name==='packages'){openCoinShop();return;}
@@ -15261,7 +15335,18 @@ function openRoulette(){
         }
       }
       if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
-      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}if(name==='explore'){try{renderTrendingTags()}catch(e){}try{loadNormalFeed()}catch(e){}try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}try{if(typeof refreshExploreMapPreview==='function')refreshExploreMapPreview()}catch(e){}startViewVisit('wall')}if(name==='wall'){try{loadNormalFeed()}catch(e){}}
+      if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}
+      if(name==='explore'){
+        try{renderTrendingTags()}catch(e){}
+        try{refreshWallSection({force:!!opts.forceRefresh})}catch(e){}
+        try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}
+        try{if(typeof refreshExploreMapPreview==='function')refreshExploreMapPreview()}catch(e){}
+        startViewVisit('wall');
+      }
+      if(name==='wall'){
+        try{refreshWallSection({force:!!opts.forceRefresh})}catch(e){}
+        try{scheduleSectionPrefetch('goontok')}catch(e){}
+      }
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){
         // openGoonTok already fetches + paints; avoid a second remount/re-arm storm.
@@ -15271,11 +15356,19 @@ function openRoulette(){
           try{restoreGoonTokScroll()}catch(e){}
         }else if(!window.__gtOpening){
           try{
-            if(typeof fetchVideoPosts==='function') fetchVideoPosts().then(function(){renderGoonTok({quiet:true})}).catch(function(){renderGoonTok({quiet:true})});
-            else renderGoonTok({quiet:true});
+            var haveGt=0;try{haveGt=(window.__videoCache&&window.__videoCache.length)||0}catch(e0){}
+            var gtFresh=window.__vidFetchAt && (Date.now()-(window.__vidFetchAt||0)<15000) && haveGt>=8;
+            if(gtFresh){
+              try{renderGoonTok({quiet:true})}catch(e){}
+            }else if(typeof fetchVideoPosts==='function'){
+              fetchVideoPosts().then(function(){renderGoonTok({quiet:true})}).catch(function(){renderGoonTok({quiet:true})});
+            }else{
+              renderGoonTok({quiet:true});
+            }
           }catch(e){try{renderGoonTok({quiet:true})}catch(e2){}}
         }
         startViewVisit('goontok');
+        try{scheduleSectionPrefetch('wall')}catch(e){}
       }
       if(name==='videos'){try{fetchVideoPosts().then(function(){try{renderVideos()}catch(e){}})}catch(e){}try{renderVideos()}catch(e){}startViewVisit('videos')}
       if(name==='idcard'){try{loadIdArchive()}catch(e){}startViewVisit('idcard')}
@@ -17176,14 +17269,30 @@ function openRoulette(){
       }catch(e){pool=normalFeedPosts||[]}
       var rand=pickWallRandom(pool, [], 3);
       if(!rand.length){box.innerHTML='';return}
-      box.innerHTML='<div style="width:100%;padding:0 4px 4px;font-size:12px;font-weight:900;letter-spacing:1.1px">RANDOM 3 · changes daily</div>'
-        +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 2px 4px">'
+      var sig=rand.map(function(p){return String(p.id)}).join(',');
+      if(box.getAttribute('data-day-sig')===sig && box.querySelector('.wall-day-photo')) return;
+      box.setAttribute('data-day-sig', sig);
+      box.classList.add('wall-day-photos');
+      box.innerHTML='<div class="wall-day-photos-label">PHOTOS OF THE DAY · RANDOM 3 · changes daily</div>'
+        +'<div class="wall-day-photos-grid">'
         +rand.map(function(p){
           var imgs=p.images&&p.images.length?p.images:parseImages(p.image||'');
-          var src=imgs[0]||'';
-          return '<button type="button" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')" style="border:1px solid rgba(96,165,250,.35);border-radius:12px;overflow:hidden;padding:0;background:#121218;color:#fff;text-align:left">'
-            +(src?'<img src="'+esc(feedThumb(src,220))+'" alt="" style="width:100%;height:84px;object-fit:cover;display:block"/>':'<div style="height:84px;background:#1a1a22"></div>')
-            +'<div style="padding:5px 6px;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@'+esc(p.user||'')+'</div>'
+          var src=imgs[0]||p.thumb_url||p.poster||'';
+          var thumb='';
+          if(src && typeof isVideoUrl==='function' && isVideoUrl(src)){
+            var poster=p.poster||p.thumb_url||'';
+            if(poster && !(typeof isVideoUrl==='function' && isVideoUrl(poster))) src=poster;
+          }
+          if(src){
+            thumb=typeof wallImageHtml==='function'
+              ? wallImageHtml(feedThumb(src,280),{lazy:false,alt:String(p.user||''),className:'wall-day-thumb'})
+              :('<img src="'+esc(feedThumb(src,280))+'" data-orig="'+esc(publicMediaUrl(src))+'" alt="" decoding="async" loading="eager" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>');
+          }else{
+            thumb='<div class="wall-day-ph" aria-hidden="true"></div>';
+          }
+          return '<button type="button" class="wall-day-photo" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')">'
+            +thumb
+            +'<div class="wall-day-photo-meta">@'+esc(p.user||'')+'</div>'
             +'</button>';
         }).join('')
         +'</div>';
@@ -24166,20 +24275,49 @@ function postCardHtml(p, compact){
         if(document.body.classList.contains('gt-on') || (window.__detailFrom==='goontok')) saveGoonTokScroll();
       }catch(e){}
       var box0=document.getElementById('detail-content');
-      if(box0) box0.innerHTML='<div class="empty">Opening…</div>';
-      showPanel('detail');
       var post=null;
-      // Prefer live server lookup so deleted posts cannot reopen from stale local pools.
-      if(typeof ensureFeedPost==='function'){
-        try{post=await ensureFeedPost(id)}catch(e){}
+      // Cache-first: paint from local pools immediately (Wall/GoonTok tap must feel instant).
+      // Server verify runs in background so deleted posts still resolve to Gone.
+      try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+      if(!post){
+        try{
+          post=(posts||[]).concat(window.normalFeedPosts||[]).concat(window.__videoCache||[]).find(function(p){return String(p.id)===String(id) && !(typeof isDeletedId==='function' && isDeletedId(p.id))});
+        }catch(e){}
       }
       if(!post){
-        try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+        if(box0) box0.innerHTML='<div class="empty">Opening…</div>';
+        showPanel('detail');
+        if(typeof ensureFeedPost==='function'){
+          try{post=await ensureFeedPost(id)}catch(e){}
+        }
+        if(!post){showPostGone(id);return;}
+      }else{
+        showPanel('detail');
+        // Background verify — never block first paint on CF/SB round-trips.
+        try{
+          if(typeof ensureFeedPost==='function'){
+            var verifyId=id;
+            ensureFeedPost(verifyId).then(function(fresh){
+              if(String(currentDetailId)!==String(verifyId)) return;
+              if(!fresh){
+                try{showPostGone(verifyId)}catch(e){}
+                return;
+              }
+              try{
+                // Soft-sync stats without a full remount flash.
+                if(typeof setLikesEverywhere==='function') setLikesEverywhere(fresh.id, fresh.likes, fresh.likedBy, fresh.reactions);
+                var vEl=document.querySelector('[data-views-id="'+String(fresh.id).replace(/"/g,'')+'"]');
+                if(vEl && fresh.views!=null) vEl.textContent=typeof displayViews==='function'?displayViews(fresh.views):String(fresh.views);
+              }catch(e){}
+              try{
+                if(fresh._needImg || (fresh.images&&post&&(!post.images||fresh.images.length>post.images.length))){
+                  if(window.hydratePostImage) window.hydratePostImage(fresh).catch(function(){});
+                }
+              }catch(e){}
+            }).catch(function(){});
+          }
+        }catch(e){}
       }
-      if(!post){
-        post=(posts||[]).concat(window.normalFeedPosts||[]).concat(window.__videoCache||[]).find(function(p){return String(p.id)===String(id) && !(typeof isDeletedId==='function' && isDeletedId(p.id))});
-      }
-      if(!post){showPostGone(id);return;}
       try{if(typeof hydratePinnedPost==='function') post=hydratePinnedPost(post)}catch(e){}
       try{if(typeof sanitizeVideoPostMedia==='function') post=sanitizeVideoPostMedia(post)||post}catch(e){}
       currentDetailId=post.id;
@@ -30801,13 +30939,15 @@ async function onIdFace(e){
               }
             }
           }catch(e){}
-          // Returning to the tab: pull fresh posts so others' new publishes show first.
+          // Returning to the tab: quiet refresh — never wipe visible cards with a full remount.
           try{
             window.__loadPostsAt=0;
             var act=document.querySelector('.panel.active');
             var pid=act&&act.id||'';
             if(pid==='panel-feed'||pid==='panel-extended'||pid==='') loadPosts();
-            if(pid==='panel-wall'||pid==='panel-explore') loadNormalFeed();
+            if(pid==='panel-wall'||pid==='panel-explore'){
+              try{refreshWallSection({force:false,quiet:true})}catch(eW){loadNormalFeed(false,{quiet:true})}
+            }
           }catch(e){}
         }
       });
