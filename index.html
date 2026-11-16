@@ -397,6 +397,23 @@
     .photo-grid.g3 img:first-child{grid-row:1/3}
     .photo-grid.g4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
     .photo-grid img{width:100%;height:100%;object-fit:cover}
+    /* Wall / feed media: never leave a permanent black void while assets load */
+    .nf-media-frame{position:relative;display:block;width:100%;min-height:180px;background:#121218;overflow:hidden;border-radius:12px}
+    .nf-media-frame .nf-media-ph{
+      position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;
+      color:#8b8b96;font-size:12px;font-weight:700;letter-spacing:.3px;pointer-events:none;
+      background:linear-gradient(145deg,#16161c 0%,#0c0c10 55%,#14141a 100%);
+    }
+    .nf-media-frame.is-loaded .nf-media-ph,
+    .nf-media-frame.is-error .nf-media-ph{display:none}
+    .nf-media-frame .nf-media-img{position:relative;z-index:2;width:100%;min-height:180px;max-height:70vh;object-fit:contain;display:block;background:transparent}
+    .nf-media-frame.is-error{min-height:180px}
+    .nf-media-frame .nf-media-err{
+      position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+      background:rgba(0,0,0,.78);color:#eee;padding:16px;text-align:center;font-size:13px;font-weight:800;
+    }
+    .lazy-video{background:#121218!important}
+    .lazy-video .lv-play{z-index:3}
     .preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
     .preview-item{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:1}
     .preview-item img{width:100%;height:100%;object-fit:cover}
@@ -3351,6 +3368,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
   <script>
     function enterSite(){
+      // Guard against double auto-enter (DOMContentLoaded + readyState race).
+      if(window.__enterSiteStarted){
+        try{
+          document.getElementById('age-gate').classList.add('hidden');
+          document.getElementById('app').classList.add('show');
+        }catch(e){}
+        return;
+      }
+      window.__enterSiteStarted=true;
       try{localStorage.setItem('rs_age_ok','1')}catch(e){}
       document.getElementById('age-gate').classList.add('hidden');
       document.getElementById('app').classList.add('show');
@@ -3359,6 +3385,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{setupPwaInstall()}catch(e){}
       setTimeout(checkRecoveryHash, 300);
       setTimeout(checkRecoveryHash, 1000);
+      // Telegram only once per page life — preference lives in localStorage across refreshes.
       setTimeout(function(){try{maybeShowTelegram()}catch(e){}},1200);
     }
     // auto-enter if already verified (needed for recovery email links)
@@ -3366,8 +3393,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var ua=String(navigator.userAgent||'');
       var isBot=/googlebot|bingbot|yandex|baiduspider|duckduckbot|slurp|facebookexternalhit|twitterbot|linkedinbot|crawler|spider/i.test(ua);
       if(isBot || localStorage.getItem('rs_age_ok')==='1' || isRecoveryUrl()){
-        document.addEventListener('DOMContentLoaded',function(){ setTimeout(enterSite,50); });
-        if(document.readyState!=='loading'){ setTimeout(enterSite,50); }
+        if(document.readyState==='loading'){
+          document.addEventListener('DOMContentLoaded',function(){ setTimeout(enterSite,50); });
+        }else{
+          setTimeout(enterSite,50);
+        }
       }
     }catch(e){}
     function setupPwaInstall(){
@@ -5193,14 +5223,35 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     window.openTaskPhoto=openTaskPhoto;
     function feedThumb(src, w){
       src=String(src||'');
-      // No image CDN resize in this stack — keep original URL but callers must
-      // use loading=lazy / decoding=async / constrained CSS to avoid layout jank.
-      return src;
+      // No image CDN resize in this stack — rewrite to R2 for Range-friendly delivery.
+      return typeof publicMediaUrl==='function'?publicMediaUrl(src):src;
     }
-    // Wall / Explore media: retry R2 → Worker → soft placeholder.
+    function wallImageHtml(src, opts){
+      opts=opts||{};
+      var playable=typeof publicMediaUrl==='function'?publicMediaUrl(src):String(src||'');
+      var orig=opts.orig!=null?opts.orig:src;
+      orig=typeof publicMediaUrl==='function'?publicMediaUrl(orig):String(orig||'');
+      if(!playable){
+        return '<span class="nf-media-frame is-error"><span class="nf-media-err">No photo<button type="button" class="btn btn-secondary btn-sm" style="pointer-events:auto" onclick="event.stopPropagation();this.closest(\'.nf-media-frame\')&&location.reload()">Reload</button></span></span>';
+      }
+      var lazy=opts.lazy!==false;
+      var alt=esc(String(opts.alt||''));
+      var extra=opts.attrs?(' '+opts.attrs):'';
+      var cls=opts.className?(' '+String(opts.className)):'';
+      return '<span class="nf-media-frame'+cls+'" data-nf-media="img">'
+        +'<span class="nf-media-ph" aria-hidden="true">Loading photo…</span>'
+        +'<img class="nf-media-img" src="'+esc(playable)+'" data-orig="'+esc(orig||playable)+'" alt="'+alt+'" '
+        +(lazy?'loading="lazy" ':'loading="eager" ')
+        +'decoding="async" onload="try{this.parentNode&&this.parentNode.classList.add(\'is-loaded\')}catch(e){}" '
+        +'onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"'+extra+'/>'
+        +'</span>';
+    }
+    window.wallImageHtml=wallImageHtml;
+    // Wall / Explore media: retry R2 → Worker → error + Retry (never permanent black).
     window.__nfImgRetry=function(img){
       try{
         if(!img)return;
+        var frame=img.parentNode && img.parentNode.classList && img.parentNode.classList.contains('nf-media-frame')?img.parentNode:null;
         var step=Number(img.getAttribute('data-nf-retry')||0)||0;
         var raw=img.getAttribute('data-orig')||img.getAttribute('src')||'';
         if(!img.getAttribute('data-orig')) img.setAttribute('data-orig', raw);
@@ -5216,9 +5267,32 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           if(alt && alt!==img.getAttribute('src')){ img.src=alt; return; }
         }
         img.onerror=null;
+        img.alt='Media unavailable';
+        if(frame){
+          frame.classList.add('is-error');
+          frame.classList.remove('is-loaded');
+          var err=frame.querySelector('.nf-media-err');
+          if(!err){
+            err=document.createElement('span');
+            err.className='nf-media-err';
+            frame.appendChild(err);
+          }
+          err.innerHTML='Photo failed to load<button type="button" class="btn btn-secondary btn-sm" style="pointer-events:auto;min-height:36px;padding:8px 14px;font-weight:800">Retry</button>';
+          var btn=err.querySelector('button');
+          if(btn){
+            btn.onclick=function(ev){
+              try{ev.preventDefault();ev.stopPropagation()}catch(e){}
+              img.setAttribute('data-nf-retry','0');
+              frame.classList.remove('is-error');
+              try{err.remove()}catch(e){}
+              var again=typeof publicMediaUrl==='function'?publicMediaUrl(raw):raw;
+              img.src=again+(again.indexOf('?')>=0?'&':'?')+'retry='+Date.now();
+            };
+          }
+          return;
+        }
         img.style.background='#1a1a22';
         img.style.minHeight='180px';
-        img.alt='Media unavailable';
       }catch(e){}
     };
     function wallSkeletonHtml(n){
@@ -5498,6 +5572,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           lvSetStatus(el,'ready');
           return;
         }
+        // Safari/iOS: do not attach src just to mint a poster — concurrent metadata
+        // fetches starve playback and leave black cards. Tap-to-play stays available.
+        var safari=typeof isSafariLikeBrowser==='function'&&isSafariLikeBrowser();
+        if(safari){
+          lvSetStatus(el,'ready');
+          var playBtn=el.querySelector('.lv-play');
+          if(playBtn) playBtn.style.display='';
+          return;
+        }
         lvSetStatus(el,'loading','Preparing video…');
         if(!v.getAttribute('src') || String(v.getAttribute('src')).indexOf('#')>=0){
           v.setAttribute('src',src);
@@ -5628,7 +5711,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }
           heroInner=lazyVideoHtml(first,heroPoster||'',0,pid);
         } else {
-          heroInner='<img id="dx-hero-img" src="'+esc(feedThumb(first,900))+'" data-orig="'+esc(first)+'" alt="'+altAttr+'" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="0" data-pid="'+pid+'"/>';
+          var heroSrc=typeof publicMediaUrl==='function'?publicMediaUrl(first):first;
+          heroInner=typeof wallImageHtml==='function'
+            ? wallImageHtml(heroSrc,{orig:first,alt:altTxt,lazy:false,attrs:'id="dx-hero-img" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="0" data-pid="'+pid+'"'})
+            : '<img id="dx-hero-img" src="'+esc(heroSrc)+'" data-orig="'+esc(first)+'" alt="'+altAttr+'" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="0" data-pid="'+pid+'"/>';
         }
         var nav='';
         if(list.length>1){
@@ -5651,9 +5737,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           var poster=hint||(list.slice(1).find(function(x){return x&&!isVideoUrl(x)})||'');
           return lazyVideoHtml(src,poster,i,pid);
         }
-        var thumb=feedThumb(src, 420);
-        var orig=src;
-        return '<img src="'+esc(thumb)+'" data-orig="'+esc(orig)+'" alt="'+altAttr+'" decoding="async" loading="eager" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>';
+        var playable=typeof publicMediaUrl==='function'?publicMediaUrl(src):src;
+        return typeof wallImageHtml==='function'
+          ? wallImageHtml(playable,{orig:src,alt:altTxt,lazy:true})
+          : '<img src="'+esc(playable)+'" data-orig="'+esc(src)+'" alt="'+altAttr+'" decoding="async" loading="lazy" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>';
       }).join('')+(list.length>1?'<div class="more-photos">'+list.length+' photos</div>':'')+'</div>';
     }
     function pickDetailPhoto(btn, src, i, pid){
@@ -5676,7 +5763,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }catch(e){}
           box.innerHTML=lazyVideoHtml(src,detPoster,i,pid)+navHtml;
         } else {
-          box.innerHTML='<img id="dx-hero-img" src="'+esc(src)+'" data-orig="'+esc(src)+'" alt="" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="'+i+'" data-pid="'+esc(pid||'')+'"/>'+navHtml;
+          var stepSrc=typeof publicMediaUrl==='function'?publicMediaUrl(src):src;
+          var stepImg=typeof wallImageHtml==='function'
+            ? wallImageHtml(stepSrc,{orig:src,alt:'',lazy:false,attrs:'id="dx-hero-img" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="'+i+'" data-pid="'+esc(pid||'')+'"'})
+            : '<img id="dx-hero-img" src="'+esc(stepSrc)+'" data-orig="'+esc(src)+'" alt="" decoding="async" onclick="event.stopPropagation();openLightboxFromEl(this)" data-lb="1" data-i="'+i+'" data-pid="'+esc(pid||'')+'"/>';
+          box.innerHTML=stepImg+navHtml;
         }
         if(gallery) gallery.setAttribute('data-index', String(i));
         var counter=document.getElementById('dx-counter')||box.querySelector('.dx-counter');
@@ -12180,28 +12271,73 @@ function openRoulette(){
 
 
     
+    var TG_HIDE_KEY='rs_tg_hide_v2';
+    var TG_SOFT_KEY='rs_tg_soft_v2';
+    var TG_SOFT_MS=30*24*60*60*1000; // "Maybe later" suppresses for 30 days across refreshes/navigation
+    function tgPrefHidePermanent(){
+      try{
+        if(localStorage.getItem(TG_HIDE_KEY)==='1') return true;
+        // Migrate legacy keys so returning users are not re-prompted after key renames.
+        if(localStorage.getItem('rs_tg_hide')==='1' || localStorage.getItem('rs_tg_dont')==='1'){
+          localStorage.setItem(TG_HIDE_KEY,'1');
+          return true;
+        }
+      }catch(e){}
+      return false;
+    }
+    function tgPrefSoftActive(){
+      try{
+        var t=Number(localStorage.getItem(TG_SOFT_KEY)||0)||0;
+        if(t>0 && (Date.now()-t)<TG_SOFT_MS) return true;
+      }catch(e){}
+      return false;
+    }
+    function tgRememberHide(permanent){
+      try{
+        if(permanent){
+          localStorage.setItem(TG_HIDE_KEY,'1');
+          localStorage.removeItem(TG_SOFT_KEY);
+        }else{
+          localStorage.setItem(TG_SOFT_KEY,String(Date.now()));
+        }
+      }catch(e){}
+    }
     function setupTelegramPopup(){
       var modal=document.getElementById('modal-tg');
       if(!modal)return;
-      function closeTg(){
+      function closeTg(permanent){
         var dont=document.getElementById('tg-dont');
-        if(dont&&dont.checked)try{localStorage.setItem('rs_tg_hide_v2','1')}catch(e){}
+        var forever=!!permanent || !!(dont&&dont.checked);
+        tgRememberHide(forever);
         modal.classList.remove('show');
       }
       var join=document.getElementById('tg-join');
-      if(join)join.onclick=function(){try{localStorage.setItem('rs_tg_hide_v2','1')}catch(e){}};
+      if(join)join.onclick=function(){tgRememberHide(true)};
       var dx=document.getElementById('tg-close-x');
-      if(dx)dx.onclick=closeTg;
+      if(dx)dx.onclick=function(){closeTg(false)};
       var dis=document.getElementById('tg-dismiss');
-      if(dis)dis.onclick=closeTg;
+      if(dis)dis.onclick=function(){closeTg(false)};
+      // Backdrop tap closes without re-prompting every refresh.
+      if(!modal._tgBgBound){
+        modal._tgBgBound=1;
+        modal.addEventListener('click',function(ev){
+          if(ev.target===modal) closeTg(false);
+        });
+      }
     }
     function maybeShowTelegram(){
-      try{if(localStorage.getItem('rs_tg_hide_v2')==='1')return}catch(e){}
+      // Never show on SPA section switches — only enterSite calls this once per page life.
+      if(window.__tgShownThisLife) return;
+      if(tgPrefHidePermanent() || tgPrefSoftActive()) return;
       var modal=document.getElementById('modal-tg');
       if(!modal)return;
       if(modal.classList.contains('show'))return;
+      window.__tgShownThisLife=true;
       modal.classList.add('show');
     }
+    window.maybeShowTelegram=maybeShowTelegram;
+    window.setupTelegramPopup=setupTelegramPopup;
+    window.tgPrefHidePermanent=tgPrefHidePermanent;
 
 
     function getProfileShareUrl(username){
@@ -16787,11 +16923,13 @@ function openRoulette(){
             +lazyVideoHtml(vsrc,poster,0,p.id)
             +'</div>';
         }else{
-          var imgSrc=feedThumb(imgs[0],380);
-          imgSrc=typeof publicMediaUrl==='function'?publicMediaUrl(imgSrc):imgSrc;
+          var imgSrc=typeof publicMediaUrl==='function'?publicMediaUrl(imgs[0]):feedThumb(imgs[0],380);
+          var imgHtml=typeof wallImageHtml==='function'
+            ? wallImageHtml(imgSrc,{orig:imgs[0],alt:p.title||('Post '+p.id),lazy:true})
+            : '<img src="'+esc(imgSrc)+'" data-orig="'+esc(imgs[0]||imgSrc)+'" loading="lazy" decoding="async" alt="" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>';
           media='<div class="normal-feed-post-media" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'
             +'<div class="normal-feed-view-badge"><span class="eye">👁</span><span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+esc(String(viewLabel))+'</span> VIEWS</div>'
-            +'<img src="'+esc(imgSrc)+'" data-orig="'+esc(imgs[0]||imgSrc)+'" loading="lazy" decoding="async" alt="" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>'
+            +imgHtml
             +'</div>';
         }
       }
@@ -16862,6 +17000,17 @@ function openRoulette(){
       }else{
         actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
       }
+      // Delete restored where authorized: owner / admin / registered paid-delete requesters.
+      var delBtn='';
+      try{
+        var anonNo=typeof isAnonymousAccount==='function'&&isAnonymousAccount();
+        var ownDel=typeof canDeletePostAsOwner==='function'&&canDeletePostAsOwner(p);
+        var adminDel=typeof canModerateDeletePost==='function'&&canModerateDeletePost();
+        var canPaidDel=!!(currentUser&&currentUser.name&&!anonNo);
+        if(ownDel||adminDel||canPaidDel){
+          delBtn='<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+pid+'" style="color:#fda4af;border-color:rgba(244,63,94,.45)"><span class="nf-action-icon">🗑</span> Delete</button>';
+        }
+      }catch(e){delBtn=''}
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+tierBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div></div>'
@@ -16875,6 +17024,7 @@ function openRoulette(){
         +'<button class="btn btn-secondary nf-feed-comment" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span> '+(saved?'Saved':'Save')+'</button>'
         +(vsrc?'<button class="btn btn-secondary" type="button" data-nf-act="dl" data-nf-id="'+pid+'"><span class="nf-action-icon">⬇️</span> Download</button>':'')
+        +delBtn
         +'</div>'
         +'</article>';
     }
@@ -18938,24 +19088,28 @@ function openRoulette(){
       }
       window.__wallLoading=true;
       try{
-        var pageSize=more?60:48;
+        // Smaller first page → faster first paint (esp. Safari). Enrich later.
+        var pageSize=more?40:24;
         var rows=await fetchCfFeed(null, pageSize);
         var list=wallFilterMapped((rows||[]).map(function(r){
           var mapped=cfRowToFeed(r);
           if(mapped) mapped.hotCount=postHotCount(mapped);
           return mapped;
         }).filter(Boolean));
-        if(!more && typeof sb!=='undefined' && sb){
-          try{
-            var sbRecent=await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(50);
-            ((sbRecent&&sbRecent.data)||[]).forEach(function(r){
-              var mapped=null;
-              try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
-              if(!mapped||isDeletedId(mapped.id))return;
-              mapped.hotCount=postHotCount(mapped);
-              if(!list.some(function(p){return String(p.id)===String(mapped.id)})) list.push(mapped);
-            });
-          }catch(eSb){}
+        // Defer Supabase merge so CF paint is not blocked by a second round-trip.
+        function mergeSbRecentInto(targetList){
+          if(typeof sb==='undefined' || !sb) return Promise.resolve(targetList);
+          return sb.from('posts').select('id,username,title,description,tags,image_url,media_url,thumb_url,media_type,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions,comments_count').order('created_at',{ascending:false}).limit(40)
+            .then(function(sbRecent){
+              ((sbRecent&&sbRecent.data)||[]).forEach(function(r){
+                var mapped=null;
+                try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
+                if(!mapped||isDeletedId(mapped.id))return;
+                mapped.hotCount=postHotCount(mapped);
+                if(!targetList.some(function(p){return String(p.id)===String(mapped.id)})) targetList.push(mapped);
+              });
+              return targetList;
+            }).catch(function(){return targetList});
         }
         list=wallMergeLocalExtras(list).sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
         try{list=pinBrandNewFirst(list, BRAND_NEW_MS)}catch(e){}
@@ -18988,30 +19142,42 @@ function openRoulette(){
         }
         window.__wallFetchedAt=Date.now();
         window.__wallDone=list.length<pageSize;
-        if(more) window.__wallVisible=Math.min(normalFeedPosts.length, (window.__wallVisible||12)+12);
-        else if(quiet) window.__wallVisible=Math.min(normalFeedPosts.length, Math.max(Number(window.__wallVisible)||12, 12));
-        else window.__wallVisible=Math.min(Math.max(12, 16), normalFeedPosts.length);
+        if(more) window.__wallVisible=Math.min(normalFeedPosts.length, (window.__wallVisible||8)+8);
+        else if(quiet) window.__wallVisible=Math.min(normalFeedPosts.length, Math.max(Number(window.__wallVisible)||8, 8));
+        else window.__wallVisible=Math.min(8, normalFeedPosts.length);
         try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
         renderNormalFeed({keepVisible:keepVisible});
-        try{prefetchAvatars(normalFeedPosts.slice(0,window.__wallVisible||12)).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
-        if(!more && !quiet && !window.__wallEnriching){
-          window.__wallEnriching=true;
-          Promise.resolve(fetchCfFeed(null, 80)).then(function(wide){
-            var changed=false;
-            (wide||[]).forEach(function(r){
-              var mapped=cfRowToFeed(r);
-              if(!mapped||isDeletedId(mapped.id))return;
-              mapped.hotCount=postHotCount(mapped);
-              if(!normalFeedPosts.some(function(p){return String(p.id)===String(mapped.id)})){
-                normalFeedPosts.push(mapped);changed=true;
-              }
-            });
-            if(changed){
-              normalFeedPosts=pinBrandNewFirst(normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
+        try{prefetchAvatars(normalFeedPosts.slice(0,window.__wallVisible||8)).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
+        if(!more && !quiet){
+          // Background SB merge + wider CF enrich — do not block first paint.
+          Promise.resolve(mergeSbRecentInto(normalFeedPosts||[])).then(function(merged){
+            if(merged && merged.length>(normalFeedPosts||[]).length){
+              normalFeedPosts=pinBrandNewFirst(merged.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
               try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
               renderNormalFeed({keepVisible:true});
             }
-          }).catch(function(){}).finally(function(){window.__wallEnriching=false});
+          }).catch(function(){});
+          if(!window.__wallEnriching){
+            window.__wallEnriching=true;
+            setTimeout(function(){
+              Promise.resolve(fetchCfFeed(null, 60)).then(function(wide){
+                var changed=false;
+                (wide||[]).forEach(function(r){
+                  var mapped=cfRowToFeed(r);
+                  if(!mapped||isDeletedId(mapped.id))return;
+                  mapped.hotCount=postHotCount(mapped);
+                  if(!normalFeedPosts.some(function(p){return String(p.id)===String(mapped.id)})){
+                    normalFeedPosts.push(mapped);changed=true;
+                  }
+                });
+                if(changed){
+                  normalFeedPosts=pinBrandNewFirst(normalFeedPosts.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
+                  try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
+                  renderNormalFeed({keepVisible:true});
+                }
+              }).catch(function(){}).finally(function(){window.__wallEnriching=false});
+            }, 600);
+          }
         }
       }catch(e){
         console.warn('Cloudflare wall load',e);
@@ -23104,7 +23270,7 @@ function profileStatsHtml(userPosts, extra){
     function postCardActionButtons(p, permanent, already, alreadyCd){
       // Permanent / no timer → Hot only. Active timer → Extend.
       // Timed videos → Extend + Hot (timer must not block Hot on video posts).
-      // Delete lives only inside individual post detail — never on feed/wall cards.
+      // Delete restored for authorized viewers (owner / admin / registered paid request).
       var hasTimer = (typeof postHasActiveTimer === 'function')
         ? postHasActiveTimer(p)
         : (!!(Number(p && p.expires || 0) > Date.now()));
@@ -23115,12 +23281,22 @@ function profileStatsHtml(userPosts, extra){
       var hotBtn = '<button class="btn btn-hot' + (hotOn ? ' on' : '') + '" type="button" ' + (hotOn ? 'disabled' : '') +
         ' data-nf-act="hot" data-nf-id="' + String(p.id).replace(/"/g, '') +
         '" onclick="event.stopPropagation();hotBumpWall(' + jsId(p.id) + ',{allowAnon:true,skipTimer:true})">🔥 Hot' + (hotN ? (' · ' + hotN) : '') + '</button>';
+      var delBtn='';
+      try{
+        var anonNo=typeof isAnonymousAccount==='function'&&isAnonymousAccount();
+        var ownDel=typeof canDeletePostAsOwner==='function'&&canDeletePostAsOwner(p);
+        var adminDel=typeof canModerateDeletePost==='function'&&canModerateDeletePost();
+        var canPaidDel=!!(currentUser&&currentUser.name&&!anonNo);
+        if(ownDel||adminDel||canPaidDel){
+          delBtn='<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+String(p.id).replace(/"/g,'')+'" style="color:#fda4af;border-color:rgba(244,63,94,.45)" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">Delete</button>';
+        }
+      }catch(e){delBtn=''}
       // Span full row when Comment would sit alone under Like + one action (balanced centering).
       function cmtBtn(span){
         return '<button class="btn btn-secondary'+(span?' feed-cmt-span':'')+'" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
       }
       if(!hasTimer){
-        return hotBtn + cmtBtn(true);
+        return hotBtn + delBtn + cmtBtn(!delBtn);
       }
       var extAmt = (typeof postExtendMinutes === 'function' ? postExtendMinutes(p) : (Number(p.extendAmount) || 360));
       var label = already
@@ -23130,8 +23306,8 @@ function profileStatsHtml(userPosts, extra){
         '" type="button" data-nf-act="extend" data-nf-id="' + String(p.id).replace(/"/g, '') + '" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
         (already ? 'disabled aria-disabled="true"' : '') +
         ' onclick="event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;openExtend(' + jsId(p.id) + ')">' + label + '</button>';
-      if(isVid) return extBtn + hotBtn + cmtBtn(false);
-      return extBtn + cmtBtn(true);
+      if(isVid) return extBtn + hotBtn + delBtn + cmtBtn(false);
+      return extBtn + delBtn + cmtBtn(!delBtn);
     }
 function postCardHtml(p, compact){
       // Same pin/exposure source as Spotlight — never leave stubs at expires:0 while pinned.
@@ -24123,27 +24299,32 @@ function postCardHtml(p, compact){
       var hotLed='<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+',{allowAnon:true,skipTimer:true})"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>';
       var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-nf-act="extend" data-nf-id="'+String(post.id).replace(/"/g,'')+'" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="event.preventDefault();event.stopPropagation();openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
       var extLed=showExtendBtn ? extendLed : hotLed;
-      // Universal Delete: visible in post detail only. Owner free/paid paths reuse existing rules;
-      // everyone else opens the $5 request modal (never auto-deletes).
+      // Universal Delete: owner free/paid paths + third-party $5/50 FC (PayPal/Throne/FC + admin verify).
       var removeBtn='';
       var tierNeedsFc=typeof deletionRequiresFc==='function'&&deletionRequiresFc(post);
       var freeDel=typeof postFreeDeletionEnabled==='function'&&postFreeDeletionEnabled(post);
       var tierBadgeDetail=typeof deletionTierBadgeHtml==='function'?deletionTierBadgeHtml(post):'';
-      // Delete controls follow real permissions: anon never; registered only own; admin moderation; never on others' posts.
+      // Delete controls: anon never; owner/admin keep existing rules; registered third parties can request paid delete.
       var allowOwnerDelete=!!(isOwner && typeof isRegistered==='function' && isRegistered() && (typeof viewerHasOwnPosts!=='function' || viewerHasOwnPosts() || isOwner));
       var allowAdminDelete=typeof canModerateDeletePost==='function' && canModerateDeletePost();
+      var allowPaidDelete=false;
+      try{
+        allowPaidDelete=!!(currentUser&&currentUser.name && !(typeof isAnonymousAccount==='function'&&isAnonymousAccount()) && !allowOwnerDelete);
+      }catch(e){allowPaidDelete=false}
       if(allowOwnerDelete && freeDel && !tierNeedsFc){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
       }else if(allowOwnerDelete && ownProfilePermanent){
         removeBtn='<button class="dx-wipe" type="button" onclick="deleteOwnProfilePost('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>your photo</i></button>';
       }else if(allowOwnerDelete && tierNeedsFc){
-        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete · 50 FC</b><i>confirm payment</i></button>';
+        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete · 50 FC / $5</b><i>PayPal · Throne · FC · admin verify</i></button>';
       }else if(allowOwnerDelete && (timeless || (permanent && !timedLive) || wallOwned) && !tierNeedsFc){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
       }else if(allowOwnerDelete){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>your post</i></button>';
       }else if(allowAdminDelete){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Admin delete</b><i>moderation</i></button>';
+      }else if(allowPaidDelete){
+        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete · $5 / 50 FC</b><i>PayPal · Throne · FC · admin verify</i></button>';
       }
       var acts='<div class="dx-actions">'
         +extLed
@@ -27394,7 +27575,7 @@ async function onIdFace(e){
       }catch(e){}
     }
     function openRemove(id){
-      // Anonymous visitors cannot delete. Non-owners cannot open delete UI (admin uses moderation path).
+      // Anonymous visitors cannot delete. Owners use free/paid rules; others may request paid delete (admin verifies PayPal/Throne).
       try{
         if(typeof isAnonymousAccount==='function' && isAnonymousAccount()){
           toast('Register to manage your own posts — anonymous accounts cannot delete');
@@ -27406,10 +27587,12 @@ async function onIdFace(e){
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(window.__removePostId):null}catch(e){}
       try{
-        var owns=typeof canDeletePostAsOwner==='function'?canDeletePostAsOwner(post):false;
-        var admin=typeof canModerateDeletePost==='function'?canModerateDeletePost():false;
-        if(!owns && !admin){
-          toast('You can only delete your own posts');
+        var ownsGate=typeof canDeletePostAsOwner==='function'?canDeletePostAsOwner(post):false;
+        var adminGate=typeof canModerateDeletePost==='function'?canModerateDeletePost():false;
+        var hasIdentity=!!(currentUser&&currentUser.name);
+        if(!ownsGate && !adminGate && !hasIdentity){
+          toast('Login required to delete');
+          try{showAuth('login')}catch(e){}
           return;
         }
       }catch(e){}
@@ -27444,18 +27627,12 @@ async function onIdFace(e){
           }
         }
       }catch(e){}
+      var delCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.delete)||50;
       // Free deletion chosen at publish time → author deletes with no payment UI.
       if(owner && freeDel && !needsFc){
         if(title) title.textContent='Delete post';
         if(pEl) pEl.innerHTML='Free deletion is enabled for this post. Remove it now? No payment required.';
         if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
-        if(paid) paid.style.display='none';
-        setRemoveModalExternalPay(false);
-      }else if(owner && (tier==='locked'||tier==='permanent')){
-        // Locked / Permanent: owner FC confirm only (no external "I paid" shortcut for tier deletes)
-        if(title) title.textContent='Delete · 50 FC';
-        if(pEl) pEl.innerHTML='Deleting this post costs <strong style="color:#f5c518">50 FC</strong>. Continue?';
-        if(fc){fc.style.display='block';fc.textContent='Confirm · 50 FC';fc.setAttribute('onclick','removeWithCoins()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
       }else if(owner && (timeless || wall) && !needsFc){
@@ -27464,16 +27641,16 @@ async function onIdFace(e){
         if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
-      }else if(owner && needsFc){
-        if(title) title.textContent='Delete · 50 FC';
-        if(pEl) pEl.innerHTML='Deleting this post costs <strong style="color:#f5c518">50 FC</strong>. Continue?';
-        if(fc){fc.style.display='block';fc.textContent='Confirm · 50 FC';fc.setAttribute('onclick','removeWithCoins()');}
-        if(paid) paid.style.display='none';
-        setRemoveModalExternalPay(false);
+      }else if(owner && (tier==='locked'||tier==='permanent'||needsFc)){
+        // Owner paid delete: FC auto-delete + PayPal/Throne + admin verify (never auto-delete on link tap).
+        if(title) title.textContent='Delete · '+delCost+' FC or $5';
+        if(pEl) pEl.innerHTML='Pay with <strong style="color:#f5c518">'+delCost+' FC</strong> (deletes immediately), or PayPal / Throne <strong style="color:#f5c518">$5</strong> then tap <strong>I paid</strong> for admin verification.';
+        if(fc){fc.style.display='block';fc.textContent='Delete now — '+delCost+' FC';fc.setAttribute('onclick','removeWithCoins()');}
+        if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verify'}
+        setRemoveModalExternalPay(true);
+        try{showRemoveRequestStatus(id)}catch(e){}
       }else if(!owner){
         // FC = automatic immediate delete (no admin). PayPal / Throne / I paid = admin verify.
-        // Rights / non-consensual reports go through the post-detail contact notice only.
-        var delCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.delete)||50;
         if(title) title.textContent='Delete · '+delCost+' FC or $5';
         if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. <strong style="color:#f5c518">'+delCost+' FC</strong> deletes it immediately. PayPal / Throne <strong style="color:#f5c518">$5</strong> needs admin verification after you tap <strong>I paid</strong>.';
         if(fc){
@@ -27843,27 +28020,43 @@ async function onIdFace(e){
       if(!id){toast('Open the post first');return false}
       var lockKey=String(id)+':'+(opts.kind||'paid');
       if(__removeRequestLocks[lockKey]){toast('Your delete request is already being sent. Please wait.');return false}
+      var kind=String(opts.kind||'paid');
+      var userName=(currentUser&&currentUser.name)||'anon';
+      userName=String(userName||'anon').replace(/^@/,'')||'anon';
+      // Block duplicate pending requests for the same post + requester (prevents double charges / spam).
+      try{
+        var existing=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+        var dup=existing.find(function(x){
+          return String(x.id)===String(id)
+            && String(x.kind||'paid')===kind
+            && String(x.user||x.requester||'').toLowerCase()===String(userName).toLowerCase()
+            && String(x.status||'pending').toLowerCase()==='pending'
+            && !x.paidWithFc;
+        });
+        if(dup){
+          toast('You already have a pending delete request for this post. Wait for admin review.');
+          try{showRemoveRequestStatus(id)}catch(e){}
+          return false;
+        }
+      }catch(e){}
       __removeRequestLocks[lockKey]=true;
       var post=null;
       try{post=(posts||[]).find(function(p){return p.id===id||String(p.id)===String(id)})}catch(e){}
       try{if(!post && typeof findPostAnywhere==='function') post=findPostAnywhere(id)}catch(e){}
       var ownerName=String((post&&(post.user||post.username))||'').replace(/^@/,'');
-      var userName=(currentUser&&currentUser.name)||'anon';
-      userName=String(userName||'anon').replace(/^@/,'')||'anon';
       var title=(post&&post.title)||'';
-      var kind=String(opts.kind||'paid');
       var isRights=kind==='rights';
       var amount=isRights?'$0 · rights':'$5';
       var label=isRights?'DELETE RIGHTS':'DELETE';
       try{
         var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
-        req=req.filter(function(x){return !(String(x.id)===String(id) && String(x.kind||'paid')===kind)});
-        req.unshift({id:id,title:title,user:userName,publisher:ownerName,at:Date.now(),kind:kind,amount:amount,status:'pending',paidWithFc:false,coins:0});
+        req=req.filter(function(x){return !(String(x.id)===String(id) && String(x.kind||'paid')===kind && String(x.user||x.requester||'').toLowerCase()===String(userName).toLowerCase())});
+        req.unshift({id:id,title:title,user:userName,publisher:ownerName,at:Date.now(),kind:kind,amount:amount,status:'pending',paidWithFc:false,coins:0,provider:'PayPal/Throne'});
         localStorage.setItem('rs_remove_req',JSON.stringify(req.slice(0,60)));
       }catch(e){}
       var removeMsg=isRights
         ?('🛡 RIGHTS / NON-CONSENSUAL REMOVE REQUEST · requester @'+userName+' · publisher @'+(ownerName||'?')+' · post #'+id+' · FREE REVIEW · no payment'+(title?' · '+String(title).slice(0,40):''))
-        :('🚨 DELETE PAYMENT REQUEST · requester @'+userName+' · publisher @'+(ownerName||'?')+' · post #'+id+' · $5 · user pressed I PAID'+(title?' · '+String(title).slice(0,40):''));
+        :('🚨 DELETE PAYMENT REQUEST · requester @'+userName+' · publisher @'+(ownerName||'?')+' · post #'+id+' · $5 · method PayPal/Throne · user pressed I PAID'+(title?' · '+String(title).slice(0,40):''));
       var removeSent=false;
       var lastErr='';
       try{closePinRequestProgress()}catch(e){}
@@ -29648,6 +29841,7 @@ async function onIdFace(e){
             amount:x.amount||'',
             coins:Number(x.coins||0)||0,
             paidWithFc:!!x.paidWithFc || /FC/i.test(String(x.amount||'')),
+            provider:x.provider||(/FC/i.test(String(x.amount||''))?'FC':'PayPal/Throne'),
             requestId:x.requestId||'',
             status:x.status||'pending',
             source:'local'
@@ -29672,6 +29866,7 @@ async function onIdFace(e){
             amount:row.amount||payload.payment||(paidFc?(coins||50)+' FC':'$5'),
             coins:coins||(paidFc?50:0),
             paidWithFc:paidFc,
+            provider:row.provider||payload.provider||(paidFc?'FC':'PayPal/Throne'),
             requestId:row.id||'',
             thumb:payload.thumb_url||'',
             postCreatedAt:payload.post_created_at||'',
@@ -29778,6 +29973,7 @@ async function onIdFace(e){
         var publisher=r.publisher||meta.user||'';
         try{var pm=msg.match(/publisher\s*@([A-Za-z0-9._-]+)/i); if(pm) publisher=pm[1]}catch(e){}
         var paidFc=!!r.paidWithFc || Number(r.coins||0)>=50 || /FC/i.test(String(r.amount||''));
+        var method=r.provider||(paidFc?'FC':(isRights?'none':'PayPal/Throne'));
         var payLabel=isRights?'NO PAYMENT · rights':(paidFc?('PAID · '+(r.amount||((r.coins||50)+' FC'))):('PAYMENT CLAIMED · '+(r.amount||'$5')));
         var statusLabel=isRights?'RIGHTS REVIEW · PENDING':'DELETE REQUEST · PENDING';
         var whenLabel=r.at?ago(r.at):'';
@@ -29786,9 +29982,9 @@ async function onIdFace(e){
         return '<div class="admin-card"><div class="admin-card-row">'
           +'<input class="admin-check admin-req-check" type="checkbox" data-item="'+item+'"/>'
           +adminThumbHtml(src,r.id)
-          +'<div style="flex:1;min-width:0"><div style="font-weight:900">Post #'+esc(String(r.id))+' · @'+esc(publisher||meta.user||'?')+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:900">Post #'+esc(String(r.id))+' · owner @'+esc(publisher||meta.user||'?')+'</div>'
           +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(requester||'?')+' · '+esc((meta.title||r.title||'').slice(0,50))+(whenLabel?' · '+whenLabel:'')+'</div>'
-          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Status: PENDING'+(reqAt?' · Requested '+esc(reqAt):'')+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Method: '+esc(String(method))+' · Status: PENDING'+(reqAt?' · Requested '+esc(reqAt):'')+'</div>'
           +'<span class="admin-status pending">'+esc(statusLabel)+'</span></div></div>'
           +'<div class="admin-actions">'
           +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">APPROVE &amp; DELETE</button>'
@@ -30785,7 +30981,7 @@ async function onIdFace(e){
 
   <div id="modal-tg">
     <div class="tg-card">
-      
+      <button type="button" id="tg-close-x" aria-label="Close" style="position:absolute;top:10px;right:12px;background:none;border:0;color:#9a9aa3;font-size:22px;line-height:1;cursor:pointer;padding:4px 8px">×</button>
       <div class="tg-icon">✈️</div>
       <div style="font-size:11px;letter-spacing:1px;color:#2AABEE;font-weight:700;margin-bottom:6px">TELEGRAM</div>
       <h3>Join the channel</h3>

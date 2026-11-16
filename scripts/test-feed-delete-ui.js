@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Feed/wall cards must not expose Delete; Comment stays; detail keeps Delete + $5 flow.
- * Rights free-review button must be gone; contact notice stays in post detail.
+ * Feed/wall cards restore Delete for authorized users; Comment stays;
+ * detail keeps Delete + $5 / 50 FC flow (PayPal · Throne · FC · admin verify).
  */
 'use strict';
 var fs = require('fs');
@@ -16,9 +16,9 @@ function assert(cond, msg) {
   console.log('PASS · ' + msg);
 }
 
-assert(html.indexOf('data-nf-act="delete"') < 0, 'no feed/wall delete action attribute');
-assert(!/color:#f87171[^>]*>Delete/.test(html.replace(/\s+/g, ' ')), 'no red Delete button markup on cards');
-assert(html.indexOf("onclick=\"event.stopPropagation();openRemove(' + jsId(p.id) + ')\">Delete</button>") < 0, 'postCardActionButtons has no Delete');
+assert(html.indexOf('data-nf-act="delete"') >= 0, 'feed/wall delete action attribute restored');
+assert(/function postCardActionButtons[\s\S]*?data-nf-act="delete"/.test(html), 'postCardActionButtons includes Delete');
+assert(/function normalFeedPostHtml[\s\S]*?data-nf-act="delete"/.test(html), 'Wall normalFeedPostHtml includes Delete');
 assert(/function postCardActionButtons[\s\S]*?feed-cmt-span/.test(html), 'Comment centering helper in postCardActionButtons');
 assert(/nf-feed-comment/.test(html), 'normal feed Comment marked for balanced layout');
 assert(/id="btn-remove-led-label"/.test(html), 'detail Delete button id present');
@@ -29,5 +29,7 @@ assert(html.indexOf('onclick="confirmRemoveRights()"') < 0, 'no rights onclick i
 assert(html.indexOf('Problems with this post? Contact us:') >= 0, 'contact notice copy');
 assert(html.indexOf('mailto:0788adm@gmail.com') >= 0, 'contact email');
 assert(html.indexOf('Telegram: @mastersan01') >= 0, 'contact Telegram');
+assert(html.indexOf('allowPaidDelete') >= 0 || html.indexOf('Delete · $5 / 50 FC') >= 0, 'third-party paid delete path in detail');
+assert(html.indexOf('You already have a pending delete request') >= 0, 'duplicate remove request blocked');
 
 console.log('\nFeed delete UI checks passed');
