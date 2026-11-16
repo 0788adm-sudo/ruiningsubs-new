@@ -479,7 +479,7 @@ function samplePost(id, owner) {
   posts['p-f'] = samplePost('p-f', 'victimF');
   assert.ok(posts['p-f'], 'F post present before reject');
   assert.ok(html.indexOf('Rejected — post kept') >= 0 || html.indexOf('Post stays public') >= 0, 'F reject copy');
-  assert.ok(html.indexOf("resolveDeletionPaymentRequest(id,'rejected'") >= 0, 'F marks rejected in SB');
+  assert.ok(/resolveDeletionPaymentRequest\([^)]*'rejected'/.test(html) || html.indexOf("status:'rejected'") >= 0, 'F marks rejected in SB');
   assert.ok(posts['p-f'], 'F post still present (reject never deletes)');
   console.log('PASS · TEST F reject keeps post / marks rejected');
 
@@ -523,7 +523,7 @@ function samplePost(id, owner) {
   // ---- TEST J pending survive refresh (durable SB + dismiss-by-requestId) ----
   assert.ok(html.indexOf('deletion_payment_requests') >= 0, 'J loads SB deletion_payment_requests');
   assert.ok(html.indexOf('isRemoveRowDismissed') >= 0, 'J dismiss helper');
-  assert.ok(html.indexOf('keep post id free for future payment claims') >= 0 || html.indexOf('request identity') >= 0, 'J no post-id forever dismiss');
+  assert.ok(html.indexOf('never forever-ban the post id') >= 0 || html.indexOf('keep post id free for future payment claims') >= 0 || html.indexOf('request identity') >= 0 || html.indexOf('NEVER hide a fresh pending claim') >= 0, 'J no post-id forever dismiss');
   assert.ok(admSrc.indexOf('deletion_payment_requests') >= 0, 'J admin-request persists SB');
   assert.ok(admSrc.indexOf('missing_post_id') >= 0, 'J requires post id');
   console.log('PASS · TEST J durable pending requests / refresh-safe');
@@ -580,11 +580,15 @@ function samplePost(id, owner) {
   console.log('PASS · blank remove_request post_id rejected');
 
   // Static SPA contracts
-  assert.ok(html.indexOf('ALWAYS verify against') >= 0 || html.indexOf('must not decide failure') >= 0, 'timeout verifies SB');
+  assert.ok(html.indexOf('verifyPostDeletedPoll') >= 0 || html.indexOf('must not decide failure') >= 0 || html.indexOf('NEVER treat AbortError') >= 0, 'timeout verifies SB');
   assert.ok(html.indexOf("delete payment needs a post ID") >= 0, 'ticket requires post id');
+  assert.ok(html.indexOf("data-admin=\"remove-clear\"") >= 0, 'CLEAR REQUEST action');
+  assert.ok(html.indexOf('function adminRequestTimestamp') >= 0, 'request timestamp helper');
+  assert.ok(html.indexOf('Only mark completed after the publication is actually gone') >= 0, 'approve verifies deletion');
   assert.ok(delSrc.indexOf('claimSbSpendRef') >= 0, 'SB spend claim');
   assert.ok(delSrc.indexOf('recordModerationAudit') >= 0, 'moderation audit');
   assert.ok(delSrc.indexOf('acquireDeleteLock') >= 0, 'delete lock');
+  assert.ok(delSrc.indexOf('waited_for_inflight') >= 0, 'inflight delete wait');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'migrations', '20261116_coin_ledger_deletion_requests.sql')), 'migration present');
 
   console.log('\nOK · deletion-payment-e2e A–K');

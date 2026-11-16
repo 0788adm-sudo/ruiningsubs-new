@@ -975,6 +975,32 @@ module.exports = async function handler(req, res) {
     idempotencyKey || `delete-post:${canonicalId}:${userKey}:${DELETE_COST_FC}`;
   const lockKey = userKey + '|' + canonicalId + '|' + String(reason || 'owner');
   if (!acquireDeleteLock(lockKey)) {
+    // Client timed out and retried while the first delete still runs.
+    // Poll DB briefly — if the post is already gone, return SUCCESS (never a false failure).
+    for (let i = 0; i < 10; i++) {
+      await new Promise(function (r) {
+        setTimeout(r, 400);
+      });
+      let still = null;
+      try {
+        still = await loadPostRow(canonicalId);
+      } catch (_) {
+        still = null;
+      }
+      if (!still) {
+        return json(res, 200, {
+          ok: true,
+          postId: canonicalId,
+          already_deleted: true,
+          charged: 0,
+          reused: true,
+          balance: null,
+          free: false,
+          reason: 'already_deleted',
+          waited_for_inflight: true
+        });
+      }
+    }
     return json(res, 409, {
       error: 'delete_in_progress',
       detail: 'A delete for this post is already running. Wait a moment and refresh.',
