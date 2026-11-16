@@ -24,7 +24,7 @@ assert(html.includes('unloadFarVideo'), 'far slides unload buffer only');
 assert(html.includes('never re-order by live playable health') || html.includes('Stable ranking'), 'stable ranking (no health reshuffle)');
 assert(html.includes('GT_TARGET=80') || html.includes('GT_TARGET = 80'), 'GoonTok target >2');
 assert(html.includes('GT_PAGE=24') || html.includes('GT_PAGE = 24'), 'GoonTok page size >2');
-assert(html.includes('GT_LOAD_TIMEOUT_MS=12000') || /GT_LOAD_TIMEOUT_MS\s*=\s*12000/.test(html), 'generous playable load timeout');
+assert(/GT_LOAD_TIMEOUT_MS\s*=\s*(9000|12000)/.test(html), 'bounded playable load timeout (no endless Loading)');
 assert(html.includes('__gtSoundUnlocked'), 'sound preference survives swipes');
 assert(html.includes("v.preload='auto'") || html.includes('preload="auto"') || html.includes("preload='auto'"), 'next-slide preload=auto');
 assert(!/media_url\.ilike\.%\.mp4%/.test(html), 'SB video scan must not query missing media_url column');

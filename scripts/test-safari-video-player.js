@@ -14,16 +14,26 @@ function assert(c, m) {
 
 // 1) lazyVideoHtml must not leave Safari with preload=none + empty src (black card)
 assert(html.includes('function lazyVideoHtml'), 'lazyVideoHtml exists');
-assert(!/function lazyVideoHtml\([\s\S]*?preload="none"[\s\S]*?data-src=/.test(html), 'lazyVideoHtml no longer uses preload=none without src');
-assert(html.includes('#t=0.1'), 'Safari media-fragment preview #t=0.1 present');
+// Cards start with preload=none and no src (avoid moov-at-end bandwidth stampede).
+// Warm/activate attach the R2 src for the visible/tapped clip only.
+assert(/function lazyVideoHtml[\s\S]{0,1200}preload="none"/.test(html), 'lazyVideoHtml defers src with preload=none');
+assert(/function lazyVideoHtml[\s\S]{0,1600}data-video-src=/.test(html), 'lazyVideoHtml keeps data-video-src for activate');
+assert(!/function lazyVideoHtml\([\s\S]{0,900}#t=0\.1/.test(html), 'lazyVideoHtml does not force #t=0.1');
 assert(html.includes('Preparing video…'), 'loading state while player prepares');
+assert(html.includes('lv-retry') && html.includes('function lvSetStatus'), 'Preparing has timeout + Retry path');
 assert(html.includes('class="lv-player"'), 'dedicated lv-player class');
 assert(html.includes('webkit-playsinline'), 'webkit-playsinline for iOS');
+assert(html.includes('function fetchableMediaUrl'), 'CORS fetch URL helper for Worker');
 
 // 2) activateLazyVideo plays the original (no fragment) with playsInline
-assert(html.indexOf('function activateLazyVideo') >= 0 && html.indexOf("src.split('#')[0]") >= 0, 'activate strips # fragment');
-assert(/function activateLazyVideo[\s\S]{0,2500}playsInline\s*=\s*true/.test(html), 'activateLazyVideo sets playsInline');
-assert(/function activateLazyVideo[\s\S]{0,2500}webkit-playsinline/.test(html), 'activateLazyVideo sets webkit-playsinline');
+assert(
+  html.indexOf('function activateLazyVideo') >= 0 &&
+    /function activateLazyVideo[\s\S]{0,2500}split\('#'\)\[0\]/.test(html),
+  'activate strips # fragment'
+);
+assert(/function activateLazyVideo[\s\S]{0,4500}playsInline\s*=\s*true/.test(html), 'activateLazyVideo sets playsInline');
+assert(/function activateLazyVideo[\s\S]{0,4500}webkit-playsinline/.test(html), 'activateLazyVideo sets webkit-playsinline');
+assert(html.includes('bindLazyVideoEvents'), 'shared media event binder');
 
 // 3) warmVideoThumb must arm preview (not a no-op)
 assert(!/function warmVideoThumb\(el\)\{\s*\/\/ Intentionally no-op/.test(html), 'warmVideoThumb is no longer a no-op');
@@ -47,6 +57,11 @@ assert(/function sanitizeVideoPostMedia[\s\S]{0,900}parseVthumbTag/.test(html), 
 
 // 7) Detail + Wall paths
 assert(html.includes('videoPosterOf(post, imgs[0]') || html.includes('videoPosterOf(post, imgs[0]||post.media_url'), 'openDetail uses videoPosterOf');
-assert(html.includes('warmVisibleLazyVideos(document.getElementById(\'normal-feed-posts\')'), 'Wall warms lazy videos');
+assert(
+  html.includes('warmVisibleLazyVideos(wallActiveBox())') ||
+    html.includes("warmVisibleLazyVideos(document.getElementById('normal-feed-posts')") ||
+    html.includes('warmVisibleLazyVideos(document.getElementById(\'explore-normal-posts\')'),
+  'Wall warms lazy videos'
+);
 
 console.log('\nSafari / iOS video player checks passed');
