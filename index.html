@@ -4871,6 +4871,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         // Game origin is shown via badge, not raw #tags
         if(/^game_badge_/i.test(t)||/^game_origin:/i.test(t)||/^game_task:/i.test(t))return false;
         if(/^challenge_id:/i.test(t)||/^play:/i.test(t))return false;
+        if(/^account:/i.test(t)||/^anon_id:/i.test(t))return false;
         return true;
       });
     }
@@ -4975,15 +4976,46 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return 'fallback_'+Math.abs(h).toString(16)+'_'+token.length.toString(16);
     }
     function canDeletePostAsOwner(post){
-      // Owner proof only — admin moderation is a separate path (never pretend admin is the publisher).
-      // Accidental admin session / leftover UI must not grant "free owner delete" on others' posts.
+      // Owner delete is registered-only. Anonymous visitors may publish but never delete.
+      // Admin moderation is a separate path (canModerateDeletePost).
       if(!post)return false;
+      try{if(typeof isAnonymousAccount==='function' && isAnonymousAccount()) return false}catch(e){}
+      try{if(typeof isRegistered==='function' && !isRegistered()) return false}catch(e){}
       try{
         if(typeof samePostOwner==='function' && samePostOwner(post, currentUser&&currentUser.name)) return true;
       }catch(e){}
-      try{if(hasLocalOwnerToken(post.id)) return true}catch(e){}
+      // Local owner tokens only count for registered accounts that also match ownership when known.
+      try{
+        if(hasLocalOwnerToken(post.id)){
+          if(typeof samePostOwner==='function' && currentUser&&currentUser.name){
+            if(samePostOwner(post, currentUser.name)) return true;
+            // Token without matching username — still allow only if post looks anonymous-linked-to-me via prior publish map.
+            try{
+              var linked=JSON.parse(localStorage.getItem('rs_my_post_ids')||'[]')||[];
+              if(linked.indexOf(String(post.id))>=0) return true;
+            }catch(e2){}
+            return false;
+          }
+          return true;
+        }
+      }catch(e){}
       return false;
     }
+    function viewerHasOwnPosts(){
+      try{
+        if(typeof isRegistered!=='function' || !isRegistered() || !currentUser || !currentUser.name) return false;
+        var mine=(posts||[]).concat(normalFeedPosts||[]).some(function(p){
+          return p && samePostOwner(p, currentUser.name);
+        });
+        if(mine) return true;
+        try{
+          var ids=JSON.parse(localStorage.getItem('rs_my_post_ids')||'[]')||[];
+          if(ids.length) return true;
+        }catch(e){}
+        return false;
+      }catch(e){return false}
+    }
+    window.viewerHasOwnPosts=viewerHasOwnPosts;
     function canModerateDeletePost(){
       try{return typeof isSiteAdmin==='function'&&isSiteAdmin()}catch(e){return false}
     }
@@ -5829,13 +5861,85 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){ window.__detailLiveCheckBusy=false; }
     }, 20000);
     }
+    function isAnonymousAccountName(name){
+      name=String(name||'').replace(/^@/,'').trim().toLowerCase();
+      return !name || name==='guest' || name==='anon' || name.indexOf('anon_')===0 || name.indexOf('anon:')===0 || /^anon\d*$/i.test(name);
+    }
+    function isAnonymousAccount(){
+      try{if(typeof isRegistered==='function' && isRegistered()) return false}catch(e){}
+      try{
+        if(currentUser && currentUser.role==='user' && currentUser.name && !isAnonymousAccountName(currentUser.name)) return false;
+      }catch(e){}
+      return true;
+    }
+    window.isAnonymousAccount=isAnonymousAccount;
+    window.isAnonymousAccountName=isAnonymousAccountName;
+    async function ensureAnonIdentity(force){
+      try{
+        if(!force && typeof isRegistered==='function' && isRegistered()) return null;
+      }catch(e){}
+      var existing='';
+      try{existing=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48)}catch(e){}
+      var j=null;
+      try{
+        var r=await fetch('/api/game-play',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          credentials:'include',
+          body:JSON.stringify({action:'anon_identity',anon_id:existing||undefined}),
+          cache:'no-store'
+        });
+        j=await r.json().catch(function(){return null});
+      }catch(e){j=null}
+      var id=(j&&j.anonymous_user_id)?String(j.anonymous_user_id).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48):existing;
+      if(!id || id.length<8){
+        id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
+      }
+      try{
+        localStorage.setItem('rs_anon_id', id);
+        localStorage.setItem('rs_anon_session', id);
+      }catch(e){}
+      var uname=(j&&j.username)?String(j.username):('anon_'+id);
+      // Only adopt anon username when not a registered session.
+      try{
+        if(!(typeof isRegistered==='function' && isRegistered())){
+          var role=localStorage.getItem('rs_role')||'guest';
+          if(role!=='user'){
+            currentUser={name:uname,role:'guest',email:localStorage.getItem('rs_email')||'',account_type:'anonymous',anonymous_user_id:id};
+            localStorage.setItem('rs_uid', uname);
+            localStorage.setItem('rs_role', 'guest');
+          }
+        }
+      }catch(e){}
+      return {anonymous_user_id:id, username:uname, account_type:'anonymous'};
+    }
+    window.ensureAnonIdentity=ensureAnonIdentity;
     function initUser(){
       var uid=localStorage.getItem('rs_uid');
       var role=localStorage.getItem('rs_role')||'guest';
       var email=localStorage.getItem('rs_email')||'';
-      if(!uid){uid='Anon_'+Math.floor(1000+Math.random()*9000);localStorage.setItem('rs_uid',uid);role='guest'}
-      currentUser={name:uid,role:role,email:email};
+      var anonId='';
+      try{anonId=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48)}catch(e){}
+      if(!uid || uid==='guest' || uid==='anon'){
+        // Stable anonymous identity — never mint a new Anon_#### on every load when we already have rs_anon_id.
+        if(anonId && anonId.length>=8) uid='anon_'+anonId;
+        else {
+          anonId='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
+          try{localStorage.setItem('rs_anon_id',anonId);localStorage.setItem('rs_anon_session',anonId)}catch(e){}
+          uid='anon_'+anonId;
+        }
+        role='guest';
+        localStorage.setItem('rs_uid',uid);
+        localStorage.setItem('rs_role','guest');
+      }
+      // Migrate legacy Anon_1234 → stable anon_<session> once.
+      if(role!=='user' && /^Anon_\d+$/i.test(String(uid||'')) && anonId && anonId.length>=8){
+        uid='anon_'+anonId;
+        localStorage.setItem('rs_uid',uid);
+      }
+      currentUser={name:uid,role:role,email:email,account_type:(role==='user'&&!isAnonymousAccountName(uid))?'registered':'anonymous',anonymous_user_id:anonId||null};
       refreshProfileUI();
+      try{ensureAnonIdentity(false).then(function(){try{refreshProfileUI()}catch(e){}}).catch(function(){})}catch(e){}
       if(sb){
         try{
           sb.auth.onAuthStateChange(function(event, session){
@@ -5866,7 +5970,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }).catch(function(){});
       }
     }
-    function isRegistered(){return currentUser&&currentUser.role==='user'&&currentUser.name.indexOf('Anon_')!==0}
+    function isRegistered(){
+      return !!(currentUser&&currentUser.role==='user'&&currentUser.name&&!isAnonymousAccountName(currentUser.name));
+    }
     
     async function loadFollowCounts(username, elId){
       var el=document.getElementById(elId);if(!el||!sb)return;
@@ -8281,7 +8387,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function openGameTaskPublish(taskOrId){
       var task=typeof taskOrId==='object'&&taskOrId?taskOrId:findGameTask(taskOrId);
       if(!task){toast('Task not found');return false}
-      if(!isRegistered()){toast('Login to publish proof');try{showAuth('login')}catch(e){}return false}
+      // Anonymous visitors may publish proofs — ensure a stable identity first.
+      try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
+      if(!currentUser||!currentUser.name){toast('Identity not ready — reload and try again');return false}
       acceptGameTask(task.id);
       var badgeKey=task.badge&&RS_GAME_BADGES[task.badge]?task.badge:(RS_GAME_BADGES[task.gameId]?task.gameId:'challenges');
       var badge=RS_GAME_BADGES[badgeKey]||RS_GAME_BADGES.challenges;
@@ -8356,19 +8464,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     },true);
     function getAnonSessionId(){
       try{
-        var id=String(localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48);
+        var id=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48);
         if(id.length>=8) return id;
         id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
         localStorage.setItem('rs_anon_session', id);
+        localStorage.setItem('rs_anon_id', id);
         return id;
       }catch(e){
         return 'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
       }
     }
     function isAnonPlayer(){
-      try{if(typeof isRegistered==='function' && isRegistered()) return false}catch(e){}
-      try{if(currentUser&&currentUser.name) return false}catch(e){}
-      return true;
+      try{return typeof isAnonymousAccount==='function'?isAnonymousAccount():true}catch(e){return true}
     }
     window.getAnonSessionId=getAnonSessionId;
     window.isAnonPlayer=isAnonPlayer;
@@ -10223,34 +10330,32 @@ async function claimPayPalPack(p){
         updateDiceUI();
         try{loadFagBalance()}catch(e){}
         try{if(isRegistered()) awardGameXp('game_play','dice_'+playId)}catch(e){}
-        // Register active challenge + centralized task so Post proof can complete it.
+        // Register active challenge + centralized task so Post proof can complete it (anon + registered).
         try{
-          if(isRegistered()){
-            var spawnId=spawnDefeatChallenge({
-              id:playId,
-              gameId:'dice',
-              user:(currentUser&&currentUser.name)||coinUserId(),
-              result:'loss',
-              at:Date.now(),
-              opt:{title:'Exposure Dice',desc:'WEAR: '+wearTxt+' · POSE: '+poseTxt+' · PROOF: '+proofTxt}
-            });
-            window.__pendingDiceChallengeId=spawnId||null;
-            var whereTxt=(window.lastDiceRoll&&window.lastDiceRoll.where)||'';
-            assignGameTask({
-              gameId:'dice',
-              sessionId:playId,
-              challengeId:spawnId||null,
-              title:'Dice '+[w,p,t].join('-')+' · exposed',
-              desc:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt+(whereTxt?('\nWHERE: '+whereTxt):''),
-              instructions:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt+(whereTxt?('\nWHERE: '+whereTxt):''),
-              wear:wearTxt,
-              pose:poseTxt,
-              proof:proofTxt,
-              where:whereTxt,
-              badge:'dice',
-              requireMedia:true
-            });
-          }
+          var spawnId=spawnDefeatChallenge({
+            id:playId,
+            gameId:'dice',
+            user:(currentUser&&currentUser.name)||coinUserId(),
+            result:'loss',
+            at:Date.now(),
+            opt:{title:'Exposure Dice',desc:'WEAR: '+wearTxt+' · POSE: '+poseTxt+' · PROOF: '+proofTxt}
+          });
+          window.__pendingDiceChallengeId=spawnId||null;
+          var whereTxt=(window.lastDiceRoll&&window.lastDiceRoll.where)||'';
+          assignGameTask({
+            gameId:'dice',
+            sessionId:playId,
+            challengeId:spawnId||null,
+            title:'Dice '+[w,p,t].join('-')+' · exposed',
+            desc:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt+(whereTxt?('\nWHERE: '+whereTxt):''),
+            instructions:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt+(whereTxt?('\nWHERE: '+whereTxt):''),
+            wear:wearTxt,
+            pose:poseTxt,
+            proof:proofTxt,
+            where:whereTxt,
+            badge:'dice',
+            requireMedia:true
+          });
         }catch(e){}
       }, waitMore);
     }
@@ -10261,7 +10366,7 @@ async function claimPayPalPack(p){
         try{r=JSON.parse(localStorage.getItem('rs_dice_last')||'null')}catch(e){r=null}
       }
       if(!r){toast('Roll first');return}
-      if(!isRegistered()){toast('Login to publish proof');try{showAuth('login')}catch(e){}return}
+      try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
       var title='Dice '+((r.n||[]).join('-')||'roll')+' · exposed';
       var body='WEAR: '+r.wear+'\nPOSE: '+r.pose+'\nPROOF: '+(r.proof||r.task)+(r.where?('\nWHERE: '+r.where):'');
       var task=assignGameTask({
@@ -11090,7 +11195,7 @@ function openRoulette(){
         if(!t || t==='—'){ toast('Spin and accept a challenge first'); return; }
         opt = {title:t, desc:d};
       }
-      if(!isRegistered()){toast('Login to publish proof');try{showAuth('login')}catch(e){}return}
+      try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
       // Must accept the obtained challenge before publishing.
       try{
         var acc=window.__rouletteAccepted||JSON.parse(localStorage.getItem('rs_roulette_accepted')||'null');
@@ -18528,12 +18633,14 @@ function openRoulette(){
     }
     window.applyPendingComposerPrefill=applyPendingComposerPrefill;
     function openNormalPostComposer(){
-      if(!isRegistered()){toast('Register to create a normal post');try{showAuth('login')}catch(e){}return}
+      try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
       try{restorePendingGameComposer()}catch(e){}
       if(window.__pendingComposerPrefill || window.__pendingGamePublish || window.__activeGameTaskId){
         forceWallProofComposer();
         return;
       }
+      // Wall posts allowed for anonymous visitors (stable identity). Register remains optional.
+      if(!currentUser||!currentUser.name){toast('Identity not ready — reload');return}
       window.__fromNormalFeed=true;
       window.__wallComposer=true;
       // Permanent Wall composer — never the timed Extend exposure form.
@@ -20670,22 +20777,6 @@ function profileStatsHtml(userPosts, extra){
         html+='</div></div>';
       });
 
-      // Centralized pending game tasks (recoverable after leaving the game screen)
-      try{
-        var pend=pendingGameTasks();
-        if(pend.length){
-          html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#ffb35c;margin:14px 0 10px">PENDING GAME TASKS</div>';
-          pend.slice(0,8).forEach(function(task){
-            var badge=RS_GAME_BADGES[task.badge]||RS_GAME_BADGES[task.gameId]||RS_GAME_BADGES.challenges;
-            html+='<div class="rs-game-card" style="border-color:rgba(245,197,24,.4)">';
-            html+='<div class="rs-game-cat">'+(badge?badge.label:'TASK')+' · '+esc(String(task.status||'assigned').toUpperCase())+'</div>';
-            html+='<div class="rs-game-name">'+esc(task.title||'Game task')+'</div>';
-            html+='<div class="rs-game-desc">'+esc(String(task.desc||task.instructions||'').slice(0,160))+'</div>';
-            html+='<div class="rs-game-foot"><span class="rs-game-xp">Linked to match</span>';
-            html+='<button type="button" class="btn rs-game-btn" data-open-task="'+esc(task.id)+'">'+(task.status==='accepted'?'PUBLISH PROOF':'ACCEPT &amp; FULFILL')+'</button></div></div>';
-          });
-        }
-      }catch(e){}
       // Spawned defeat / game challenges (only real challenge ids — skip composite keys)
       try{
         var spawned=st.spawned||{};
@@ -20710,6 +20801,23 @@ function profileStatsHtml(userPosts, extra){
         });
       }catch(e){}
       } // end registered-only challenges block
+
+      // Pending game tasks for ALL visitors (anonymous + registered) — recoverable after leaving a game.
+      try{
+        var pend=pendingGameTasks();
+        if(pend.length){
+          html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#ffb35c;margin:14px 0 10px">PENDING GAME TASKS</div>';
+          pend.slice(0,8).forEach(function(task){
+            var badge=RS_GAME_BADGES[task.badge]||RS_GAME_BADGES[task.gameId]||RS_GAME_BADGES.challenges;
+            html+='<div class="rs-game-card" style="border-color:rgba(245,197,24,.4)">';
+            html+='<div class="rs-game-cat">'+(badge?badge.label:'TASK')+' · '+esc(String(task.status||'assigned').toUpperCase())+'</div>';
+            html+='<div class="rs-game-name">'+esc(task.title||'Game task')+'</div>';
+            html+='<div class="rs-game-desc">'+esc(String(task.desc||task.instructions||'').slice(0,160))+'</div>';
+            html+='<div class="rs-game-foot"><span class="rs-game-xp">Linked to match</span>';
+            html+='<button type="button" class="btn rs-game-btn" data-open-task="'+esc(task.id)+'">'+(task.status==='accepted'?'PUBLISH PROOF':'ACCEPT &amp; FULFILL')+'</button></div></div>';
+          });
+        }
+      }catch(e){}
 
       box.innerHTML=html;
       var claimBtn=document.getElementById('btn-daily-claim');
@@ -20744,7 +20852,8 @@ function profileStatsHtml(userPosts, extra){
     }
 
     async function openChallenge(id){
-      if(!isRegistered()){toast('Login first');showAuth('login');return}
+      try{if(typeof ensureAnonIdentity==='function') await ensureAnonIdentity(false)}catch(e){}
+      if(!currentUser||!currentUser.name){toast('Identity not ready — reload');return}
       // Ensure Challenges panel is visible — otherwise games-play stays hidden inside another panel.
       try{showPanel('challenges')}catch(e){}
       // Ensure sticky daily set exists first
@@ -20862,7 +20971,8 @@ function profileStatsHtml(userPosts, extra){
     }
     function openChallengeWallPublish(ch){
       if(!ch){toast('Challenge missing');return}
-      if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
+      try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
+      if(!currentUser||!currentUser.name){toast('Identity not ready — reload and try again');return}
       var st=challengeUserState();
       var day=rsDayKey();
       st.accepted[day]=st.accepted[day]||{};
@@ -20889,7 +20999,9 @@ function profileStatsHtml(userPosts, extra){
     window.openChallengeWallPublish=openChallengeWallPublish;
     function completeChallengeFromPublish(postId, meta){
       meta=meta||{};
-      if(!isRegistered()) return false;
+      // Allow anonymous + registered — only after a successful publish (caller passes postId).
+      if(!postId) return false;
+      if(!currentUser||!currentUser.name) return false;
       var chId=meta.challengeId||(window.__pendingChallengePublish&&window.__pendingChallengePublish.challengeId)||null;
       if(!chId){
         // Fall back to any pending spawned challenge for this game session.
@@ -23599,20 +23711,21 @@ function postCardHtml(p, compact){
       var tierNeedsFc=typeof deletionRequiresFc==='function'&&deletionRequiresFc(post);
       var freeDel=typeof postFreeDeletionEnabled==='function'&&postFreeDeletionEnabled(post);
       var tierBadgeDetail=typeof deletionTierBadgeHtml==='function'?deletionTierBadgeHtml(post):'';
-      if(isOwner && freeDel && !tierNeedsFc){
+      // Delete controls follow real permissions: anon never; registered only own; admin moderation; never on others' posts.
+      var allowOwnerDelete=!!(isOwner && typeof isRegistered==='function' && isRegistered() && (typeof viewerHasOwnPosts!=='function' || viewerHasOwnPosts() || isOwner));
+      var allowAdminDelete=typeof canModerateDeletePost==='function' && canModerateDeletePost();
+      if(allowOwnerDelete && freeDel && !tierNeedsFc){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
-      }else if(ownProfilePermanent && isOwner){
+      }else if(allowOwnerDelete && ownProfilePermanent){
         removeBtn='<button class="dx-wipe" type="button" onclick="deleteOwnProfilePost('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>your photo</i></button>';
-      }else if(isOwner && tierNeedsFc){
+      }else if(allowOwnerDelete && tierNeedsFc){
         removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete · 50 FC</b><i>confirm payment</i></button>';
-      }else if(isOwner && (timeless || (permanent && !timedLive) || wallOwned) && !tierNeedsFc){
+      }else if(allowOwnerDelete && (timeless || (permanent && !timedLive) || wallOwned) && !tierNeedsFc){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
-      }else if(isOwner){
+      }else if(allowOwnerDelete){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>your post</i></button>';
-      }else if(typeof canModerateDeletePost==='function' && canModerateDeletePost()){
+      }else if(allowAdminDelete){
         removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Admin delete</b><i>moderation</i></button>';
-      }else{
-        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>$5 request</i></button>';
       }
       var acts='<div class="dx-actions">'
         +extLed
@@ -25049,7 +25162,7 @@ async function onIdFace(e){
             }
           }
         }catch(e){}
-        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');if(gpub&&(gpub.game==='challenges'||gpub.badge==='challenges')&&base.indexOf('challenge_proof')<0)base.push('challenge_proof');if(gpub&&gpub.game_origin&&base.indexOf('game_origin:'+gpub.game_origin)<0)base.push('game_origin:'+gpub.game_origin);if(gpub&&gpub.taskId&&base.indexOf('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40))<0)base.push('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));}catch(eG){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
+        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var acct=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'account:anonymous':'account:registered';if(base.indexOf(acct)<0)base.push(acct);var aid='';try{aid=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'')}catch(eA){}if(aid&&base.indexOf('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40))<0)base.push('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40));}catch(eAc){}try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');if(gpub&&(gpub.game==='challenges'||gpub.badge==='challenges')&&base.indexOf('challenge_proof')<0)base.push('challenge_proof');if(gpub&&gpub.game_origin&&base.indexOf('game_origin:'+gpub.game_origin)<0)base.push('game_origin:'+gpub.game_origin);if(gpub&&gpub.taskId&&base.indexOf('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40))<0)base.push('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));}catch(eG){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
         var payload={
           username:currentUser.name,
           title:title,
@@ -25181,6 +25294,11 @@ async function onIdFace(e){
           try{
             localStorage.setItem('rs_last_pub',JSON.stringify({id:row.id,t:Date.now(),title:row.title,desc:row.description||'',tags:row.tags||[],user:row.username,expires:row.expires_at,image:row.image_url,extendAmount:row.extend_amount||payload.extend_amount||360}));
           }catch(e){}
+          try{
+            var mineIds=JSON.parse(localStorage.getItem('rs_my_post_ids')||'[]')||[];
+            mineIds.unshift(String(row.id));
+            localStorage.setItem('rs_my_post_ids', JSON.stringify(mineIds.slice(0,200)));
+          }catch(eM){}
         }
         var isRoulettePub=false;
         try{
@@ -26851,10 +26969,25 @@ async function onIdFace(e){
       }catch(e){}
     }
     function openRemove(id){
+      // Anonymous visitors cannot delete. Non-owners cannot open delete UI (admin uses moderation path).
+      try{
+        if(typeof isAnonymousAccount==='function' && isAnonymousAccount()){
+          toast('Register to manage your own posts — anonymous accounts cannot delete');
+          return;
+        }
+      }catch(e){}
       window.__removePostId=id||currentDetailId;
       window.__removeRequestKind='paid';
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(window.__removePostId):null}catch(e){}
+      try{
+        var owns=typeof canDeletePostAsOwner==='function'?canDeletePostAsOwner(post):false;
+        var admin=typeof canModerateDeletePost==='function'?canModerateDeletePost():false;
+        if(!owns && !admin){
+          toast('You can only delete your own posts');
+          return;
+        }
+      }catch(e){}
       var wall=isWallPost(post);
       var timeless=false;
       try{timeless=typeof isTimelessWallPost==='function'?isTimelessWallPost(post):false}catch(e){}
@@ -26950,8 +27083,18 @@ async function onIdFace(e){
       if(!user) user=moderation?'admin':'anon_token';
       var reason=String(opts.reason||'owner');
       var body={user:user,postId:id,reason:reason,idempotencyKey:'delete-post:'+id+':'+String(user).toLowerCase()+':50'};
+      try{
+        body.account_type=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'anonymous':'registered';
+        body.role=(currentUser&&currentUser.role)||'guest';
+      }catch(e){}
       if(ownerToken) body.ownerToken=ownerToken;
       if(opts.adminKey) body.adminKey=opts.adminKey;
+      try{
+        if(typeof isAnonymousAccount==='function' && isAnonymousAccount() && !moderation){
+          toast('Anonymous accounts cannot delete posts. Register to manage your own content.');
+          return false;
+        }
+      }catch(e){}
       var headers={'Content-Type':'application/json'};
       if(moderation){
         try{
@@ -27046,6 +27189,12 @@ async function onIdFace(e){
     window.deleteWallFree=async function(){
       var id=window.__removePostId||currentDetailId;
       if(!id){toast('Open the post first');return}
+      try{
+        if(typeof isAnonymousAccount==='function' && isAnonymousAccount() && !(typeof canModerateDeletePost==='function' && canModerateDeletePost())){
+          toast('Anonymous accounts cannot delete posts. Register to manage your own content.');
+          return;
+        }
+      }catch(e){}
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       var owner=typeof canDeletePostAsOwner==='function'
@@ -27996,18 +28145,42 @@ async function onIdFace(e){
           setAuthStatus(em,'err');toast(em);return;
         }
         setAuthStatus('Step 2/3 — Setting up profile…');
-        currentUser={name:username,role:'user',email:email};
+        var prevAnon='';
+        try{prevAnon=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'')}catch(e){}
+        var prevName='';
+        try{prevName=String((currentUser&&currentUser.name)||localStorage.getItem('rs_uid')||'')}catch(e){}
+        currentUser={name:username,role:'user',email:email,account_type:'registered',anonymous_user_id:prevAnon||null};
         localStorage.setItem('rs_uid',username);
         localStorage.setItem('rs_role','user');
         localStorage.setItem('rs_email',email);
         try{await sb.from('profiles').upsert({username:username,xp:0,updated_at:new Date().toISOString()})}catch(e){}
         setUserXp(0);
+        // Link anonymous history → registered account (coins, identity map, server record).
+        try{
+          if(prevAnon){
+            localStorage.setItem('rs_linked_anon', prevAnon);
+            fetch('/api/game-play',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              credentials:'include',
+              body:JSON.stringify({action:'link_anon',anon_id:prevAnon,registered_user:username})
+            }).catch(function(){});
+          }
+          if(prevName && prevName!==username && (isAnonymousAccountName(prevName) || String(prevName).indexOf('anon_')===0)){
+            try{await migrateCoinsOnRename(prevName, username)}catch(eM){}
+            try{
+              var alias=JSON.parse(localStorage.getItem('rs_wallet_alias')||'{}')||{};
+              alias[prevName]=username;
+              localStorage.setItem('rs_wallet_alias', JSON.stringify(alias));
+            }catch(eA){}
+          }
+        }catch(eL){}
         setAuthStatus('Step 3/3 — Almost done…');
         refreshProfileUI();
         updateProfilePanel();
         if(res.data&&res.data.session){
           setAuthStatus('Account ready @'+username+' ✓','ok');
-          toast('Account created @'+username);
+          toast('Account created @'+username+(prevAnon?' · anonymous history linked':''));
         }else{
           setAuthStatus('Account created. You can login now.','ok');
           toast('Account created. You can login now.');
