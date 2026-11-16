@@ -217,14 +217,20 @@ function bearerToken(req) {
 /** Verify Cloudflare Worker admin session — never trust client isAdmin flags alone. */
 async function verifyCfAdminToken(token) {
   if (!token) return false;
-  try {
-    const res = await cfFetch('/admin/requests?limit=1', {
-      headers: { Authorization: 'Bearer ' + token, Origin: SITE }
-    });
-    return !!(res.ok && res.json && res.json.ok !== false);
-  } catch (_) {
-    return false;
+  // Cold starts + CF latency used to return a single false negative → APPROVE & DELETE
+  // looked like "nothing happened" (admin_auth_required) even with a valid unlock.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await cfFetch(
+        '/admin/requests?limit=1',
+        { headers: { Authorization: 'Bearer ' + token, Origin: SITE } },
+        15000
+      );
+      if (res.ok && res.json && res.json.ok !== false) return true;
+      if (res.status === 401 || res.status === 403) return false;
+    } catch (_) {}
   }
+  return false;
 }
 
 async function readBody(req) {

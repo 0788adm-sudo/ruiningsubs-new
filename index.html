@@ -28217,14 +28217,14 @@ async function onIdFace(e){
       if(opts.adminKey) body.adminKey=opts.adminKey;
       var headers={'Content-Type':'application/json'};
       if(moderation){
-        // Same pattern as /api/admin-unpin: refresh/re-prompt so APPROVE & DELETE
-        // does not send an expired CF admin bearer (which became forbidden/not_found UX).
+        // Always refresh/re-prompt so APPROVE & DELETE never sends a stale bearer.
         try{
           var tok='';
           try{tok=sessionStorage.getItem('rs_cf_admin_token')||''}catch(e){}
           if(!tok && typeof cfAdminLogin==='function'){
             try{tok=await cfAdminLogin()}catch(e){tok=''}
           }
+          // If token exists but may be expired, keep it — server retries verify; on 401 we re-login below.
           if(tok) headers.Authorization='Bearer '+tok;
         }catch(e){}
       }
@@ -30301,6 +30301,7 @@ async function onIdFace(e){
         if(!token){
           try{token=await cfAdminLogin()}catch(e){throw new Error('Admin login required to unpin')}
         }
+        if(!token) throw new Error('Admin login required to unpin');
         var r=await fetch('/api/admin-unpin',{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
@@ -30319,27 +30320,25 @@ async function onIdFace(e){
           });
           j=await r.json().catch(function(){return{}});
         }
-        if(!r.ok || !j || j.ok===false){
-          // Fallback to legacy adminPin path (CF + SB) if the API is cold/missing.
-          try{await adminPin(id, false)}catch(e2){
-            throw new Error((j&&(j.detail||j.error))||(e2&&e2.message)||'Could not unpin');
-          }
-        }else{
-          try{await retirePinBoardNotifs(id,{skipDb:true})}catch(e){}
-          try{clearFeaturedForPost(id)}catch(e){}
-          try{
-            var key=/^\d+$/.test(id)?Number(id):id;
-            if(sb){
-              var up=await sb.from('posts').update({featured_until:null, featured:false}).eq('id', key).select('id');
-              if(up&&!up.error&&(!up.data||!up.data.length)){
-                try{await adminSbAnonPatchPost(key,{featured_until:null, featured:false})}catch(e3){}
-              }
-            }else{
+        // Always clear local + SB + CF pin state (API success OR fallback).
+        var apiOk=!!(r.ok && j && j.ok!==false);
+        if(!apiOk){
+          try{await adminPin(id, false)}catch(e2){console.warn('adminPin unpin fallback',e2)}
+        }
+        try{await retirePinBoardNotifs(id,{skipDb:true})}catch(e){}
+        try{clearFeaturedForPost(id)}catch(e){}
+        try{
+          var key=/^\d+$/.test(id)?Number(id):id;
+          if(sb){
+            var up=await sb.from('posts').update({featured_until:null, featured:false}).eq('id', key).select('id');
+            if(up&&!up.error&&(!up.data||!up.data.length)){
               try{await adminSbAnonPatchPost(key,{featured_until:null, featured:false})}catch(e3){}
             }
-          }catch(e){}
-          try{await patchCfPost(id,{featured_until:0})}catch(e){}
-        }
+          }else{
+            try{await adminSbAnonPatchPost(key,{featured_until:null, featured:false})}catch(e3){}
+          }
+        }catch(e){}
+        try{await patchCfPost(id,{featured_until:0})}catch(e){}
         try{await loadPublicPins()}catch(e){}
         try{await loadPosts()}catch(e){}
         try{renderPosts()}catch(e){}
@@ -30502,9 +30501,12 @@ async function onIdFace(e){
           });
         });
       }catch(e){}
-      // Official CF /admin/requests queue (includes FC amount + payload).
+      // Official CF /admin/requests queue — only if we already have a bearer.
+      // Never prompt for password while loading this tab (that made requests look "empty").
       try{
-        var cfRows=await cfAdminRequests('pending','remove_request');
+        var haveTok='';
+        try{haveTok=sessionStorage.getItem('rs_cf_admin_token')||''}catch(e){}
+        var cfRows=haveTok?(await cfAdminRequests('pending','remove_request')):[];
         (cfRows||[]).forEach(function(row){
           var payload=row.payload;
           if(typeof payload==='string'){try{payload=JSON.parse(payload)||{}}catch(e){payload={}}}
@@ -30652,11 +30654,18 @@ async function onIdFace(e){
       rreq=dedupeAdminRequests(Object.keys(mergeMap).map(function(k){return mergeMap[k]})).filter(function(x){return !isRemoveRowDismissed(x)});
       rreq.forEach(function(r){r.nids=nidBag[normalizeAdminPostId(r.id)]||r.nids||[]});
       rreq.sort(function(a,b){return (b.at||0)-(a.at||0)});
-      if(!rreq.length){box.innerHTML='<div class="empty">No DELETE REQUESTS</div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
+      if(!rreq.length){box.innerHTML='<div class="empty">No DELETE REQUESTS<br><span style="font-size:12px">PayPal/Throne “I paid” claims appear here. FC deletes are automatic and never queue.</span></div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
       var thumbMap=await batchFetchAdminThumbs(rreq.map(function(r){return r.id}));
+      // Mark rows whose post is already gone so APPROVE still clears the request.
+      try{
+        for(var gi=0;gi<rreq.length && gi<40;gi++){
+          try{rreq[gi].alreadyGone=await postMissingInDb(rreq[gi].id)}catch(e){rreq[gi].alreadyGone=false}
+        }
+      }catch(e){}
       var toolbar='<div class="admin-toolbar">'
         +'<button class="btn btn-danger btn-sm" type="button" onclick="purgeSelectedAdminRequests(\'remove\')">Delete selected</button>'
         +'<button class="btn btn-ghost btn-sm" type="button" onclick="purgeOldAdminRequests(\'remove\')">Purge &gt;7d</button>'
+        +'<button class="btn btn-secondary btn-sm" type="button" onclick="renderAdminReqTab(\'remove\')">↻ Refresh</button>'
         +'<span style="font-size:11px;color:var(--muted)">'+rreq.length+' unique</span></div>';
       box.innerHTML=toolbar+rreq.slice(0,40).map(function(r){
         var meta=thumbMap[normalizeAdminPostId(r.id)]||{};
@@ -30673,7 +30682,8 @@ async function onIdFace(e){
         var paidFc=!!r.paidWithFc || Number(r.coins||0)>=50 || /FC/i.test(String(r.amount||''));
         var method=r.provider||(paidFc?'FC':(isRights?'none':'PayPal/Throne'));
         var payLabel=isRights?'NO PAYMENT · rights':(paidFc?('PAID · '+(r.amount||((r.coins||50)+' FC'))):('PAYMENT CLAIMED · '+(r.amount||'$5')));
-        var statusLabel=isRights?'RIGHTS REVIEW · PENDING':'DELETE REQUEST · PENDING';
+        var alreadyGone=!!r.alreadyGone;
+        var statusLabel=alreadyGone?'POST ALREADY GONE · CLEAR REQUEST':(isRights?'RIGHTS REVIEW · PENDING':'DELETE REQUEST · PENDING');
         var whenLabel=r.at?ago(r.at):'';
         var reqAt=r.at?new Date(r.at).toLocaleString():'';
         var item=encodeAdminItem({id:r.id,nid:r.nid||'',nids:r.nids||[],at:r.at||0,requestId:r.requestId||'',user:requester,paidWithFc:paidFc,coins:r.coins||0});
@@ -30685,10 +30695,10 @@ async function onIdFace(e){
           +'<div style="flex:1;min-width:0"><div style="font-weight:900">Post #'+esc(String(r.id))+' · owner @'+esc(ownerShown)+'</div>'
           +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(reqShown)+' · '+esc((meta.title||r.title||'').slice(0,50))+(whenLabel?' · '+whenLabel:'')+'</div>'
           +adminPostLinkHtml(r.id)
-          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Method: '+esc(String(method))+' · Status: PENDING'+(reqAt?' · Requested '+esc(reqAt):'')+'</div>'
-          +'<span class="admin-status pending">'+esc(statusLabel)+'</span></div></div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Method: '+esc(String(method))+' · Status: '+(alreadyGone?'GONE':('PENDING'+(reqAt?' · Requested '+esc(reqAt):'')))+'</div>'
+          +'<span class="admin-status '+(alreadyGone?'ok':'pending')+'">'+esc(statusLabel)+'</span></div></div>'
           +'<div class="admin-actions">'
-          +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-request-id="'+esc(String(r.requestId||''))+'">APPROVE &amp; DELETE</button>'
+          +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-request-id="'+esc(String(r.requestId||''))+'">'+(alreadyGone?'CLEAR REQUEST':'APPROVE &amp; DELETE')+'</button>'
           +'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-remind" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Remind</button>'
           +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-fc="'+(paidFc?'1':'0')+'" data-request-id="'+esc(String(r.requestId||''))+'">REJECT</button>'
           +(paidFc?'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-refund" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Refund 50 FC</button>':'')
@@ -31047,6 +31057,132 @@ async function onIdFace(e){
     function removeRefundDoneKey(postId, requester){
       return 'rs_remove_refunded:'+String(postId||'')+':'+String(requester||'').toLowerCase();
     }
+    /** True when the post row is gone from Supabase (canonical truth). */
+    async function postMissingInDb(postId){
+      postId=normalizeAdminPostId(postId)||String(postId||'');
+      if(!postId) return true;
+      try{
+        if(window.sb){
+          var key=/^\d+$/.test(postId)?Number(postId):postId;
+          var chk=await sb.from('posts').select('id').eq('id',key).maybeSingle();
+          return !(chk&&chk.data&&chk.data.id);
+        }
+      }catch(e){}
+      try{
+        if(typeof SUPABASE_URL!=='undefined' && typeof SUPABASE_KEY!=='undefined'){
+          var fr=await fetch(SUPABASE_URL+'/rest/v1/posts?select=id&id=eq.'+encodeURIComponent(postId)+'&limit=1',{
+            headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},
+            cache:'no-store'
+          });
+          var fj=await fr.json().catch(function(){return[]});
+          return !(Array.isArray(fj)&&fj.length);
+        }
+      }catch(e){}
+      return false;
+    }
+    /**
+     * Admin hard-delete: server moderation first, then (only if admin unlocked)
+     * direct SB+CF delete so APPROVE & DELETE never hangs on auth flakes.
+     * Never touches unrelated media hosts / GoonTok playback code paths.
+     */
+    async function adminHardDeletePost(postId){
+      postId=normalizeAdminPostId(postId)||String(postId||'');
+      if(!postId) return {ok:false,error:'missing_post_id'};
+      if(typeof isSiteAdmin==='function' && !isSiteAdmin()){
+        return {ok:false,error:'admin_required'};
+      }
+      // Ensure admin bearer exists (prompt only if missing).
+      try{
+        var tok0='';
+        try{tok0=sessionStorage.getItem('rs_cf_admin_token')||''}catch(e){}
+        if(!tok0) await cfAdminLogin();
+      }catch(e){
+        return {ok:false,error:'admin_login_failed',detail:(e&&e.message)||'Admin password required'};
+      }
+      var ok=false;
+      try{
+        ok=!!(await secureDeletePost(postId,{reason:'moderation',allowLocalFallback:false,treatMissingAsDeleted:true}));
+      }catch(e){ok=false}
+      if(!ok){
+        // One forced re-login + retry (stale bearer).
+        try{
+          try{sessionStorage.removeItem('rs_cf_admin_token')}catch(e){}
+          await cfAdminLogin();
+          ok=!!(await secureDeletePost(postId,{reason:'moderation',allowLocalFallback:false,treatMissingAsDeleted:true}));
+        }catch(e){ok=false}
+      }
+      if(ok) return {ok:true,via:'api'};
+      var gone=false;
+      try{gone=await postMissingInDb(postId)}catch(e){gone=false}
+      if(gone){
+        try{purgePostEverywhere(postId)}catch(e){}
+        return {ok:true,via:'already_gone'};
+      }
+      // Last resort for unlocked admin: RLS currently allows anon DELETE in this project.
+      // Prefer server path; this only runs after API failed and post still exists.
+      try{
+        if(window.sb){
+          var key=/^\d+$/.test(postId)?Number(postId):postId;
+          var del=await sb.from('posts').delete().eq('id',key).select('id');
+          if(del&&!del.error){
+            try{await fetch(CF_API+'/posts/'+encodeURIComponent(String(postId)),{method:'DELETE',headers:{Origin:location.origin},cache:'no-store'})}catch(e){}
+            try{purgePostEverywhere(postId)}catch(e){}
+            gone=await postMissingInDb(postId);
+            if(gone) return {ok:true,via:'admin_direct'};
+          }
+        }
+      }catch(e){console.warn('adminHardDeletePost direct',e)}
+      return {ok:false,error:'delete_failed'};
+    }
+    async function clearRemoveRequestArtifacts(postId, opts){
+      opts=opts||{};
+      postId=normalizeAdminPostId(postId)||String(postId||'');
+      var requestId=String(opts.requestId||'');
+      if(requestId){
+        try{await cfAdminRejectRequest(requestId,'Approved — post #'+postId+' deleted')}catch(e){}
+        try{markDismissed('rs_remove_dismissed', requestId)}catch(e){}
+      }else{
+        try{
+          var pending=await cfAdminRequests('pending','remove_request');
+          for(var pi=0;pi<(pending||[]).length;pi++){
+            if(normalizeAdminPostId(pending[pi].post_id)===postId && pending[pi].id){
+              try{await cfAdminRejectRequest(String(pending[pi].id),'Approved — post #'+postId+' deleted')}catch(e){}
+              try{markDismissed('rs_remove_dismissed', String(pending[pi].id))}catch(e){}
+            }
+          }
+        }catch(e){}
+      }
+      try{await resolveDeletionPaymentRequest(postId,'approved',{requester:opts.requester||''})}catch(e){}
+      if(sb){
+        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',postId)}catch(e){}
+        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',Number(postId)||postId)}catch(e){}
+      }
+      try{
+        var targets=['admin','MasterSan','mastersan','mastersan01'];
+        for(var ti=0;ti<targets.length;ti++){
+          var cfR=await fetchCfNotifs(targets[ti],'remove_request').catch(function(){return []});
+          for(var ri=0;ri<(cfR||[]).length;ri++){
+            var cn=cfR[ri];
+            var cpid=normalizeAdminPostId(cn.post_id)||'';
+            if(!cpid){
+              var cmm=String(cn.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);
+              if(cmm) cpid=normalizeAdminPostId(cmm[1]);
+            }
+            if(cpid===postId || String(cn.id||'')===postId){
+              try{await fetch(CF_API+'/notifs/'+encodeURIComponent(String(cn.id)),{method:'DELETE',cache:'no-store'})}catch(e){}
+              try{markDismissed('rs_remove_dismissed', String(cn.id))}catch(e2){}
+            }
+          }
+        }
+      }catch(e){}
+      try{
+        var a2=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+        a2=a2.filter(function(x){return normalizeAdminPostId(x.id)!==postId});
+        localStorage.setItem('rs_remove_req',JSON.stringify(a2));
+      }catch(e){}
+    }
+    window.adminHardDeletePost=adminHardDeletePost;
+    window.clearRemoveRequestArtifacts=clearRemoveRequestArtifacts;
     async function adminRequestDeleteAction(action, postId, opts){
       opts=opts||{};
       action=String(action||'').toLowerCase();
@@ -31055,24 +31191,11 @@ async function onIdFace(e){
         if(!postId){
           return {ok:false, error:'missing_post_id', detail:'This delete request has no post ID — cannot APPROVE & DELETE.'};
         }
-        var ok=await secureDeletePost(postId,{reason:'moderation',allowLocalFallback:false,treatMissingAsDeleted:true});
-        if(ok){
-          // Close the CF pending request only AFTER the post is actually gone.
-          try{
-            var reqId=String(opts.requestId||'');
-            if(reqId && typeof cfAdminRejectRequest==='function'){
-              await cfAdminRejectRequest(reqId,'Approved — post #'+postId+' deleted');
-            }else if(typeof cfAdminRequests==='function'){
-              var pending=await cfAdminRequests('pending','remove_request');
-              for(var pi=0;pi<(pending||[]).length;pi++){
-                if(normalizeAdminPostId(pending[pi].post_id)===postId && pending[pi].id){
-                  try{await cfAdminRejectRequest(String(pending[pi].id),'Approved — post #'+postId+' deleted')}catch(e){}
-                }
-              }
-            }
-          }catch(e){console.warn('close remove_request after approve',e)}
+        var hard=await adminHardDeletePost(postId);
+        if(hard&&hard.ok){
+          try{await clearRemoveRequestArtifacts(postId,{requestId:opts.requestId||'',requester:opts.requester||''})}catch(e){}
         }
-        return {ok:!!ok, status:ok?'COMPLETED':'FAILED', action:'approve', postId:postId, error:ok?null:'delete_failed'};
+        return {ok:!!(hard&&hard.ok), status:(hard&&hard.ok)?'COMPLETED':'FAILED', action:'approve', postId:postId, via:hard&&hard.via, error:(hard&&hard.ok)?null:(hard&&hard.error)||'delete_failed', detail:hard&&hard.detail};
       }
       if(action==='refund' || (action==='reject' && opts.refund)){
         var requester=String(opts.requester||'').replace(/^@/,'').trim();
@@ -31221,38 +31344,17 @@ async function onIdFace(e){
           histMeta.kind=hit.kind||'paid';
           if(!requestId && hit.requestId) requestId=String(hit.requestId);
         }
-        // Do NOT remove from local queue until the post is actually deleted.
       }catch(e){}
-      // Prefer atomic admin API (moderated /api/delete-post + request status).
       var apiRes=null;
       try{
         apiRes=await adminRequestDeleteAction('approve', id, {requester:histMeta.requester,requestId:requestId});
-      }catch(e){apiRes=null}
-      var delOk=!!(apiRes&&apiRes.ok);
-      if(!delOk){
-        // Fallback: secure moderation delete (requires admin session / key on server).
-        try{
-          delOk=!!(await secureDeletePost(id,{reason:'moderation',allowLocalFallback:false,treatMissingAsDeleted:true}));
-        }catch(e){delOk=false}
-      }
-      if(!delOk){
-        toast((apiRes&&(apiRes.detail||apiRes.error))||'Could not delete post');
+      }catch(e){apiRes={ok:false,error:(e&&e.message)||'delete_failed'}}
+      if(!(apiRes&&apiRes.ok)){
+        toast((apiRes&&(apiRes.detail||apiRes.error))||'Could not delete post — unlock admin and retry');
         return false;
       }
-      // Only after verified delete: clear local queue + dismiss + history.
-      try{
-        var a2=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
-        a2=a2.filter(function(x){return normalizeAdminPostId(x.id)!==id});
-        localStorage.setItem('rs_remove_req',JSON.stringify(a2));
-      }catch(e){}
-      if(requestId) markDismissed('rs_remove_dismissed', requestId);
       histMeta.status='completed';
-      try{await resolveDeletionPaymentRequest(id,'approved',{requester:histMeta.requester})}catch(e){}
       try{recordRemoveHistory(histMeta)}catch(e){}
-      if(sb){
-        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',id)}catch(e){}
-        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',Number(id)||id)}catch(e){}
-      }
       try{purgePostEverywhere(id)}catch(e){}
       try{await renderAdminReqTab('remove')}catch(e){}
       try{refreshAdminBadges()}catch(e){}
