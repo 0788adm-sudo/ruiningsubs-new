@@ -1820,10 +1820,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 .admin-card-row{display:flex;gap:10px;align-items:center}
 .admin-thumb{
-  width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;
+  width:84px;height:84px;border-radius:10px;overflow:hidden;flex-shrink:0;
   background:#1a1a1f;border:1px solid var(--border);cursor:pointer;
+  position:relative;
 }
 .admin-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.admin-thumb-fallback{
+  width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;color:#9ca3af;font-size:11px;font-weight:800;text-align:center;padding:4px;
+}
+.admin-post-link{
+  display:inline-block;margin-top:4px;font-size:12px;font-weight:800;color:#93c5fd;text-decoration:underline;
+  word-break:break-all;
+}
 .admin-status{
   display:inline-block;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:900;
   letter-spacing:.3px;margin-top:4px;
@@ -1839,7 +1848,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 .admin-toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
 #panel-admin #admin-body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 @media(max-width:420px){
-  .admin-thumb{width:58px;height:58px}
+  .admin-thumb{width:72px;height:72px}
   .admin-actions .btn{min-width:46%}
 }
 
@@ -6540,15 +6549,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function verifiedBadgeHtml(){
       return '<span class="verified-badge" title="Verified" aria-label="Verified"><svg viewBox="0 0 24 24" fill="none"><path d="M9.2 16.6 4.8 12.2l1.4-1.4 3 3 8-8 1.4 1.4-9.4 9.4z" fill="#fff"/></svg></span>';
     }
-    /** Short UI handle — anon_<longsession> → anon_xxxxxx; keep real usernames readable. */
+    /** Short UI handle — long anon_<session> → Anon_#### (stable digits, like before). */
     function shortDisplayUser(name){
       var n=String(name||'').replace(/^@+/,'').trim();
-      if(!n) return 'anon';
+      if(!n) return 'Anon_0000';
+      if(/^Anon_\d{3,6}$/i.test(n)) return 'Anon_'+String(n).replace(/^Anon_/i,'');
       if(/^anon[_:]/i.test(n) || /^anon\d*$/i.test(n)){
         var rest=n.replace(/^anon[_:]?/i,'');
-        if(rest.length>6) return 'anon_'+rest.slice(0,6);
-        if(rest) return 'anon_'+rest;
-        return 'anon';
+        if(/^\d{3,6}$/.test(rest)) return 'Anon_'+rest;
+        var h=0;
+        for(var i=0;i<rest.length;i++){ h=((h<<5)-h)+rest.charCodeAt(i); h|=0; }
+        var num=(Math.abs(h)%9000)+1000;
+        return 'Anon_'+num;
       }
       if(n.length>16) return n.slice(0,14)+'…';
       return n;
@@ -28358,13 +28370,15 @@ async function onIdFace(e){
       try{if(!post && typeof findPostAnywhere==='function') post=findPostAnywhere(id)}catch(e){}
       var ownerName=String((post&&(post.user||post.username))||'').replace(/^@/,'');
       var title=(post&&post.title)||'';
+      var thumbUrl='';
+      try{thumbUrl=typeof adminFirstImageFromRow==='function'?adminFirstImageFromRow(post):((post&&(post.image||(post.images&&post.images[0])))||'')}catch(e){}
       var isRights=kind==='rights';
       var amount=isRights?'$0 · rights':'$5';
       var label=isRights?'DELETE RIGHTS':'DELETE';
       try{
         var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
         req=req.filter(function(x){return !(String(x.id)===String(id) && String(x.kind||'paid')===kind && String(x.user||x.requester||'').toLowerCase()===String(userName).toLowerCase())});
-        req.unshift({id:id,title:title,user:userName,publisher:ownerName,at:Date.now(),kind:kind,amount:amount,status:'pending',paidWithFc:false,coins:0,provider:'PayPal/Throne'});
+        req.unshift({id:id,title:title,user:userName,publisher:ownerName,at:Date.now(),kind:kind,amount:amount,status:'pending',paidWithFc:false,coins:0,provider:'PayPal/Throne',thumb:thumbUrl||''});
         localStorage.setItem('rs_remove_req',JSON.stringify(req.slice(0,60)));
       }catch(e){}
       var removeMsg=isRights
@@ -28395,7 +28409,7 @@ async function onIdFace(e){
             coins:0,
             provider:isRights?'rights':'throne/paypal',
             label:label,
-            payload:{message:removeMsg,post_id:String(id),product:isRights?'Rights remove':'Delete post',reason:kind,publisher:ownerName,requester:userName,payment:isRights?'none':'$5',paidWithFc:false,auto_delete:false},
+            payload:{message:removeMsg,post_id:String(id),product:isRights?'Rights remove':'Delete post',reason:kind,publisher:ownerName,requester:userName,payment:isRights?'none':'$5',paidWithFc:false,auto_delete:false,thumb_url:thumbUrl||''},
             message:removeMsg
           });
           if(rr) removeSent=true;
@@ -28615,6 +28629,18 @@ async function onIdFace(e){
         try{var el=document.getElementById('pin-request-status');if(!el)return;el.innerHTML='<div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.35)"><div style="font-size:12px;font-weight:900;letter-spacing:.4px;color:#c4b5fd;margin-bottom:7px">REQUEST PROGRESS</div><div style="font-size:13px;font-weight:800;margin-bottom:8px">'+esc(text||'Processing…')+'</div><div style="height:7px;background:#1b1b1f;border-radius:999px;overflow:hidden"><div style="height:100%;width:'+Math.max(0,Math.min(100,pct))+'%;background:linear-gradient(90deg,#7c3aed,#f5c518);transition:width .3s"></div></div><div style="font-size:11px;color:var(--muted);margin-top:7px">'+Math.round(pct)+'%'+(detail?' · '+esc(detail):'')+'</div></div>'}catch(e){}
       }
       var msg='🚨 PREMIUM PIN REQUEST · @'+user+' · post #'+key+' · 50 FC / $10 · 48h';
+      var pinThumb='';
+      try{
+        var pinPost=typeof findPostAnywhere==='function'?findPostAnywhere(key):null;
+        if(!pinPost) try{pinPost=(posts||[]).find(function(p){return String(p.id)===key})}catch(e2){}
+        pinThumb=typeof adminFirstImageFromRow==='function'?adminFirstImageFromRow(pinPost):((pinPost&&(pinPost.image||(pinPost.images&&pinPost.images[0])))||'');
+      }catch(e){}
+      try{
+        var featLocal=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
+        featLocal=featLocal.filter(function(x){return normalizeAdminPostId(x.id)!==normalizeAdminPostId(key)});
+        featLocal.unshift({id:key,user:user,title:'Premium Pin',amount:'$10',at:Date.now(),thumb:pinThumb||''});
+        localStorage.setItem('rs_feature_req',JSON.stringify(featLocal.slice(0,30)));
+      }catch(e){}
       try{
         inlineStatus(15,'Notifying admin…','Do not close this window');
         var notifOk=false, reqOk=false, req=null, lastErr='';
@@ -28629,7 +28655,7 @@ async function onIdFace(e){
             var check=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(key),{cache:'no-store'}, 8000);
             if(!check.ok) console.warn('CF post check', check.status);
           }catch(e){console.warn('CF post check',e)}
-          req=await cfCreateRequest({kind:'pin_payment_request',postId:key,user:user,amount:'$10',coins:50,provider:'throne',label:'PREMIUM PIN',payload:{message:msg,post_id:key,product:'Premium Pin',duration:'48 hours'},message:msg});
+          req=await cfCreateRequest({kind:'pin_payment_request',postId:key,user:user,amount:'$10',coins:50,provider:'throne',label:'PREMIUM PIN',payload:{message:msg,post_id:key,product:'Premium Pin',duration:'48 hours',thumb_url:pinThumb||''},message:msg});
           if(req&&(req.id||(req._channels&&(req._channels.request||req._channels.notifs)))) reqOk=true;
         }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('pin request',e)}
         if(!reqOk && !notifOk){
@@ -29579,6 +29605,22 @@ async function onIdFace(e){
         var vt=typeof parseVthumbTag==='function'?parseVthumbTag(row.tags||[]):'';
         if(vt) pool.unshift(vt);
       }catch(e){}
+      // Albums / picN tags often hold the only usable preview URL.
+      try{
+        if(typeof unpackAlbumTags==='function') pool=pool.concat(unpackAlbumTags(row.tags||[])||[]);
+      }catch(e){}
+      try{
+        var tags=row.tags;
+        if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e2){tags=String(tags).split(',')}}
+        if(Array.isArray(tags)){
+          tags.forEach(function(t){
+            t=String(t||'');
+            if(/^https?:\/\//i.test(t)) pool.push(t);
+            else if(/^pic\d+:https?:/i.test(t)) pool.push(t.replace(/^pic\d+:/i,''));
+            else if(/^vthumb:/i.test(t)) pool.unshift(t.slice(7));
+          });
+        }
+      }catch(e){}
       var img='', vid='';
       for(var i=0;i<pool.length;i++){
         var u=String(pool[i]||'').trim();
@@ -29594,13 +29636,29 @@ async function onIdFace(e){
       }
       return img || '';
     }
+    function adminPostPermalink(postId){
+      postId=normalizeAdminPostId(postId);
+      if(!postId) return '';
+      try{
+        if(typeof postUrl==='function') return postUrl(postId);
+        if(typeof postPath==='function') return postPath(postId);
+      }catch(e){}
+      return '/post/'+encodeURIComponent(String(postId));
+    }
     function adminThumbHtml(src, postId){
-      var open=postId?(' onclick="event.stopPropagation();openDetail('+JSON.stringify(String(postId))+')"'):'';
+      var pid=normalizeAdminPostId(postId)||'';
+      var open=pid?(' onclick="event.stopPropagation();openDetail('+JSON.stringify(String(pid))+')" title="Open post #'+esc(String(pid))+'"'):'';
       if(src){
-        var thumb=typeof feedThumb==='function'?feedThumb(src,180):src;
-        return '<div class="admin-thumb"'+open+'><img src="'+esc(thumb)+'" data-orig="'+esc(src)+'" loading="lazy" decoding="async" alt="" onerror="this.onerror=null;if(this.dataset.orig&&this.src!==this.dataset.orig)this.src=this.dataset.orig;"/></div>';
+        var thumb=typeof feedThumb==='function'?feedThumb(src,220):src;
+        return '<div class="admin-thumb"'+open+'><img src="'+esc(thumb)+'" data-orig="'+esc(src)+'" loading="lazy" decoding="async" alt="Post #'+esc(String(pid))+'" onerror="this.onerror=null;if(this.dataset.orig&&this.src!==this.dataset.orig)this.src=this.dataset.orig;else{this.style.display=\'none\';var f=this.nextElementSibling;if(f)f.style.display=\'flex\'}"/><div class="admin-thumb-fallback" style="display:none">📷<span>#'+esc(String(pid||''))+'</span></div></div>';
       }
-      return '<div class="admin-thumb"'+open+' style="display:flex;align-items:center;justify-content:center;color:#666;font-size:11px">#'+esc(String(postId||''))+'</div>';
+      return '<div class="admin-thumb"'+open+'><div class="admin-thumb-fallback">📷<span>#'+esc(String(pid||''))+'</span><span style="font-size:10px;font-weight:700;color:#93c5fd">Open</span></div></div>';
+    }
+    function adminPostLinkHtml(postId){
+      var pid=normalizeAdminPostId(postId)||'';
+      if(!pid) return '';
+      var href=adminPostPermalink(pid);
+      return '<a class="admin-post-link" href="'+esc(href)+'" onclick="event.preventDefault();event.stopPropagation();openDetail('+JSON.stringify(String(pid))+')">Open post #'+esc(String(pid))+' →</a>';
     }
     async function fetchAdminPostThumb(postId){
       postId=normalizeAdminPostId(postId);
@@ -29847,7 +29905,7 @@ async function onIdFace(e){
         (rows||[]).forEach(function(r){
           var pid=normalizeAdminPostId(r.post_id);
           if(!pid || featDismissed.indexOf(pid)>=0) return;
-          var payload={};try{payload=JSON.parse(r.payload||'{}')||{}}catch(e){}
+          var payload={};try{payload=(typeof r.payload==='object'&&r.payload)?r.payload:(JSON.parse(r.payload||'{}')||{})}catch(e){payload={}}
           list.push({
             id:pid,
             requestId:String(r.id||''),
@@ -29857,6 +29915,7 @@ async function onIdFace(e){
             coins:Number(r.coins||50)||50,
             at:Number(r.created_at||Date.now())||Date.now(),
             message:payload.message||'',
+            thumb:payload.thumb_url||payload.thumb||'',
             source:'cf'
           });
         });
@@ -29916,15 +29975,16 @@ async function onIdFace(e){
             +adminThumbHtml(src,r.id)
             +'<div style="flex:1;min-width:0">'
             +'<div style="font-size:11px;letter-spacing:1px;color:#c4b5fd;font-weight:900">PIN REQUEST</div>'
-            +'<div style="font-weight:900;margin-top:2px">#'+esc(String(r.id))+' · @'+esc(r.user||meta.user||'')+'</div>'
+            +'<div style="font-weight:900;margin-top:2px">#'+esc(String(r.id))+' · @'+esc(typeof shortDisplayUser==='function'?shortDisplayUser(r.user||meta.user||''):(r.user||meta.user||''))+'</div>'
             +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc((meta.title||r.title||'Premium Pin').slice(0,55))+(when?' · '+when:'')+'</div>'
+            +adminPostLinkHtml(r.id)
             +'<span class="admin-status pending">PENDING · '+esc(r.amount||('$5 / '+(r.coins||50)+' FC'))+'</span>'
             +'</div></div>'
             +'<div class="admin-actions">'
             +(r.requestId
               ?('<button class="btn btn-primary btn-sm" type="button" data-admin="cf-pin-approve" data-id="'+esc(String(r.requestId))+'">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" data-admin="cf-pin-reject" data-id="'+esc(String(r.requestId))+'">Reject</button>')
               :('<button class="btn btn-primary btn-sm" type="button" data-admin="pin" data-id="'+esc(String(r.id))+'">Approve & Pin</button><button class="btn btn-ghost btn-sm" type="button" data-admin="unpin-dismiss" data-id="'+esc(String(r.id))+'">Reject</button>'))
-            +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">Open</button>'
+            +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">Open post</button>'
             +'</div></div>';
         }).join('');
         try{refreshAdminBadges()}catch(e){}
@@ -29978,13 +30038,15 @@ async function onIdFace(e){
         var src=adminFirstImageFromRow(p)||'';
         var created=p.created?new Date(p.created).toLocaleString():'';
         var left=item.until-Date.now();
+        var userShown=typeof shortDisplayUser==='function'?shortDisplayUser(p.user||''):(p.user||'');
         return '<div class="admin-card" id="admin-pin-'+esc(String(p.id))+'"><div class="admin-card-row">'
           +adminThumbHtml(src,p.id)
-          +'<div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(p.id))+' · @'+esc(p.user||'')+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:900">#'+esc(String(p.id))+' · @'+esc(userShown)+'</div>'
           +'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(String(p.title||'').slice(0,70))+'</div>'
+          +adminPostLinkHtml(p.id)
           +'<span class="admin-status paid">PINNED · '+esc(typeof fmt==='function'?fmt(left):'')+' left</span>'
           +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+(created?('Published '+esc(created)):'')+'</div>'
-          +'</div></div><div class="admin-actions"><button class="btn btn-danger btn-sm" type="button" onclick="adminUnpinFromPanel('+JSON.stringify(String(p.id))+')">Unpin</button><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(p.id))+')">Open</button></div></div>';
+          +'</div></div><div class="admin-actions"><button class="btn btn-danger btn-sm" type="button" onclick="adminUnpinFromPanel('+JSON.stringify(String(p.id))+')">Unpin</button><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(p.id))+')">Open post</button></div></div>';
       }).join('');
       try{refreshAdminBadges()}catch(e){}
     }
@@ -30157,6 +30219,7 @@ async function onIdFace(e){
             provider:x.provider||(/FC/i.test(String(x.amount||''))?'FC':'PayPal/Throne'),
             requestId:x.requestId||'',
             status:x.status||'pending',
+            thumb:x.thumb||x.thumb_url||'',
             source:'local'
           });
         });
@@ -30292,11 +30355,14 @@ async function onIdFace(e){
         var whenLabel=r.at?ago(r.at):'';
         var reqAt=r.at?new Date(r.at).toLocaleString():'';
         var item=encodeAdminItem({id:r.id,nid:r.nid||'',nids:r.nids||[],at:r.at||0,requestId:r.requestId||'',user:requester,paidWithFc:paidFc,coins:r.coins||0});
+        var ownerShown=typeof shortDisplayUser==='function'?shortDisplayUser(publisher||meta.user||'?'):(publisher||meta.user||'?');
+        var reqShown=typeof shortDisplayUser==='function'?shortDisplayUser(requester||'?'):(requester||'?');
         return '<div class="admin-card"><div class="admin-card-row">'
           +'<input class="admin-check admin-req-check" type="checkbox" data-item="'+item+'"/>'
           +adminThumbHtml(src,r.id)
-          +'<div style="flex:1;min-width:0"><div style="font-weight:900">Post #'+esc(String(r.id))+' · owner @'+esc(publisher||meta.user||'?')+'</div>'
-          +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(requester||'?')+' · '+esc((meta.title||r.title||'').slice(0,50))+(whenLabel?' · '+whenLabel:'')+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:900">Post #'+esc(String(r.id))+' · owner @'+esc(ownerShown)+'</div>'
+          +'<div style="font-size:12px;color:var(--muted)">Requester @'+esc(reqShown)+' · '+esc((meta.title||r.title||'').slice(0,50))+(whenLabel?' · '+whenLabel:'')+'</div>'
+          +adminPostLinkHtml(r.id)
           +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Method: '+esc(String(method))+' · Status: PENDING'+(reqAt?' · Requested '+esc(reqAt):'')+'</div>'
           +'<span class="admin-status pending">'+esc(statusLabel)+'</span></div></div>'
           +'<div class="admin-actions">'
@@ -30304,7 +30370,7 @@ async function onIdFace(e){
           +'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-remind" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Remind</button>'
           +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-fc="'+(paidFc?'1':'0')+'">REJECT</button>'
           +(paidFc?'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-refund" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Refund 50 FC</button>':'')
-          +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">View post</button>'
+          +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">Open post</button>'
           +'</div></div>';
       }).join('');
       try{renderAdminRemoveHistory()}catch(e){}
