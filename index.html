@@ -4870,6 +4870,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(/^gender_/.test(t)||/^ext_/.test(t))return false;
         // Game origin is shown via badge, not raw #tags
         if(/^game_badge_/i.test(t)||/^game_origin:/i.test(t)||/^game_task:/i.test(t))return false;
+        if(/^challenge_id:/i.test(t)||/^play:/i.test(t))return false;
         return true;
       });
     }
@@ -7952,10 +7953,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     var ROULETTE_PACK_FC=50;
     var RS_LIVE_GAMES={roulette:1,dice:1,tic_tac_toe:1};
     var RS_GAME_BADGES={
-      roulette:{label:'🎡 Roulette',tag:'game_badge_roulette',panel:'roulette',emoji:'🎡'},
+      roulette:{label:'🎡 Ruin Roulette',tag:'game_badge_roulette',panel:'roulette',emoji:'🎡'},
       dice:{label:'🎲 Exposure Dice',tag:'game_badge_dice',panel:'dice',emoji:'🎲'},
-      tic_tac_toe:{label:'🎮 Tic-Tac-Toe',tag:'game_badge_ttt',panel:'challenges',emoji:'🎮'},
-      challenges:{label:'👑 Challenges',tag:'game_badge_challenge',panel:'challenges',emoji:'👑'}
+      tic_tac_toe:{label:'❌ Tic-Tac-Toe',tag:'game_badge_ttt',panel:'challenges',emoji:'❌'},
+      challenges:{label:'🏆 Challenge',tag:'game_badge_challenge',panel:'challenges',emoji:'🏆'}
     };
     function detectGameOrigin(p){
       if(!p) return '';
@@ -8055,6 +8056,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(opts.challengeId) existing.challengeId=opts.challengeId;
         if(opts.title) existing.title=opts.title;
         if(opts.desc) existing.desc=opts.desc;
+        if(opts.instructions) existing.instructions=opts.instructions;
+        if(opts.wear) existing.wear=opts.wear;
+        if(opts.pose) existing.pose=opts.pose;
+        if(opts.proof) existing.proof=opts.proof;
+        if(opts.where) existing.where=opts.where;
         existing.updatedAt=Date.now();
         var arr0=listGameTasksForUser().map(function(t){return (t&&t.id===existing.id)?existing:t});
         persistGameTasksForUser(arr0);
@@ -8070,6 +8076,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         title:String(opts.title||'Game task'),
         desc:String(opts.desc||''),
         instructions:String(opts.instructions||opts.desc||''),
+        wear:opts.wear?String(opts.wear):'',
+        pose:opts.pose?String(opts.pose):'',
+        proof:opts.proof?String(opts.proof):'',
+        where:opts.where?String(opts.where):'',
         status:'assigned', // assigned | accepted | completed
         badge:opts.badge||gameId,
         requireMedia:opts.requireMedia!==false,
@@ -8125,8 +8135,109 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function pendingGameTasks(){
       return listGameTasksForUser().filter(function(t){return t&&t.status!=='completed'});
     }
+    function buildGameProofCaption(task){
+      task=task||{};
+      var lines=[];
+      var body=String(task.instructions||task.desc||'').trim();
+      if(body) lines.push(body);
+      // Ensure WEAR/POSE/PROOF/WHERE blocks stay intact when present on the task.
+      try{
+        ['wear','pose','proof','where'].forEach(function(k){
+          if(!task[k]) return;
+          var label=k.toUpperCase();
+          if(body.toUpperCase().indexOf(label+':')>=0) return;
+          lines.push(label+': '+String(task[k]));
+        });
+      }catch(e){}
+      if(task.challengeId) lines.push('Challenge ID: '+String(task.challengeId));
+      if(task.sessionId) lines.push('Match: '+String(task.sessionId));
+      return lines.join('\n').trim() || String(task.title||'Game proof');
+    }
+    function buildGameProofTags(task, badgeKey){
+      task=task||{};
+      badgeKey=badgeKey||task.badge||task.gameId||'challenges';
+      var badge=RS_GAME_BADGES[badgeKey]||RS_GAME_BADGES.challenges;
+      var tags=['normal_feed','exposed',badge.tag];
+      tags.push('game_origin:'+badgeKey);
+      tags.push('game_task:'+String(task.id||'').replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));
+      if(task.challengeId) tags.push('challenge_id:'+String(task.challengeId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,48));
+      if(task.sessionId) tags.push('play:'+String(task.sessionId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,48));
+      if(task.gameId==='roulette'){ tags.push('roulette','roulette_task'); }
+      if(task.gameId==='dice'){ tags.push('dice','exposure_dice'); }
+      if(task.gameId==='tic_tac_toe'){ tags.push('tic_tac_toe','ttt_challenge'); }
+      if(task.gameId==='challenges'||badgeKey==='challenges'){ tags.push('challenge','challenge_proof'); }
+      return tags.filter(function(x,i,a){return x&&a.indexOf(x)===i});
+    }
+    function syncLiveGameComposerPrefill(){
+      // Keep pending prefill in sync with edits so leaving the panel does not wipe the challenge text.
+      try{
+        if(!window.__pendingGamePublish && !window.__activeGameTaskId) return;
+        var pre=window.__pendingComposerPrefill||{};
+        var titleEl=document.getElementById('new-title')||document.getElementById('post-title');
+        var descEl=document.getElementById('new-desc')||document.getElementById('post-desc');
+        var tagsEl=document.getElementById('new-tags');
+        if(titleEl) pre.title=titleEl.value;
+        if(descEl) pre.desc=descEl.value;
+        if(tagsEl) pre.tags=tagsEl.value;
+        window.__pendingComposerPrefill=pre;
+        localStorage.setItem('rs_pending_composer_prefill', JSON.stringify(pre));
+        if(window.__pendingGamePublish){
+          localStorage.setItem('rs_pending_game_publish', JSON.stringify(window.__pendingGamePublish));
+        }
+      }catch(e){}
+    }
+    function bindGameComposerSync(){
+      if(window.__gameComposerSyncBound) return;
+      window.__gameComposerSyncBound=true;
+      ['new-title','new-desc','new-tags'].forEach(function(id){
+        var el=document.getElementById(id);
+        if(!el) return;
+        el.addEventListener('input', syncLiveGameComposerPrefill);
+        el.addEventListener('change', syncLiveGameComposerPrefill);
+      });
+    }
+    function validateGameProofBeforePublish(){
+      restorePendingGameComposer();
+      var gpub=window.__pendingGamePublish;
+      if(!gpub || !(gpub.taskId||gpub.challengeId||gpub.playId)) return true;
+      var task=gpub.taskId?findGameTask(gpub.taskId):null;
+      if(!task && gpub.playId) task=findGameTaskBySession(gpub.game, gpub.playId);
+      if(task && task.status==='completed'){
+        toast('This challenge was already completed');
+        return false;
+      }
+      // Require media for proofs that demand it.
+      if((!task || task.requireMedia!==false) && !(photos&&photos.length)){
+        toast('Add proof photos/videos for this challenge');
+        return false;
+      }
+      // Ensure identity tags still reference the assigned challenge (re-inject if user cleared them).
+      try{
+        var tagsEl=document.getElementById('new-tags');
+        var cur=(tagsEl&&tagsEl.value||'').split(',').map(function(t){return t.trim().replace(/^#/,'')}).filter(Boolean);
+        var must=buildGameProofTags(task||{
+          id:gpub.taskId,
+          gameId:gpub.game,
+          sessionId:gpub.playId,
+          challengeId:gpub.challengeId,
+          badge:gpub.badge
+        }, gpub.badge||gpub.game_origin||gpub.game);
+        must.forEach(function(t){ if(cur.indexOf(t)<0) cur.push(t); });
+        if(tagsEl) tagsEl.value=cur.join(', ');
+        if(window.__pendingComposerPrefill) window.__pendingComposerPrefill.tags=cur.join(', ');
+        // Soft content check: description should still mention the challenge title when possible.
+        var desc=(document.getElementById('new-desc')&&document.getElementById('new-desc').value||'').trim();
+        var expectedTitle=String((task&&task.title)||(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.title)||'').trim();
+        if(expectedTitle && desc && desc.toLowerCase().indexOf(expectedTitle.toLowerCase().slice(0,18))<0){
+          // Keep editable — warn but do not block if identity tags are intact.
+          console.warn('Game proof text diverged from assigned challenge title');
+        }
+      }catch(e){}
+      syncLiveGameComposerPrefill();
+      return true;
+    }
     function forceWallProofComposer(){
-      // Never fall back to timed Exposure for game proofs.
+      // Reuse the existing New Post form — never the timed Exposure composer.
       window.__fromNormalFeed=true;
       window.__wallComposer=true;
       window.__profilePostMode=true;
@@ -8134,22 +8245,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       showPanel('post');
       try{
         var hide=['post-gender-group','post-duration-group','post-extend-group'];
-        // Keep title visible for game proofs so the task name is obvious.
+        // Keep title visible so the generated challenge title is obvious and editable.
         var tg=document.getElementById('post-title-group'); if(tg) tg.style.display='block';
         hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
         var title=document.getElementById('post-panel-title');
-        if(title) title.textContent='Publish game proof';
+        if(title) title.textContent='New Post';
         var note=document.getElementById('profile-post-note');
         if(note){
           note.style.display='block';
           if(!window.__pendingComposerPrefill||!window.__pendingComposerPrefill.note){
-            note.innerHTML='<b style="color:#ff6a00">Game proof · Wall</b> — permanent post. Attach the required evidence, then publish.';
+            note.innerHTML='<b style="color:#ff6a00">Challenge proof · Wall</b> — add your media, review the text, then Publish. Nothing posts until you confirm.';
           }
         }
         var btn=document.getElementById('btn-publish');
-        if(btn && !(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.btn)) btn.textContent='Publish proof';
+        if(btn && !(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.btn)) btn.textContent='Publish';
       }catch(e){}
       try{applyPendingComposerPrefill()}catch(e){}
+      try{bindGameComposerSync()}catch(e){}
       setTimeout(function(){
         try{
           window.__wallComposer=true;
@@ -8159,8 +8271,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           var tg2=document.getElementById('post-title-group'); if(tg2) tg2.style.display='block';
           hide2.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
           var t=document.getElementById('post-panel-title');
-          if(t) t.textContent='Publish game proof';
+          if(t) t.textContent='New Post';
           applyPendingComposerPrefill();
+          bindGameComposerSync();
         }catch(e){}
       },0);
       setTimeout(function(){ try{applyPendingComposerPrefill()}catch(e){} },50);
@@ -8172,18 +8285,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       acceptGameTask(task.id);
       var badgeKey=task.badge&&RS_GAME_BADGES[task.badge]?task.badge:(RS_GAME_BADGES[task.gameId]?task.gameId:'challenges');
       var badge=RS_GAME_BADGES[badgeKey]||RS_GAME_BADGES.challenges;
-      var badgeTag=badge.tag;
-      var tags=['normal_feed','exposed',badgeTag,'game_task:'+String(task.id).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40)];
-      if(task.gameId==='roulette') tags.push('roulette','roulette_task');
-      if(task.gameId==='dice') tags.push('dice','exposure_dice');
-      if(task.gameId==='tic_tac_toe') tags.push('tic_tac_toe','ttt_challenge');
-      if(task.gameId==='challenges'||badgeKey==='challenges') tags.push('challenge','challenge_proof');
+      var caption=buildGameProofCaption(task);
+      var tags=buildGameProofTags(task, badgeKey);
       window.__pendingComposerPrefill={
         title:task.title,
-        desc:task.instructions||task.desc||task.title,
+        desc:caption,
         tags:tags.join(', '),
-        note:'Game proof · <strong>'+esc(badge.label)+'</strong> · task stays pending until you publish',
-        btn:'Publish proof',
+        note:'Challenge proof · <strong>'+esc(badge.label)+'</strong> · add media, review, then Publish. Editable — stays pending until you publish.',
+        btn:'Publish',
         requireMedia:!!task.requireMedia
       };
       window.__pendingGamePublish={
@@ -8192,7 +8301,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         badge:badgeKey,
         challengeId:task.challengeId||null,
         taskId:task.id,
-        game_origin:badgeKey
+        game_origin:badgeKey,
+        expectedTitle:task.title||'',
+        requireMedia:!!task.requireMedia
       };
       window.__pendingChallengePublish={
         challengeId:task.challengeId||null,
@@ -8211,9 +8322,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         try{selectedDeletionTier='deletable'}catch(e){}
       }
       forceWallProofComposer();
-      toast('Add your proof, then publish — nothing posts until you confirm');
+      toast('Add your media, review, then Publish — nothing posts automatically');
       return true;
     }
+    window.buildGameProofCaption=buildGameProofCaption;
+    window.buildGameProofTags=buildGameProofTags;
+    window.validateGameProofBeforePublish=validateGameProofBeforePublish;
     function restorePendingGameComposer(){
       try{
         if(!window.__pendingComposerPrefill){
@@ -10121,13 +10235,18 @@ async function claimPayPalPack(p){
               opt:{title:'Exposure Dice',desc:'WEAR: '+wearTxt+' · POSE: '+poseTxt+' · PROOF: '+proofTxt}
             });
             window.__pendingDiceChallengeId=spawnId||null;
+            var whereTxt=(window.lastDiceRoll&&window.lastDiceRoll.where)||'';
             assignGameTask({
               gameId:'dice',
               sessionId:playId,
               challengeId:spawnId||null,
               title:'Dice '+[w,p,t].join('-')+' · exposed',
-              desc:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt,
-              instructions:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt,
+              desc:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt+(whereTxt?('\nWHERE: '+whereTxt):''),
+              instructions:'WEAR: '+wearTxt+'\nPOSE: '+poseTxt+'\nPROOF: '+proofTxt+(whereTxt?('\nWHERE: '+whereTxt):''),
+              wear:wearTxt,
+              pose:poseTxt,
+              proof:proofTxt,
+              where:whereTxt,
               badge:'dice',
               requireMedia:true
             });
@@ -10152,6 +10271,10 @@ async function claimPayPalPack(p){
         title:title,
         desc:body,
         instructions:body,
+        wear:r.wear||'',
+        pose:r.pose||'',
+        proof:(r.proof||r.task||''),
+        where:r.where||'',
         badge:'dice',
         requireMedia:true
       });
@@ -24772,7 +24895,7 @@ async function onIdFace(e){
       var keepFields=!!opts.keepFields || !!window.__pendingComposerPrefill || !!window.__pendingGamePublish;
       window.__profilePostMode=true;
       window.__wallComposer=true;
-      var title=document.getElementById('post-panel-title'); if(title)title.textContent=keepFields?'Publish game proof':'Wall post';
+      var title=document.getElementById('post-panel-title'); if(title)title.textContent=keepFields?'New Post':'Wall post';
       var tg=document.getElementById('post-title-group'); if(tg)tg.style.display=keepFields?'block':'none';
       var gg=document.getElementById('post-gender-group'); if(gg)gg.style.display='none';
       var dg=document.getElementById('post-duration-group'); if(dg)dg.style.display='none';
@@ -24853,18 +24976,27 @@ async function onIdFace(e){
     }
     async function createPost(){
       if(!requireConsent('consent-publish')) return;
+      // Game proofs: validate challenge linkage before upload — never auto-publish from "Publicar prueba".
+      try{
+        if(window.__pendingGamePublish || window.__activeGameTaskId){
+          if(typeof validateGameProofBeforePublish==='function' && !validateGameProofBeforePublish()) return;
+        }
+      }catch(e){}
       var profileMode=window.__profilePostMode===true;
       var rawDesc=(document.getElementById('new-desc')&&document.getElementById('new-desc').value||'').trim();
+      var titleInput=(document.getElementById('new-title')&&document.getElementById('new-title').value||'').trim();
       var title;
       if(profileMode){
-        // Status-friendly title: first line of text, or "Photo" if only media
-        if(rawDesc){
+        // Game proofs keep the generated challenge title from New Post; plain Wall uses first line / Photo.
+        if(window.__pendingGamePublish && titleInput){
+          title=titleInput.slice(0,90);
+        }else if(rawDesc){
           title=rawDesc.split(/\n/)[0].trim().slice(0,60) || 'Status';
         } else {
           title='Photo';
         }
       } else {
-        title=document.getElementById('new-title').value.trim();
+        title=titleInput;
       }
       var desc=document.getElementById('new-desc').value.trim();
       var tags=document.getElementById('new-tags').value.split(',').map(function(t){return t.trim().replace(/^#/,'')}).filter(Boolean);
