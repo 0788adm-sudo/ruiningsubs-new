@@ -577,7 +577,7 @@
     .roulette-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 4px 24px}
     .roulette-pointer{width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-top:22px solid var(--orange);margin-bottom:-6px;z-index:3;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));position:relative}
     .roulette-wheel-box{position:relative;width:min(92vw,340px);height:min(92vw,340px);margin:0 auto}
-    .roulette-wheel{width:100%;height:100%;border-radius:50%;border:6px solid #1a1a1a;box-shadow:0 0 0 4px var(--orange),0 12px 40px rgba(0,0,0,.55),inset 0 0 30px rgba(0,0,0,.4);position:relative;overflow:hidden;transition:transform 4.2s cubic-bezier(0.15,0.85,0.25,1);pointer-events:none}
+    .roulette-wheel{width:100%;height:100%;border-radius:50%;border:6px solid #1a1a1a;box-shadow:0 0 0 4px var(--orange),0 12px 40px rgba(0,0,0,.55),inset 0 0 30px rgba(0,0,0,.4);position:relative;overflow:hidden;transition:transform 6s cubic-bezier(0.15,0.85,0.25,1);pointer-events:none}
     .roulette-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;background:linear-gradient(145deg,#ff6a00,#ffb020);border:4px solid #1a1a1a;box-shadow:0 4px 16px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#111;z-index:30;cursor:pointer;user-select:none;pointer-events:auto}
     .roulette-center:active{transform:translate(-50%,-50%) scale(.94)}
     .roulette-result{margin-top:18px;width:100%;max-width:360px;background:var(--card);border:1px solid var(--orange);border-radius:16px;padding:16px;text-align:center;display:none}
@@ -11069,23 +11069,25 @@ function openRoulette(){
       var currentMod=((current%360)+360)%360;
       var delta=finalAngle-currentMod;
       if(delta<360*4) delta+=360*4;
-      rouletteAngle=current+delta;
+      // Animate from the normalized angle so transform values stay small and the
+      // settle reliably finishes in ~6s (avoids long crawls from huge accumulated deg).
+      rouletteAngle=currentMod+delta;
       var wheel=document.getElementById('roulette-wheel');
       if(wheel){
         try{wheel.classList.remove('is-teasing')}catch(e){}
         wheel.style.animation='none';
         wheel.style.transition='none';
-        wheel.style.transform='rotate('+current+'deg)';
+        wheel.style.transform='rotate('+currentMod+'deg)';
         // Force reflow so the browser always paints the CSS transition.
         void wheel.offsetWidth;
         wheel.style.willChange='transform';
-        wheel.style.transition='transform 4.2s cubic-bezier(0.12, 0.75, 0.18, 1)';
+        wheel.style.transition='transform 6s cubic-bezier(0.12, 0.75, 0.18, 1)';
         wheel.style.transform='rotate('+rouletteAngle+'deg)';
       }
       setTimeout(function(){
         try{if(wheel) wheel.style.willChange='auto'}catch(e){}
         try{onDone&&onDone()}catch(e){}
-      }, 4300);
+      }, 6200);
     }
     window.spinRoulette=async function spinRoulette(opts){
       opts=opts||{};
