@@ -53,7 +53,14 @@ assert(vercelJson.includes('"/api/media"') && vercelJson.includes('"/api/videos"
 assert(!fs.existsSync(path.join(__dirname, '..', 'api', 'media.js')), 'no separate api/media.js (keeps function count ≤12)');
 assert(worker.includes('Accept-Ranges'), 'Worker patch sets Accept-Ranges');
 assert(worker.includes('status = 206') || worker.includes('status: 206') || worker.includes('206'), 'Worker patch returns 206');
-assert(html.includes('/api/media?key='), 'fetchableMediaUrl prefers same-origin Range proxy');
+assert(
+  html.includes("CF_API+'/media/'") || html.includes('CF_API+"/media/"'),
+  'fetchableMediaUrl uses Worker CORS path (not Vercel body-limited proxy for elements)'
+);
+assert(
+  !/function fetchableMediaUrl[\s\S]{0,700}\/api\/media\?key=/.test(html),
+  'fetchableMediaUrl must not default to /api/media (Hobby 4.5MB cap breaks feeds)'
+);
 
 // —— Remux unit against a known moov-at-end sample (if cached) ——
 (async function () {

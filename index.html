@@ -4019,7 +4019,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
       return u;
     }
-    // CORS-capable URL for fetch/XHR/canvas. Prefer same-origin /api/media (Range+CORS).
+    // CORS-capable URL for fetch/XHR/canvas.
+    // Prefer Worker /media (CORS *). Do NOT route img/video element src here —
+    // playback/display always uses publicMediaUrl → R2 (Range/206).
+    // Avoid same-origin /api/media for default fetchable URLs: Vercel Hobby caps
+    // response bodies (~4.5MB), which breaks large photos/videos on retry paths.
     function fetchableMediaUrl(u){
       if(Array.isArray(u)){
         for(var ai=0;ai<u.length;ai++){
@@ -4037,14 +4041,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }catch(e){}
       }
       var key=mediaObjectKey(u);
-      if(key){
-        try{
-          if(typeof location!=='undefined' && location.origin && /^https?:/i.test(location.origin)){
-            return location.origin+'/api/media?key='+encodeURIComponent(key);
-          }
-        }catch(e){}
-        return CF_API+'/media/'+key;
-      }
+      if(key) return CF_API+'/media/'+key;
       return u;
     }
     window.publicMediaUrl=publicMediaUrl;
