@@ -4,10 +4,12 @@
  * Drop into the Worker router for paths starting with /media/.
  * Preserves CORS * for fetch/canvas. Does NOT replace R2 <video> playback.
  *
- * Required bindings:
- *   env.MEDIA_BUCKET — R2 bucket binding (same objects as pub-…r2.dev)
+ * Required bindings (first match wins):
+ *   env.MEDIA — R2 bucket used by the live Worker (delete/upload paths)
+ *   env.MEDIA_BUCKET / env.R2 / env.BUCKET — aliases
  *
- * Equivalent behavior to api/media.js (Vercel) when Worker /media is restored.
+ * Dashboard paste instructions: workers/MEDIA_RANGE_DASHBOARD_PATCH.md
+ * Same-origin fallback on Vercel: /api/media → /api/videos (handleMediaProxy).
  */
 export async function handleMediaRequest(request, env, key) {
   const cors = {
@@ -42,7 +44,7 @@ export async function handleMediaRequest(request, env, key) {
     });
   }
 
-  const bucket = env.MEDIA_BUCKET || env.R2 || env.BUCKET;
+  const bucket = env.MEDIA || env.MEDIA_BUCKET || env.R2 || env.BUCKET;
   if (!bucket || typeof bucket.get !== 'function') {
     return new Response(JSON.stringify({ error: 'bucket_unbound' }), {
       status: 500,
