@@ -85,8 +85,9 @@ assert(
   var r2 = await fetch(play, { headers: { Range: 'bytes=0-1', 'User-Agent': 'Mozilla/5.0' } });
   assert(r2.status === 206 || r2.status === 200, 'R2 range/playable status ' + r2.status);
   assert((r2.headers.get('Accept-Ranges') || '').toLowerCase() === 'bytes' || r2.status === 206, 'R2 Accept-Ranges');
-  // Same-origin /api/media handler is the CORS+Range fetch path (Worker /media currently 404s).
-  var handler = require('../api/media.js');
+  // Same-origin /api/media → /api/videos media proxy (CORS+Range; Worker /media currently 404s).
+  delete require.cache[require.resolve('../api/videos.js')];
+  var handler = require('../api/videos.js');
   var statusCode = 0, headers = {}, body = Buffer.alloc(0);
   await handler(
     {
@@ -105,9 +106,9 @@ assert(
       }
     }
   );
-  assert(statusCode === 206, 'api/media Range → 206');
-  assert(headers['Access-Control-Allow-Origin'] === '*', 'api/media CORS * for fetch');
-  assert(body.length === 2, 'api/media ranged body');
+  assert(statusCode === 206, 'media proxy Range → 206');
+  assert(headers['Access-Control-Allow-Origin'] === '*', 'media proxy CORS * for fetch');
+  assert(body.length === 2, 'media proxy ranged body');
   console.log('\nMultimedia audit checks passed');
 })().catch(function (e) {
   console.error(e);

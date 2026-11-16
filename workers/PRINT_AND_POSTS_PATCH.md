@@ -66,4 +66,4 @@ Live Worker `/media/*` currently ignores Range (or 404s). Safari progressive MP4
 See `workers/media-range.js` for a drop-in handler. Until deployed, the site uses:
 
 - **R2** `pub-…r2.dev` for `<video>` playback (already Range-correct)
-- **`/api/media?key=`** same-origin proxy for CORS fetch/canvas with Range
+- **`/api/media?key=`** → rewritten to `/api/videos` media proxy (CORS + Range; keeps Vercel Hobby ≤12 functions)

@@ -34,7 +34,8 @@ Fast first frame, no black screens / infinite Loading, no unnecessary full downl
 - Prev + far: `preload=none` + unload (no competing 15 MB downloads).
 
 ### Phase 5 — Worker / media Range
-- `api/media.js`: same-origin proxy with `206`, `Content-Range`, `Accept-Ranges`, `Content-Length`, `HEAD`, CORS.
+- Media Range proxy lives in `api/videos.js` (`handleMediaProxy`); `vercel.json` rewrites `/api/media` → `/api/videos` so Hobby stays ≤12 serverless functions.
+- Supports `206`, `Content-Range`, `Accept-Ranges`, `Content-Length`, `HEAD`, CORS.
 - `workers/media-range.js`: drop-in Worker patch for `/media` (deploy separately).
 - `<video>` still uses public R2 directly (already Range-correct).
 

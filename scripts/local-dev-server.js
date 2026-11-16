@@ -62,7 +62,8 @@ var apiMap = {
   '/api/fc-spend': '../api/fc-spend.js',
   '/api/admin-request': '../api/admin-request.js',
   '/api/videos': '../api/videos.js',
-  '/api/media': '../api/media.js'
+  // Hobby plan ≤12 functions: /api/media is rewritten onto videos.js
+  '/api/media': '../api/videos.js'
 };
 
 var server = http.createServer(async function (req, res) {

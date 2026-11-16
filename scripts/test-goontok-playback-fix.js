@@ -8,7 +8,8 @@ var path = require('path');
 var { inspectMp4, remuxMp4FastStart } = require('./lib/mp4-faststart');
 
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-var apiMedia = fs.readFileSync(path.join(__dirname, '..', 'api', 'media.js'), 'utf8');
+var apiVideos = fs.readFileSync(path.join(__dirname, '..', 'api', 'videos.js'), 'utf8');
+var vercelJson = fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8');
 var worker = fs.readFileSync(path.join(__dirname, '..', 'workers', 'media-range.js'), 'utf8');
 
 function assert(c, m) {
@@ -44,10 +45,12 @@ assert(/n===i[\s\S]{0,200}preload='auto'/.test(html), 'active slide uses preload
 assert(/preload="none" poster=/.test(html), 'GoonTok slides start with preload=none until armed');
 
 // —— Phase 5: Range ——
-assert(apiMedia.includes('Accept-Ranges'), 'api/media sets Accept-Ranges');
-assert(apiMedia.includes('Content-Range'), 'api/media forwards Content-Range');
-assert(/req\.method === 'HEAD'/.test(apiMedia), 'api/media handles HEAD');
-assert(apiMedia.includes('Range'), 'api/media respects Range');
+assert(apiVideos.includes('handleMediaProxy'), 'media Range proxy folded into api/videos.js');
+assert(apiVideos.includes('Accept-Ranges'), 'media proxy sets Accept-Ranges');
+assert(apiVideos.includes('Content-Range'), 'media proxy forwards Content-Range');
+assert(/req\.method !== 'GET' && req\.method !== 'HEAD'/.test(apiVideos) || /req\.method === 'HEAD'/.test(apiVideos), 'media proxy handles HEAD');
+assert(vercelJson.includes('"/api/media"') && vercelJson.includes('"/api/videos"'), 'vercel rewrites /api/media → /api/videos (Hobby ≤12 fn)');
+assert(!fs.existsSync(path.join(__dirname, '..', 'api', 'media.js')), 'no separate api/media.js (keeps function count ≤12)');
 assert(worker.includes('Accept-Ranges'), 'Worker patch sets Accept-Ranges');
 assert(worker.includes('status = 206') || worker.includes('status: 206') || worker.includes('206'), 'Worker patch returns 206');
 assert(html.includes('/api/media?key='), 'fetchableMediaUrl prefers same-origin Range proxy');
@@ -76,9 +79,10 @@ assert(html.includes('/api/media?key='), 'fetchableMediaUrl prefers same-origin 
   assert(range.status === 206, 'R2 playback Range 206 intact');
   assert((range.headers.get('Accept-Ranges') || '').toLowerCase() === 'bytes', 'R2 Accept-Ranges bytes');
 
-  // Local api/media handler smoke (function export)
-  var handler = require('../api/media.js');
-  assert(typeof handler === 'function', 'api/media exports handler');
+  // Local media proxy via api/videos.js (Hobby: no separate media function)
+  delete require.cache[require.resolve('../api/videos.js')];
+  var handler = require('../api/videos.js');
+  assert(typeof handler === 'function', 'api/videos exports handler');
 
   var headers = {};
   var statusCode = 0;
@@ -99,11 +103,11 @@ assert(html.includes('/api/media?key='), 'fetchableMediaUrl prefers same-origin 
     }
   };
   await handler(req, res);
-  assert(statusCode === 206, 'api/media returns 206 for Range ' + statusCode);
-  assert(String(headers['Accept-Ranges'] || '').toLowerCase() === 'bytes', 'api/media Accept-Ranges');
-  assert(/bytes 0-1\//.test(String(headers['Content-Range'] || '')), 'api/media Content-Range');
+  assert(statusCode === 206, 'media proxy returns 206 for Range ' + statusCode);
+  assert(String(headers['Accept-Ranges'] || '').toLowerCase() === 'bytes', 'media proxy Accept-Ranges');
+  assert(/bytes 0-1\//.test(String(headers['Content-Range'] || '')), 'media proxy Content-Range');
   var body = Buffer.concat(chunks);
-  assert(body.length === 2, 'api/media ranged body length 2');
+  assert(body.length === 2, 'media proxy ranged body length 2');
 
   // HEAD
   statusCode = 0;
@@ -118,8 +122,8 @@ assert(html.includes('/api/media?key='), 'fetchableMediaUrl prefers same-origin 
     },
     res
   );
-  assert(statusCode === 200 || statusCode === 206, 'api/media HEAD ok ' + statusCode);
-  assert(String(headers['Accept-Ranges'] || '').toLowerCase() === 'bytes', 'api/media HEAD Accept-Ranges');
+  assert(statusCode === 200 || statusCode === 206, 'media proxy HEAD ok ' + statusCode);
+  assert(String(headers['Accept-Ranges'] || '').toLowerCase() === 'bytes', 'media proxy HEAD Accept-Ranges');
 
   console.log('\nGoonTok playback-fix checks passed');
 })().catch(function (e) {
