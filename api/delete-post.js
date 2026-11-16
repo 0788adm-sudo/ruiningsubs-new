@@ -188,12 +188,9 @@ function legacyRequiresFc(row) {
 }
 
 function ownerDeleteCost(row) {
-  const tier = resolveTier(row);
-  if (tier === 'locked' || tier === 'permanent') return DELETE_COST_FC;
-  // Explicit free deletion (compose choice) always free for the verified author.
-  if (freeDeletionEnabled(row) || tier === 'deletable') return 0;
-  // Legacy posts without an explicit free flag still pay when timed/Extend rules match.
-  if (legacyRequiresFc(row)) return DELETE_COST_FC;
+  // Universal rule: verified owners always delete free (tiers only affect messaging / third-party paid remove).
+  // Non-owners pay via reason=paid (DELETE_COST_FC) or admin moderation/privacy.
+  void row;
   return 0;
 }
 
@@ -793,13 +790,17 @@ module.exports = async function handler(req, res) {
     accountType === 'anonymous' ||
     isAnonymousIdentity(rawUser) ||
     String(body.role || '').toLowerCase() === 'guest';
-  const isOwner = !requesterAnon && (owner === userKey || tokenOk);
-  // Block anonymous delete attempts explicitly (owner-token spoofing included).
-  if (requesterAnon) {
-    return json(res, 403, {
-      error: 'anonymous_cannot_delete',
-      detail: 'Anonymous accounts can publish proofs but cannot delete posts. Register to manage your own posts.'
-    });
+  // Owner = matching username OR valid owner token (anon publishers may free-delete their own posts).
+  const isOwner = owner === userKey || tokenOk;
+  // Anonymous non-owners cannot free-delete; they must use paid FC (reason=paid) or external admin path.
+  if (requesterAnon && !isOwner) {
+    // Allow paid FC path for anon wallets that somehow have balance; otherwise forbid free delete.
+    if (!(reason === 'paid' || reason === 'paid_remove' || reason === 'fc')) {
+      return json(res, 403, {
+        error: 'anonymous_cannot_delete',
+        detail: 'Anonymous accounts can only delete their own posts for free, or pay 50 FC / $5 for others.'
+      });
+    }
   }
   let cfAdminOk = false;
   try {

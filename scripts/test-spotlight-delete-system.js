@@ -22,7 +22,7 @@ assert(html.indexOf('$5 request · or rights') < 0, 'detail Delete no longer adv
 assert(html.indexOf('data-nf-act="delete"') >= 0, 'Wall/feed delete shortcut restored');
 assert(html.indexOf('openRemove(') >= 0, 'openRemove available for Delete');
 assert(/id="btn-remove-led-label"/.test(html), 'Delete remains in post detail');
-assert(html.indexOf('allowPaidDelete') >= 0 || html.indexOf('Delete · $5 / 50 FC') >= 0, 'paid third-party delete restored');
+assert(html.indexOf('universalDeleteButtonHtml') >= 0 || html.indexOf('$5 / 50 FC') >= 0 || html.indexOf('FC or $5') >= 0, 'paid third-party delete restored');
 assert(html.indexOf('btn-remove-paypal') >= 0, 'PayPal $5 remove kept');
 assert(html.indexOf('btn-remove-throne') >= 0, 'Throne $5 remove kept');
 assert(html.indexOf('btn-remove-paid') >= 0, 'I paid remove kept');

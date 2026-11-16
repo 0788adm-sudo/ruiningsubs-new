@@ -21,13 +21,15 @@ assert(html.includes('function isAnonymousAccount'), 'isAnonymousAccount helper'
 assert(html.includes("Login to publish proof") === false || !/openGameTaskPublish[\s\S]{0,200}Login to publish proof/.test(html), 'openGameTaskPublish no login gate');
 assert(!/function publishRouletteToFeed\(\)\{[\s\S]{0,800}Login to publish proof/.test(html), 'roulette publish no login gate');
 assert(!/function publishDiceProof\(\)\{[\s\S]{0,500}Login to publish proof/.test(html), 'dice publish no login gate');
-assert(html.includes('Anonymous accounts cannot delete'), 'anon delete blocked in UI');
-assert(html.includes('anonymous_cannot_delete') || del.includes('anonymous_cannot_delete'), 'server rejects anon delete');
+// Universal Delete: anon owners may free-delete; anon non-owners must pay / are gated server-side.
+assert(del.includes('anonymous_cannot_delete'), 'server rejects anon non-owner free delete');
 assert(del.includes('requesterAnon'), 'delete-post checks anonymous requester');
+assert(/requesterAnon && !isOwner/.test(del), 'anon non-owners cannot free-delete');
+assert(/function ownerDeleteCost[\s\S]*?return 0/.test(del), 'owners (incl. anon owners) delete free on API');
 assert(html.includes("account:anonymous") || html.includes("account:registered"), 'posts tag account type');
 assert(html.includes('rs_linked_anon'), 'register links anon history');
-assert(html.includes('function canDeletePostAsOwner') && html.includes('Anonymous visitors may publish but never delete'), 'owner delete requires registered');
-assert(html.includes('You can only delete your own posts'), 'openRemove blocks non-owners');
+assert(html.includes('function canDeletePostAsOwner'), 'owner delete helper');
+assert(html.includes('function universalDeleteButtonHtml'), 'universal delete on every surface');
 assert(html.includes('PENDING GAME TASKS'), 'pending tasks visible');
 
 console.log('\nAnon publish/delete checks passed');
