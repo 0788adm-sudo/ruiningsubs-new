@@ -108,12 +108,37 @@ async function cfFetch(path, opts) {
   return { ok: r.ok, status: r.status, json: j };
 }
 
+async function cfFetchTimed(path, opts, ms) {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timer = null;
+  if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (_) {} }, ms || 15000);
+  try {
+    const r = await fetch(CF_API + path, Object.assign({
+      cache: 'no-store',
+      signal: ctrl ? ctrl.signal : undefined
+    }, opts || {}));
+    let j = {};
+    try { j = await r.json(); } catch (_) { j = {}; }
+    return { ok: r.ok, status: r.status, json: j };
+  } catch (e) {
+    return { ok: false, status: 0, json: { error: 'cf_timeout', detail: String(e && e.message ? e.message : e) } };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function verifyAdminToken(token) {
   if (!token) return false;
-  const res = await cfFetch('/admin/requests?limit=1', {
-    headers: { Authorization: 'Bearer ' + token, Origin: SITE }
-  });
-  return !!(res.ok && res.json && res.json.ok !== false);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await cfFetchTimed('/admin/requests?limit=1', {
+        headers: { Authorization: 'Bearer ' + token, Origin: SITE }
+      }, 15000);
+      if (res.ok && res.json && res.json.ok !== false) return true;
+      if (res.status === 401 || res.status === 403) return false;
+    } catch (_) {}
+  }
+  return false;
 }
 
 function normPostId(id) {
@@ -309,14 +334,15 @@ module.exports = async function handler(req, res) {
     try {
       removed = await retirePinBoard(postId);
     } catch (_) {}
-    if (db.error === 'no_row_updated' && removed > 0) {
+    // Idempotent success: pin already cleared in DB and/or board — never leave admin stuck.
+    if (db.error === 'no_row_updated') {
       return json(res, 200, {
         ok: true,
         mode: 'post',
         postId,
         unpinned: [postId],
         boardRemoved: { [postId]: removed },
-        note: 'board_cleared_db_unchanged'
+        note: removed > 0 ? 'board_cleared_db_unchanged' : 'already_unpinned'
       });
     }
     return json(res, 404, { ok: false, error: db.error || 'not_found', postId });
