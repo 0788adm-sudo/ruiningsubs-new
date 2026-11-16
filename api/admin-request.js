@@ -12,7 +12,9 @@ const ALLOWED_KINDS = {
   coins: 1,
   page_request: 1,
   payment: 1,
-  feature_request: 1
+  feature_request: 1,
+  roulette_pack_request: 1,
+  roulette_pack: 1
 };
 
 function json(res, code, body) {

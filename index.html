@@ -2883,13 +2883,21 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div id="roulette-unlock-box" style="display:none;width:100%;max-width:360px;background:var(--card);border:1px solid var(--orange);border-radius:16px;padding:16px;margin-top:14px;text-align:center;box-shadow:0 0 18px rgba(217,70,239,.12)">
             <div style="font-size:18px;font-weight:900;color:var(--orange);margin-bottom:6px">Free spins exhausted</div>
             <div style="font-size:14px;line-height:1.45;color:var(--muted);margin-bottom:12px">
-              Your 3 free spins are used. Wait <strong style="color:#fff">24 hours</strong> to recover them, or get <strong style="color:#fff">10 additional spins</strong> for <strong style="color:#f5c518">50 FC ($5)</strong>.
+              Your 3 free spins are used. Wait <strong style="color:#fff">24 hours</strong> to recover them, or buy <strong style="color:#fff">10 additional spins</strong>.
             </div>
-            <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:8px;background:#f5c518;color:#000;font-weight:800" onclick="buyRoulettePack()">GET 10 SPINS — 50 FC</button>
-            <a class="btn btn-secondary" id="btn-roulette-paypal-pack" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800" onclick="requestRoulettePackPayPal();return true">PayPal $5 · MartinJimenez205</a>
+            <button class="btn btn-primary" type="button" id="btn-roulette-buy-pack" style="width:100%;margin-bottom:4px;background:#f5c518;color:#000;font-weight:900;font-size:15px;padding:14px" onclick="buyRoulettePack()">🎰 BUY 10 EXTRA SPINS</button>
+            <div style="font-size:13px;font-weight:800;color:#f5c518;margin:0 0 12px">50 FC · $5 USD</div>
+            <div style="font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 8px">Payment options</div>
+            <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;font-weight:800;background:#f5c518;color:#000" onclick="buyRoulettePack()">Pay with FC balance (50 FC)</button>
+            <a class="btn btn-secondary" id="btn-roulette-paypal-pack" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800;background:#0070ba;border:0;color:#fff" onclick="openRouletteExternalPay('paypal');return true">PayPal $5 · MartinJimenez205</a>
+            <a class="btn btn-secondary" id="btn-roulette-throne-pack" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800;background:#4c1d95;color:#fff" onclick="openRouletteExternalPay('throne');return true"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Throne $5</span></a>
+            <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;background:#111;color:#fff;border:1px solid #f7931a;font-weight:800" onclick="openRouletteExternalPay('btc')">₿ Bitcoin — Copy Wallet</button>
+            <button class="btn btn-primary" type="button" id="btn-roulette-claim-spins" style="width:100%;margin-bottom:8px;padding:14px;font-weight:900;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" onclick="claimRoulettePackPaid()">I PAID — CLAIM SPINS</button>
+            <div id="roulette-pack-review" style="display:none;margin:0 0 8px;padding:10px;border-radius:12px;border:1px solid #f5c518;background:rgba(245,197,24,.1);font-size:13px;font-weight:800;color:#f5c518">PAYMENT UNDER REVIEW</div>
             <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin-bottom:8px" onclick="openCoinShop()">Buy Fag Coins first</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock-2" onclick="checkRouletteUnlock()" style="width:100%;margin-bottom:4px">Check for approved unlock</button>
             <div style="font-size:11px;color:var(--muted);margin-top:9px;line-height:1.35">
-              Opening PayPal or tapping “I paid” does <strong style="color:#fff">not</strong> auto-credit. FC pack deducts 50 FC only after a successful server charge; PayPal needs admin approval.
+              Opening PayPal / Throne or tapping “I paid” does <strong style="color:#fff">not</strong> auto-credit. FC pack deducts 50 FC only after a successful server charge; external payments need admin approval.
             </div>
           </div>
 
@@ -2904,7 +2912,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 <strong style="color:var(--orange)">After your 3 free spins:</strong>
                 <div style="font-size:12px;color:var(--muted);margin-top:4px">50 FC ($5) unlocks exactly 10 additional spins.</div>
               </div>
-              <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="unlockRouletteWithCoins()" style="width:100%;margin-bottom:8px;font-weight:800">GET 10 SPINS — 50 FC</button>
+              <button class="btn btn-secondary" type="button" id="btn-roulette-unlock" onclick="unlockRouletteWithCoins()" style="width:100%;margin-bottom:4px;font-weight:800">🎰 BUY 10 EXTRA SPINS</button>
+              <div style="font-size:12px;font-weight:800;color:#f5c518;margin:0 0 8px;text-align:center">50 FC · $5 USD</div>
               <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-custom" onclick="openCustomRouletteRequest()" style="width:100%;margin-bottom:8px;font-weight:800">Custom 30 options — 250 FC / $25</button>
               <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;font-weight:800" onclick="openCoinShop()">Buy Fag Coins</button>
               <div id="roulette-btc" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:8px">
@@ -5863,7 +5872,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     function isAnonymousAccountName(name){
       name=String(name||'').replace(/^@/,'').trim().toLowerCase();
-      return !name || name==='guest' || name==='anon' || name.indexOf('anon_')===0 || name.indexOf('anon:')===0 || /^anon\d*$/i.test(name);
+      return !name || name==='guest' || name==='anon' || name.indexOf('anon_')===0 || name.indexOf('anon:')===0 || name.indexOf('anon_')===0 || /^anon\d*$/i.test(name) || /^anon_\d+$/i.test(name);
     }
     function isAnonymousAccount(){
       try{if(typeof isRegistered==='function' && isRegistered()) return false}catch(e){}
@@ -5879,7 +5888,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(!force && typeof isRegistered==='function' && isRegistered()) return null;
       }catch(e){}
       var existing='';
-      try{existing=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48)}catch(e){}
+      try{existing=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48)}catch(e){}
       var j=null;
       try{
         var r=await fetch('/api/game-play',{
@@ -5891,7 +5900,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         });
         j=await r.json().catch(function(){return null});
       }catch(e){j=null}
-      var id=(j&&j.anonymous_user_id)?String(j.anonymous_user_id).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48):existing;
+      var id=(j&&j.anonymous_user_id)?String(j.anonymous_user_id).toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48):existing;
       if(!id || id.length<8){
         id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
       }
@@ -5919,7 +5928,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var role=localStorage.getItem('rs_role')||'guest';
       var email=localStorage.getItem('rs_email')||'';
       var anonId='';
-      try{anonId=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48)}catch(e){}
+      try{anonId=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48)}catch(e){}
       if(!uid || uid==='guest' || uid==='anon'){
         // Stable anonymous identity — never mint a new Anon_#### on every load when we already have rs_anon_id.
         if(anonId && anonId.length>=8) uid='anon_'+anonId;
@@ -8464,7 +8473,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     },true);
     function getAnonSessionId(){
       try{
-        var id=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48);
+        var id=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
         if(id.length>=8) return id;
         id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
         localStorage.setItem('rs_anon_session', id);
@@ -9044,6 +9053,7 @@ async function claimPayPalPack(p){
       var r=await fetch('/api/game-play',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        credentials:'include',
         body:JSON.stringify(payload),
         cache:'no-store'
       });
@@ -9075,7 +9085,7 @@ async function claimPayPalPack(p){
         var u=coinUserId();
         var anon=getAnonSessionId();
         var q='/api/game-play?user='+encodeURIComponent(u)+'&anon_id='+encodeURIComponent(anon)+(game?('&game='+encodeURIComponent(game)):'');
-        var r=await fetch(q,{cache:'no-store'});
+        var r=await fetch(q,{cache:'no-store',credentials:'include'});
         var j=await r.json().catch(function(){return{}});
         if(j&&j.ok&&j.free_left){
           window.__gameFreeLeft=Object.assign({roulette:GAME_FREE_USES,dice:GAME_FREE_USES,tic_tac_toe:GAME_FREE_USES},j.free_left);
@@ -9428,12 +9438,53 @@ async function claimPayPalPack(p){
       // Legacy alias — buy the 50 FC / 10-spin pack instead of a single 10 FC spin.
       return buyRoulettePack();
     }
+    function rouletteBuyerId(){
+      try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
+      var uid=String(coinUserId()||'').replace(/^@/,'');
+      if(!uid || uid==='guest' || uid==='anon'){
+        uid='anon_'+getAnonSessionId();
+      }
+      return uid;
+    }
+    function rouletteAccountType(){
+      try{return (typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'anonymous':'registered'}catch(e){return 'anonymous'}
+    }
+    function markRoulettePackUnderReview(reqId){
+      try{
+        localStorage.setItem('rs_roulette_pack_pending', JSON.stringify({
+          id:reqId||('rp_'+Date.now().toString(36)),
+          user:rouletteBuyerId(),
+          at:Date.now(),
+          status:'pending'
+        }));
+      }catch(e){}
+      var el=document.getElementById('roulette-pack-review');
+      if(el){el.style.display='block';el.textContent='PAYMENT UNDER REVIEW'}
+    }
+    function clearRoulettePackUnderReview(){
+      try{localStorage.removeItem('rs_roulette_pack_pending')}catch(e){}
+      var el=document.getElementById('roulette-pack-review');
+      if(el) el.style.display='none';
+    }
+    function restoreRoulettePackReviewBanner(){
+      try{
+        var p=JSON.parse(localStorage.getItem('rs_roulette_pack_pending')||'null');
+        var el=document.getElementById('roulette-pack-review');
+        if(el) el.style.display=(p&&p.status==='pending')?'block':'none';
+      }catch(e){}
+    }
     async function buyRoulettePack(){
-      if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
+      try{await ensureAnonIdentity(false)}catch(e){}
+      var user=rouletteBuyerId();
+      if(!confirm('Buy 10 extra spins for 50 FC ($5)?\n\nOK = charge 50 FC from balance\nCancel = choose PayPal / Throne / BTC instead')){
+        try{openRoulettePayment()}catch(e){}
+        return;
+      }
       var bal=Number(window.__fcLast||0);
       try{bal=await loadFagBalance()}catch(e){}
       if(bal<ROULETTE_PACK_FC){
-        toast('Insufficient FC — need '+ROULETTE_PACK_FC+' FC ($5)');
+        toast('Insufficient FC — need '+ROULETTE_PACK_FC+' FC ($5). Choose PayPal, Throne, or BTC.');
+        try{openRoulettePayment()}catch(e){}
         try{openNeedCoins({cost:ROULETTE_PACK_FC,why:'roulette_pack'})}catch(e){try{openCoinShop()}catch(err){}}
         return;
       }
@@ -9444,12 +9495,14 @@ async function claimPayPalPack(p){
           game:'roulette',
           action:'buy_pack',
           play_id:playId,
-          user:coinUserId()
+          user:user,
+          anon_id:getAnonSessionId()
         });
       }catch(e){charged={ok:false}}
       if(!charged||!charged.ok){
         if(charged&&charged.error==='insufficient'){
-          toast('Insufficient FC — need '+ROULETTE_PACK_FC+' FC');
+          toast('Insufficient FC — need '+ROULETTE_PACK_FC+' FC. Choose another payment method.');
+          try{openRoulettePayment()}catch(e){}
           try{openNeedCoins({cost:ROULETTE_PACK_FC,why:'roulette_pack'})}catch(e){}
           return;
         }
@@ -9469,25 +9522,95 @@ async function claimPayPalPack(p){
       }
       if(charged.pack_spins!=null) window.__roulettePackSpins=Number(charged.pack_spins)||0;
       if(charged.balance!=null) window.__fcLast=Number(charged.balance)||window.__fcLast;
+      clearRoulettePackUnderReview();
       try{await loadFagBalance()}catch(e){}
       try{updateRouletteSpinsUI()}catch(e){}
     }
+    function openRouletteExternalPay(provider){
+      provider=String(provider||'paypal').toLowerCase();
+      try{ensureAnonIdentity(false)}catch(e){}
+      window.__roulettePackPayProvider=provider;
+      if(provider==='btc'){
+        try{
+          navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)});
+        }catch(e){toast('BTC wallet: '+BTC_WALLET)}
+      }else if(provider==='throne'){
+        try{window.open((typeof THRONE_PACK_5!=='undefined'?THRONE_PACK_5:PAY_LINKS.roulette.throne),'_blank','noopener')}catch(e){}
+      }else{
+        try{window.open((typeof PAYPAL_ME!=='undefined'?PAYPAL_ME+'/5':'https://www.paypal.me/MartinJimenez205/5'),'_blank','noopener')}catch(e){}
+      }
+      toast('Pay $5 for 10 spins, then tap I PAID — CLAIM SPINS');
+      try{openRoulettePayment()}catch(e){}
+    }
     async function requestRoulettePackPayPal(){
-      if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
+      return openRouletteExternalPay('paypal');
+    }
+    async function claimRoulettePackPaid(){
+      try{await ensureAnonIdentity(false)}catch(e){}
+      var user=rouletteBuyerId();
+      var provider=String(window.__roulettePackPayProvider||'external');
+      var reqId='rp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+      var acct=rouletteAccountType();
+      markRoulettePackUnderReview(reqId);
+      toast('PAYMENT UNDER REVIEW');
       try{
         await notifyAdminPayment({
           kind:'roulette_pack_request',
-          postId:null,
-          user:(currentUser&&currentUser.name)||'guest',
+          postId:reqId,
+          user:user,
           amount:'$5 / 50 FC',
           label:'ROULETTE 10 SPINS',
-          message:'🎰 ROULETTE PACK · @'+((currentUser&&currentUser.name)||'guest')+' · PayPal $5 (MartinJimenez205) · grant 10 spins after verified payment'
+          message:'🎰 ROULETTE PACK · @'+user+' · '+acct+' · '+provider+' $5 · request '+reqId+' · grant 10 spins after verified payment · I PAID — CLAIM SPINS'
         });
-        toast('PayPal opened · request sent — spins unlock after admin verifies payment');
-      }catch(e){toast('PayPal opened · message Master after paying $5')}
+      }catch(e){}
+      try{
+        await cfCreateRequest({
+          kind:'roulette_pack_request',
+          user:user,
+          amount:'$5',
+          coins:0,
+          provider:provider,
+          label:'Roulette 10 spins',
+          payload:{
+            product:'roulette_pack',
+            spins:ROULETTE_PACK_SPINS,
+            usd:5,
+            request_id:reqId,
+            account_type:acct,
+            anonymous_user_id:getAnonSessionId(),
+            message:'🎰 ROULETTE PACK · @'+user+' · '+provider+' $5 · 10 spins'
+          }
+        });
+      }catch(e){}
+      try{
+        if(sb){
+          await sb.from('notifications').insert({
+            to_username:'admin',
+            from_username:user,
+            type:'roulette_pack_request',
+            post_id:null,
+            message:JSON.stringify({
+              user:user,
+              account_type:acct,
+              anonymous_user_id:getAnonSessionId(),
+              provider:provider,
+              amount:'$5',
+              package:'10 spins',
+              request_id:reqId,
+              status:'pending',
+              at:Date.now()
+            }),
+            created_at:new Date().toISOString(),
+            read:false
+          });
+        }
+      }catch(e){}
+      toast('PAYMENT UNDER REVIEW — spins unlock after admin verifies');
     }
     window.buyRoulettePack=buyRoulettePack;
     window.requestRoulettePackPayPal=requestRoulettePackPayPal;
+    window.openRouletteExternalPay=openRouletteExternalPay;
+    window.claimRoulettePackPaid=claimRoulettePackPaid;
     async function openCustomRouletteRequest(kind){
       kind=kind==='dice'?'custom_dice':'custom_roulette';
       if(!isRegistered()){toast('Login first');try{showAuth('login')}catch(e){}return}
@@ -9577,8 +9700,7 @@ async function claimPayPalPack(p){
         if(freeLeft>0) el.textContent = freeLeft+' free spin'+(freeLeft===1?'':'s')+' left · 24h recovery after 3';
         else if(recLbl) el.textContent = 'Free exhausted · '+recLbl+(paidLeft>0?(' · '+paidLeft+' pack left'):'');
         else if(paidLeft>0) el.textContent = 'Free uses exhausted · '+paidLeft+' pack spin'+(paidLeft===1?'':'s')+' left · '+bal+' FC';
-        else if(isAnonPlayer()) el.textContent = 'Free uses exhausted · wait 24h or register to buy spins with FC';
-        else el.textContent = 'Free uses exhausted · wait 24h or get 10 spins for '+ROULETTE_PACK_FC+' FC ($5)';
+        else el.textContent = 'Free uses exhausted · wait 24h or buy 10 spins for '+ROULETTE_PACK_FC+' FC ($5)';
       }
       var balEl=document.getElementById('roulette-fc-balance');
       if(balEl) balEl.textContent = bal+' FC';
@@ -9598,9 +9720,11 @@ async function claimPayPalPack(p){
           b.textContent=rouletteSpinning?'SPINNING…':'SPIN';
         });
       }catch(e){}
-      var showPay = freeLeft<=0 && paidLeft<=0 && !isAnonPlayer();
+      // Show buy UI whenever free spins are exhausted (even if pack spins remain — allow successive packs).
+      var showPay = freeLeft<=0;
       var unlockBox = document.getElementById('roulette-unlock-box');
       if(unlockBox) unlockBox.style.display = showPay ? 'block' : 'none';
+      try{restoreRoulettePackReviewBanner()}catch(e){}
       var payBox = document.getElementById('roulette-pay-box');
       if(payBox) payBox.style.display = 'none';
       return {freeLeft:freeLeft, paidLeft:paidLeft, bal:bal};
@@ -9673,40 +9797,46 @@ async function claimPayPalPack(p){
     }
 
     async function requestRoulettePack(){
-      if(!isRegistered()){
-        toast('Register/login first');
-        return;
-      }
-      try{openCustomRouletteRequest('roulette')}catch(e){
-        var user=(currentUser&&currentUser.name)||'guest';
-        await notifyAdminPayment({
-          kind:'roulette_pack_request',
-          postId:null,
-          user:user,
-          amount:'10 FC',
-          label:'ROULETTE SPIN',
-          message:'🎰 ROULETTE 10 FC — @'+user+' needs paid spins. Or custom 250 FC / $25.'
-        });
-        toast('Request sent to Admin.');
-      }
+      try{openRoulettePayment()}catch(e){}
+      toast('Choose FC, PayPal, Throne, or BTC — then claim spins');
     }
 
     async function checkRouletteUnlock(silent){
-      if(!isRegistered()||!sb){
-        if(!silent) toast('Login required to check unlock');
+      try{await ensureAnonIdentity(false)}catch(e){}
+      var uname=rouletteBuyerId();
+      // Prefer server pack balance (works for anonymous + registered).
+      try{
+        var j=await syncGameFreeUses('roulette');
+        if(j&&j.ok&&j.pack_spins!=null){
+          window.__roulettePackSpins=Number(j.pack_spins)||0;
+          var d0=getRouletteSpins();
+          if((Number(d0.paidSpins)||0)<window.__roulettePackSpins){
+            d0.paidSpins=window.__roulettePackSpins;
+            saveRouletteSpins(d0);
+          }
+          if(window.__roulettePackSpins>0){
+            clearRoulettePackUnderReview();
+            updateRouletteSpinsUI();
+            if(!silent) toast('✓ '+window.__roulettePackSpins+' pack spin'+(window.__roulettePackSpins===1?'':'s')+' available');
+            return;
+          }
+        }
+      }catch(e){}
+      if(!sb){
+        if(!silent) toast('No roulette unlock found yet');
         return;
       }
       try{
         var claimed={};
         try{claimed=JSON.parse(localStorage.getItem('rs_roulette_claimed')||'{}')||{}}catch(e){claimed={}}
         var r=await sb.from('notifications').select('*')
-          .eq('to_username',currentUser.name)
+          .eq('to_username',uname)
           .eq('type','roulette_unlock')
           .order('created_at',{ascending:false})
           .limit(10);
         var rows=((r&&r.data)||[]).filter(function(row){return row&&row.id&&!claimed[String(row.id)]});
         if(!rows.length){
-          if(!silent) toast('No roulette unlock found yet');
+          if(!silent) toast('No roulette unlock found yet — payment may still be under review');
           return;
         }
         var d=getRouletteSpins();
@@ -9720,6 +9850,7 @@ async function claimPayPalPack(p){
         }
         try{localStorage.setItem('rs_roulette_claimed',JSON.stringify(claimed))}catch(e){}
         saveRouletteSpins(d);
+        clearRoulettePackUnderReview();
         updateRouletteSpinsUI();
         toast('✓ '+added+' roulette spins unlocked');
       }catch(e){
@@ -9727,30 +9858,76 @@ async function claimPayPalPack(p){
       }
     }
 
-    function approveRoulettePack(id, username){
+    async function approveRoulettePack(id, username){
       if(!username){toast('No user');return}
-      pushNotif(username,'admin','roulette_unlock',null,'🎰 Payment verified — 10 roulette spins unlocked. Open Roulette to claim.');
+      id=String(id||'');
+      var reqId=id || ('admin_pack_'+Date.now().toString(36));
+      var ok=false;
+      try{
+        var token='';
+        try{token=await cfAdminLogin()}catch(e){token=''}
+        var r=await fetch('/api/game-play',{
+          method:'POST',
+          headers:{'Content-Type':'application/json',Authorization:token?('Bearer '+token):''},
+          body:JSON.stringify({
+            action:'grant_pack',
+            target_user:String(username).replace(/^@/,''),
+            user:String(username).replace(/^@/,''),
+            request_id:reqId,
+            play_id:reqId,
+            provider:'admin_approve'
+          }),
+          cache:'no-store'
+        });
+        var j=await r.json().catch(function(){return{}});
+        ok=!!(r.ok&&j&&j.ok);
+        if(ok&&j.reused) toast('Already credited — no double grant');
+        else if(ok) toast('APPROVE PAYMENT · 10 spins credited to @'+username);
+        else toast((j&&j.error)||'Could not credit spins');
+      }catch(e){toast('Could not credit spins')}
+      try{pushNotif(username,'admin','roulette_unlock',null,'🎰 Payment verified — 10 roulette spins unlocked. Open Roulette → Check for approved unlock.')}catch(e){}
       if(sb && id){
-        sb.from('notifications').delete().eq('id',id).then(function(){});
+        try{await sb.from('notifications').delete().eq('id',id)}catch(e){}
       }
-      toast('10 spins unlocked for @'+username+' — they claim when opening Roulette');
-      try{renderAdmin()}catch(e){}
+      try{renderAdminReqTab('roulette')}catch(e){try{renderAdmin()}catch(e2){}}
+      return ok;
     }
 
-    function dismissRoulettePack(id){
+    async function dismissRoulettePack(id, username){
       id=String(id||'');
       try{
         var d=JSON.parse(localStorage.getItem('rs_roulette_dismissed')||'[]')||[];
         if(d.indexOf(id)<0)d.push(id);
         localStorage.setItem('rs_roulette_dismissed',JSON.stringify(d.slice(-150)));
       }catch(e){}
-      if(sb && id){
-        sb.from('notifications').delete().eq('id',id).then(function(){});
-        sb.from('notifications').delete().eq('type','roulette_pack_request').eq('id',id).then(function(){});
+      if(username){
+        try{
+          var token='';
+          try{token=await cfAdminLogin()}catch(e){token=''}
+          await fetch('/api/game-play',{
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:token?('Bearer '+token):''},
+            body:JSON.stringify({
+              action:'reject_pack',
+              target_user:String(username).replace(/^@/,''),
+              user:String(username).replace(/^@/,''),
+              request_id:id||('reject_'+Date.now().toString(36)),
+              reason:'rejected'
+            }),
+            cache:'no-store'
+          });
+        }catch(e){}
+        try{pushNotif(username,'admin','roulette_pack_rejected',null,'Roulette pack payment rejected — no spins credited.')}catch(e){}
       }
-      toast('Dismissed');
-      try{renderAdminReqTab('roulette')}catch(e){try{renderAdmin()}catch(e){}}
+      if(sb && id){
+        try{await sb.from('notifications').delete().eq('id',id)}catch(e){}
+        try{await sb.from('notifications').delete().eq('type','roulette_pack_request').eq('id',id)}catch(e){}
+      }
+      toast('REJECT PAYMENT · no spins credited');
+      try{renderAdminReqTab('roulette')}catch(e){try{renderAdmin()}catch(e2){}}
     }
+    window.approveRoulettePack=approveRoulettePack;
+    window.dismissRoulettePack=dismissRoulettePack;
 
     var DICE_WEAR=[
       'T-shirt pulled up to the chest',
@@ -10520,13 +10697,8 @@ function openRoulette(){
       if(!useFree && paidLeft<=0){
         stopRouletteTeaser();
         rouletteSpinning=false;
-        if(isAnonPlayer()){
-          toast('Free uses exhausted. Wait 24h recovery or register to buy spins with FC.');
-          try{updateRouletteSpinsUI()}catch(e){}
-          return;
-        }
         try{openRoulettePayment()}catch(e){}
-        toast('Free uses exhausted. Wait 24h or get 10 spins for 50 FC ($5).');
+        toast('Free uses exhausted. Get 10 additional spins for 50 FC ($5).');
         try{if(bal<ROULETTE_PACK_FC) openNeedCoins({cost:ROULETTE_PACK_FC,why:'roulette_pack'})}catch(e){}
         try{updateRouletteSpinsUI()}catch(e){}
         return;
@@ -10551,17 +10723,13 @@ function openRoulette(){
           window.__gameFreeRecovery.roulette=Number(charged.recovery_ends_at)||0;
         }
         if(charged&&(charged.error==='free_exhausted'||charged.error==='insufficient')){
-          if(isAnonPlayer()||charged.error==='free_exhausted'){
-            toast('Free uses exhausted'+(gameRecoveryLabel('roulette')?(' · '+gameRecoveryLabel('roulette')):(isAnonPlayer()?'. Register to buy more spins with FC.':'. Get 10 spins for 50 FC ($5).')));
-          }else{
-            toast('Free uses exhausted. Get 10 additional spins for 50 FC ($5).');
-            try{openRoulettePayment()}catch(e){}
-          }
+          toast('Free uses exhausted'+(gameRecoveryLabel('roulette')?(' · '+gameRecoveryLabel('roulette')):'. Get 10 spins for 50 FC ($5).'));
+          try{openRoulettePayment()}catch(e){}
           try{updateRouletteSpinsUI()}catch(e){}
           return;
         }
         // Every spin must be recorded server-side — do not spin on client-only state.
-        if(!isAnonPlayer()) try{openRoulettePayment()}catch(e){}
+        try{openRoulettePayment()}catch(e){}
         toast('Could not record spin on server — try again');
         try{updateRouletteSpinsUI()}catch(e){}
         return;
@@ -12051,11 +12219,14 @@ function openRoulette(){
       var brp=document.getElementById('btn-remove-paid');if(brp)brp.onclick=confirmRemovePaid;
       var lo=document.getElementById('btn-logout');
       if(lo)lo.onclick=function(){
-        currentUser={name:'Anon_'+Math.floor(1000+Math.random()*9000),role:'guest'};
+        var aid='';
+        try{aid=getAnonSessionId()}catch(e){aid='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+        currentUser={name:'anon_'+aid,role:'guest',account_type:'anonymous',anonymous_user_id:aid};
         localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest');
         localStorage.removeItem('rs_email');
         clearAdminSession();
         if(sb)sb.auth.signOut().catch(function(){});
+        try{ensureAnonIdentity(false)}catch(e){}
         refreshProfileUI();updateProfilePanel();toast('Logged out');
       };
       document.getElementById('btn-admin-back').onclick=function(){
@@ -14095,7 +14266,8 @@ function openRoulette(){
       if(up && !up._bound){up._bound=1;up.onchange=function(e){startVideoPost(e)}}
     }
     function openVideoComposer(){
-      if(typeof isRegistered==='function' && !isRegistered()){toast('Register to publish');try{showAuth('login')}catch(e){}return}
+      try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
+      if(!currentUser||!currentUser.name){toast('Identity not ready — reload');return}
       showPanel('video-post');
       var up=document.getElementById('video-upload');
       if(up && !up._bound){up._bound=1;up.onchange=function(e){startVideoPost(e)}}
@@ -14518,7 +14690,8 @@ function openRoulette(){
       var tags=(document.getElementById('vp-tags').value||'').split(/[,\s]+/).map(function(t){return t.replace(/^#/,'').trim()}).filter(Boolean);
       if(title.length<3){title='Exposed video'; var ti=document.getElementById('vp-title'); if(ti) ti.value=title}
       if(!window.__vpFile && !window.__vpData){toast('Pick a video first');return}
-      if(typeof isRegistered==='function' && !isRegistered()){toast('Register to publish');try{showAuth('login')}catch(e){}return}
+      try{if(typeof ensureAnonIdentity==='function') await ensureAnonIdentity(false)}catch(e){}
+      if(!currentUser||!currentUser.name){toast('Identity not ready — reload');return}
       tags.push('video');
       tags.push('goontok');
       tags.push(window.__vpGender||'man');
@@ -24544,7 +24717,8 @@ async function onIdFace(e){
     
 
     function isGuestUser(){
-      return !currentUser || currentUser.role!=='user' || String(currentUser.name||'').indexOf('Anon_')===0;
+      try{if(typeof isAnonymousAccount==='function') return isAnonymousAccount()}catch(e){}
+      return !currentUser || currentUser.role!=='user' || /^anon/i.test(String(currentUser.name||'')) || String(currentUser.name||'').indexOf('Anon_')===0;
     }
     function getGuestPublishKey(){
       var d=new Date();
@@ -24569,8 +24743,13 @@ async function onIdFace(e){
         if(!idCardDataUrl){toast('Render the card first');return}
         if(!requireConsent('consent-idcard')) return;
         if(!currentUser||!currentUser.name){
-          currentUser={name:'Anon_'+Math.floor(1000+Math.random()*9000),role:'guest'};
-          try{localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest')}catch(e){}
+          try{if(typeof ensureAnonIdentity==='function') await ensureAnonIdentity(false)}catch(e){}
+          if(!currentUser||!currentUser.name){
+            var aid='';
+            try{aid=getAnonSessionId()}catch(e){aid='a'+Date.now().toString(36)}
+            currentUser={name:'anon_'+aid,role:'guest',account_type:'anonymous',anonymous_user_id:aid};
+            try{localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest')}catch(e){}
+          }
         }
         if(typeof isGuestUser==='function' && isGuestUser()){
           var used=(typeof getGuestPublishCount==='function')?getGuestPublishCount():0;
@@ -25089,6 +25268,7 @@ async function onIdFace(e){
     }
     async function createPost(){
       if(!requireConsent('consent-publish')) return;
+      try{if(typeof ensureAnonIdentity==='function') await ensureAnonIdentity(false)}catch(e){}
       // Game proofs: validate challenge linkage before upload — never auto-publish from "Publicar prueba".
       try{
         if(window.__pendingGamePublish || window.__activeGameTaskId){
@@ -28506,8 +28686,11 @@ async function onIdFace(e){
         var u=r.data;
         if(u.banned===true||u.suspended===true||String(u.status||'').toLowerCase()==='banned'||String(u.status||'').toLowerCase()==='suspended'){
           try{await sb.auth.signOut()}catch(e){}
-          currentUser={name:'Anon_'+Math.floor(1000+Math.random()*9000),role:'guest'};
+          var aid='';
+          try{aid=getAnonSessionId()}catch(e){aid='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+          currentUser={name:'anon_'+aid,role:'guest',account_type:'anonymous',anonymous_user_id:aid};
           localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest');localStorage.removeItem('rs_email');
+          try{ensureAnonIdentity(false)}catch(e){}
           refreshProfileUI();updateProfilePanel();
           toast('This account is blocked by admin');
           return false;
@@ -29386,9 +29569,26 @@ async function onIdFace(e){
         }catch(e){}
       }
       if(!rrq.length){box.innerHTML='<div class="empty">No roulette requests</div>';return}
-      box.innerHTML='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px"><strong style="color:var(--orange)">🎰 Roulette ('+rrq.length+')</strong>'+rrq.map(function(r){
+      box.innerHTML='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px"><strong style="color:var(--orange)">🎰 Roulette pack claims ('+rrq.length+')</strong>'+rrq.map(function(r){
         var u=r.from_username||'?';
-        return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)"><strong>@'+esc(u)+'</strong> <span style="color:var(--muted);font-size:11px">'+(r.created_at?ago(new Date(r.created_at).getTime()):'')+'</span><div style="font-size:11px;color:var(--muted);margin:4px 0">'+esc(r.message||'')+'</div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button" onclick="approveRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">Unlock 10</button><button class="btn btn-secondary btn-sm" type="button" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">Remind</button><button class="btn btn-ghost btn-sm" type="button" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\')">✕</button></div></div>';
+        var meta={};
+        try{meta=JSON.parse(r.message||'{}')||{}}catch(e){meta={}}
+        var acct=meta.account_type||(/^anon_/i.test(String(u))?'anonymous':'registered');
+        var provider=meta.provider||'external';
+        var amount=meta.amount||'$5';
+        var pack=meta.package||'10 spins';
+        var reqId=meta.request_id||r.id||'';
+        var when=r.created_at?ago(new Date(r.created_at).getTime()):'';
+        var whenFull=r.created_at?new Date(r.created_at).toLocaleString():'';
+        return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)">'
+          +'<strong>@'+esc(u)+'</strong> <span style="font-size:11px;color:var(--muted)">· '+esc(acct)+(when?' · '+when:'')+'</span>'
+          +'<div style="font-size:11px;color:var(--muted);margin:4px 0">Method: '+esc(provider)+' · Amount: '+esc(amount)+' · Package: '+esc(pack)+' · Status: PENDING'+(whenFull?' · '+esc(whenFull):'')+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin:0 0 6px;word-break:break-word">'+esc(typeof r.message==='string'?r.message:JSON.stringify(meta))+'</div>'
+          +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
+          +'<button class="btn btn-primary btn-sm" type="button" onclick="approveRoulettePack(\''+String(reqId||r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">APPROVE PAYMENT</button>'
+          +'<button class="btn btn-danger btn-sm" type="button" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">REJECT PAYMENT</button>'
+          +'<button class="btn btn-secondary btn-sm" type="button" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">Remind</button>'
+          +'</div></div>';
       }).join('')+'</div>';
     }
     async function loadPrintFulfilledIds(){

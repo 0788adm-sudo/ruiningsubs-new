@@ -135,7 +135,8 @@ function parseCookies(req) {
 }
 
 function sanitizeAnonId(v) {
-  return String(v || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+  // Lowercase so wallet / pack boards stay consistent across user= and anon_id=.
+  return String(v || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 48);
 }
 
 function mintAnonId() {
@@ -263,14 +264,28 @@ function isAnonUser(user) {
   return !user || user === 'anon' || user === 'guest' || user.indexOf('anon_') === 0 || user.indexOf('anon:') === 0;
 }
 
-function resolvePlayer(body, query) {
+function resolvePlayer(body, query, req) {
   var registered = normUser((body && (body.user || body.username)) || (query && (query.user || query.username)) || '');
-  var anonRaw = String((body && (body.anon_id || body.anonId || body.session_token)) || (query && (query.anon_id || query.anonId)) || '').trim();
-  anonRaw = anonRaw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+  var anonRaw = String((body && (body.anon_id || body.anonId || body.anonymous_user_id || body.session_token)) || (query && (query.anon_id || query.anonId || query.anonymous_user_id)) || '').trim();
+  anonRaw = sanitizeAnonId(anonRaw);
+  // Prefer HttpOnly cookie over client-supplied id (anti-spoof for same browser).
+  if (req) {
+    try {
+      var fromCookie = sanitizeAnonId(parseCookies(req)[ANON_COOKIE]);
+      if (isValidAnonId(fromCookie)) anonRaw = fromCookie;
+    } catch (e) {}
+  }
   if (registered && !isAnonUser(registered)) {
     return { user: registered, anon: false, registered: true };
   }
-  if (anonRaw && anonRaw.length >= 8) {
+  // Registered-looking payload that is actually anon_<id>
+  if (registered && isAnonUser(registered)) {
+    var stripped = sanitizeAnonId(registered.replace(/^anon[_:]/i, ''));
+    if (isValidAnonId(stripped)) {
+      return { user: 'anon_' + stripped, anon: true, registered: false, anonId: stripped };
+    }
+  }
+  if (isValidAnonId(anonRaw)) {
     return { user: 'anon_' + anonRaw, anon: true, registered: false, anonId: anonRaw };
   }
   return { user: '', anon: true, registered: false };
@@ -302,8 +317,16 @@ async function postBoard(board, from, type, postId, message) {
 }
 
 async function spendViaWallet(user, coins, action, ref) {
-  if (isAnonUser(user)) {
+  // Allow stable anonymous wallets (anon_<id>) — block only bare guest/anon placeholders.
+  var u = normUser(user);
+  if (!u || u === 'anon' || u === 'guest') {
     return { ok: false, error: 'login_required_for_paid' };
+  }
+  if (isAnonUser(u)) {
+    var aid = sanitizeAnonId(u.replace(/^anon[_:]/i, ''));
+    if (!isValidAnonId(aid)) {
+      return { ok: false, error: 'login_required_for_paid' };
+    }
   }
   var led = await cfFetch('/wallet/ledger?user=' + encodeURIComponent(user));
   var rows = (led.json && led.json.ledger) || [];
@@ -326,6 +349,72 @@ async function spendViaWallet(user, coins, action, ref) {
     return { ok: false, error: 'insufficient', need: coins, balance: Number((res.json && res.json.balance) || 0) || 0 };
   }
   return { ok: false, error: err || 'spend_failed' };
+}
+
+function bearerToken(req) {
+  var h = String((req.headers && (req.headers.authorization || req.headers.Authorization)) || '');
+  var m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? String(m[1] || '').trim() : '';
+}
+
+async function verifyAdminToken(token) {
+  if (!token) return false;
+  var res = await cfFetch('/admin/requests?limit=1', {
+    headers: { Authorization: 'Bearer ' + token, Origin: SITE }
+  });
+  return !!(res.ok && res.json && res.json.ok !== false);
+}
+
+/** Idempotent pack credit — returns { granted, reused, pack_spins }. */
+async function grantRoulettePack(user, playId, meta) {
+  meta = meta || {};
+  var packs = await fetchBoard(BOARD_PACKS);
+  for (var i = 0; i < packs.length; i++) {
+    var msg = parseMsg(packs[i] && packs[i].message);
+    if (!msg) continue;
+    if (normUser(msg.user || packs[i].from_username) !== normUser(user)) continue;
+    if (msg.kind !== 'pack_purchase') continue;
+    var pid = String(msg.play_id || msg.request_id || packs[i].post_id || '');
+    if (pid && (pid === String(playId) || pid === String(meta.request_id || ''))) {
+      return {
+        ok: true,
+        reused: true,
+        spins_granted: 0,
+        pack_spins: roulettePackBalance(packs, user)
+      };
+    }
+  }
+  await postBoard(BOARD_PACKS, user, 'roulette_pack', playId, {
+    user: user,
+    game: 'roulette',
+    kind: 'pack_purchase',
+    spins: ROULETTE_PACK_SPINS,
+    coins: Number(meta.coins || 0) || 0,
+    play_id: playId,
+    request_id: meta.request_id || playId,
+    source: meta.source || 'purchase',
+    provider: meta.provider || '',
+    at: Date.now(),
+    usd: meta.usd != null ? meta.usd : 5,
+    account_type: isAnonUser(user) ? 'anonymous' : 'registered'
+  });
+  await postBoard(BOARD_PLAYS, user, 'roulette_pack', playId, {
+    id: playId,
+    user: user,
+    game: 'roulette',
+    kind: 'pack_purchase',
+    spins: ROULETTE_PACK_SPINS,
+    coins: Number(meta.coins || 0) || 0,
+    source: meta.source || 'purchase',
+    at: Date.now()
+  });
+  var after = await fetchBoard(BOARD_PACKS);
+  return {
+    ok: true,
+    reused: false,
+    spins_granted: ROULETTE_PACK_SPINS,
+    pack_spins: roulettePackBalance(after, user)
+  };
 }
 
 /** Collect unique free-use timestamps for a user+game (legacy daily board merged). */
@@ -521,7 +610,7 @@ module.exports = async function handler(req, res) {
     if (qAction === 'anon_identity' || qAction === 'anon' || qAction === 'identity') {
       return handleAnonIdentity(req, res, null, req.query || {});
     }
-    var player = resolvePlayer(null, req.query || {});
+    var player = resolvePlayer(null, req.query || {}, req);
     var qGame = normalizeGame((req.query && req.query.game) || '');
     try {
       var plays = await fetchBoard(BOARD_PLAYS);
@@ -549,7 +638,9 @@ module.exports = async function handler(req, res) {
       if (player.user) {
         Object.assign(out, freeSnapshot(free, player.user));
         out.anon = !!player.anon;
-        out.pack_spins = player.anon ? 0 : roulettePackBalance(packs, player.user);
+        out.account_type = player.anon ? 'anonymous' : 'registered';
+        out.anonymous_user_id = player.anonId || null;
+        out.pack_spins = roulettePackBalance(packs, player.user);
         out.plays = plays
           .map(function (n) { return parseMsg(n.message); })
           .filter(function (m) {
@@ -575,7 +666,7 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { ok: false, error: 'invalid_json' });
   }
 
-  var player = resolvePlayer(body, null);
+  var player = resolvePlayer(body, null, req);
   var user = player.user;
   var game = normalizeGame(body.game || body.kind || '');
   var playId = String(body.play_id || body.ref || body.idempotency_key || '').trim().slice(0, 80);
@@ -592,6 +683,54 @@ module.exports = async function handler(req, res) {
     return handleAnonIdentity(req, res, body, null);
   }
 
+  // Admin grant / reject of external roulette pack payments (PayPal / Throne / BTC).
+  if (action === 'grant_pack' || action === 'approve_pack' || action === 'reject_pack') {
+    var adminTok = bearerToken(req);
+    var adminOk = false;
+    try { adminOk = await verifyAdminToken(adminTok); } catch (e) { adminOk = false; }
+    if (!adminOk) return json(res, 401, { ok: false, error: 'admin_required' });
+    var target = normUser(body.target_user || body.user || body.username || '');
+    if (!target) return json(res, 400, { ok: false, error: 'need_user' });
+    var reqId = String(body.request_id || body.play_id || body.ref || playId || '').trim().slice(0, 80);
+    if (!reqId) reqId = 'admin_pack_' + Date.now().toString(36);
+    if (action === 'reject_pack') {
+      await postBoard(BOARD_PLAYS, target, 'roulette_pack_reject', reqId, {
+        user: target, game: 'roulette', kind: 'pack_reject',
+        request_id: reqId, at: Date.now(), reason: String(body.reason || 'rejected')
+      });
+      try {
+        await postBoard(target, 'admin', 'roulette_pack_rejected', reqId, {
+          user: target, request_id: reqId, status: 'rejected', at: Date.now(),
+          message: 'Roulette pack payment rejected — no spins credited.'
+        });
+      } catch (e) {}
+      return json(res, 200, { ok: true, status: 'rejected', request_id: reqId, user: target });
+    }
+    var granted = await grantRoulettePack(target, reqId, {
+      source: 'admin_approve',
+      provider: String(body.provider || 'external'),
+      request_id: reqId,
+      coins: 0,
+      usd: 5
+    });
+    try {
+      await postBoard(target, 'admin', 'roulette_unlock', reqId, {
+        user: target, request_id: reqId, status: 'approved',
+        spins: ROULETTE_PACK_SPINS, at: Date.now(),
+        message: 'Payment verified — ' + ROULETTE_PACK_SPINS + ' roulette spins unlocked.'
+      });
+    } catch (e) {}
+    return json(res, 200, {
+      ok: true,
+      status: 'approved',
+      reused: !!granted.reused,
+      user: target,
+      request_id: reqId,
+      spins_granted: granted.spins_granted,
+      pack_spins: granted.pack_spins,
+      account_type: isAnonUser(target) ? 'anonymous' : 'registered'
+    });
+  }
 
   if (!user) {
     return json(res, 401, { ok: false, error: 'session_required', message: 'Missing anonymous session or login' });
@@ -654,9 +793,8 @@ module.exports = async function handler(req, res) {
       return json(res, 200, outCustom);
     }
 
-    // —— Roulette pack: 50 FC → 10 prepaid spins (registered only) ——
+    // —— Roulette pack: 50 FC → 10 prepaid spins (registered + stable anonymous) ——
     if (game === 'roulette' && (action === 'buy_pack' || action === 'roulette_pack')) {
-      if (player.anon) return json(res, 401, { ok: false, error: 'login_required' });
       var packSpend = await spendViaWallet(user, FC_ROULETTE_PACK, 'roulette_pack', playId);
       if (!packSpend.ok) {
         if (packSpend.error === 'insufficient') {
@@ -668,30 +806,36 @@ module.exports = async function handler(req, res) {
             balance: packSpend.balance || 0
           });
         }
+        if (packSpend.error === 'login_required_for_paid') {
+          return json(res, 401, { ok: false, error: 'session_required', message: 'Anonymous identity required' });
+        }
         return json(res, 502, { ok: false, error: packSpend.error || 'spend_failed', need: FC_ROULETTE_PACK });
       }
+      var grantedPack = { ok: true, reused: true, spins_granted: 0, pack_spins: 0 };
       if (!packSpend.reused) {
-        await postBoard(BOARD_PACKS, user, 'roulette_pack', playId, {
-          user: user, game: 'roulette', kind: 'pack_purchase',
-          spins: ROULETTE_PACK_SPINS, coins: FC_ROULETTE_PACK,
-          play_id: playId, at: Date.now(), usd: 5
+        grantedPack = await grantRoulettePack(user, playId, {
+          source: 'fc',
+          provider: 'fc',
+          coins: FC_ROULETTE_PACK,
+          usd: 5,
+          request_id: playId
         });
-        await postBoard(BOARD_PLAYS, user, 'roulette_pack', playId, {
-          id: playId, user: user, game: 'roulette', kind: 'pack_purchase',
-          spins: ROULETTE_PACK_SPINS, coins: FC_ROULETTE_PACK, at: Date.now()
-        });
+      } else {
+        grantedPack.pack_spins = roulettePackBalance(await fetchBoard(BOARD_PACKS), user);
       }
-      var packsAfter = await fetchBoard(BOARD_PACKS);
       var outPack = {
         ok: true,
-        reused: !!packSpend.reused,
+        reused: !!packSpend.reused || !!grantedPack.reused,
         game: 'roulette',
         action: 'buy_pack',
         play_id: playId,
         coins: FC_ROULETTE_PACK,
-        spins_granted: packSpend.reused ? 0 : ROULETTE_PACK_SPINS,
-        pack_spins: roulettePackBalance(packsAfter, user),
+        spins_granted: packSpend.reused ? 0 : (grantedPack.spins_granted || ROULETTE_PACK_SPINS),
+        pack_spins: grantedPack.pack_spins,
         balance: packSpend.balance,
+        anon: !!player.anon,
+        account_type: player.anon ? 'anonymous' : 'registered',
+        anonymous_user_id: player.anonId || null,
         label: packSpend.reused
           ? 'Already credited'
           : ('-' + FC_ROULETTE_PACK + ' FC — ' + ROULETTE_PACK_SPINS + ' roulette spins')
@@ -805,10 +949,10 @@ module.exports = async function handler(req, res) {
       var snap = freeSnapshot(freeBoard, user);
       var freeLeftNow = snap.free_left[game] || 0;
       var recoveryEndsNow = (snap.recovery_ends_at && snap.recovery_ends_at[game]) || 0;
-      var packBoard = (!player.anon && game === 'roulette') ? await fetchBoard(BOARD_PACKS) : [];
-      var packLeft = (!player.anon && game === 'roulette') ? roulettePackBalance(packBoard, user) : 0;
+      var packBoard = (game === 'roulette') ? await fetchBoard(BOARD_PACKS) : [];
+      var packLeft = (game === 'roulette') ? roulettePackBalance(packBoard, user) : 0;
       var useFree = !forcePaid && freeLeftNow > 0;
-      var usePack = !useFree && !player.anon && game === 'roulette' && packLeft > 0;
+      var usePack = !useFree && game === 'roulette' && packLeft > 0;
       var cost = game === 'roulette' ? FC_ROULETTE : FC_DICE;
       var balance = null;
       var reused = false;
@@ -821,18 +965,24 @@ module.exports = async function handler(req, res) {
         paid = true;
         coinsCharged = 0;
         await postBoard(BOARD_PACKS, user, 'roulette_pack_spin', playId, {
-          user: user, game: 'roulette', kind: 'pack_spin', play_id: playId, at: Date.now()
+          user: user, game: 'roulette', kind: 'pack_spin', play_id: playId, at: Date.now(),
+          account_type: player.anon ? 'anonymous' : 'registered'
         });
       } else {
-        if (player.anon) {
+        // Prefer buying a 10-spin pack (50 FC) over single-spin charges when free+pack are empty.
+        // Single-spin FC path remains for dice; roulette directs clients to the pack purchase UI.
+        if (game === 'roulette') {
           return json(res, 402, {
             ok: false,
             error: 'free_exhausted',
-            message: 'Free uses exhausted. Wait 24h recovery or register to buy more plays with FC.',
+            message: 'Free uses exhausted. Get 10 additional spins for ' + FC_ROULETTE_PACK + ' FC ($5).',
             free_left: 0,
             recovery_ends_at: recoveryEndsNow || null,
             recovery_ms: recoveryEndsNow ? Math.max(0, recoveryEndsNow - Date.now()) : 0,
-            need: cost
+            pack_spins: packLeft,
+            need: FC_ROULETTE_PACK,
+            pack_available: true,
+            anon: !!player.anon
           });
         }
         paid = true;
@@ -889,7 +1039,7 @@ module.exports = async function handler(req, res) {
       };
       await postBoard(BOARD_PLAYS, user, game + '_play', playId, playPayload);
 
-      var packsLeftAfter = (!player.anon && game === 'roulette')
+      var packsLeftAfter = (game === 'roulette')
         ? roulettePackBalance(await fetchBoard(BOARD_PACKS), user)
         : 0;
       var snapAfter = useFree ? freeSnapshot(await loadFreeBoards(), user) : snap;
