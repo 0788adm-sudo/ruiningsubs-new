@@ -179,8 +179,15 @@ module.exports = async function handler(req, res) {
   var costOverride = Number(body.coins || body.cost || 0) || 0;
   var cost = costFor(action);
 
+  // Stable anonymous wallets (anon_<id>) are allowed; bare placeholders are not.
   if (!user || user === 'anon' || user === 'guest') {
     return json(res, 401, { ok: false, error: 'login_required' });
+  }
+  if (/^anon[_:]/i.test(user)) {
+    var anonPart = String(user).replace(/^anon[_:]/i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (anonPart.length < 8) {
+      return json(res, 401, { ok: false, error: 'login_required' });
+    }
   }
   if (!action || !cost) {
     return json(res, 400, { ok: false, error: 'unknown_action', action: action });
