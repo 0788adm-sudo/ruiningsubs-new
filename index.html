@@ -3194,7 +3194,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div class="admin-sec" id="asec-removereq" style="display:none">
             <div class="admin-card" style="margin-bottom:10px">
               <strong>DELETE REQUESTS</strong>
-              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending <b>$5 PayPal / Throne</b> remove requests (manual verify). FC deletions are automatic and do not appear here. Shows requester, post ID, title, thumbnail, amount, and request time. <b>APPROVE &amp; DELETE</b> removes the post; <b>REJECT</b> clears the request (legacy FC refund button still works once if needed).</p>
+              <p style="font-size:12px;color:var(--muted);margin:4px 0 0">Pending <b>$5 PayPal / Throne</b> remove requests (manual verify). FC deletions are automatic and do not appear here. Newest requests first. <b>APPROVE &amp; DELETE</b> removes the post; <b>REJECT</b> rejects the claim and keeps the post; <b>CLEAR REQUEST</b> removes the queue row only (no FC charge/refund). Delete selected clears many requests without deleting posts.</p>
             </div>
             <div id="admin-req-remove"><div class="empty">Open to load…</div></div>
             <div class="admin-card" style="margin-top:12px">
@@ -4392,6 +4392,24 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
       return fetch(url, opts).finally(function(){if(timer)clearTimeout(timer)});
     }
+    /** Normalize CF/SB created_at values (ISO, ms, or unix seconds) → epoch ms. Never Date.now() fallback. */
+    function adminRequestTimestamp(v){
+      if(v==null||v==='') return 0;
+      if(typeof v==='number' && isFinite(v)){
+        if(v<=0) return 0;
+        return v < 1e12 ? Math.round(v*1000) : Math.round(v);
+      }
+      var s=String(v).trim();
+      if(!s) return 0;
+      if(/^\d+(\.\d+)?$/.test(s)){
+        var n=Number(s);
+        if(!isFinite(n)||n<=0) return 0;
+        return n < 1e12 ? Math.round(n*1000) : Math.round(n);
+      }
+      var t=Date.parse(s);
+      return isFinite(t) && t>0 ? t : 0;
+    }
+    window.adminRequestTimestamp=adminRequestTimestamp;
     async function cfCreateRequest(o){
       o=o||{};
       // Street Print must go through /api/print-submit (server validates FC spend or payment screenshot).
@@ -11538,8 +11556,21 @@ function openRoulette(){
           if(act==='cf-pin-reject') return (window.rejectCloudflareRequest||rejectCloudflareRequest)(id);
           if(act==='unpin') return (window.adminUnpinFromPanel||adminUnpinFromPanel)(id);
           if(act==='unpin-dismiss') return (window.dismissFeatureReq||dismissFeatureReq)(id);
-          if(act==='delete') return (window.approveRemoveReq||approveRemoveReq)(id,{requester:user,requestId:requestId});
-          if(act==='remove-dismiss') return (window.dismissRemoveReq||dismissRemoveReq)(id,{requester:user,paidWithFc:paidFc,requestId:requestId});
+          if(act==='delete'){
+            Promise.resolve((window.approveRemoveReq||approveRemoveReq)(id,{requester:user,requestId:requestId,sbRequestId:hit.getAttribute('data-sb-request-id')||''}))
+              .catch(function(e){toast((e&&e.message)||'Approve failed')});
+            return;
+          }
+          if(act==='remove-dismiss'){
+            Promise.resolve((window.dismissRemoveReq||dismissRemoveReq)(id,{requester:user,paidWithFc:paidFc,requestId:requestId,sbRequestId:hit.getAttribute('data-sb-request-id')||'',nids:hit.getAttribute('data-nids')||''}))
+              .catch(function(e){toast((e&&e.message)||'Reject failed')});
+            return;
+          }
+          if(act==='remove-clear'){
+            Promise.resolve((window.clearRemoveReqOnly||clearRemoveReqOnly)(id,{requester:user,requestId:requestId,sbRequestId:hit.getAttribute('data-sb-request-id')||'',nids:hit.getAttribute('data-nids')||''}))
+              .catch(function(e){toast((e&&e.message)||'Clear failed')});
+            return;
+          }
           if(act==='remove-refund') return (window.refundRemoveReqFc||refundRemoveReqFc)(id,user);
           if(act==='pin-remind') return (window.remindPinPayment||remindPinPayment)(id,user);
           if(act==='remove-remind') return (window.remindRemovePayment||remindRemovePayment)(id,user);
@@ -28252,18 +28283,55 @@ async function onIdFace(e){
         try{syncExtendedPanel(window.__feedRest||posts)}catch(e){}
         if(String(currentDetailId)===id){try{showPanel('feed')}catch(e){}}
       }
-      try{
-        // 45s: server must finish charge+delete quickly; cleanup is capped server-side.
-        async function postDeleteOnce(hdrs){
-          var r=await fetchWithTimeout('/api/delete-post',{
-            method:'POST',
-            headers:hdrs,
-            body:JSON.stringify(body),
-            cache:'no-store'
-          }, 45000);
-          var j=await r.json().catch(function(){return{}});
-          return {r:r,j:j};
+      var jBalance=null;
+      async function finishDeletedOk(msg){
+        if(jBalance!=null) window.__fcLast=Number(jBalance)||window.__fcLast;
+        try{await loadFagBalance()}catch(e){}
+        try{await deleteCfPost(id)}catch(e){}
+        try{
+          var map=loadOwnerTokens();
+          if(map[id]){delete map[id];localStorage.setItem('rs_owner_tokens',JSON.stringify(map))}
+        }catch(e){}
+        applyDeletedLocally();
+        try{await retirePinBoardNotifs(id)}catch(e){}
+        try{await loadPublicPins()}catch(e){}
+        toast(msg||'Post deleted successfully');
+        return true;
+      }
+      async function verifyPostDeletedPoll(msBudget){
+        msBudget=Number(msBudget)||12000;
+        var start=Date.now();
+        var delay=400;
+        while(Date.now()-start < msBudget){
+          try{
+            if(typeof postMissingInDb==='function'){
+              if(await postMissingInDb(id)) return true;
+            }else if(window.sb){
+              var chkId=/^\d+$/.test(String(id))?Number(id):id;
+              var chk=await sb.from('posts').select('id').eq('id',chkId).maybeSingle();
+              if(!(chk&&chk.data&&chk.data.id)) return true;
+            }
+          }catch(e){}
+          await new Promise(function(r){setTimeout(r, delay)});
+          delay=Math.min(1600, Math.round(delay*1.35));
         }
+        try{
+          if(typeof postMissingInDb==='function') return !!(await postMissingInDb(id));
+        }catch(e){}
+        return false;
+      }
+      // 55s: charge+delete must finish; cleanup is capped server-side.
+      async function postDeleteOnce(hdrs){
+        var r=await fetchWithTimeout('/api/delete-post',{
+          method:'POST',
+          headers:hdrs,
+          body:JSON.stringify(body),
+          cache:'no-store'
+        }, 55000);
+        var j=await r.json().catch(function(){return{}});
+        return {r:r,j:j};
+      }
+      try{
         var res=await postDeleteOnce(headers);
         var r=res.r, j=res.j;
         // Expired admin bearer → re-login once and retry (APPROVE & DELETE).
@@ -28279,18 +28347,8 @@ async function onIdFace(e){
           }catch(e){}
         }
         if(r.ok && j && j.ok){
-          if(j.balance!=null) window.__fcLast=Number(j.balance)||window.__fcLast;
-          try{await loadFagBalance()}catch(e){}
-          try{await deleteCfPost(id)}catch(e){}
-          try{
-            var map=loadOwnerTokens();
-            if(map[id]){delete map[id];localStorage.setItem('rs_owner_tokens',JSON.stringify(map))}
-          }catch(e){}
-          applyDeletedLocally();
-          try{await retirePinBoardNotifs(id)}catch(e){}
-          try{await loadPublicPins()}catch(e){}
-          toast('Post deleted successfully');
-          return true;
+          jBalance=j.balance;
+          return await finishDeletedOk(j.already_deleted?'Post already deleted':'Post deleted successfully');
         }
         if(j && (j.error==='insufficient'||j.error==='insufficient_fc'||r.status===402)){
           try{if(j.balance!=null) window.__fcLast=Number(j.balance)||0}catch(e){}
@@ -28301,7 +28359,24 @@ async function onIdFace(e){
           return false;
         }
         if(j && (j.error==='delete_in_progress'||r.status===409)){
-          toast(j.detail||'Delete already in progress — wait and refresh');
+          // Do NOT treat in-progress as failure — verify DB / wait for the inflight op.
+          try{if(typeof deleteRequestProgress==='function') deleteRequestProgress(true,'verifying')}catch(e){}
+          if(await verifyPostDeletedPoll(14000)){
+            return await finishDeletedOk('Post deleted successfully');
+          }
+          // Idempotent retry with the SAME key — server will not double-charge.
+          try{
+            res=await postDeleteOnce(headers);
+            r=res.r; j=res.j;
+            if(r.ok && j && j.ok){
+              jBalance=j.balance;
+              return await finishDeletedOk('Post deleted successfully');
+            }
+          }catch(e){}
+          if(await verifyPostDeletedPoll(6000)){
+            return await finishDeletedOk('Post deleted successfully');
+          }
+          toast(j&&j.detail?j.detail:'Delete still processing — refresh and check the post');
           return false;
         }
         if(j && j.refunded){
@@ -28323,36 +28398,56 @@ async function onIdFace(e){
         toast(String(errMsg));
         return false;
       }catch(e){
-        // Timeout / network: server may have already charged+deleted — ALWAYS verify against
-        // Supabase. Local feed cache often still holds the row and must not decide failure.
+        // Timeout / network: NEVER treat AbortError as proof of failure.
+        // Server may have already charged+deleted — verify DB, then idempotent retry.
         console.error('secureDeletePost network', e);
+        try{if(typeof deleteRequestProgress==='function') deleteRequestProgress(true,'verifying')}catch(e2){}
         try{
-          var gone=false;
-          if(window.sb){
-            var chkId=/^\d+$/.test(String(id))?Number(id):id;
-            var chk=await sb.from('posts').select('id').eq('id',chkId).maybeSingle();
-            gone=!(chk&&chk.data&&chk.data.id);
-          }else{
-            try{
-              var fr=await fetch((typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'')+'/rest/v1/posts?select=id&id=eq.'+encodeURIComponent(String(id))+'&limit=1',{
-                headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},
-                cache:'no-store'
-              });
-              var fj=await fr.json().catch(function(){return[]});
-              gone=!(Array.isArray(fj)&&fj.length);
-            }catch(e4){gone=false}
-          }
-          if(gone){
-            try{await loadFagBalance()}catch(e2){}
-            applyDeletedLocally();
-            toast('Post deleted successfully');
-            return true;
+          if(await verifyPostDeletedPoll(10000)){
+            return await finishDeletedOk('Post deleted successfully');
           }
         }catch(e3){}
+        // Idempotent retry with the same operation id — will not charge twice.
+        try{
+          var retry=await postDeleteOnce(headers);
+          if(retry.r && retry.r.ok && retry.j && retry.j.ok){
+            jBalance=retry.j.balance;
+            return await finishDeletedOk(retry.j.already_deleted?'Post already deleted':'Post deleted successfully');
+          }
+          if(retry.j && (retry.j.error==='delete_in_progress' || (retry.r&&retry.r.status===409))){
+            if(await verifyPostDeletedPoll(12000)){
+              return await finishDeletedOk('Post deleted successfully');
+            }
+          }
+          if(retry.j && (retry.j.error==='insufficient'||retry.j.error==='insufficient_fc'||(retry.r&&retry.r.status===402))){
+            try{await loadFagBalance()}catch(e4){}
+            toast('Insufficient FC — need '+(retry.j.need||retry.j.cost||50)+' FC');
+            return false;
+          }
+          if(retry.j && retry.j.refunded){
+            toast('Delete failed — 50 FC refunded');
+            try{await loadFagBalance()}catch(e5){}
+            return false;
+          }
+        }catch(e6){
+          try{
+            if(await verifyPostDeletedPoll(8000)){
+              return await finishDeletedOk('Post deleted successfully');
+            }
+          }catch(e7){}
+        }
         if(allowLocal){
           try{await deletePost(id,{requireOwner:true});return true}catch(err){}
         }
-        toast((e&&e.name==='AbortError')?'Delete timed out — check if the post is gone and retry':'Could not delete');
+        // Final truth check — if the post is gone, ALWAYS report success.
+        try{
+          if(await verifyPostDeletedPoll(3000)){
+            return await finishDeletedOk('Post deleted successfully');
+          }
+        }catch(e8){}
+        toast((e&&e.name==='AbortError')
+          ?'Network slow — post still present. Not charged twice; tap Delete again to finish.'
+          :'Could not delete');
         return false;
       }
     }
@@ -28436,6 +28531,7 @@ async function onIdFace(e){
       }
       var stages={
         processing_payment:{title:'Delete · 50 FC',text:'Checking balance, then charging 50 FC…'},
+        verifying:{title:'Delete · verifying',text:'Network was slow — confirming the post status. You will not be charged twice.'},
         completed:{title:'Post deleted successfully',text:'50 FC charged. The post is gone.'}
       };
       var s=stages[stage]||stages.processing_payment;
@@ -30007,13 +30103,20 @@ async function onIdFace(e){
       kind=String(kind||'');
       items=(items||[]).filter(Boolean);
       if(!items.length){toast('Nothing selected');return {ok:false}}
-      if(!confirm('Permanently delete '+items.length+' '+kind+' request(s)?\nThis removes request records only — posts stay online.')) return {ok:false};
+      if(!confirm('Permanently clear '+items.length+' '+kind+' request(s)?\nThis removes request records only — posts stay online.\nNo FC charge or refund.')) return {ok:false};
       var deleted=0, errors=0;
       for(var i=0;i<items.length;i++){
         var it=items[i]||{};
         var pid=normalizeAdminPostId(it.id||it.post_id);
         var dismissKey=kind==='pin'?'rs_feature_dismissed':'rs_remove_dismissed';
-        if(pid) markDismissed(dismissKey, pid);
+        var rid=String(it.requestId||'');
+        var sid=String(it.sbRequestId||'');
+        var nids=[].concat(it.nids||[], it.nid?[it.nid]:[], it.notifId?[it.notifId]:[]);
+        // Dismiss by request identities — never forever-ban the post id for future $5 claims.
+        if(rid) markDismissed(dismissKey, rid);
+        if(sid) markDismissed(dismissKey, sid);
+        nids.forEach(function(n){if(n!=null&&String(n)) markDismissed(dismissKey, String(n))});
+        if(kind==='pin' && pid) markDismissed(dismissKey, pid);
         try{
           if(kind==='pin'){
             var a=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
@@ -30023,6 +30126,27 @@ async function onIdFace(e){
             localStorage.setItem('rs_remove_req', JSON.stringify(b.filter(function(x){return normalizeAdminPostId(x.id)!==pid})));
           }
         }catch(e){}
+        // Mark durable SB deletion claims cleared (never deletes the publication).
+        if(kind==='remove' && window.sb && pid){
+          try{
+            await sb.from('deletion_payment_requests').update({
+              status:'cleared',
+              updated_at:new Date().toISOString(),
+              resolved_at:new Date().toISOString(),
+              resolved_by:String((currentUser&&currentUser.name)||'admin')
+            }).eq('post_id',pid).eq('status','pending');
+          }catch(e){errors++}
+          if(sid && /^\d+$/.test(sid)){
+            try{
+              await sb.from('deletion_payment_requests').update({
+                status:'cleared',
+                updated_at:new Date().toISOString(),
+                resolved_at:new Date().toISOString(),
+                resolved_by:String((currentUser&&currentUser.name)||'admin')
+              }).eq('id',Number(sid));
+            }catch(e){}
+          }
+        }
         // Delete Supabase notification rows for this post (request only, never the post).
         if(window.sb && pid){
           var types=kind==='pin'?['feature_request','pin_payment_request']:['remove_request','remove'];
@@ -30036,29 +30160,28 @@ async function onIdFace(e){
             for(var pv=0;pv<pidVariants.length;pv++){
               try{await sb.from('notifications').delete().eq('type',types[t]).eq('post_id',pidVariants[pv])}catch(e){errors++}
             }
-            if(it.nid||(it.nids&&it.nids.length)){
-              var delIds=[].concat(it.nids||[], it.nid?[it.nid]:[]);
-              for(var di=0;di<delIds.length;di++){
-                try{await sb.from('notifications').delete().eq('id',delIds[di])}catch(e){}
+            if(nids.length){
+              for(var di=0;di<nids.length;di++){
+                try{await sb.from('notifications').delete().eq('id',nids[di])}catch(e){}
               }
             }
           }
         }
         // Delete known CF notification ids.
-        var nids=[].concat(it.nids||[], it.nid?[it.nid]:[], it.notifId?[it.notifId]:[]);
         for(var n=0;n<nids.length;n++){
           try{await fetch(CF_API+'/notifs/'+encodeURIComponent(String(nids[n])),{method:'DELETE'})}catch(e){errors++}
         }
-        // Reject CF request rows when we have a request id distinct from post id.
-        if(it.requestId && String(it.requestId)!==String(pid)){
-          try{await cfAdminRejectRequest(String(it.requestId),'Purged old admin request')}catch(e){errors++}
-        }else if(kind==='pin' && pid && typeof cfAdminRequests==='function'){
-          // No requestId on merged row — reject any pending CF pin rows for this post.
+        // Reject CF request rows for this post (by explicit id AND by post_id scan).
+        if(rid && String(rid)!==String(pid) && rid.indexOf('sb-del-')!==0){
+          try{await cfAdminRejectRequest(String(rid),'Cleared admin request — post kept')}catch(e){errors++}
+        }
+        if(pid && typeof cfAdminRequests==='function'){
           try{
-            var pending=await cfAdminRequests('pending','pin_payment_request');
+            var pending=await cfAdminRequests('pending', kind==='pin'?'pin_payment_request':'remove_request');
             for(var pr=0;pr<(pending||[]).length;pr++){
               if(normalizeAdminPostId(pending[pr].post_id)===pid && pending[pr].id){
-                try{await cfAdminRejectRequest(String(pending[pr].id),'Purged old admin request')}catch(e){errors++}
+                try{await cfAdminRejectRequest(String(pending[pr].id),'Cleared admin request — post kept')}catch(e){errors++}
+                try{markDismissed(dismissKey, String(pending[pr].id))}catch(e2){}
               }
             }
           }catch(e){}
@@ -30066,7 +30189,7 @@ async function onIdFace(e){
         // Request records do not own post media — never delete posts or post image_url files here.
         deleted++;
       }
-      toast('Deleted '+deleted+' request'+(errors?' · some cleanup warnings':''));
+      toast('Cleared '+deleted+' request'+(errors?' · some cleanup warnings':'')+' · posts unchanged');
       return {ok:true,deleted:deleted,errors:errors};
     }
     function encodeAdminItem(obj){
@@ -30489,12 +30612,13 @@ async function onIdFace(e){
             title:x.title||'',
             user:x.user||'',
             publisher:x.publisher||'',
-            at:Number(x.at||Date.now()),
+            at:adminRequestTimestamp(x.at)||adminRequestTimestamp(x.created_at)||0,
             amount:x.amount||'',
             coins:Number(x.coins||0)||0,
             paidWithFc:!!x.paidWithFc || /FC/i.test(String(x.amount||'')),
             provider:x.provider||(/FC/i.test(String(x.amount||''))?'FC':'PayPal/Throne'),
             requestId:x.requestId||'',
+            sbRequestId:x.sbRequestId||'',
             status:x.status||'pending',
             thumb:x.thumb||x.thumb_url||'',
             source:'local'
@@ -30520,7 +30644,7 @@ async function onIdFace(e){
             title:payload.title||row.label||'',
             user:row.user_id||payload.requester||'',
             publisher:payload.publisher||'',
-            at:row.created_at?Date.parse(row.created_at)||Date.now():Date.now(),
+            at:adminRequestTimestamp(row.created_at)||adminRequestTimestamp(row.created)||0,
             amount:row.amount||payload.payment||(paidFc?(coins||50)+' FC':'$5'),
             coins:coins||(paidFc?50:0),
             paidWithFc:paidFc,
@@ -30534,6 +30658,7 @@ async function onIdFace(e){
         });
       }catch(e){console.warn('load CF remove_request queue',e)}
       // Durable Supabase deletion_payment_requests (survives CF /requests timeouts + refresh).
+      // Prefer this source's created_at for newest-first ordering.
       if(sb){
         try{
           var dpr=await sb.from('deletion_payment_requests').select('*').eq('status','pending').order('created_at',{ascending:false}).limit(80);
@@ -30546,7 +30671,7 @@ async function onIdFace(e){
               title:payload.title||row.message||'DELETE',
               user:row.requester||payload.requester||'',
               publisher:row.publisher||payload.publisher||'',
-              at:row.created_at?new Date(row.created_at).getTime():Date.now(),
+              at:adminRequestTimestamp(row.created_at)||0,
               amount:row.amount||'$5',
               coins:0,
               paidWithFc:false,
@@ -30555,7 +30680,8 @@ async function onIdFace(e){
               sbRequestId:row.id,
               thumb:row.thumb_url||payload.thumb_url||'',
               status:row.status||'pending',
-              source:'sb-request'
+              source:'sb-request',
+              preferAt:true
             });
           });
         }catch(e){console.warn('load SB deletion_payment_requests',e)}
@@ -30579,7 +30705,7 @@ async function onIdFace(e){
             id:pid,
             title:msg.slice(0,80),
             user:n.from_username||'',
-            at:Number(n.created_at)||Date.now(),
+            at:adminRequestTimestamp(n.created_at)||0,
             nid:n.id,
             nids:[n.id],
             paidWithFc:paidFc,
@@ -30606,7 +30732,7 @@ async function onIdFace(e){
               id:pid,
               title:msg.slice(0,80),
               user:n.from_username||'',
-              at:n.created_at?new Date(n.created_at).getTime():Date.now(),
+              at:adminRequestTimestamp(n.created_at)||0,
               nid:n.id,
               nids:[n.id],
               paidWithFc:paidFc,
@@ -30618,11 +30744,14 @@ async function onIdFace(e){
         }catch(e){}
       }
       // Merge nids / FC flags for same post before dedupe loss.
+      // Prefer durable SB created_at; never inflate with Date.now() fallbacks.
       var nidBag={};
       var mergeMap={};
+      var sourceRank={ 'sb-request':4, 'cf-request':3, 'sb':2, 'cf':1, 'local':0 };
       rreq.forEach(function(r){
         var pid=normalizeAdminPostId(r.id);
         if(!pid) return;
+        r.at=Number(r.at||0)||0;
         nidBag[pid]=nidBag[pid]||[];
         (r.nids||[]).concat(r.nid?[r.nid]:[]).forEach(function(n){if(nidBag[pid].indexOf(n)<0)nidBag[pid].push(n)});
         var prev=mergeMap[pid];
@@ -30631,10 +30760,19 @@ async function onIdFace(e){
         if(r.coins && !prev.coins) prev.coins=r.coins;
         if(r.amount && (!prev.amount || prev.amount==='$5') && /FC/i.test(r.amount)) prev.amount=r.amount;
         if(r.requestId && !prev.requestId) prev.requestId=r.requestId;
+        if(r.sbRequestId && !prev.sbRequestId) prev.sbRequestId=r.sbRequestId;
         if(r.publisher && !prev.publisher) prev.publisher=r.publisher;
         if(r.thumb && !prev.thumb) prev.thumb=r.thumb;
         if(r.user && !prev.user) prev.user=r.user;
-        if((r.at||0)>(prev.at||0)) prev.at=r.at;
+        // Prefer authoritative request creation time (SB deletion_payment_requests).
+        if(r.preferAt && r.at){
+          prev.at=r.at;
+          prev.preferAt=true;
+          prev.source=r.source||prev.source;
+        }else if(!prev.preferAt){
+          if((r.at||0)>(prev.at||0)) prev.at=r.at;
+          if((sourceRank[r.source]||0)>(sourceRank[prev.source]||0)) prev.source=r.source;
+        }
       });
       // Dismiss by requestId / nid — NEVER hide a fresh pending claim just because
       // the same post id was rejected earlier (that made PayPal/Throne "vanish").
@@ -30653,7 +30791,14 @@ async function onIdFace(e){
       }
       rreq=dedupeAdminRequests(Object.keys(mergeMap).map(function(k){return mergeMap[k]})).filter(function(x){return !isRemoveRowDismissed(x)});
       rreq.forEach(function(r){r.nids=nidBag[normalizeAdminPostId(r.id)]||r.nids||[]});
-      rreq.sort(function(a,b){return (b.at||0)-(a.at||0)});
+      // Newest request creation timestamp first; tie-break by numeric post id desc.
+      rreq.sort(function(a,b){
+        var ta=Number(a.at||0)||0, tb=Number(b.at||0)||0;
+        if(tb!==ta) return tb-ta;
+        var ia=Number(a.id), ib=Number(b.id);
+        if(isFinite(ia)&&isFinite(ib)&&ia!==ib) return ib-ia;
+        return String(b.requestId||b.sbRequestId||'').localeCompare(String(a.requestId||a.sbRequestId||''));
+      });
       if(!rreq.length){box.innerHTML='<div class="empty">No DELETE REQUESTS<br><span style="font-size:12px">PayPal/Throne “I paid” claims appear here. FC deletes are automatic and never queue.</span></div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
       var thumbMap=await batchFetchAdminThumbs(rreq.map(function(r){return r.id}));
       // Mark rows whose post is already gone so APPROVE still clears the request.
@@ -30686,10 +30831,12 @@ async function onIdFace(e){
         var statusLabel=alreadyGone?'POST ALREADY GONE · CLEAR REQUEST':(isRights?'RIGHTS REVIEW · PENDING':'DELETE REQUEST · PENDING');
         var whenLabel=r.at?ago(r.at):'';
         var reqAt=r.at?new Date(r.at).toLocaleString():'';
-        var item=encodeAdminItem({id:r.id,nid:r.nid||'',nids:r.nids||[],at:r.at||0,requestId:r.requestId||'',user:requester,paidWithFc:paidFc,coins:r.coins||0});
+        var item=encodeAdminItem({id:r.id,nid:r.nid||'',nids:r.nids||[],at:r.at||0,requestId:r.requestId||'',sbRequestId:r.sbRequestId||'',user:requester,paidWithFc:paidFc,coins:r.coins||0});
         var ownerShown=typeof shortDisplayUser==='function'?shortDisplayUser(publisher||meta.user||'?'):(publisher||meta.user||'?');
         var reqShown=typeof shortDisplayUser==='function'?shortDisplayUser(requester||'?'):(requester||'?');
-        return '<div class="admin-card"><div class="admin-card-row">'
+        var nidsAttr=esc(String((r.nids||[]).concat(r.nid?[r.nid]:[]).filter(Boolean).join(',')));
+        var commonData=' data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-request-id="'+esc(String(r.requestId||''))+'" data-sb-request-id="'+esc(String(r.sbRequestId||''))+'" data-nids="'+nidsAttr+'"';
+        return '<div class="admin-card" data-post="'+esc(String(r.id))+'"><div class="admin-card-row">'
           +'<input class="admin-check admin-req-check" type="checkbox" data-item="'+item+'"/>'
           +adminThumbHtml(src,r.id)
           +'<div style="flex:1;min-width:0"><div style="font-weight:900">Post #'+esc(String(r.id))+' · owner @'+esc(ownerShown)+'</div>'
@@ -30698,9 +30845,12 @@ async function onIdFace(e){
           +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(payLabel)+' · Method: '+esc(String(method))+' · Status: '+(alreadyGone?'GONE':('PENDING'+(reqAt?' · Requested '+esc(reqAt):'')))+'</div>'
           +'<span class="admin-status '+(alreadyGone?'ok':'pending')+'">'+esc(statusLabel)+'</span></div></div>'
           +'<div class="admin-actions">'
-          +'<button class="btn btn-danger btn-sm" type="button" data-admin="delete" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-request-id="'+esc(String(r.requestId||''))+'">'+(alreadyGone?'CLEAR REQUEST':'APPROVE &amp; DELETE')+'</button>'
+          +(alreadyGone
+            ?'<button class="btn btn-danger btn-sm" type="button" data-admin="remove-clear"'+commonData+'>CLEAR REQUEST</button>'
+            :'<button class="btn btn-danger btn-sm" type="button" data-admin="delete"'+commonData+'>APPROVE &amp; DELETE</button>')
           +'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-remind" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Remind</button>'
-          +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'" data-fc="'+(paidFc?'1':'0')+'" data-request-id="'+esc(String(r.requestId||''))+'">REJECT</button>'
+          +'<button class="btn btn-ghost btn-sm" type="button" data-admin="remove-dismiss"'+commonData+' data-fc="'+(paidFc?'1':'0')+'">REJECT</button>'
+          +(!alreadyGone?'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-clear"'+commonData+'>CLEAR REQUEST</button>':'')
           +(paidFc?'<button class="btn btn-secondary btn-sm" type="button" data-admin="remove-refund" data-id="'+esc(String(r.id))+'" data-user="'+esc(String(requester||''))+'">Refund 50 FC</button>':'')
           +'<button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(r.id))+')">Open post</button>'
           +'</div></div>';
@@ -31191,11 +31341,9 @@ async function onIdFace(e){
         if(!postId){
           return {ok:false, error:'missing_post_id', detail:'This delete request has no post ID — cannot APPROVE & DELETE.'};
         }
+        // Delete first; caller verifies DB then clears the request (never mark completed early).
         var hard=await adminHardDeletePost(postId);
-        if(hard&&hard.ok){
-          try{await clearRemoveRequestArtifacts(postId,{requestId:opts.requestId||'',requester:opts.requester||''})}catch(e){}
-        }
-        return {ok:!!(hard&&hard.ok), status:(hard&&hard.ok)?'COMPLETED':'FAILED', action:'approve', postId:postId, via:hard&&hard.via, error:(hard&&hard.ok)?null:(hard&&hard.error)||'delete_failed', detail:hard&&hard.detail};
+        return {ok:!!(hard&&hard.ok), status:(hard&&hard.ok)?'DELETED':'FAILED', action:'approve', postId:postId, via:hard&&hard.via, error:(hard&&hard.ok)?null:(hard&&hard.error)||'delete_failed', detail:hard&&hard.detail};
       }
       if(action==='refund' || (action==='reject' && opts.refund)){
         var requester=String(opts.requester||'').replace(/^@/,'').trim();
@@ -31247,63 +31395,64 @@ async function onIdFace(e){
           resolved_at:new Date().toISOString(),
           resolved_by:String((currentUser&&currentUser.name)||'admin')
         };
+        // Always clear ALL pending claims for this post (do not require requester match).
         var q=sb.from('deletion_payment_requests').update(patch).eq('post_id',postId).eq('status','pending');
-        if(opts.requester) q=q.eq('requester', String(opts.requester).replace(/^@/,''));
         var res=await q;
+        if(opts.sbRequestId && /^\d+$/.test(String(opts.sbRequestId))){
+          try{
+            await sb.from('deletion_payment_requests').update(patch).eq('id',Number(opts.sbRequestId));
+          }catch(e){}
+        }
         return !(res&&res.error);
       }catch(e){return false}
     }
-    async function dismissRemoveReq(id, opts){
+    var __adminRemoveActionLocks={};
+    /** Clear request artifacts only — NEVER deletes the publication or media. */
+    async function clearPendingRemoveRequestEntities(postId, opts){
       opts=opts||{};
-      id=normalizeAdminPostId(id)||String(id);
+      postId=normalizeAdminPostId(postId)||String(postId||'');
       var requestId=String(opts.requestId||'');
-      var histMeta={id:id,status:'rejected',requester:opts.requester||'',publisher:'',kind:'paid',paidWithFc:!!opts.paidWithFc,requestId:requestId};
+      var sbRequestId=String(opts.sbRequestId||'');
+      var status=String(opts.status||'cleared').toLowerCase();
+      var nids=[];
       try{
-        var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
-        var hit=a.find(function(x){return normalizeAdminPostId(x.id)===id});
-        if(hit){
-          histMeta.requester=histMeta.requester||hit.user||hit.requester||'';
-          histMeta.publisher=hit.publisher||'';
-          histMeta.kind=hit.kind||'paid';
-          histMeta.paidWithFc=histMeta.paidWithFc||!!hit.paidWithFc||Number(hit.coins||0)>=50;
-          if(!requestId && hit.requestId) requestId=String(hit.requestId);
+        if(opts.nids){
+          if(Array.isArray(opts.nids)) nids=opts.nids.slice();
+          else nids=String(opts.nids).split(',').map(function(x){return x.trim()}).filter(Boolean);
         }
       }catch(e){}
-      if(!confirm('REJECT delete request for post #'+id+'? Post stays public.')) return;
-      var doRefund=false;
-      if(histMeta.paidWithFc && histMeta.requester){
-        doRefund=!!confirm('Also refund 50 FC to @'+histMeta.requester+'? (refund is idempotent — cannot double-credit)');
-      }
-      try{var el=document.getElementById('rmreq-'+id);if(el){el.style.opacity='0.35';el.style.pointerEvents='none'}}catch(e){}
       try{
         var a2=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
-        a2=a2.filter(function(x){return normalizeAdminPostId(x.id)!==id});
+        a2=a2.filter(function(x){return normalizeAdminPostId(x.id)!==postId});
         localStorage.setItem('rs_remove_req',JSON.stringify(a2));
       }catch(e){}
-      // Dismiss this request identity — keep post id free for future payment claims.
       if(requestId) markDismissed('rs_remove_dismissed', requestId);
-      try{
-        await adminRequestDeleteAction('reject', id, {
-          requester:histMeta.requester,
-          refund:doRefund,
-          requestId:requestId
-        });
-      }catch(e){}
-      try{
-        if(requestId && typeof cfAdminRejectRequest==='function'){
-          await cfAdminRejectRequest(requestId,'Rejected by admin — post #'+id+' kept');
-        }
-      }catch(e){}
-      try{await resolveDeletionPaymentRequest(id,'rejected',{requester:histMeta.requester})}catch(e){}
-      try{recordRemoveHistory(histMeta)}catch(e){}
-      if(sb){
-        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',id)}catch(e){}
-        try{await sb.from('notifications').delete().eq('type','remove').eq('post_id',id)}catch(e){}
-        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',Number(id)||id)}catch(e){}
-        try{await sb.from('notifications').delete().eq('type','remove_request').eq('id',id)}catch(e){}
+      if(sbRequestId) markDismissed('rs_remove_dismissed', sbRequestId);
+      nids.forEach(function(n){markDismissed('rs_remove_dismissed', String(n))});
+      // Reject every pending CF remove_request for this post (auth may fail — still dismiss locally).
+      if(requestId && requestId.indexOf('sb-del-')!==0 && requestId!==postId){
+        try{await cfAdminRejectRequest(requestId, (opts.reason||'Cleared')+' — post #'+postId+' kept')}catch(e){}
       }
       try{
-        var cfRemoveTargets=['admin','MasterSan','mastersan'];
+        var pending=await cfAdminRequests('pending','remove_request');
+        for(var pi=0;pi<(pending||[]).length;pi++){
+          if(normalizeAdminPostId(pending[pi].post_id)===postId && pending[pi].id){
+            try{await cfAdminRejectRequest(String(pending[pi].id), (opts.reason||'Cleared')+' — post #'+postId+' kept')}catch(e){}
+            try{markDismissed('rs_remove_dismissed', String(pending[pi].id))}catch(e2){}
+          }
+        }
+      }catch(e){}
+      try{await resolveDeletionPaymentRequest(postId, status, {requester:opts.requester||'',sbRequestId:sbRequestId})}catch(e){}
+      if(sb){
+        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',postId)}catch(e){}
+        try{await sb.from('notifications').delete().eq('type','remove').eq('post_id',postId)}catch(e){}
+        try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',Number(postId)||postId)}catch(e){}
+        for(var di=0;di<nids.length;di++){
+          try{await sb.from('notifications').delete().eq('id',nids[di])}catch(e){}
+        }
+      }
+      try{
+        var cfRemoveTargets=['admin','MasterSan','mastersan','mastersan01'];
         for(var cri=0;cri<cfRemoveTargets.length;cri++){
           var cfR=await fetchCfNotifs(cfRemoveTargets[cri],'remove_request').catch(function(){return []});
           for(var ri=0;ri<(cfR||[]).length;ri++){
@@ -31313,28 +31462,116 @@ async function onIdFace(e){
               var cmm=String(cn.message||'').match(/post\s*#([A-Za-z0-9_-]+)/i);
               if(cmm)cpid=normalizeAdminPostId(cmm[1]);
             }
-            if(cpid===id || String(cn.id||'')===id){
+            if(cpid===postId || String(cn.id||'')===postId){
               try{await fetch(CF_API+'/notifs/'+encodeURIComponent(String(cn.id)),{method:'DELETE'})}catch(e){}
               try{markDismissed('rs_remove_dismissed', String(cn.id))}catch(e2){}
             }
           }
         }
       }catch(e){}
-      toast(doRefund?'Rejected · refund processed':'Rejected — post kept');
-      try{await renderAdminReqTab('remove')}catch(e){}
-      try{refreshAdminBadges()}catch(e){}
+      return true;
+    }
+    async function clearRemoveReqOnly(id, opts){
+      opts=opts||{};
+      id=normalizeAdminPostId(id)||String(id||'');
+      if(!id){toast('Missing post ID');return false}
+      var lockKey='clear|'+id;
+      if(__adminRemoveActionLocks[lockKey]){toast('Clear already in progress');return false}
+      if(!confirm('CLEAR REQUEST for post #'+id+'?\nRemoves it from the admin queue only.\nThe publication and media stay online.')) return false;
+      __adminRemoveActionLocks[lockKey]=true;
+      try{
+        toast('Clearing request…');
+        await clearPendingRemoveRequestEntities(id, {
+          requestId:opts.requestId||'',
+          sbRequestId:opts.sbRequestId||'',
+          nids:opts.nids||'',
+          requester:opts.requester||'',
+          status:'cleared',
+          reason:'Cleared by admin'
+        });
+        try{recordRemoveHistory({id:id,status:'cleared',requester:opts.requester||'',kind:'paid',requestId:opts.requestId||''})}catch(e){}
+        toast('Request cleared — post #'+id+' kept');
+        try{await renderAdminReqTab('remove')}catch(e){}
+        try{refreshAdminBadges()}catch(e){}
+        return true;
+      }catch(e){
+        toast((e&&e.message)||'Could not clear request');
+        return false;
+      }finally{
+        __adminRemoveActionLocks[lockKey]=false;
+      }
+    }
+    window.clearRemoveReqOnly=clearRemoveReqOnly;
+    async function dismissRemoveReq(id, opts){
+      opts=opts||{};
+      id=normalizeAdminPostId(id)||String(id);
+      var requestId=String(opts.requestId||'');
+      var sbRequestId=String(opts.sbRequestId||'');
+      var lockKey='reject|'+id+'|'+requestId+'|'+sbRequestId;
+      if(__adminRemoveActionLocks[lockKey]){toast('Reject already in progress');return false}
+      var histMeta={id:id,status:'rejected',requester:opts.requester||'',publisher:'',kind:'paid',paidWithFc:!!opts.paidWithFc,requestId:requestId,sbRequestId:sbRequestId};
+      try{
+        var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+        var hit=a.find(function(x){return normalizeAdminPostId(x.id)===id});
+        if(hit){
+          histMeta.requester=histMeta.requester||hit.user||hit.requester||'';
+          histMeta.publisher=hit.publisher||'';
+          histMeta.kind=hit.kind||'paid';
+          histMeta.paidWithFc=histMeta.paidWithFc||!!hit.paidWithFc||Number(hit.coins||0)>=50;
+          if(!requestId && hit.requestId) requestId=String(hit.requestId);
+          if(!sbRequestId && hit.sbRequestId) sbRequestId=String(hit.sbRequestId);
+        }
+      }catch(e){}
+      if(!confirm('REJECT delete request for post #'+id+'?\nClears the request only.\nPost stays public — images/videos are NOT deleted.')) return false;
+      var doRefund=false;
+      if(histMeta.paidWithFc && histMeta.requester){
+        doRefund=!!confirm('Also refund 50 FC to @'+histMeta.requester+'? (refund is idempotent — cannot double-credit)');
+      }
+      __adminRemoveActionLocks[lockKey]=true;
+      try{
+        toast('Rejecting request…');
+        try{
+          await adminRequestDeleteAction('reject', id, {
+            requester:histMeta.requester,
+            refund:doRefund,
+            requestId:requestId
+          });
+        }catch(e){}
+        await clearPendingRemoveRequestEntities(id, {
+          requestId:requestId,
+          sbRequestId:sbRequestId,
+          nids:opts.nids||'',
+          requester:histMeta.requester,
+          status:'rejected',
+          reason:'Rejected by admin'
+        });
+        try{recordRemoveHistory(histMeta)}catch(e){}
+        toast(doRefund?'Rejected · refund processed · post kept':'Rejected — request cleared, post kept');
+        try{await renderAdminReqTab('remove')}catch(e){}
+        try{refreshAdminBadges()}catch(e){}
+        return true;
+      }catch(e){
+        toast((e&&e.message)||'Reject failed');
+        return false;
+      }finally{
+        __adminRemoveActionLocks[lockKey]=false;
+      }
     }
     async function approveRemoveReq(id, opts){
       opts=opts||{};
       id=normalizeAdminPostId(id)||String(id||'');
       var requestId=String(opts.requestId||'');
+      var sbRequestId=String(opts.sbRequestId||'');
       if(!id){
         toast('Missing post ID on this delete request — cannot APPROVE & DELETE');
         return false;
       }
+      var lockKey='approve|'+id;
+      if(__adminRemoveActionLocks[lockKey]){toast('Approve already in progress');return false}
       if(!confirm('APPROVE & DELETE post #'+id+'? This permanently removes it from the database, feed, wall, search, and pins.')) return false;
+      __adminRemoveActionLocks[lockKey]=true;
       toast('Deleting #'+id+'…');
-      var histMeta={id:id,status:'approved',requester:opts.requester||'',publisher:'',kind:'paid',by:(currentUser&&currentUser.name)||'admin',requestId:requestId};
+      var histMeta={id:id,status:'approved',requester:opts.requester||'',publisher:'',kind:'paid',by:(currentUser&&currentUser.name)||'admin',requestId:requestId,sbRequestId:sbRequestId};
       try{
         var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
         var hit=a.find(function(x){return normalizeAdminPostId(x.id)===id});
@@ -31343,23 +31580,42 @@ async function onIdFace(e){
           histMeta.publisher=hit.publisher||'';
           histMeta.kind=hit.kind||'paid';
           if(!requestId && hit.requestId) requestId=String(hit.requestId);
+          if(!sbRequestId && hit.sbRequestId) sbRequestId=String(hit.sbRequestId);
         }
       }catch(e){}
-      var apiRes=null;
       try{
-        apiRes=await adminRequestDeleteAction('approve', id, {requester:histMeta.requester,requestId:requestId});
-      }catch(e){apiRes={ok:false,error:(e&&e.message)||'delete_failed'}}
-      if(!(apiRes&&apiRes.ok)){
-        toast((apiRes&&(apiRes.detail||apiRes.error))||'Could not delete post — unlock admin and retry');
-        return false;
+        var apiRes=null;
+        try{
+          apiRes=await adminRequestDeleteAction('approve', id, {requester:histMeta.requester,requestId:requestId});
+        }catch(e){apiRes={ok:false,error:(e&&e.message)||'delete_failed'}}
+        if(!(apiRes&&apiRes.ok)){
+          // Verify before reporting failure — delete may have succeeded despite client error.
+          var gone=false;
+          try{gone=await postMissingInDb(id)}catch(e){gone=false}
+          if(!gone){
+            toast((apiRes&&(apiRes.detail||apiRes.error))||'Could not delete post — unlock admin and retry');
+            return false;
+          }
+        }
+        // Only mark completed after the publication is actually gone.
+        var verified=false;
+        try{verified=await postMissingInDb(id)}catch(e){verified=false}
+        if(!verified){
+          toast('Delete did not verify — request left pending');
+          return false;
+        }
+        histMeta.status='completed';
+        try{await clearRemoveRequestArtifacts(id,{requestId:requestId,requester:histMeta.requester})}catch(e){}
+        try{await resolveDeletionPaymentRequest(id,'approved',{requester:histMeta.requester,sbRequestId:sbRequestId})}catch(e){}
+        try{recordRemoveHistory(histMeta)}catch(e){}
+        try{purgePostEverywhere(id)}catch(e){}
+        try{await renderAdminReqTab('remove')}catch(e){}
+        try{refreshAdminBadges()}catch(e){}
+        toast('COMPLETED · post #'+id+' deleted');
+        return true;
+      }finally{
+        __adminRemoveActionLocks[lockKey]=false;
       }
-      histMeta.status='completed';
-      try{recordRemoveHistory(histMeta)}catch(e){}
-      try{purgePostEverywhere(id)}catch(e){}
-      try{await renderAdminReqTab('remove')}catch(e){}
-      try{refreshAdminBadges()}catch(e){}
-      toast('COMPLETED · post #'+id+' deleted');
-      return true;
     }
 
     function approveFeature(id){
@@ -31822,7 +32078,7 @@ async function onIdFace(e){
     function toast(msg){try{var t=document.getElementById('toast');if(t){t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2800);return}}catch(e){}try{alert(msg)}catch(e2){}}
   
     try{
-      window.approveFeature=approveFeature;window.adminPin=adminPin;window.approveRemoveReq=approveRemoveReq;window.dismissFeatureReq=dismissFeatureReq;window.dismissRemoveReq=dismissRemoveReq;window.confirmRemovePaid=confirmRemovePaid;window.remindRemovePayment=remindRemovePayment;window.remindPinPayment=remindPinPayment;window.remindRoulettePayment=remindRoulettePayment;window.remindPrintPayment=remindPrintPayment;window.toggleAdminUsers=toggleAdminUsers;window.adminSetUserStatus=adminSetUserStatus;window.likeTask=likeTask;window.openDeleteTask=openDeleteTask;window.confirmDeleteTaskPaid=confirmDeleteTaskPaid;window.openDeleteTaskResp=openDeleteTaskResp;window.confirmDeleteTaskRespPaid=confirmDeleteTaskRespPaid;window.openPrintDirty=openPrintDirty;window.dismissPublicExposureReq=dismissPublicExposureReq;window.compressOldPosts=compressOldPosts;window.doForgot=doForgot;
+      window.approveFeature=approveFeature;window.adminPin=adminPin;window.approveRemoveReq=approveRemoveReq;window.dismissFeatureReq=dismissFeatureReq;window.dismissRemoveReq=dismissRemoveReq;window.clearRemoveReqOnly=clearRemoveReqOnly;window.confirmRemovePaid=confirmRemovePaid;window.remindRemovePayment=remindRemovePayment;window.remindPinPayment=remindPinPayment;window.remindRoulettePayment=remindRoulettePayment;window.remindPrintPayment=remindPrintPayment;window.toggleAdminUsers=toggleAdminUsers;window.adminSetUserStatus=adminSetUserStatus;window.likeTask=likeTask;window.openDeleteTask=openDeleteTask;window.confirmDeleteTaskPaid=confirmDeleteTaskPaid;window.openDeleteTaskResp=openDeleteTaskResp;window.confirmDeleteTaskRespPaid=confirmDeleteTaskRespPaid;window.openPrintDirty=openPrintDirty;window.dismissPublicExposureReq=dismissPublicExposureReq;window.compressOldPosts=compressOldPosts;window.doForgot=doForgot;
       window.approveCloudflarePinRequest=approveCloudflarePinRequest;
       window.rejectCloudflareRequest=rejectCloudflareRequest;
       window.approveCloudflarePrintRequest=approveCloudflarePrintRequest;

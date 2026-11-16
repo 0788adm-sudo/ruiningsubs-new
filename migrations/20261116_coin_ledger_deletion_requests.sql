@@ -54,7 +54,7 @@ CREATE INDEX IF NOT EXISTS deletion_payment_requests_post_idx
   ON public.deletion_payment_requests (post_id, created_at DESC);
 
 COMMENT ON TABLE public.deletion_payment_requests IS
-  'Persistent PayPal/Throne delete claims for the admin DELETE REQUESTS panel. status: pending|approved|rejected.';
+  'Persistent PayPal/Throne delete claims for the admin DELETE REQUESTS panel. status: pending|approved|rejected|cleared.';
 
 -- Anon key already used for notifications inserts; allow same for request rows.
 ALTER TABLE public.deletion_payment_requests ENABLE ROW LEVEL SECURITY;

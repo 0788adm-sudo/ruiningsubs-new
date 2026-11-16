@@ -36,9 +36,9 @@ assert(/Idempotent DELETE: missing post/.test(api) || /already_deleted: true/.te
 assert(!/return json\(res, 404, \{ error: 'not_found'/.test(api), 'delete of missing post is not a hard 404 anymore');
 
 assert(/data-request-id/.test(html), 'APPROVE button carries CF request id');
-assert(/Do NOT remove from local queue until the post is actually deleted/.test(html), 'approve waits for real delete');
+assert(/Only mark completed after the publication is actually gone|Do NOT remove from local queue until the post is actually deleted|Delete did not verify — request left pending/.test(html), 'approve waits for real delete');
 assert(/treatMissingAsDeleted:true/.test(html), 'admin approve treats missing post as already deleted');
-assert(/Approved — post #/.test(html), 'approve closes CF remove_request after delete');
+assert(/Approved — post #|clearRemoveRequestArtifacts/.test(html), 'approve closes CF remove_request after delete');
 
 assert(/GoonTok|goontok/.test(html), 'GoonTok player kept');
 assert(!/migrate.*R2|new storage provider/i.test(api), 'no storage migration in delete-post');

@@ -396,6 +396,7 @@ function noAdminTraffic() {
   assert.ok(html.indexOf('Checking balance, then charging 50 FC') >= 0, 'progress not fake-success');
   assert.ok(html.indexOf('Same numeric truth as /api/delete-post') >= 0, 'header matches API resolution');
   assert.ok(html.indexOf("fetchWithTimeout('/api/delete-post'") >= 0, 'client uses timed delete fetch');
+  assert.ok(html.indexOf('verifyPostDeletedPoll') >= 0, 'timeout verifies/polls post status');
   assert.ok(html.indexOf('function shortDisplayUser') >= 0, 'anon display names shortened');
   console.log('PASS · static balance/identity contract');
 
