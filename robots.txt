@@ -27,7 +27,7 @@ Disallow: /randomcam
 Disallow: /upload-video
 
 # Prefer permanent post URLs over legacy query/hash forms
-Sitemap: https://www.ruinexpose.com/sitemap.xml
+Sitemap: https://ruinexpose.com/sitemap.xml
 
 User-agent: Googlebot
 Allow: /
