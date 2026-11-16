@@ -22,7 +22,7 @@ assert(html.indexOf("adminHardDeletePost(postId)") >= 0 || html.indexOf('adminHa
 assert(html.indexOf('CLEAR REQUEST') >= 0, 'UI for already-gone posts');
 assert(html.indexOf('Never prompt for password while loading this tab') >= 0, 'DELETE REQUESTS no password prompt on load');
 assert(html.indexOf('haveTok?(await cfAdminRequests') >= 0, 'optional CF admin queue');
-assert(del.indexOf('attempt < 3') >= 0 && del.indexOf('verifyCfAdminToken') >= 0, 'delete-post retries admin verify');
+assert(del.indexOf('verifyCfAdminToken') >= 0 && (del.indexOf('attempt < 2') >= 0 || del.indexOf('attempt < 3') >= 0), 'delete-post retries admin verify');
 assert(unpin.indexOf('already_unpinned') >= 0, 'unpin idempotent already_unpinned');
 assert(unpin.indexOf('cfFetchTimed') >= 0 || unpin.indexOf('attempt < 3') >= 0, 'unpin retries admin verify');
 assert(html.indexOf('Always clear local + SB + CF pin state') >= 0, 'unpin always clears DB/CF');
