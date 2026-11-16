@@ -15930,6 +15930,9 @@ function openRoulette(){
       id=String(id||'');
       if(!id)return;
       markVideoNeedsOpt(id, reason||'soft_fail');
+      // Real cooldown: block auto re-arm of this slide until Retry or expiry.
+      window.__gtSoftCooldown=window.__gtSoftCooldown||{};
+      window.__gtSoftCooldown[id]=Date.now()+GT_SOFT_RETRY_MS;
       var box=document.getElementById('gt-scroller');
       if(!box)return;
       var slide=box.querySelector('.gt-slide[data-gid="'+id.replace(/"/g,'')+'"]');
@@ -15959,9 +15962,15 @@ function openRoulette(){
         }
         slide.querySelectorAll('video[data-gt-vid]').forEach(function(v){
           try{clearTimeout(v.__gtTimer)}catch(e){}
+          try{clearTimeout(v.__gtWarmTimer)}catch(e){}
           try{clearTimeout(v.__gtLoadGuard)}catch(e){}
+          try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
+          try{clearTimeout(v.__gtWaitTimer)}catch(e){}
+          try{clearTimeout(v.__gtLoadMaxTimer)}catch(e){}
+          v.__gtArmGen=(v.__gtArmGen||0)+1;
           try{v.pause()}catch(e){}
-          v.__gtFailed=0;
+          // Keep failed=1 so bind/windowVideos cannot clearSlideError→re-arm in a loop.
+          v.__gtFailed=1;
         });
       }catch(e){}
     }
@@ -15979,6 +15988,13 @@ function openRoulette(){
         slide.removeAttribute('data-gt-error');
         var err=slide.querySelector('.gt-err'); if(err) err.hidden=true;
         slide.querySelectorAll('video[data-gt-vid]').forEach(function(v){
+          try{clearTimeout(v.__gtTimer)}catch(e){}
+          try{clearTimeout(v.__gtWarmTimer)}catch(e){}
+          try{clearTimeout(v.__gtLoadGuard)}catch(e){}
+          try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
+          try{clearTimeout(v.__gtWaitTimer)}catch(e){}
+          try{clearTimeout(v.__gtLoadMaxTimer)}catch(e){}
+          v.__gtArmGen=(v.__gtArmGen||0)+1;
           v.__gtFailed=0;
           try{v.removeAttribute('src');v.load()}catch(e){}
           try{
@@ -16239,14 +16255,23 @@ function openRoulette(){
           var err=sl.querySelector('.gt-err'); if(err) err.hidden=true;
         }catch(e){}
       }
+      function clearGtVideoTimers(v){
+        if(!v)return;
+        try{clearTimeout(v.__gtTimer)}catch(e){}
+        try{clearTimeout(v.__gtWarmTimer)}catch(e){}
+        try{clearTimeout(v.__gtLoadGuard)}catch(e){}
+        try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
+        try{clearTimeout(v.__gtWaitTimer)}catch(e){}
+        try{clearTimeout(v.__gtLoadMaxTimer)}catch(e){}
+      }
       function detachVideo(v){
         // Pause far slides but KEEP the element mounted. Only drop the network buffer
         // for slides far from the viewport to save memory — never remove the slide node.
         if(!v)return;
+        // Invalidate any pending warm/load/play callbacks for this element.
+        v.__gtArmGen=(v.__gtArmGen||0)+1;
         try{v.pause()}catch(e){}
-        try{clearTimeout(v.__gtTimer)}catch(e){}
-        try{clearTimeout(v.__gtLoadUiTimer)}catch(e){}
-        try{clearTimeout(v.__gtWaitTimer)}catch(e){}
+        clearGtVideoTimers(v);
         setLoad(v,false);
         showPoster(v);
       }
@@ -16268,9 +16293,8 @@ function openRoulette(){
         if(!id)return;
         if(v.__gtFailed)return;
         v.__gtFailed=1;
-        try{clearTimeout(v.__gtTimer)}catch(e){}
-        try{clearTimeout(v.__gtWarmTimer)}catch(e){}
-        try{clearTimeout(v.__gtLoadGuard)}catch(e){}
+        v.__gtArmGen=(v.__gtArmGen||0)+1;
+        clearGtVideoTimers(v);
         setLoad(v,false);
         showPoster(v);
         // Soft stalls keep the slide (Retry). Hard media errors leave the feed.
@@ -16300,8 +16324,29 @@ function openRoulette(){
         }
         var sid=slideIdOf(v);
         if(sid&&isVideoHiddenFromGoonTok(sid)){failVideo(v,'known_broken');return}
-        if(play) clearSlideError(v);
-        else if(v.__gtFailed) return;
+        // Soft-fail cooldown: no automatic re-arm. Manual Retry clears __gtSoftCooldown first.
+        if(sid && window.__gtSoftCooldown && window.__gtSoftCooldown[sid]){
+          if(Date.now()<window.__gtSoftCooldown[sid]){
+            try{v.pause()}catch(e){}
+            setLoad(v,false);
+            showPoster(v);
+            return;
+          }
+          try{delete window.__gtSoftCooldown[sid]}catch(e){}
+        }
+        // Soft-failed slides stay failed until Retry (or cooldown expiry above).
+        if(v.__gtFailed){
+          if(!play){
+            try{v.pause()}catch(e){}
+            setLoad(v,false);
+            showPoster(v);
+            return;
+          }
+          // Active slide after cooldown expiry: allow one clean re-arm.
+          clearSlideError(v);
+        }else if(play){
+          clearSlideError(v);
+        }
         var needSet=v.getAttribute('src')!==s;
         // Already playing stably — never flash Loading / restart the same clip.
         if(play && !needSet && !v.__gtFailed && !v.paused && v.readyState>=2){
@@ -16316,9 +16361,13 @@ function openRoulette(){
             v.muted=!(window.__gtSound && window.__gtSoundUnlocked);
             var readyPlay=v.play();
             if(readyPlay&&readyPlay.then){
-              readyPlay.then(function(){hidePoster(v);setLoad(v,false)}).catch(function(){
+              readyPlay.then(function(){
+                if(v.__gtFailed||!v.isConnected) return;
+                hidePoster(v);setLoad(v,false);
+              }).catch(function(){
+                if(v.__gtFailed||!v.isConnected) return;
                 v.muted=true;
-                v.play().then(function(){hidePoster(v)}).catch(function(){showPoster(v)});
+                v.play().then(function(){if(!v.__gtFailed&&v.isConnected) hidePoster(v)}).catch(function(){if(v.isConnected) showPoster(v)});
               });
             }else hidePoster(v);
           }catch(e){showPoster(v)}
@@ -16330,6 +16379,18 @@ function openRoulette(){
           showPoster(v);
           setLoad(v,false);
           return;
+        }
+        // New arm generation — stale timers/promises from a prior arm must no-op.
+        clearGtVideoTimers(v);
+        v.__gtArmGen=(v.__gtArmGen||0)+1;
+        var armGen=v.__gtArmGen;
+        function gtAlive(){
+          try{
+            if(!v||!v.isConnected) return false;
+            if(v.__gtFailed) return false;
+            if((v.__gtArmGen||0)!==armGen) return false;
+            return true;
+          }catch(e){return false}
         }
         if(needSet){
           try{v.preload=play?'auto':'metadata'}catch(e){}
@@ -16354,26 +16415,27 @@ function openRoulette(){
           setLoad(v,true);
         }
         v.onplaying=function(){
+          if(!gtAlive()) return;
           ensurePosterFromFrame(v, s);
           hidePoster(v);
           setLoad(v,false);
           clearSlideError(v);
-          try{clearTimeout(v.__gtTimer)}catch(e){}
-          try{clearTimeout(v.__gtLoadGuard)}catch(e){}
-          try{clearTimeout(v.__gtWaitTimer)}catch(e){}
+          clearGtVideoTimers(v);
           var id=slideIdOf(v);
           if(id) markVideoPlayable(id, s);
         };
         v.onwaiting=function(){
           // Don't flash Loading on every buffer hitch — only if stalled >700ms.
           if(!(play && v.paused===false)) return;
+          if(!gtAlive()) return;
           try{clearTimeout(v.__gtWaitTimer)}catch(e){}
           v.__gtWaitTimer=setTimeout(function(){
-            if(v.__gtFailed||v.paused) return;
+            if(!gtAlive()||v.paused) return;
             if(v.readyState<3) setLoad(v,true);
           }, 700);
         };
         v.oncanplay=function(){
+          if(!gtAlive()) return;
           ensurePosterFromFrame(v, s);
           if(play){
             setLoad(v,false);
@@ -16382,6 +16444,7 @@ function openRoulette(){
           }
         };
         v.onloadeddata=function(){
+          if(!gtAlive()) return;
           ensurePosterFromFrame(v, s);
           if(!play){ showPoster(v); return; }
           setLoad(v,false);
@@ -16389,16 +16452,16 @@ function openRoulette(){
           else tryPlay();
         };
         v.onerror=function(){
+          if((v.__gtArmGen||0)!==armGen) return;
           failVideo(v,'media_error');
         };
         if(!play){
           try{v.pause()}catch(e){}
           setLoad(v,false);
-          try{clearTimeout(v.__gtWarmTimer)}catch(e){}
           // Warm neighbor: keep poster. Do NOT drop solely for readyState===0 —
           // that remount loop caused endless Loading… on slow mobile networks.
           v.__gtWarmTimer=setTimeout(function(){
-            if(v.__gtFailed)return;
+            if(!gtAlive())return;
             if(v.error){failVideo(v,'warm_error');return}
             if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
               var wid=slideIdOf(v);
@@ -16413,12 +16476,9 @@ function openRoulette(){
           }, GT_PROBE_MS);
           return;
         }
-        try{clearTimeout(v.__gtTimer)}catch(e){}
-        try{clearTimeout(v.__gtWarmTimer)}catch(e){}
-        try{clearTimeout(v.__gtLoadGuard)}catch(e){}
         // Hard timeout: skip unplayable Cloudflare media and auto-advance.
         v.__gtTimer=setTimeout(function(){
-          if(v.__gtFailed)return;
+          if(!gtAlive())return;
           if(v.error){failVideo(v,'play_error');return}
           if(!v.paused && v.readyState>=2){ setLoad(v,false); return; }
           if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
@@ -16432,7 +16492,7 @@ function openRoulette(){
           try{v.load()}catch(e){}
           tryPlay();
           v.__gtLoadGuard=setTimeout(function(){
-            if(v.__gtFailed)return;
+            if(!gtAlive())return;
             if(!v.paused && v.readyState>=2){ setLoad(v,false); return; }
             if(v.readyState>=2 && (v.videoWidth>0 || v.duration>0)){
               setLoad(v,false); tryPlay(); return;
@@ -16441,7 +16501,7 @@ function openRoulette(){
           }, 2800);
         }, GT_LOAD_TIMEOUT_MS);
         var tryPlay=function(){
-          if(v.__gtFailed)return;
+          if(!gtAlive())return;
           // Honor user unmute; fall back to muted only when autoplay rejects.
           try{
             if(window.__gtSound && window.__gtSoundUnlocked){ v.muted=false; v.defaultMuted=false; }
@@ -16450,20 +16510,24 @@ function openRoulette(){
           var p=v.play();
           if(p&&p.then){
             p.then(function(){
+              if(!gtAlive())return;
               ensurePosterFromFrame(v, s);
               hidePoster(v);
               setLoad(v,false);
               var id=slideIdOf(v);
               if(id) markVideoPlayable(id, s);
             }).catch(function(){
+              if(!gtAlive())return;
               v.muted=true; v.defaultMuted=true;
               v.play().then(function(){
+                if(!gtAlive())return;
                 ensurePosterFromFrame(v, s);
                 hidePoster(v);
                 setLoad(v,false);
                 var id=slideIdOf(v);
                 if(id) markVideoPlayable(id, s);
               }).catch(function(){
+                if(!gtAlive())return;
                 setLoad(v,false);
                 if(v.error){
                   failVideo(v, 'media_error');
@@ -16473,10 +16537,10 @@ function openRoulette(){
                 ensurePosterFromFrame(v, s);
                 showPoster(v);
                 setTimeout(function(){
-                  if(v.__gtFailed||!v.paused)return;
+                  if(!gtAlive()||!v.paused)return;
                   v.muted=true;
                   var r=v.play();
-                  if(r&&r.then) r.catch(function(){ failVideo(v,'autoplay_blocked'); });
+                  if(r&&r.then) r.catch(function(){ if(gtAlive()) failVideo(v,'autoplay_blocked'); });
                 }, 500);
               });
             });
@@ -16488,9 +16552,13 @@ function openRoulette(){
         // Kick autoplay ASAP (TikTok feel).
         tryPlay();
         if(v.readyState<2){
-          var once=function(){v.removeEventListener('loadeddata',once);tryPlay()};
+          var once=function(){
+            v.removeEventListener('loadeddata',once);
+            if(!gtAlive())return;
+            tryPlay();
+          };
           v.addEventListener('loadeddata',once);
-          setTimeout(tryPlay,180);
+          setTimeout(function(){ if(gtAlive()) tryPlay(); },180);
         }
       }
       function activeIndex(){

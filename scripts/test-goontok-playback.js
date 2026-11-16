@@ -42,6 +42,32 @@ assert(
   'load_timeout soft-fails instead of removing the slide'
 );
 
+// Controlled player repair: timers, soft-fail cooldown, arm guards
+assert(html.includes('function clearGtVideoTimers'), 'shared GoonTok timer clearer');
+assert(html.includes('clearTimeout(v.__gtWarmTimer)'), 'warm timer is cleared');
+assert(html.includes('clearTimeout(v.__gtLoadGuard)'), 'load-guard timer is cleared');
+assert(
+  /function detachVideo\(v\)\{[\s\S]{0,400}clearGtVideoTimers\(v\)/.test(html),
+  'detachVideo uses clearGtVideoTimers'
+);
+assert(
+  /function softFailGoonTokSlide[\s\S]{0,900}__gtSoftCooldown\[id\]\s*=\s*Date\.now\(\)\s*\+\s*GT_SOFT_RETRY_MS/.test(html),
+  'softFail sets real __gtSoftCooldown'
+);
+assert(
+  /function softFailGoonTokSlide[\s\S]{0,2500}v\.__gtFailed\s*=\s*1/.test(html),
+  'softFail keeps __gtFailed=1 (no auto remount loop)'
+);
+assert(
+  /function armVideo\(v, play\)\{[\s\S]{0,1200}__gtSoftCooldown/.test(html),
+  'armVideo respects soft-fail cooldown'
+);
+assert(html.includes('function gtAlive'), 'armVideo generation guard for stale callbacks');
+assert(
+  /function retryGoonTokSlide[\s\S]{0,900}delete window\.__gtSoftCooldown\[id\]/.test(html),
+  'manual Retry clears soft cooldown'
+);
+
 // Runtime publicMediaUrl behavior
 const CF_MEDIA = 'https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
 function publicMediaUrl(u) {
