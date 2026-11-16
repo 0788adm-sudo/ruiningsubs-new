@@ -135,7 +135,8 @@ function parseCookies(req) {
 }
 
 function sanitizeAnonId(v) {
-  return String(v || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+  // Lowercase so wallet / pack boards stay consistent across user= and anon_id=.
+  return String(v || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 48);
 }
 
 function mintAnonId() {

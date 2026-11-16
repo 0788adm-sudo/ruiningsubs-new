@@ -5888,7 +5888,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(!force && typeof isRegistered==='function' && isRegistered()) return null;
       }catch(e){}
       var existing='';
-      try{existing=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48)}catch(e){}
+      try{existing=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48)}catch(e){}
       var j=null;
       try{
         var r=await fetch('/api/game-play',{
@@ -5900,7 +5900,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         });
         j=await r.json().catch(function(){return null});
       }catch(e){j=null}
-      var id=(j&&j.anonymous_user_id)?String(j.anonymous_user_id).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48):existing;
+      var id=(j&&j.anonymous_user_id)?String(j.anonymous_user_id).toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48):existing;
       if(!id || id.length<8){
         id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
       }
@@ -5928,7 +5928,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var role=localStorage.getItem('rs_role')||'guest';
       var email=localStorage.getItem('rs_email')||'';
       var anonId='';
-      try{anonId=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48)}catch(e){}
+      try{anonId=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48)}catch(e){}
       if(!uid || uid==='guest' || uid==='anon'){
         // Stable anonymous identity — never mint a new Anon_#### on every load when we already have rs_anon_id.
         if(anonId && anonId.length>=8) uid='anon_'+anonId;
@@ -8473,7 +8473,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     },true);
     function getAnonSessionId(){
       try{
-        var id=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,48);
+        var id=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
         if(id.length>=8) return id;
         id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
         localStorage.setItem('rs_anon_session', id);
