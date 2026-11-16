@@ -42,7 +42,7 @@ assert(html.includes('warmVisibleLazyVideos(featBox)'), 'Spotlight warms lazy vi
 
 // 4) Feed cards use a real player, not a static img pretending to be video
 assert(!/if\(poster && !isVideoUrl\(poster\)\) media='<img src="'\+esc\(poster\)/.test(html), 'postCardHtml no longer replaces video with static poster img');
-assert(/isVideoPost[\s\S]{0,500}lazyVideoHtml\(vsrc,poster/.test(html), 'postCardHtml uses lazyVideoHtml for videos');
+assert(/isVideoPost[\s\S]{0,900}lazyVideoHtml\(vsrc,poster/.test(html), 'postCardHtml uses lazyVideoHtml for videos');
 
 // 5) Durable poster tag for SB (no thumb_url column)
 assert(html.includes('function parseVthumbTag') && html.includes('function withVthumbTag'), 'vthumb tag helpers');

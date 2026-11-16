@@ -23,5 +23,15 @@ assert(html.includes('mergeSbRecentInto') || html.includes('Defer Supabase merge
 assert(html.includes('function publicMediaUrl') && html.includes('function fetchableMediaUrl'), 'dual-host media URLs');
 assert(/function feedThumb[\s\S]{0,280}publicMediaUrl/.test(html), 'feedThumb rewrites to R2');
 assert(html.includes('lv-retry') && html.includes('function lvSetStatus'), 'video retry UI');
+assert(
+  /function normalFeedPostHtml[\s\S]{0,2200}isVidPost/.test(html) &&
+    /function normalFeedPostHtml[\s\S]{0,2800}never force JPEG media_url into <video>/.test(html),
+  'Wall cards gate <video> on real video posts'
+);
+assert(
+  /function normalFeedPostHtml[\s\S]{0,2600}var filteredVid=/.test(html) &&
+    /function normalFeedPostHtml[\s\S]{0,3200}isVidPost[\s\S]{0,400}lazyVideoHtml/.test(html),
+  'Wall video branch requires isVidPost before lazyVideoHtml'
+);
 
 console.log('\nWall media placeholder / speed checks passed');

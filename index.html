@@ -12312,7 +12312,7 @@ function openRoulette(){
         modal.classList.remove('show');
       }
       var join=document.getElementById('tg-join');
-      if(join)join.onclick=function(){tgRememberHide(true)};
+      if(join)join.onclick=function(){closeTg(true)};
       var dx=document.getElementById('tg-close-x');
       if(dx)dx.onclick=function(){closeTg(false)};
       var dis=document.getElementById('tg-dismiss');
@@ -16907,26 +16907,40 @@ function openRoulette(){
     window.hotBumpGoonTok=hotBumpGoonTok;
     function normalFeedPostHtml(p){
       var imgs=p.images&&p.images.length?p.images:parseImages(p.image);
+      if((!imgs||!imgs.length) && (p.image||p.media_url||p.thumb_url)){
+        imgs=[p.image||p.media_url||p.thumb_url].filter(Boolean);
+      }
       var media='';
       var viewSrc=p;
       try{var hit=(posts||[]).find(function(x){return String(x.id)===String(p.id)});if(hit)viewSrc=hit}catch(e){}
       var viewLabel=displayViews((viewSrc&&viewSrc.views)||p.views||0);
       var vsrc='';
       if(imgs&&imgs.length){
-        try{if(typeof sanitizeVideoPostMedia==='function'&&typeof isVideoPost==='function'&&isVideoPost(p)) sanitizeVideoPostMedia(p)}catch(e){}
-        vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||p.media_url||p.video||'';
-        vsrc=typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc;
+        // Gate video player on real video posts — never force JPEG media_url into <video>
+        // (that left Safari/Chrome Wall cards as permanent black containers).
+        var isVidPost=false;
+        try{isVidPost=!!(p&&(p._kind==='video'||p.media_type==='video'||(typeof isVideoPost==='function'&&isVideoPost(p))))}catch(e){isVidPost=false}
+        try{if(isVidPost && typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(p)}catch(e){}
+        var filteredVid=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
+        if(isVidPost){
+          var cand=filteredVid||p.media_url||p.video||'';
+          vsrc=(typeof isVideoUrl==='function'&&isVideoUrl(cand))?cand:(filteredVid||'');
+        }else{
+          vsrc=filteredVid||'';
+        }
+        vsrc=vsrc?(typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc):'';
         var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
-        if(vsrc){
+        if(vsrc && (isVidPost || (typeof isVideoUrl==='function'&&isVideoUrl(vsrc)))){
           media='<div class="normal-feed-post-media" style="position:relative">'
             +'<div class="normal-feed-view-badge"><span class="eye">👁</span><span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+esc(String(viewLabel))+'</span> VIEWS</div>'
             +lazyVideoHtml(vsrc,poster,0,p.id)
             +'</div>';
         }else{
-          var imgSrc=typeof publicMediaUrl==='function'?publicMediaUrl(imgs[0]):feedThumb(imgs[0],380);
+          var photoSrc=imgs.find(function(u){return u && !(typeof isVideoUrl==='function'&&isVideoUrl(u))})||imgs[0]||p.image||'';
+          var imgSrc=typeof publicMediaUrl==='function'?publicMediaUrl(photoSrc):feedThumb(photoSrc,380);
           var imgHtml=typeof wallImageHtml==='function'
-            ? wallImageHtml(imgSrc,{orig:imgs[0],alt:p.title||('Post '+p.id),lazy:true})
-            : '<img src="'+esc(imgSrc)+'" data-orig="'+esc(imgs[0]||imgSrc)+'" loading="lazy" decoding="async" alt="" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>';
+            ? wallImageHtml(imgSrc,{orig:photoSrc,alt:p.title||('Post '+p.id),lazy:true})
+            : '<img src="'+esc(imgSrc)+'" data-orig="'+esc(photoSrc||imgSrc)+'" loading="lazy" decoding="async" alt="" onerror="window.__nfImgRetry&&window.__nfImgRetry(this)"/>';
           media='<div class="normal-feed-post-media" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'
             +'<div class="normal-feed-view-badge"><span class="eye">👁</span><span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+esc(String(viewLabel))+'</span> VIEWS</div>'
             +imgHtml
@@ -23327,8 +23341,10 @@ function postCardHtml(p, compact){
       var imgs=(p.images&&p.images.length>1)?p.images:mergePostImages(p.image, p.tags, (p.images||[]).concat(extractAlbumMarker(p.desc)));var media;
       if(typeof isVideoPost==='function' && isVideoPost(p)){
         try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(p)}catch(e){}
-        var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||p.media_url||p.video||imgs[0]||'';
-        vsrc=typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc;
+        var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
+        if(!vsrc && typeof isVideoUrl==='function' && isVideoUrl(p.media_url)) vsrc=p.media_url;
+        if(!vsrc && typeof isVideoUrl==='function' && isVideoUrl(p.video)) vsrc=p.video;
+        vsrc=vsrc?(typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc):'';
         var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
         if(vsrc) media=typeof lazyVideoHtml==='function'?lazyVideoHtml(vsrc,poster,0,p.id):mediaHtml([vsrc],p.id,false,poster);
         else media='<div style="min-height:180px;display:flex;align-items:center;justify-content:center;color:#fff;background:#111">▶ Video</div>';
