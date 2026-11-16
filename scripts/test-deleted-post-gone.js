@@ -64,7 +64,13 @@ assert(
 );
 
 // Must not mass-delete or touch unrelated systems in these files.
-assert(del.indexOf('.delete().eq(\'id\', postId)') >= 0 || del.indexOf('.delete().eq("id", postId)') >= 0 || del.indexOf(".delete().eq('id', postId)") >= 0, 'delete still targets single post id');
+assert(
+  /\.delete\(\)\.eq\(\s*['"]id['"]\s*,\s*(postId|variants)/.test(del) ||
+    del.indexOf(".delete().eq('id', variants[i])") >= 0 ||
+    del.indexOf('.delete().eq("id", variants[i])') >= 0 ||
+    del.indexOf(".delete().eq('id', postId)") >= 0,
+  'delete still targets single post id'
+);
 assert(html.indexOf('function openExtend') >= 0, 'Extend system kept');
 assert(html.indexOf('function openGoonTok') >= 0, 'GoonTok kept');
 
