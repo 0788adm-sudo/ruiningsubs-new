@@ -1761,6 +1761,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:block;border:1px solid #2a2a32;background:#111;
   pointer-events:none;
 }
+/* Desktop only: enlarge top-5 strip. Mobile sizes above stay unchanged. */
+@media(min-width:900px){
+  #home-random-strip{
+    gap:14px;justify-content:center;overflow-x:visible;padding:4px 0 8px;margin:12px 0 10px;
+  }
+  #home-random-strip .home-strip-card{
+    flex:1 1 0;min-width:0;max-width:168px;
+  }
+}
+@media(min-width:1280px){
+  #home-random-strip{gap:16px;max-width:920px;margin-left:auto;margin-right:auto}
+  #home-random-strip .home-strip-card{max-width:176px}
+}
 @media (hover:hover){
   #home-random-strip .home-strip-card:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(124,58,237,.28)}
   #posts-container .post:hover,#extended-panel-posts .post:hover{
@@ -2020,7 +2033,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 #panel-randomcam.active{display:flex!important;flex-direction:column}
 .rc-head{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid #202028;background:rgba(5,5,7,.96);flex:0 0 58px}
 .rc-head h2{margin:0;font-size:17px;font-weight:900}.rc-status{font-size:11px;color:#9a9aa3}
-.rc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;padding:10px}
+.rc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;padding:10px;position:relative}
+.rc-coming-soon{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at center,rgba(20,12,40,.94),rgba(5,5,7,.98));text-align:center}
+.rc-coming-soon[hidden]{display:none!important}
+.rc-coming-soon-box{max-width:360px;padding:28px 22px;border-radius:18px;border:1px solid rgba(124,58,237,.45);background:rgba(12,12,16,.92);box-shadow:0 0 28px rgba(124,58,237,.22)}
+.rc-coming-soon-kicker{font-size:11px;font-weight:900;letter-spacing:.18em;color:#c4b5fd;margin:0 0 10px}
+.rc-coming-soon-title{font-size:26px;font-weight:900;margin:0 0 10px;color:#fff}
+.rc-coming-soon-text{font-size:14px;line-height:1.45;color:#b8b8c2;margin:0}
 .rc-video-wrap{position:relative;min-height:0;background:#000;border-radius:18px;overflow:hidden;border:1px solid #25252e}
 .rc-video-box{position:absolute;inset:0;background:#0b0b0e;overflow:hidden}.rc-video-box.local{inset:auto 12px 72px auto;width:112px;height:156px;border-radius:16px;border:2px solid rgba(255,255,255,.75);z-index:4;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .rc-video-box video{width:100%;height:100%;object-fit:cover;display:block;background:#050507}.rc-label{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.68);padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800;z-index:2}.rc-video-box.local .rc-label{left:6px;bottom:6px;font-size:10px}
@@ -2627,26 +2646,33 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <div id="panel-randomcam" class="panel">
         <div class="rc-head">
           <button class="back" type="button" onclick="closeRandomCam();showPanel('explore')">←</button>
-          <div><h2>Random Video Chat</h2><div class="rc-status" id="rc-status">Ready · tap Start</div></div>
+          <div><h2>Random Video Chat</h2><div class="rc-status" id="rc-status">Próximamente</div></div>
           <button class="btn btn-ghost btn-sm" type="button" onclick="closeRandomCam();showPanel('explore')">Close</button>
         </div>
         <div class="rc-body" id="rc-main-body">
+          <div class="rc-coming-soon" id="rc-coming-soon" role="status" aria-live="polite">
+            <div class="rc-coming-soon-box">
+              <div class="rc-coming-soon-kicker">RANDOM CAM</div>
+              <h3 class="rc-coming-soon-title">Próximamente</h3>
+              <p class="rc-coming-soon-text">El chat de video aleatorio estará disponible próximamente. La cámara y las conexiones aún no están activas.</p>
+            </div>
+          </div>
           <div class="rc-video-wrap">
             <div class="rc-video-box"><video id="rc-remote" autoplay playsinline></video><audio id="rc-remote-audio" autoplay playsinline></audio><div class="rc-empty" id="rc-remote-empty">Tap <b>Start</b> to find someone.</div><div class="rc-label">REMOTE</div></div>
             <div class="rc-video-box local"><video id="rc-local" autoplay muted playsinline></video><div class="rc-label">YOU</div></div>
             <div class="rc-controls">
-              <button class="rc-btn primary" id="rc-start" type="button" onclick="startRandomCam()">Start</button>
+              <button class="rc-btn primary" id="rc-start" type="button" onclick="startRandomCam()" disabled aria-disabled="true" title="Próximamente">Start</button>
               <button class="rc-btn" id="rc-next" type="button" onclick="randomCamNext()" disabled>Next</button>
-              <button class="rc-btn" id="rc-flip" type="button" onclick="flipRandomCam()">Flip</button>
-              <button class="rc-btn" id="rc-mute" type="button" onclick="muteRandomCam()">Mute</button>
-              <button class="rc-btn" id="rc-sound" type="button" onclick="unlockRandomSound()">Sound</button>
+              <button class="rc-btn" id="rc-flip" type="button" onclick="flipRandomCam()" disabled>Flip</button>
+              <button class="rc-btn" id="rc-mute" type="button" onclick="muteRandomCam()" disabled>Mute</button>
+              <button class="rc-btn" id="rc-sound" type="button" onclick="unlockRandomSound()" disabled>Sound</button>
               <button class="rc-btn danger" id="rc-end" type="button" onclick="closeRandomCam()" disabled>End</button>
             </div>
           </div>
           <div class="rc-chat">
             <div class="rc-chat-head">Private chat<div class="rc-counter">Like OmeTV · only this stranger</div></div>
-            <div class="rc-chat-log" id="rc-chat-log"><div style="color:#666;font-size:12px;text-align:center;padding:20px">Tap Start to find a stranger.</div></div>
-            <div class="rc-chat-form"><input id="rc-chat-input" maxlength="500" placeholder="Message…" autocomplete="off"/><button type="button" onclick="sendRandomChat()">↑</button></div>
+            <div class="rc-chat-log" id="rc-chat-log"><div style="color:#666;font-size:12px;text-align:center;padding:20px">Próximamente — el chat se activará con Random Cam.</div></div>
+            <div class="rc-chat-form"><input id="rc-chat-input" maxlength="500" placeholder="Message…" autocomplete="off" disabled/><button type="button" onclick="sendRandomChat()" disabled>↑</button></div>
           </div>
         </div>
       </div>
@@ -15078,9 +15104,17 @@ function openRoulette(){
     window.maybePersistPosterFromActivePlayer=maybePersistPosterFromActivePlayer;
     window.persistVthumbForPost=persistVthumbForPost;
 
-    async function compressVideoForUpload(file){
+    async function compressVideoForUpload(file, opts){
       // Best-effort mobile-friendly re-encode for huge originals (keeps payments/publish flow intact).
       // Skip if already small, or if MediaRecorder/captureStream unavailable.
+      // opts.silent: background optimize must NEVER show the upload progress modal
+      // (that ghost "Compressing video… 12%" UI was leaking onto Map / other routes).
+      opts=opts||{};
+      var showUi=!!opts.showProgress || (!opts.silent && !!window.__publishingVideo);
+      function prog(title,status,pct){
+        if(!showUi)return;
+        try{if(typeof updateVideoProgress==='function') updateVideoProgress(title,status,pct)}catch(e){}
+      }
       try{
         if(!file||file.size<18*1024*1024)return file;
         if(typeof MediaRecorder==='undefined')return file;
@@ -15118,7 +15152,7 @@ function openRoulette(){
         var rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:1800000});
         rec.ondataavailable=function(ev){if(ev.data&&ev.data.size)chunks.push(ev.data)};
         var done=new Promise(function(res){rec.onstop=function(){res()}});
-        try{if(typeof updateVideoProgress==='function') updateVideoProgress('Compressing video…','Making a mobile-friendly copy',12)}catch(e){}
+        prog('Compressing video…','Making a mobile-friendly copy',12);
         rec.start(250);
         v.playbackRate=1;
         await v.play().catch(function(){});
@@ -15139,7 +15173,7 @@ function openRoulette(){
         var blob=new Blob(chunks,{type:mime});
         if(blob.size<50000 || blob.size>file.size*0.98)return file;
         var ext=mime.indexOf('webm')>=0?'webm':'mp4';
-        try{if(typeof updateVideoProgress==='function') updateVideoProgress('Compression done','Uploading optimized clip',28)}catch(e){}
+        prog('Compression done','Uploading optimized clip',28);
         var outFile=new File([blob],'gt_'+Date.now()+'.'+ext,{type:mime});
         outFile.__rsOptimized=1;
         return outFile;
@@ -15509,6 +15543,11 @@ function openRoulette(){
       try{document.body.classList.toggle('gt-on',name==='goontok')}catch(e){}
       try{document.body.classList.toggle('rc-on',name==='randomcam')}catch(e){}
       if(name!=='goontok'&&name!=='randomcam'){try{stopAllMedia()}catch(e){}}
+      // Clear ghost compress/upload modal when leaving sections if no user publish is active.
+      // Background optimize used to leave "Compressing video… 12%" stuck on Map etc.
+      if(name!=='video-composer' && !window.__publishingVideo){
+        try{if(typeof hideVideoProgress==='function') hideVideoProgress()}catch(e){}
+      }
       if(name!=='feed')viewingSaved=false;
       try{var ad=document.getElementById('fc-ad');if(ad)ad.style.display=(name==='feed'||name==='explore')?'flex':'none'}catch(e){}
       var keep=!!(opts.keepScroll||opts.fromDetail||name==='detail');
@@ -15535,7 +15574,8 @@ function openRoulette(){
       if(name==='explore'){
         try{renderTrendingTags()}catch(e){}
         try{refreshWallSection({force:!!opts.forceRefresh})}catch(e){}
-        try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD',action:'<button type="button" class="btn btn-secondary btn-sm" onclick="openChallengesHub()" style="min-height:40px;font-weight:900">Open games</button>'})}}catch(e){}
+        /* XP promo only — Games entry below is the single Explore access to games. */
+        try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD'})}}catch(e){}
         try{if(typeof refreshExploreMapPreview==='function')refreshExploreMapPreview()}catch(e){}
         startViewVisit('wall');
       }
@@ -16905,6 +16945,13 @@ function openRoulette(){
     }
     async function runVideoOptimizeWorker(){
       if(window.__gtOptRunning)return;
+      // Never steal the UI while the user is publishing a video, or while Random Cam is open.
+      try{
+        if(window.__publishingVideo)return;
+        if(document.body.classList.contains('rc-on'))return;
+        var act=document.querySelector('.panel.active');
+        if(act&&(act.id==='panel-randomcam'||act.id==='panel-map'||act.id==='panel-video-composer'))return;
+      }catch(e){}
       if(!canRunVideoOptimizeNow())return;
       var q=loadOptQueue();
       if(!q.length)return;
@@ -16964,7 +17011,8 @@ function openRoulette(){
         if(!blob||blob.size<1000){markVideoBroken(job.id,'empty_blob',src);return}
         var file=new File([blob],'src_'+job.id+'.mp4',{type:blob.type||'video/mp4'});
         var out=file;
-        try{if(typeof compressVideoForUpload==='function') out=await compressVideoForUpload(file)}catch(e){}
+        // Silent: background repair must not open the user-facing upload modal.
+        try{if(typeof compressVideoForUpload==='function') out=await compressVideoForUpload(file,{silent:true})}catch(e){}
         if(!out||out.size<1000){markVideoNeedsOpt(job.id,'compress_fail');return}
         // If compress didn't shrink much and original was already small/playable, just mark needs_opt lightly
         var up=null;
@@ -31637,6 +31685,9 @@ async function onIdFace(e){
 
 <script id="randomcam-client">
 (function(){
+  // Feature gate: keep full WebRTC/matchmaking code below, but do not activate
+  // camera, signaling, or matchmaking until Random Cam is ready.
+  var RC_COMING_SOON=true;
   var RC_API=window.CF_API||'https://ruiningsubs-api.0788adm.workers.dev';
   var rc={ws:null,pc:null,dc:null,local:null,partner:null,pendingPeer:null,started:false,initiator:false,ice:[],closed:false,facing:'user',muted:false,skip:{},seen:{},matching:false,remoteStream:null,connectAt:0,offerAt:0};
   function el(id){return document.getElementById(id)}
@@ -31649,7 +31700,7 @@ async function onIdFace(e){
   function log(text,me){
     var box=el('rc-chat-log');
     if(!box)return;
-    if(box.children.length===1 && /Your chat appears|Say hi|Finding next|Tap Start/i.test(box.firstChild.textContent||'')) box.innerHTML='';
+    if(box.children.length===1 && /Your chat appears|Say hi|Finding next|Tap Start|Próximamente/i.test(box.firstChild.textContent||'')) box.innerHTML='';
     var d=document.createElement('div');
     d.className='rc-msg'+(me?' me':'');
     d.textContent=text;
@@ -31658,9 +31709,28 @@ async function onIdFace(e){
   }
   function setButtons(on,matched){
     var a=el('rc-start'),n=el('rc-next'),e=el('rc-end');
+    var flip=el('rc-flip'),mute=el('rc-mute'),sound=el('rc-sound');
+    if(RC_COMING_SOON){
+      if(a){a.disabled=true;a.setAttribute('aria-disabled','true');a.textContent='Start'}
+      if(n)n.disabled=true;
+      if(e)e.disabled=true;
+      if(flip)flip.disabled=true;
+      if(mute)mute.disabled=true;
+      if(sound)sound.disabled=true;
+      return;
+    }
     if(a){a.disabled=on;a.textContent=on?(matched?'Matched':'Searching…'):'Start'}
     if(n)n.disabled=!on;
     if(e)e.disabled=!on;
+  }
+  function showComingSoonUi(){
+    var banner=el('rc-coming-soon');
+    if(banner) banner.hidden=false;
+    status('Próximamente');
+    setButtons(false,false);
+    clearChat('Próximamente — el chat se activará con Random Cam.');
+    var input=el('rc-chat-input');
+    if(input) input.disabled=true;
   }
   function me(){
     var id='';
@@ -31825,6 +31895,11 @@ async function onIdFace(e){
     }).catch(function(){status('Could not start WebRTC')});
   }
   function connect(){
+    if(RC_COMING_SOON){
+      showComingSoonUi();
+      try{if(typeof toast==='function')toast('Random Cam — Próximamente')}catch(e){}
+      return;
+    }
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Camera is not available in this browser');return}
     rc.closed=false;
     rc.started=true;
@@ -31957,11 +32032,18 @@ async function onIdFace(e){
   window.startRandomCam=connect;
   window.openRandomCam=function(){
     showPanel('randomcam');
+    if(RC_COMING_SOON){
+      showComingSoonUi();
+      // Never request camera / WebRTC / lobby while gated.
+      try{if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}});rc.local=null}}catch(e){}
+      return;
+    }
     status('Ready · tap Start');
     setButtons(false,false);
     clearChat('Tap Start to find a stranger.');
   };
   window.randomCamNext=function(){
+    if(RC_COMING_SOON){showComingSoonUi();return}
     if(!rc.started)return;
     var prev=rc.partner||rc.pendingPeer;
     try{if(prev) postSig(box(prev),'peer-left',{ts:Date.now()})}catch(e){}
@@ -31981,6 +32063,7 @@ async function onIdFace(e){
     pollLobby();
   };
   window.flipRandomCam=async function(){
+    if(RC_COMING_SOON){showComingSoonUi();return}
     rc.facing=rc.facing==='user'?'environment':'user';
     if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}
     rc.local=null;
@@ -31999,16 +32082,19 @@ async function onIdFace(e){
     }catch(e){toast('Could not flip camera')}
   };
   window.unlockRandomSound=function(){
+    if(RC_COMING_SOON){showComingSoonUi();return}
     var a=el('rc-remote-audio'),v=el('rc-remote');
     if(v){v.muted=false;v.volume=1;v.play().catch(function(){})}
     if(a){a.muted=false;a.volume=1;a.play().then(function(){toast('Sound on')}).catch(function(){toast('Allow sound for this site')})}
   };
   window.muteRandomCam=function(){
+    if(RC_COMING_SOON){showComingSoonUi();return}
     rc.muted=!rc.muted;
     if(rc.local) rc.local.getAudioTracks().forEach(function(t){t.enabled=!rc.muted});
     var b=el('rc-mute');if(b)b.textContent=rc.muted?'Unmute':'Mute';
   };
   window.sendRandomChat=function(){
+    if(RC_COMING_SOON){showComingSoonUi();return}
     var i=el('rc-chat-input');
     if(!i||!i.value.trim())return;
     if(!rc.partner){toast('Wait until you match');return}
@@ -32028,13 +32114,21 @@ async function onIdFace(e){
     try{if(rc.partner)postSig(box(rc.partner),'peer-left',{ts:Date.now()})}catch(e){}
     try{if(rc.dc)rc.dc.close()}catch(e){}
     try{if(rc.pc)rc.pc.close()}catch(e){}
+    // Always release camera tracks — Random Cam must never leave a live stream
+    // that could be mistaken for an upload/compress source.
     if(rc.local){rc.local.getTracks().forEach(function(t){try{t.stop()}catch(e){}})}
     rc.ws=null;rc.dc=null;rc.pc=null;rc.local=null;rc.partner=null;rc.pendingPeer=null;rc.started=false;rc.matching=false;rc.remoteStream=null;
-    var lv=el('rc-local'),rv=el('rc-remote');
-    if(lv)lv.srcObject=null;if(rv)rv.srcObject=null;
+    var lv=el('rc-local'),rv=el('rc-remote'),ra=el('rc-remote-audio');
+    if(lv){try{lv.srcObject=null;lv.pause()}catch(e){}}
+    if(rv){try{rv.srcObject=null;rv.pause()}catch(e){}}
+    if(ra){try{ra.srcObject=null;ra.pause()}catch(e){}}
     var q=el('rc-remote-empty');
-    if(q){q.style.display='flex';q.textContent='Tap Start to find someone.'}
+    if(q){q.style.display='flex';q.textContent=RC_COMING_SOON?'Próximamente':'Tap Start to find someone.'}
     setButtons(false,false);
+    if(RC_COMING_SOON){
+      showComingSoonUi();
+      return;
+    }
     clearChat('Tap Start to find a stranger.');
     status('Ready · tap Start');
   };
@@ -32112,12 +32206,17 @@ async function onIdFace(e){
   }
   function addBasemap(targetMap){
     if(!targetMap||!window.L)return null;
-    var primary=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-      maxZoom:MAP_MAX_ZOOM, subdomains:'abcd', attribution:'© OSM © CARTO',
+    // CAUSE: CARTO free basemap CDN now returns HTTP 200 watermark tiles
+    // ("API KEY REQUIRED" / etag wm-*) instead of real map imagery. Leaflet
+    // never fires tileerror, so the old Esri fallback never ran.
+    // FIX: use Esri World Dark Gray as primary (already the project's dark
+    // fallback). No invented API keys; markers/pins unchanged.
+    var primary=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{
+      maxZoom:MAP_MAX_ZOOM, attribution:'© Esri © OpenStreetMap contributors',
       errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
     });
     primary.addTo(targetMap);
-    // Fallback if Carto blocked: Esri dark gray
+    // Secondary dark fallback if Esri fails (Carto still watermarked without key — skip).
     var failed=0;
     primary.on('tileerror',function(){
       failed++;

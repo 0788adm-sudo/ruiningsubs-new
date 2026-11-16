@@ -7,8 +7,9 @@ function assert(c,m){if(!c){console.error('FAIL:',m);process.exit(1)}console.log
 
 assert(html.includes('function sanitizePlaceText('), 'map place sanitizer present');
 assert(html.includes('function fuzzCoords('), 'coord fuzzing present');
-assert(html.includes('function addBasemap('), 'basemap helper with Carto + Esri fallback');
-assert(html.includes('basemaps.cartocdn.com/dark_all'), 'Carto dark tiles primary');
+assert(html.includes('function addBasemap('), 'basemap helper present');
+assert(html.includes('World_Dark_Gray_Base'), 'Esri dark basemap primary (Carto watermarked without API key)');
+assert(!/basemaps\.cartocdn\.com\/dark_all/.test(html), 'Carto watermark tiles no longer primary');
 assert(html.includes('MAP_MAX_ZOOM=11') || html.includes('var MAP_MAX_ZOOM=11'), 'city-level max zoom');
 assert(html.includes('showMapFail('), 'map fail UI helper');
 assert(html.includes('cdn.jsdelivr.net/npm/leaflet'), 'Leaflet CDN fallback');
