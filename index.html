@@ -1597,6 +1597,8 @@ body.rc-on #hdr-fc{display:none!important}
 .gt-err{background:rgba(80,0,0,.72);color:#fecaca;border:1px solid rgba(248,113,113,.45);pointer-events:auto}
 .gt-act.gt-hot{color:#ffb020}
 .gt-act.gt-hot .gt-hot-n{display:block;font-size:12px;font-weight:900;line-height:1;margin-top:1px;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.gt-act.gt-del{color:#fda4af}
+.gt-act.gt-del .lab{font-size:10px;letter-spacing:.3px}
 .gt-album{display:flex;height:100%;width:100%;overflow-x:hidden;overflow-y:hidden;scroll-snap-type:none;-webkit-overflow-scrolling:touch}
 .gt-album.multi{overflow-x:auto;scroll-snap-type:x mandatory}
 .gt-media{min-width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;background:#000;position:relative}
@@ -5052,20 +5054,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return 'fallback_'+Math.abs(h).toString(16)+'_'+token.length.toString(16);
     }
     function canDeletePostAsOwner(post){
-      // Owner delete is registered-only. Anonymous visitors may publish but never delete.
+      // Universal owner rule: publisher (registered or anon identity) deletes free.
       // Admin moderation is a separate path (canModerateDeletePost).
       if(!post)return false;
-      try{if(typeof isAnonymousAccount==='function' && isAnonymousAccount()) return false}catch(e){}
-      try{if(typeof isRegistered==='function' && !isRegistered()) return false}catch(e){}
       try{
-        if(typeof samePostOwner==='function' && samePostOwner(post, currentUser&&currentUser.name)) return true;
+        if(typeof samePostOwner==='function' && currentUser&&currentUser.name && samePostOwner(post, currentUser.name)) return true;
       }catch(e){}
-      // Local owner tokens only count for registered accounts that also match ownership when known.
       try{
         if(hasLocalOwnerToken(post.id)){
           if(typeof samePostOwner==='function' && currentUser&&currentUser.name){
             if(samePostOwner(post, currentUser.name)) return true;
-            // Token without matching username — still allow only if post looks anonymous-linked-to-me via prior publish map.
             try{
               var linked=JSON.parse(localStorage.getItem('rs_my_post_ids')||'[]')||[];
               if(linked.indexOf(String(post.id))>=0) return true;
@@ -5077,6 +5075,31 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){}
       return false;
     }
+    /** Universal Delete control — every post surface must expose this. */
+    function universalDeleteButtonHtml(p, opts){
+      opts=opts||{};
+      var id=p&&p.id!=null?p.id:(opts.id||'');
+      if(id===''||id==null)return '';
+      var pid=String(id).replace(/"/g,'');
+      var own=false;
+      try{own=typeof canDeletePostAsOwner==='function'&&canDeletePostAsOwner(p)}catch(e){own=false}
+      var admin=false;
+      try{admin=typeof canModerateDeletePost==='function'&&canModerateDeletePost()}catch(e){admin=false}
+      var label=own?'Delete':(admin?'Admin delete':'Delete');
+      var sub=own?'free · your post':(admin?'moderation':'$5 / 50 FC');
+      if(opts.style==='dx'){
+        return '<button class="dx-wipe" type="button" onclick="event.stopPropagation();openRemove('+jsId(id)+')" id="btn-remove-led-label"><b>'+esc(label)+(own?'':(' · '+esc(sub)))+'</b><i>'+esc(sub)+'</i></button>';
+      }
+      if(opts.style==='gt'){
+        return '<button class="gt-act gt-del" type="button" aria-label="Delete" onclick="event.stopPropagation();openRemove('+jsId(id)+')"><span class="ico">🗑</span><span class="lab">DEL</span></button>';
+      }
+      if(opts.style==='pg'){
+        return '<button class="btn btn-secondary pg-delete" type="button" onclick="event.stopPropagation();openRemove('+jsId(id)+')">🗑 '+esc(label)+'</button>';
+      }
+      // Wall / feed / archive default
+      return '<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+pid+'" style="color:#fda4af;border-color:rgba(244,63,94,.45)" onclick="event.stopPropagation();openRemove('+jsId(id)+')"><span class="nf-action-icon">🗑</span> '+esc(label)+'</button>';
+    }
+    window.universalDeleteButtonHtml=universalDeleteButtonHtml;
     function viewerHasOwnPosts(){
       try{
         if(typeof isRegistered!=='function' || !isRegistered() || !currentUser || !currentUser.name) return false;
@@ -15728,6 +15751,7 @@ function openRoulette(){
           '<button class="gt-act" type="button" onclick="event.stopPropagation();openDetail(\''+String(p.id).replace(/'/g,'')+'\',true)"><span class="ico">💬</span>'+comments+'</button>'+
           '<button class="gt-act gt-hot" type="button" aria-label="Hot '+hotN+'" onclick="event.stopPropagation();hotBumpGoonTok(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🔥</span><span class="lab">HOT</span><span class="gt-hot-n">'+hotN+'</span></button>'+
           extBtn+
+          (typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(p,{style:'gt'}):('<button class="gt-act gt-del" type="button" aria-label="Delete" onclick="event.stopPropagation();openRemove(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">🗑</span><span class="lab">DEL</span></button>'))+
           '<button class="gt-act gt-share" type="button" onclick="event.stopPropagation();sharePost && sharePost(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">↗</span>Share</button>'+
         '</div>'+
         '<div class="gt-meta">'+
@@ -16913,11 +16937,20 @@ function openRoulette(){
       var viewLabel=displayViews((viewSrc&&viewSrc.views)||p.views||0);
       var vsrc='';
       if(imgs&&imgs.length){
-        try{if(typeof sanitizeVideoPostMedia==='function'&&typeof isVideoPost==='function'&&isVideoPost(p)) sanitizeVideoPostMedia(p)}catch(e){}
-        vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||p.media_url||p.video||'';
-        vsrc=typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc;
-        var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
-        if(vsrc){
+        // Never promote a JPEG/photo into <video> via media_url fallback.
+        var treatAsVideo=typeof isVideoPost==='function'&&isVideoPost(p);
+        if(treatAsVideo){
+          try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(p)}catch(e){}
+          vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
+          if(!vsrc){
+            var cand=p.media_url||p.video||'';
+            if(cand && typeof isVideoUrl==='function' && isVideoUrl(cand)) vsrc=cand;
+          }
+          vsrc=typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc;
+          if(vsrc && typeof isVideoUrl==='function' && !isVideoUrl(vsrc)) vsrc='';
+        }
+        if(treatAsVideo && vsrc){
+          var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
           media='<div class="normal-feed-post-media" style="position:relative">'
             +'<div class="normal-feed-view-badge"><span class="eye">👁</span><span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+esc(String(viewLabel))+'</span> VIEWS</div>'
             +lazyVideoHtml(vsrc,poster,0,p.id)
@@ -17000,17 +17033,8 @@ function openRoulette(){
       }else{
         actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
       }
-      // Delete restored where authorized: owner / admin / registered paid-delete requesters.
-      var delBtn='';
-      try{
-        var anonNo=typeof isAnonymousAccount==='function'&&isAnonymousAccount();
-        var ownDel=typeof canDeletePostAsOwner==='function'&&canDeletePostAsOwner(p);
-        var adminDel=typeof canModerateDeletePost==='function'&&canModerateDeletePost();
-        var canPaidDel=!!(currentUser&&currentUser.name&&!anonNo);
-        if(ownDel||adminDel||canPaidDel){
-          delBtn='<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+pid+'" style="color:#fda4af;border-color:rgba(244,63,94,.45)"><span class="nf-action-icon">🗑</span> Delete</button>';
-        }
-      }catch(e){delBtn=''}
+      // Universal Delete — every Wall card exposes it (owner free / others $5·50 FC).
+      var delBtn=typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(p):('<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+pid+'" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">🗑 Delete</button>');
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+tierBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div></div>'
@@ -18843,20 +18867,7 @@ function openRoulette(){
           openDetail(id, act==='comment');
         } else         if(act==='delete'){
           window.__removePostId=id;
-          var delPost=null;
-          try{delPost=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
-          var freeOk=typeof postFreeDeletionEnabled==='function'&&postFreeDeletionEnabled(delPost);
-          var ownOk=typeof canDeletePostAsOwner==='function'?canDeletePostAsOwner(delPost):false;
-          if(freeOk && ownOk && typeof deleteWallFree==='function'){
-            if(!confirm('Delete this post for free? It disappears for everyone.'))return;
-            deleteWallFree();
-            return;
-          }
           if(typeof openRemove==='function') openRemove(id);
-          else if(typeof deleteWallFree==='function'){
-            if(!confirm('Delete this wall post? It disappears for everyone.'))return;
-            deleteWallFree();
-          }
           return;
         } else if(act==='dl'){
           if(typeof downloadPost==='function') downloadPost(id);
@@ -23208,7 +23219,7 @@ function profileStatsHtml(userPosts, extra){
       var nav=imgs.length>1?'<button class="pg-arrow pg-prev" type="button" onclick="profileGalleryStep('+pid+',-1,event)">‹</button><button class="pg-arrow pg-next" type="button" onclick="profileGalleryStep('+pid+',1,event)">›</button>':'';
       var tagHtml=tags.filter(function(t){return t!=='profile_gallery'&&t!=='profile_only'&&t!=='generated_id'}).map(function(t){return '<span class="tag">#'+esc(t)+'</span>'}).join('');
       var isIdOrPea = (tags.indexOf('generated_id')>=0 || tags.indexOf('generated_pea')>=0 || tags.indexOf('pea')>=0 || tags.indexOf('idcard')>=0 || tags.indexOf('id')>=0);
-      var ownerDelete='';
+      var ownerDelete=typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(p,{style:'pg'}):('<button class="btn btn-secondary pg-delete" type="button" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">🗑 Delete</button>');
       var safeCount=imgs.length;
       var html='<article class="profile-gallery-post" id="pg-post-'+pid+'">'
         +'<div class="pg-head"><div class="av">'+avatarHtml(p.user)+'</div><div class="pg-meta"><div class="pg-user">@'+esc(p.user)+'</div><div class="pg-time">'+ago(p.created)+'</div></div></div>'
@@ -23270,7 +23281,7 @@ function profileStatsHtml(userPosts, extra){
     function postCardActionButtons(p, permanent, already, alreadyCd){
       // Permanent / no timer → Hot only. Active timer → Extend.
       // Timed videos → Extend + Hot (timer must not block Hot on video posts).
-      // Delete restored for authorized viewers (owner / admin / registered paid request).
+      // Universal Delete on every feed card.
       var hasTimer = (typeof postHasActiveTimer === 'function')
         ? postHasActiveTimer(p)
         : (!!(Number(p && p.expires || 0) > Date.now()));
@@ -23281,22 +23292,13 @@ function profileStatsHtml(userPosts, extra){
       var hotBtn = '<button class="btn btn-hot' + (hotOn ? ' on' : '') + '" type="button" ' + (hotOn ? 'disabled' : '') +
         ' data-nf-act="hot" data-nf-id="' + String(p.id).replace(/"/g, '') +
         '" onclick="event.stopPropagation();hotBumpWall(' + jsId(p.id) + ',{allowAnon:true,skipTimer:true})">🔥 Hot' + (hotN ? (' · ' + hotN) : '') + '</button>';
-      var delBtn='';
-      try{
-        var anonNo=typeof isAnonymousAccount==='function'&&isAnonymousAccount();
-        var ownDel=typeof canDeletePostAsOwner==='function'&&canDeletePostAsOwner(p);
-        var adminDel=typeof canModerateDeletePost==='function'&&canModerateDeletePost();
-        var canPaidDel=!!(currentUser&&currentUser.name&&!anonNo);
-        if(ownDel||adminDel||canPaidDel){
-          delBtn='<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+String(p.id).replace(/"/g,'')+'" style="color:#fda4af;border-color:rgba(244,63,94,.45)" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">Delete</button>';
-        }
-      }catch(e){delBtn=''}
+      var delBtn=typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(p):('<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+String(p.id).replace(/"/g,'')+'" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">Delete</button>');
       // Span full row when Comment would sit alone under Like + one action (balanced centering).
       function cmtBtn(span){
         return '<button class="btn btn-secondary'+(span?' feed-cmt-span':'')+'" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
       }
       if(!hasTimer){
-        return hotBtn + delBtn + cmtBtn(!delBtn);
+        return hotBtn + delBtn + cmtBtn(false);
       }
       var extAmt = (typeof postExtendMinutes === 'function' ? postExtendMinutes(p) : (Number(p.extendAmount) || 360));
       var label = already
@@ -23307,7 +23309,7 @@ function profileStatsHtml(userPosts, extra){
         (already ? 'disabled aria-disabled="true"' : '') +
         ' onclick="event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;openExtend(' + jsId(p.id) + ')">' + label + '</button>';
       if(isVid) return extBtn + hotBtn + delBtn + cmtBtn(false);
-      return extBtn + delBtn + cmtBtn(!delBtn);
+      return extBtn + delBtn + cmtBtn(false);
     }
 function postCardHtml(p, compact){
       // Same pin/exposure source as Spotlight — never leave stubs at expires:0 while pinned.
@@ -23327,10 +23329,16 @@ function postCardHtml(p, compact){
       var imgs=(p.images&&p.images.length>1)?p.images:mergePostImages(p.image, p.tags, (p.images||[]).concat(extractAlbumMarker(p.desc)));var media;
       if(typeof isVideoPost==='function' && isVideoPost(p)){
         try{if(typeof sanitizeVideoPostMedia==='function') sanitizeVideoPostMedia(p)}catch(e){}
-        var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||p.media_url||p.video||imgs[0]||'';
+        var vsrc=(imgs||[]).filter(function(u){return typeof isVideoUrl==='function'&&isVideoUrl(u)})[0]||'';
+        if(!vsrc){
+          var feedCand=p.media_url||p.video||'';
+          if(feedCand && typeof isVideoUrl==='function' && isVideoUrl(feedCand)) vsrc=feedCand;
+        }
         vsrc=typeof publicMediaUrl==='function'?publicMediaUrl(vsrc):vsrc;
+        if(vsrc && typeof isVideoUrl==='function' && !isVideoUrl(vsrc)) vsrc='';
         var poster=typeof videoPosterOf==='function'?videoPosterOf(p,vsrc):(p.poster||p.thumb_url||'');
         if(vsrc) media=typeof lazyVideoHtml==='function'?lazyVideoHtml(vsrc,poster,0,p.id):mediaHtml([vsrc],p.id,false,poster);
+        else if(imgs.length) media=mediaHtml(imgs,p.id,false,'',p.title||('Post '+p.id));
         else media='<div style="min-height:180px;display:flex;align-items:center;justify-content:center;color:#fff;background:#111">▶ Video</div>';
       } else if(imgs.length){media=mediaHtml(imgs,p.id,false,'',p.title||('Post '+p.id))}
       else if(p._needImg){media='<div class="photo-grid g1" style="min-height:150px;background:#141414;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px">Loading photo…</div>'}
@@ -24299,33 +24307,11 @@ function postCardHtml(p, compact){
       var hotLed='<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+',{allowAnon:true,skipTimer:true})"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>';
       var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-nf-act="extend" data-nf-id="'+String(post.id).replace(/"/g,'')+'" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="event.preventDefault();event.stopPropagation();openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
       var extLed=showExtendBtn ? extendLed : hotLed;
-      // Universal Delete: owner free/paid paths + third-party $5/50 FC (PayPal/Throne/FC + admin verify).
-      var removeBtn='';
-      var tierNeedsFc=typeof deletionRequiresFc==='function'&&deletionRequiresFc(post);
-      var freeDel=typeof postFreeDeletionEnabled==='function'&&postFreeDeletionEnabled(post);
+      // Universal Delete on every detail view — owner free / others $5·50 FC.
       var tierBadgeDetail=typeof deletionTierBadgeHtml==='function'?deletionTierBadgeHtml(post):'';
-      // Delete controls: anon never; owner/admin keep existing rules; registered third parties can request paid delete.
-      var allowOwnerDelete=!!(isOwner && typeof isRegistered==='function' && isRegistered() && (typeof viewerHasOwnPosts!=='function' || viewerHasOwnPosts() || isOwner));
-      var allowAdminDelete=typeof canModerateDeletePost==='function' && canModerateDeletePost();
-      var allowPaidDelete=false;
-      try{
-        allowPaidDelete=!!(currentUser&&currentUser.name && !(typeof isAnonymousAccount==='function'&&isAnonymousAccount()) && !allowOwnerDelete);
-      }catch(e){allowPaidDelete=false}
-      if(allowOwnerDelete && freeDel && !tierNeedsFc){
-        removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
-      }else if(allowOwnerDelete && ownProfilePermanent){
-        removeBtn='<button class="dx-wipe" type="button" onclick="deleteOwnProfilePost('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>your photo</i></button>';
-      }else if(allowOwnerDelete && tierNeedsFc){
-        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete · 50 FC / $5</b><i>PayPal · Throne · FC · admin verify</i></button>';
-      }else if(allowOwnerDelete && (timeless || (permanent && !timedLive) || wallOwned) && !tierNeedsFc){
-        removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>free · your post</i></button>';
-      }else if(allowOwnerDelete){
-        removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Delete</b><i>your post</i></button>';
-      }else if(allowAdminDelete){
-        removeBtn='<button class="dx-wipe" type="button" onclick="window.__removePostId='+jsId(post.id)+';deleteWallFree()" id="btn-remove-led-label"><b>Admin delete</b><i>moderation</i></button>';
-      }else if(allowPaidDelete){
-        removeBtn='<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete · $5 / 50 FC</b><i>PayPal · Throne · FC · admin verify</i></button>';
-      }
+      var removeBtn=typeof universalDeleteButtonHtml==='function'
+        ? universalDeleteButtonHtml(post,{style:'dx'})
+        : '<button class="dx-wipe" type="button" onclick="openRemove('+jsId(post.id)+')" id="btn-remove-led-label"><b>Delete</b><i>universal</i></button>';
       var acts='<div class="dx-actions">'
         +extLed
         +'<button class="dx-row'+(mineR?' on':'')+'" type="button" onclick="quickLike('+jsId(post.id)+',event)">'+(mineR||'❤️')+' '+(mineR?'Liked':'Like')+'</button>'
@@ -25394,6 +25380,10 @@ async function onIdFace(e){
           html+='<button class="btn btn-like" type="button" onclick="openReact('+jsId(r.id)+',event)">❤️ '+likesN+'</button>';
           html+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' onclick="hotBumpWall('+jsId(r.id)+')"><span class="nf-action-icon">🔥</span> HOT'+(hotN?' · '+hotN:'')+'</button>';
           html+='<button class="btn btn-secondary" type="button" onclick="openDetail('+jsId(r.id)+',true)">💬</button>';
+          try{
+            var archPost=(typeof findPostAnywhere==='function'?findPostAnywhere(r.id):null)||{id:r.id,user:uname,tags:r.tags||[]};
+            html+=typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(archPost):('<button class="btn btn-secondary" type="button" onclick="openRemove('+jsId(r.id)+')">🗑 Delete</button>');
+          }catch(eDel){html+='<button class="btn btn-secondary" type="button" onclick="openRemove('+jsId(r.id)+')">🗑 Delete</button>'}
           html+='</div>';
           html+='</article>';
           if(typeof posts!=='undefined' && Array.isArray(posts) && !posts.some(function(p){return String(p.id)===String(r.id)})){
@@ -27575,38 +27565,24 @@ async function onIdFace(e){
       }catch(e){}
     }
     function openRemove(id){
-      // Anonymous visitors cannot delete. Owners use free/paid rules; others may request paid delete (admin verifies PayPal/Throne).
-      try{
-        if(typeof isAnonymousAccount==='function' && isAnonymousAccount()){
-          toast('Register to manage your own posts — anonymous accounts cannot delete');
-          return;
-        }
-      }catch(e){}
+      // Universal delete modal:
+      // - Owner (any identity that owns the post) → free immediate delete
+      // - Anyone else → $5 PayPal/Throne (admin verify) or 50 FC (auto-delete)
       window.__removePostId=id||currentDetailId;
       window.__removeRequestKind='paid';
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(window.__removePostId):null}catch(e){}
       try{
-        var ownsGate=typeof canDeletePostAsOwner==='function'?canDeletePostAsOwner(post):false;
-        var adminGate=typeof canModerateDeletePost==='function'?canModerateDeletePost():false;
-        var hasIdentity=!!(currentUser&&currentUser.name);
-        if(!ownsGate && !adminGate && !hasIdentity){
-          toast('Login required to delete');
-          try{showAuth('login')}catch(e){}
-          return;
+        if(!currentUser||!currentUser.name){
+          try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e2){}
         }
       }catch(e){}
-      var wall=isWallPost(post);
-      var timeless=false;
-      try{timeless=typeof isTimelessWallPost==='function'?isTimelessWallPost(post):false}catch(e){}
       var owner=typeof canDeletePostAsOwner==='function'
         ? canDeletePostAsOwner(post)
         : (typeof samePostOwner==='function'
           ? samePostOwner(post, currentUser&&currentUser.name)
           : !!(post && currentUser && String(post.user||'')===String(currentUser.name||'')));
-      var tier=typeof postDeletionTier==='function'?postDeletionTier(post):'legacy';
-      var freeDel=typeof postFreeDeletionEnabled==='function'&&postFreeDeletionEnabled(post);
-      var needsFc=typeof deletionRequiresFc==='function'?deletionRequiresFc(post):isPaidRemovePost(post);
+      var admin=typeof canModerateDeletePost==='function'&&canModerateDeletePost();
       var lab=document.getElementById('remove-post-id-label');
       if(lab) lab.textContent=String(window.__removePostId||'—');
       var title=document.querySelector('#remove-modal h3');
@@ -27619,38 +27595,22 @@ async function onIdFace(e){
         var stBox=document.getElementById('remove-request-status');
         if(stBox){stBox.style.display='none';stBox.textContent=''}
       }catch(e){}
-      // Game permanent outcomes never offer free deletion (even on Wall).
-      try{
-        if(owner && post && (normalizeDeletionTier(post.deletionTier||post.deletion_tier)==='permanent' || detectGameOrigin(post)==='roulette' && post.permanent)){
-          if(normalizeDeletionTier(post.deletionTier||post.deletion_tier)==='permanent'){
-            freeDel=false; needsFc=true; tier='permanent';
-          }
-        }
-      }catch(e){}
       var delCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.delete)||50;
-      // Free deletion chosen at publish time → author deletes with no payment UI.
-      if(owner && freeDel && !needsFc){
-        if(title) title.textContent='Delete post';
-        if(pEl) pEl.innerHTML='Free deletion is enabled for this post. Remove it now? No payment required.';
-        if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
+      if(owner){
+        // Owner always free — no coins, no admin.
+        if(title) title.textContent='Delete your post';
+        if(pEl) pEl.innerHTML='You own this post. Delete it now for <strong style="color:#86efac">free</strong>? It disappears for everyone immediately.';
+        if(fc){fc.style.display='block';fc.textContent='Delete now — free';fc.setAttribute('onclick','deleteWallFree()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
-      }else if(owner && (timeless || wall) && !needsFc){
-        if(title) title.textContent='Delete wall post';
-        if(pEl) pEl.innerHTML='Your Wall / permanent post deletes for free.';
-        if(fc){fc.style.display='block';fc.textContent='Delete now';fc.setAttribute('onclick','deleteWallFree()');}
+      }else if(admin && !(currentUser&&currentUser.name&&post&&typeof samePostOwner==='function'&&samePostOwner(post,currentUser.name))){
+        if(title) title.textContent='Admin delete';
+        if(pEl) pEl.innerHTML='Moderation delete for post <strong>#'+esc(String(window.__removePostId||''))+'</strong>. Removes it immediately.';
+        if(fc){fc.style.display='block';fc.textContent='Admin delete now';fc.setAttribute('onclick','deleteWallFree()');}
         if(paid) paid.style.display='none';
         setRemoveModalExternalPay(false);
-      }else if(owner && (tier==='locked'||tier==='permanent'||needsFc)){
-        // Owner paid delete: FC auto-delete + PayPal/Throne + admin verify (never auto-delete on link tap).
-        if(title) title.textContent='Delete · '+delCost+' FC or $5';
-        if(pEl) pEl.innerHTML='Pay with <strong style="color:#f5c518">'+delCost+' FC</strong> (deletes immediately), or PayPal / Throne <strong style="color:#f5c518">$5</strong> then tap <strong>I paid</strong> for admin verification.';
-        if(fc){fc.style.display='block';fc.textContent='Delete now — '+delCost+' FC';fc.setAttribute('onclick','removeWithCoins()');}
-        if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verify'}
-        setRemoveModalExternalPay(true);
-        try{showRemoveRequestStatus(id)}catch(e){}
-      }else if(!owner){
-        // FC = automatic immediate delete (no admin). PayPal / Throne / I paid = admin verify.
+      }else{
+        // Non-owner: FC auto-delete OR external $5 → pending admin verify (never auto-delete on link tap).
         if(title) title.textContent='Delete · '+delCost+' FC or $5';
         if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. <strong style="color:#f5c518">'+delCost+' FC</strong> deletes it immediately. PayPal / Throne <strong style="color:#f5c518">$5</strong> needs admin verification after you tap <strong>I paid</strong>.';
         if(fc){
@@ -27661,12 +27621,6 @@ async function onIdFace(e){
         if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verify'}
         setRemoveModalExternalPay(true);
         try{showRemoveRequestStatus(id)}catch(e){}
-      }else{
-        if(title) title.textContent='Remove this post';
-        if(pEl) pEl.innerHTML='Delete · <strong style="color:#f5c518">$5 / 50 FC</strong>. Or pay outside and tap <strong>I paid</strong>.';
-        if(fc){fc.style.display='block';fc.textContent='Delete · $5 / 50 FC';fc.setAttribute('onclick','removeWithCoins()');}
-        if(paid) paid.style.display='block';
-        setRemoveModalExternalPay(true);
       }
       var modal=document.getElementById('remove-modal');
       if(modal){modal.style.display='';modal.classList.add('show');}
@@ -27691,12 +27645,6 @@ async function onIdFace(e){
       }catch(e){}
       if(ownerToken) body.ownerToken=ownerToken;
       if(opts.adminKey) body.adminKey=opts.adminKey;
-      try{
-        if(typeof isAnonymousAccount==='function' && isAnonymousAccount() && !moderation){
-          toast('Anonymous accounts cannot delete posts. Register to manage your own content.');
-          return false;
-        }
-      }catch(e){}
       var headers={'Content-Type':'application/json'};
       if(moderation){
         try{
@@ -27708,8 +27656,18 @@ async function onIdFace(e){
       var ownerProven=false;
       try{
         var postProbe=typeof findPostAnywhere==='function'?findPostAnywhere(id):null;
-        ownerProven=!!(ownerToken || (postProbe && typeof samePostOwner==='function' && samePostOwner(postProbe, currentUser&&currentUser.name)));
+        ownerProven=!!(ownerToken
+          || (typeof canDeletePostAsOwner==='function' && canDeletePostAsOwner(postProbe))
+          || (postProbe && typeof samePostOwner==='function' && samePostOwner(postProbe, currentUser&&currentUser.name)));
       }catch(e){ownerProven=!!ownerToken}
+      // Anon may free-delete own posts (ownerToken / same owner). Non-owners use paid path only.
+      try{
+        var paidReason=reason==='paid'||reason==='paid_remove'||reason==='fc';
+        if(typeof isAnonymousAccount==='function' && isAnonymousAccount() && !moderation && !ownerProven && !paidReason){
+          toast('Pay $5 / 50 FC to request delete on someone else\'s post');
+          return false;
+        }
+      }catch(e){}
       var allowLocal=!!(opts.allowLocalFallback && ownerProven && !moderation);
       function applyDeletedLocally(){
         try{purgePostEverywhere(id)}catch(e){try{markDeleted(id)}catch(e2){}}
@@ -27791,12 +27749,6 @@ async function onIdFace(e){
     window.deleteWallFree=async function(){
       var id=window.__removePostId||currentDetailId;
       if(!id){toast('Open the post first');return}
-      try{
-        if(typeof isAnonymousAccount==='function' && isAnonymousAccount() && !(typeof canModerateDeletePost==='function' && canModerateDeletePost())){
-          toast('Anonymous accounts cannot delete posts. Register to manage your own content.');
-          return;
-        }
-      }catch(e){}
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       var owner=typeof canDeletePostAsOwner==='function'
@@ -27806,8 +27758,8 @@ async function onIdFace(e){
           : !!(post && currentUser && String(post.user||'')===String(currentUser.name||'')));
       var asAdmin=typeof canModerateDeletePost==='function'&&canModerateDeletePost();
       if(post && !owner && !asAdmin){
-        toast('Only the publisher can delete this post');
-        return;
+        // Non-owners must use paid modal (never free delete).
+        return openRemove(id);
       }
       if(post && !owner && asAdmin){
         if(!confirm('Admin delete post #'+id+'? This permanently removes it.')) return;
@@ -27817,10 +27769,8 @@ async function onIdFace(e){
         if(!okAdmin){/* toast already shown */}
         return;
       }
-      if(post && typeof deletionRequiresFc==='function' && deletionRequiresFc(post) && !asAdmin){
-        // Redirect paid tiers to confirm · 50 FC instead of free path
-        return openRemove(id);
-      }
+      // Owner always free — no FC redirect, no tier gate.
+      if(!confirm('Delete this post for free? It disappears for everyone immediately.')) return;
       closeModals();
       toast('Deleting…');
       var ok=await secureDeletePost(id,{reason:'owner',allowLocalFallback:true,ownerToken:getOwnerToken(id)});
@@ -27851,43 +27801,15 @@ async function onIdFace(e){
       if(!id){toast('Open the post first');return}
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):((posts||[]).find(function(p){return String(p.id)===String(id)}))}catch(e){}
-      var owner=samePostOwner(post, currentUser&&currentUser.name);
+      var owner=typeof canDeletePostAsOwner==='function'
+        ? canDeletePostAsOwner(post)
+        : samePostOwner(post, currentUser&&currentUser.name);
+      // Owner always free — never charge FC for own posts.
+      if(owner){
+        return deleteWallFree();
+      }
       // Non-owner FC delete is automatic (charge 50 FC + delete) — never an admin request.
-      if(post && !owner){
-        return requestDeleteWithCoins();
-      }
-      var tier=typeof postDeletionTier==='function'?postDeletionTier(post):'legacy';
-      var needsFc=typeof deletionRequiresFc==='function'?deletionRequiresFc(post):false;
-      var paidRemove=typeof isPaidRemovePost==='function'?isPaidRemovePost(post):needsFc;
-      // Hard block only true Wall/normal free posts — never active Extend timers.
-      if(post && !needsFc && !paidRemove){
-        if(owner){
-          return deleteWallFree();
-        }
-        if(typeof canModerateDeletePost==='function' && canModerateDeletePost()){
-          return deleteWallFree();
-        }
-        toast('Normal posts cannot be removed with coins');
-        closeModals();
-        return;
-      }
-      // Owner paid delete (locked / permanent / active Extend) → secure API charges 50 FC then deletes.
-      if(owner && (tier==='locked'||tier==='permanent'||needsFc||paidRemove)){
-        try{deleteRequestProgress(true,'processing_payment')}catch(e){}
-        toast('Deleting…');
-        var okSecure=await secureDeletePost(id,{reason:'owner'});
-        closeModals();
-        if(okSecure){
-          try{deleteRequestProgress(true,'completed')}catch(e){}
-          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},800);
-          try{showPanel('feed');renderPosts()}catch(e){}
-        }else{
-          try{deleteRequestProgress(false)}catch(e){}
-        }
-        return;
-      }
-      toast('Normal posts cannot be removed with coins');
-      closeModals();
+      return requestDeleteWithCoins();
     }
     /**
      * Delete with FC — atomic /api/delete-post (charge + delete immediately).

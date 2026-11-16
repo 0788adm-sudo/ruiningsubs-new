@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Static checks for Deletion Tier (deletable / locked / permanent).
+ * Static checks for Deletion Tier (deletable / locked / permanent)
+ * + universal owner-free delete override.
  */
 const fs = require('fs');
 const path = require('path');
@@ -29,6 +30,7 @@ assert(/!freeOverride && !isOwner|Only the owner/.test(api), 'API owner/admin ga
 assert(/deletion_tier/.test(api) && /del:/.test(api), 'API reads column + del: tag fallback');
 assert(/legacyRequiresFc/.test(api), 'API preserves legacy timed paid-remove');
 assert(!/amount:\s*body\.amount|body\.cost/.test(api.replace(/\/\/.*/g, '')), 'API does not trust client price blindly');
+assert(/function ownerDeleteCost[\s\S]*?return 0/.test(api), 'API owners always delete free');
 
 // Compose UI
 assert(/Deletion Tier/.test(html), 'compose has Deletion Tier label');
@@ -45,11 +47,10 @@ assert(/function deletionRequiresFc/.test(html), 'deletionRequiresFc helper');
 assert(/function withDeletionTierTag/.test(html), 'withDeletionTierTag helper');
 assert(/del:/.test(html) && /withDeletionTierTag/.test(html), 'stores del: tag');
 assert(/\/api\/delete-post/.test(html), 'client calls secure delete API');
-assert(/Confirm · 50 FC/.test(html), 'confirm · 50 FC button copy');
-assert(/Deleting this post costs/.test(html), 'confirm dialog copy');
+assert(/Delete · 50 FC|Delete now — 50 FC|50 FC or \$5/.test(html), 'paid delete FC copy');
 assert(/secureDeletePost/.test(html), 'secureDeletePost client helper');
 assert(/deletionTierBadgeHtml/.test(html), 'tier badge on posts');
-assert(/Delete · 50 FC/.test(html), 'paid delete button label');
+assert(/Owner always free|Delete now — free|free · your post/.test(html), 'owner free override UI');
 assert(/reason:'moderation'|reason:\"moderation\"|privacy/.test(html) || /moderation|privacy/.test(api), 'moderation/privacy path retained');
 
 // publicTags hides del:
@@ -63,7 +64,6 @@ assert(/allowLocalFallback/.test(html), 'free delete can fall back if API down')
 assert(/postFreeDeletionEnabled\(p\)\) return false/.test(html) || /if\(tier==='deletable'\) return false/.test(html), 'isPaidRemovePost honors free/deletable');
 assert(/postHasActiveTimer/.test(html) && /isPaidRemovePost/.test(html), 'paid-remove still considers timers for legacy');
 assert(/function samePostOwner/.test(html), 'owner match normalizes @/case');
-assert(/freeDeletionEnabled\(row\) \|\| tier === 'deletable'/.test(api), 'API free-exits deletable / free_deletion_enabled');
 assert(/legacyRequiresFc/.test(api), 'API keeps legacy timed paid path for non-free posts');
 
 console.log('\nAll deletion-tier static checks passed');

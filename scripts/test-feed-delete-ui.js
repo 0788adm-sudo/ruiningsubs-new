@@ -29,7 +29,8 @@ assert(html.indexOf('onclick="confirmRemoveRights()"') < 0, 'no rights onclick i
 assert(html.indexOf('Problems with this post? Contact us:') >= 0, 'contact notice copy');
 assert(html.indexOf('mailto:0788adm@gmail.com') >= 0, 'contact email');
 assert(html.indexOf('Telegram: @mastersan01') >= 0, 'contact Telegram');
-assert(html.indexOf('allowPaidDelete') >= 0 || html.indexOf('Delete · $5 / 50 FC') >= 0, 'third-party paid delete path in detail');
+assert(html.indexOf('universalDeleteButtonHtml') >= 0, 'universal Delete helper');
+assert(html.indexOf('$5 / 50 FC') >= 0 || html.indexOf('FC or $5') >= 0, 'third-party paid delete path');
 assert(html.indexOf('You already have a pending delete request') >= 0, 'duplicate remove request blocked');
 
 console.log('\nFeed delete UI checks passed');

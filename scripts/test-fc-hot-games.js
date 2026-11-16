@@ -17,7 +17,10 @@ assert(html.includes('custom_roulette:250') || html.includes('custom_roulette:25
 assert(
   html.includes('Delete post — 50 FC ($5)') ||
     html.includes('Delete · $5 / 50 FC') ||
-    html.includes('Delete now · 50 FC') ||
+    html.includes('$5 / 50 FC') ||
+    html.includes('Delete now — 50 FC') ||
+    html.includes('Delete · 50 FC') ||
+    html.includes('FC or $5') ||
     html.includes('Confirm · 50 FC') ||
     /delete\s*:\s*50/.test(html),
   'Delete post UX copy'
