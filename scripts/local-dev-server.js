@@ -55,7 +55,8 @@ function readJson(req) {
 var apiMap = {
   '/api/game-play': '../api/game-play.js',
   '/api/fc-spend': '../api/fc-spend.js',
-  '/api/admin-request': '../api/admin-request.js'
+  '/api/admin-request': '../api/admin-request.js',
+  '/api/videos': '../api/videos.js'
 };
 
 var server = http.createServer(async function (req, res) {
@@ -79,7 +80,15 @@ var server = http.createServer(async function (req, res) {
   }
 
   var file = path.join(root, p.replace(/^\//, ''));
+  // SPA fallback: client routes (/wall, /goontok, /post/:id, …) serve index.html
   if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+    var looksStatic = /\.[a-z0-9]{1,8}$/i.test(p);
+    if (!looksStatic && fs.existsSync(path.join(root, 'index.html'))) {
+      send(res, 200, fs.readFileSync(path.join(root, 'index.html')), {
+        'Content-Type': 'text/html; charset=utf-8'
+      });
+      return;
+    }
     send(res, 404, 'Not found');
     return;
   }
