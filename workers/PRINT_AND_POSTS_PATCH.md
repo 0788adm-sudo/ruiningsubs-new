@@ -53,3 +53,17 @@ INSERT INTO posts (
 ```
 
 Until this is deployed, the SPA falls back to **Supabase `posts`** for video publish + GoonTok fetch.
+
+## 3) `GET/HEAD /media/:key` must support HTTP Range
+
+Live Worker `/media/*` currently ignores Range (or 404s). Safari progressive MP4 needs:
+
+- `Accept-Ranges: bytes`
+- `206 Partial Content` + `Content-Range` / `Content-Length` on ranged GETs
+- Honest `HEAD` (not 404)
+- Keep `Access-Control-Allow-Origin: *` for fetch/canvas
+
+See `workers/media-range.js` for a drop-in handler. Until deployed, the site uses:
+
+- **R2** `pub-…r2.dev` for `<video>` playback (already Range-correct)
+- **`/api/media?key=`** → rewritten to `/api/videos` media proxy (CORS + Range; keeps Vercel Hobby ≤12 functions)

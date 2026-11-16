@@ -257,7 +257,151 @@ async function collectFromCf() {
   }
 }
 
+// —— Same-origin media proxy (folded here to stay ≤12 Hobby serverless functions).
+// Route: /api/media?key=… rewritten → /api/videos?key=…
+// Playback <video> still uses public R2 directly.
+function mediaCors(extra) {
+  return Object.assign(
+    {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,HEAD,OPTIONS',
+      'Access-Control-Allow-Headers': 'Range, Content-Type, Origin, Accept',
+      'Access-Control-Expose-Headers':
+        'Accept-Ranges, Content-Range, Content-Length, Content-Type, ETag, Last-Modified',
+      'Cross-Origin-Resource-Policy': 'cross-origin'
+    },
+    extra || {}
+  );
+}
+
+function mediaObjectKey(req) {
+  var q = req.query || {};
+  var key = q.key || q.k || '';
+  if (!key && req.url) {
+    try {
+      var u = new URL(req.url, 'http://localhost');
+      key = u.searchParams.get('key') || u.searchParams.get('k') || '';
+    } catch (e) {}
+  }
+  key = String(key || '').trim();
+  if (!key) return '';
+  try {
+    key = decodeURIComponent(key);
+  } catch (e) {}
+  if (!key || key.indexOf('..') >= 0 || /^https?:/i.test(key) || key.charAt(0) === '/') return '';
+  return key;
+}
+
+function guessMediaType(key) {
+  var k = String(key || '').toLowerCase();
+  if (/\.webm($|\?)/.test(k)) return 'video/webm';
+  if (/\.mov($|\?)/.test(k)) return 'video/quicktime';
+  if (/\.m4v($|\?)/.test(k)) return 'video/mp4';
+  if (/\.mp4($|\?)/.test(k)) return 'video/mp4';
+  if (/\.jpe?g($|\?)/.test(k)) return 'image/jpeg';
+  if (/\.png($|\?)/.test(k)) return 'image/png';
+  if (/\.webp($|\?)/.test(k)) return 'image/webp';
+  if (/\.gif($|\?)/.test(k)) return 'image/gif';
+  return 'application/octet-stream';
+}
+
+function writeMedia(res, code, headers, body) {
+  if (typeof res.writeHead === 'function') {
+    res.writeHead(code, headers);
+    res.end(body);
+    return;
+  }
+  res.statusCode = code;
+  Object.keys(headers || {}).forEach(function (k) {
+    try {
+      res.setHeader(k, headers[k]);
+    } catch (e) {}
+  });
+  res.end(body);
+}
+
+async function handleMediaProxy(req, res) {
+  if (req.method === 'OPTIONS') {
+    writeMedia(res, 204, mediaCors({ 'Access-Control-Max-Age': '86400' }));
+    return;
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    writeMedia(res, 405, mediaCors({ 'Content-Type': 'application/json', Allow: 'GET, HEAD, OPTIONS' }), JSON.stringify({ error: 'method_not_allowed' }));
+    return;
+  }
+  var key = mediaObjectKey(req);
+  if (!key) {
+    writeMedia(res, 400, mediaCors({ 'Content-Type': 'application/json' }), JSON.stringify({ error: 'missing_key' }));
+    return;
+  }
+  var upstream = CF_MEDIA + '/' + key.split('/').map(encodeURIComponent).join('/');
+  var headers = { 'User-Agent': 'RuinExpose-media-proxy/1.0' };
+  var range = (req.headers && (req.headers.range || req.headers.Range)) || '';
+  if (range) headers.Range = range;
+
+  var upstreamRes;
+  try {
+    upstreamRes = await fetch(upstream, { method: 'GET', headers: headers });
+  } catch (e) {
+    writeMedia(res, 502, mediaCors({ 'Content-Type': 'application/json' }), JSON.stringify({ error: 'upstream_fetch_failed' }));
+    return;
+  }
+
+  if (req.method === 'HEAD' && !range && upstreamRes.status === 200) {
+    try {
+      upstreamRes.body && upstreamRes.body.cancel && upstreamRes.body.cancel();
+    } catch (e) {}
+    try {
+      upstreamRes = await fetch(upstream, {
+        method: 'GET',
+        headers: Object.assign({}, headers, { Range: 'bytes=0-0' })
+      });
+    } catch (e) {}
+  }
+
+  var status = upstreamRes.status;
+  if (status !== 200 && status !== 206) {
+    writeMedia(res, status || 404, mediaCors({ 'Content-Type': 'application/json' }), JSON.stringify({ error: 'not_found', status: status }));
+    return;
+  }
+
+  var out = mediaCors({
+    'Content-Type': upstreamRes.headers.get('Content-Type') || guessMediaType(key),
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'public, max-age=31536000, immutable'
+  });
+  var cl = upstreamRes.headers.get('Content-Length');
+  var cr = upstreamRes.headers.get('Content-Range');
+  var etag = upstreamRes.headers.get('ETag');
+  var lm = upstreamRes.headers.get('Last-Modified');
+  if (cl) out['Content-Length'] = cl;
+  if (cr) out['Content-Range'] = cr;
+  if (etag) out.ETag = etag;
+  if (lm) out['Last-Modified'] = lm;
+
+  if (req.method === 'HEAD') {
+    try {
+      upstreamRes.body && upstreamRes.body.cancel && upstreamRes.body.cancel();
+    } catch (e) {}
+    writeMedia(res, status, out);
+    return;
+  }
+
+  try {
+    var ab = await upstreamRes.arrayBuffer();
+    writeMedia(res, status, out, Buffer.from(ab));
+  } catch (e) {
+    writeMedia(res, status, out);
+  }
+}
+
 module.exports = async function handler(req, res) {
+  // /api/media?key=… (Hobby: rewritten onto this function)
+  var isMedia =
+    !!(req.query && (req.query.key || req.query.k)) ||
+    !!(req.url && /(?:^|[?&])(?:key|k)=/.test(String(req.url)));
+  if (isMedia) return handleMediaProxy(req, res);
+
   if (req.method === 'OPTIONS') return json(res, 204, {});
   if (req.method !== 'GET') return json(res, 405, { error: 'method_not_allowed' });
 

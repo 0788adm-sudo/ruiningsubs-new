@@ -26,7 +26,14 @@ assert(html.includes('GT_TARGET=80') || html.includes('GT_TARGET = 80'), 'GoonTo
 assert(html.includes('GT_PAGE=24') || html.includes('GT_PAGE = 24'), 'GoonTok page size >2');
 assert(/GT_LOAD_TIMEOUT_MS\s*=\s*(9000|12000)/.test(html), 'bounded playable load timeout (no endless Loading)');
 assert(html.includes('__gtSoundUnlocked'), 'sound preference survives swipes');
-assert(html.includes("v.preload='auto'") || html.includes('preload="auto"') || html.includes("preload='auto'"), 'next-slide preload=auto');
+assert(
+  /n===i\+1[\s\S]{0,200}preload='metadata'/.test(html) || html.includes("preload='metadata'"),
+  'next-slide limited preload=metadata (no multi-15MB race)'
+);
+assert(
+  /n===i[\s\S]{0,220}preload='auto'/.test(html) || html.includes("v.preload='auto'"),
+  'active slide preload=auto'
+);
 assert(!/media_url\.ilike\.%\.mp4%/.test(html), 'SB video scan must not query missing media_url column');
 assert(
   html.includes('image_url=ilike.*.mp4*') || html.includes("ilike('image_url','%.mp4%')"),

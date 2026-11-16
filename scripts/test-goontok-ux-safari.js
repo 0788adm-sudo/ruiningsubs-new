@@ -40,7 +40,12 @@ assert(html.includes('Never invent a timer for videos') || html.includes('Never 
 assert(html.includes('if(isVid){ mapped.expires=0; }') || html.includes("mapped.expires=0"), 'videos forced permanent on lookup');
 
 // Safari poster path still present
-assert(html.includes('function lazyVideoHtml') && html.includes('#t=0.1'), 'Safari poster/#t=0.1 path intact');
+assert(html.includes('function lazyVideoHtml'), 'lazyVideoHtml intact');
+assert(
+  !/<video[^>]*gt-poster-vid/.test(html),
+  'GoonTok does not mount secondary gt-poster-vid downloads'
+);
+assert(html.includes('gt-poster-empty') || html.includes('parseVthumbTag'), 'durable poster / empty shell path intact');
 assert(html.includes('function parseVthumbTag'), 'vthumb durable posters intact');
 
 console.log('\nGoonTok UX / Safari / HOT / tap checks passed');

@@ -3981,10 +3981,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       pin:{throne:THRONE_PACK_5,paypal:PAYPAL_ME+'/5'}
     };
     var CF_MEDIA='https://pub-b65c88e28c02405ba88db599e7c80d0f.r2.dev';
-    // Dual-host media strategy (verified live):
-    // - R2 public host: Accept-Ranges + HTTP 206 (required for Safari progressive MP4 / moov-at-end).
-    // - Worker /media: CORS * (required for fetch/canvas), but NO Range (Safari hangs) and HEAD→404.
-    // Playback/img tags → R2. fetch()/canvas/download → Worker (fetchableMediaUrl).
+    // Dual-host media strategy:
+    // - R2 public host: Accept-Ranges + HTTP 206 → <video>/<img> playback (do not replace).
+    // - Same-origin /api/media?key=… (and Worker /media once Range-patched): CORS + Range for fetch/canvas.
+    // Playback/img tags → R2. fetch()/canvas/download → fetchableMediaUrl.
     // Some rows store image_url as a JSON array string — unpack before rewrite.
     function mediaObjectKey(u){
       u=String(u||'').trim();
@@ -4019,7 +4019,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
       return u;
     }
-    // CORS-capable URL for fetch/XHR/canvas. Prefer Worker; fall back to original.
+    // CORS-capable URL for fetch/XHR/canvas. Prefer same-origin /api/media (Range+CORS).
     function fetchableMediaUrl(u){
       if(Array.isArray(u)){
         for(var ai=0;ai<u.length;ai++){
@@ -4037,7 +4037,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }catch(e){}
       }
       var key=mediaObjectKey(u);
-      if(key) return CF_API+'/media/'+key;
+      if(key){
+        try{
+          if(typeof location!=='undefined' && location.origin && /^https?:/i.test(location.origin)){
+            return location.origin+'/api/media?key='+encodeURIComponent(key);
+          }
+        }catch(e){}
+        return CF_API+'/media/'+key;
+      }
       return u;
     }
     window.publicMediaUrl=publicMediaUrl;
@@ -14207,26 +14214,12 @@ function openRoulette(){
     window.scheduleVideoPosterFill=scheduleVideoPosterFill;
     window.__gtPosterJobs=window.__gtPosterJobs||{};
     function scheduleVideoPosterFill(src, applyFn){
+      // Cache-only. Never spin up a secondary <video>/full download just for posters.
+      // Durable thumbs are written at upload (R2 + vthumb) or via scripts/backfill-vthumbs.js.
       src=typeof publicMediaUrl==='function'?publicMediaUrl(src):String(src||'');
       if(!src||isImageUrl(src))return;
       var cached=videoPosterOf(null, src);
       if(cached){try{if(applyFn)applyFn(cached)}catch(e){}return}
-      if(window.__gtPosterJobs[src])return;
-      window.__gtPosterJobs[src]=1;
-      grabVideoPosterFromUrl(src).then(function(blob){
-        if(!blob){delete window.__gtPosterJobs[src];return}
-        try{
-          var r=new FileReader();
-          r.onload=function(){
-            var data=r.result||'';
-            if(data) cacheVideoPosterUrl(src, data);
-            try{if(applyFn&&data)applyFn(data)}catch(e){}
-            delete window.__gtPosterJobs[src];
-          };
-          r.onerror=function(){delete window.__gtPosterJobs[src]};
-          r.readAsDataURL(blob);
-        }catch(e){delete window.__gtPosterJobs[src]}
-      }).catch(function(){delete window.__gtPosterJobs[src]});
     }
     function applyPosterToGtSlide(slide, poster){
       if(!slide||!poster)return;
@@ -14285,10 +14278,11 @@ function openRoulette(){
         else media='<div class="vid-thumb-ph" style="width:100%;height:100%;min-height:120px;background:linear-gradient(160deg,#1a1024,#0a0a0a);display:flex;align-items:center;justify-content:center;color:#f5c518;font-size:28px">▶</div>';
         return '<div class="vid-card" data-pid="'+String(p.id).replace(/"/g,'')+'" onclick="openDetail('+jsId(p.id)+')">'+media+'<span class="vid-play" style="position:absolute;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none">▶</span></div>';
       }
+      // Poster/image only — no secondary <video src> (avoids duplicate metadata/full downloads).
       media=poster
-        ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" src="'+esc(feedThumb(poster,640))+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var v=this.nextElementSibling;if(v){v.style.display=\'block\';try{v.play()}catch(e){}}" style="width:100%;height:100%;object-fit:cover;display:block;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'').split('#')[0])+'" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"></video></div>')
+        ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" src="'+esc(feedThumb(poster,640))+'" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;background:#111"/></div>')
         :(vid
-          ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden"><img class="vid-thumb-img" alt="" decoding="async" style="width:100%;height:100%;object-fit:cover;display:none;background:#111"/><video muted playsinline loop preload="metadata" src="'+esc(String(it.src||'').split('#')[0])+'" style="width:100%;height:100%;object-fit:cover;display:block;background:#111" onloadeddata="try{var d=capturePosterFromVideoEl(this,\''+String(it.src||'').replace(/'/g,'')+'\');if(d){var i=this.previousElementSibling;if(i){i.src=d;i.style.display=\'block\';this.style.display=\'none\'}}}catch(e){}"></video></div>')
+          ?('<div style="position:relative;width:100%;height:220px;background:#111;overflow:hidden;display:flex;align-items:center;justify-content:center"><div class="vid-thumb-ph" style="color:#f5c518;font-size:36px">▶</div></div>')
           :('<img class="vid-thumb-img" src="'+esc(it.src||'')+'" alt="" loading="lazy"/>'));
       var liked=false,saved=false;
       try{liked=!!(typeof getMyReaction==='function'&&getMyReaction(p))}catch(e){}
@@ -14751,7 +14745,7 @@ function openRoulette(){
         if(window.__vpBlobUrl){try{URL.revokeObjectURL(window.__vpBlobUrl)}catch(err){}}
         var url=URL.createObjectURL(f);window.__vpBlobUrl=url;
         var prev=document.getElementById('vp-preview');
-        if(prev)prev.innerHTML='<video src="'+url+'#t=0.1" controls playsinline preload="metadata" style="width:100%;max-height:240px;background:#111;border-radius:12px"></video>';
+        if(prev)prev.innerHTML='<video src="'+url+'" controls playsinline preload="metadata" style="width:100%;max-height:240px;background:#111;border-radius:12px"></video>';
       }catch(err){}
       grabVideoPoster(f).then(function(shot){
         if(!shot){hideVideoProgress();toast('Video ready');return}
@@ -14908,6 +14902,157 @@ function openRoulette(){
         }catch(e){resolve(null)}
       });
     }
+    // MP4 Fast Start remux (equivalent to: ffmpeg -c copy -movflags +faststart).
+    // Detects moov-at-end, relocates moov before mdat, no recompress / quality loss.
+    function __mp4ReadU32(u8, off){return ((u8[off]<<24)|(u8[off+1]<<16)|(u8[off+2]<<8)|u8[off+3])>>>0}
+    function __mp4WriteU32(u8, off, val){val=val>>>0;u8[off]=(val>>>24)&255;u8[off+1]=(val>>>16)&255;u8[off+2]=(val>>>8)&255;u8[off+3]=val&255}
+    function __mp4ReadU64(u8, off){return __mp4ReadU32(u8,off)*4294967296+__mp4ReadU32(u8,off+4)}
+    function __mp4WriteU64(u8, off, val){__mp4WriteU32(u8,off,Math.floor(val/4294967296)>>>0);__mp4WriteU32(u8,off+4,val>>>0)}
+    function __mp4TypeAt(u8, off){return String.fromCharCode(u8[off],u8[off+1],u8[off+2],u8[off+3])}
+    function inspectMp4Buffer(buf){
+      try{
+        var u8=buf instanceof Uint8Array?buf:new Uint8Array(buf);
+        if(!u8||u8.length<16) return {ok:false,reason:'too_small',faststart:false};
+        var boxes=[], offset=0;
+        while(offset+8<=u8.length){
+          var size=__mp4ReadU32(u8,offset), type=__mp4TypeAt(u8,offset+4), header=8;
+          if(size===1){if(offset+16>u8.length)break;size=__mp4ReadU64(u8,offset+8);header=16}
+          else if(size===0) size=u8.length-offset;
+          if(size<header||offset+size>u8.length)break;
+          boxes.push({type:type,offset:offset,size:size,header:header});
+          offset+=size;
+        }
+        var moov=null,mdat=null;
+        for(var i=0;i<boxes.length;i++){
+          if(boxes[i].type==='moov'&&!moov) moov=boxes[i];
+          if(boxes[i].type==='mdat'&&!mdat) mdat=boxes[i];
+        }
+        return {ok:!!(moov&&mdat),reason:(!moov?'no_moov':(!mdat?'no_mdat':'ok')),boxes:boxes,moov:moov,mdat:mdat,faststart:!!(moov&&mdat&&moov.offset<mdat.offset),size:u8.length,u8:u8};
+      }catch(e){return {ok:false,reason:'parse_error',faststart:false}}
+    }
+    function __mp4PatchChunkOffsets(moov, delta){
+      if(!delta) return moov;
+      var out=new Uint8Array(moov.length); out.set(moov);
+      var stack=[{start:8,end:out.length}];
+      while(stack.length){
+        var cur=stack.pop(), i=cur.start;
+        while(i+8<=cur.end){
+          var size=__mp4ReadU32(out,i), typ=__mp4TypeAt(out,i+4), hdr=8;
+          if(size===1){if(i+16>cur.end)break;size=__mp4ReadU64(out,i+8);hdr=16}
+          else if(size===0) size=cur.end-i;
+          if(size<hdr||i+size>cur.end)break;
+          if(typ==='trak'||typ==='mdia'||typ==='minf'||typ==='stbl'||typ==='edts') stack.push({start:i+hdr,end:i+size});
+          else if(typ==='stco'){
+            var n=__mp4ReadU32(out,i+hdr+4), p=i+hdr+8;
+            for(var s=0;s<n&&p+4<=i+size;s++,p+=4) __mp4WriteU32(out,p,__mp4ReadU32(out,p)+delta);
+          }else if(typ==='co64'){
+            var n64=__mp4ReadU32(out,i+hdr+4), q=i+hdr+8;
+            for(var c=0;c<n64&&q+8<=i+size;c++,q+=8) __mp4WriteU64(out,q,__mp4ReadU64(out,q)+delta);
+          }
+          i+=size;
+        }
+      }
+      return out;
+    }
+    function remuxMp4FastStartBuffer(buf){
+      var info=inspectMp4Buffer(buf);
+      if(!info.ok) return {ok:false,changed:false,buffer:info.u8||null,error:info.reason||'bad_mp4'};
+      if(info.faststart) return {ok:true,changed:false,buffer:info.u8,info:info};
+      var u8=info.u8, boxes=info.boxes, moovBox=info.moov;
+      var head=[], tail=[], seenMdat=false;
+      for(var j=0;j<boxes.length;j++){
+        var bx=boxes[j];
+        if(bx.type==='moov') continue;
+        if(bx.type==='mdat') seenMdat=true;
+        if(!seenMdat) head.push(bx); else tail.push(bx);
+      }
+      var moovBytes=u8.subarray(moovBox.offset, moovBox.offset+moovBox.size);
+      var patched=__mp4PatchChunkOffsets(moovBytes, moovBox.size);
+      var out=new Uint8Array(u8.length), o=0;
+      for(var a=0;a<head.length;a++){out.set(u8.subarray(head[a].offset,head[a].offset+head[a].size),o);o+=head[a].size}
+      out.set(patched,o); o+=patched.length;
+      for(var t=0;t<tail.length;t++){out.set(u8.subarray(tail[t].offset,tail[t].offset+tail[t].size),o);o+=tail[t].size}
+      if(o!==u8.length) return {ok:false,changed:false,buffer:u8,error:'size_mismatch'};
+      var check=inspectMp4Buffer(out);
+      if(!check.ok||!check.faststart) return {ok:false,changed:false,buffer:u8,error:'validate_failed'};
+      return {ok:true,changed:true,buffer:out,info:check};
+    }
+    async function ensureMp4FastStart(file){
+      try{
+        if(!file) return file;
+        var name=String(file.name||'').toLowerCase();
+        var type=String(file.type||'').toLowerCase();
+        var isMp4=(type.indexOf('mp4')>=0)||/\.mp4$/i.test(name)||/\.m4v$/i.test(name);
+        if(!isMp4) return file;
+        // Skip huge in-browser remux to avoid iPhone OOM; R2 Range still plays moov-at-end.
+        if(file.size>55*1024*1024) return file;
+        try{if(typeof updateVideoProgress==='function') updateVideoProgress('Preparing video…','Fast Start remux (no quality loss)',10)}catch(e){}
+        var ab=await file.arrayBuffer();
+        var before=inspectMp4Buffer(ab);
+        if(!before.ok) return file;
+        if(before.faststart){ file.__rsFastStart=1; return file; }
+        var remuxed=remuxMp4FastStartBuffer(ab);
+        if(!remuxed.ok||!remuxed.changed||!remuxed.buffer){
+          // Keep original intact — never publish a broken processed file.
+          return file;
+        }
+        var out=new File([remuxed.buffer], file.name||('gt_'+Date.now()+'.mp4'), {type:file.type||'video/mp4'});
+        out.__rsFastStart=1;
+        try{if(file.__rsOptimized) out.__rsOptimized=1}catch(e){}
+        return out;
+      }catch(e){
+        console.warn('faststart skip', e);
+        return file;
+      }
+    }
+    window.inspectMp4Buffer=inspectMp4Buffer;
+    window.remuxMp4FastStartBuffer=remuxMp4FastStartBuffer;
+    window.ensureMp4FastStart=ensureMp4FastStart;
+    async function persistVthumbForPost(postId, posterUrl){
+      try{
+        if(!postId||!posterUrl) return false;
+        if(typeof isVideoUrl==='function' && isVideoUrl(posterUrl)) return false;
+        var list=(window.__videoCache||[]).concat(posts||[]);
+        var post=null;
+        for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(postId)){ post=list[i]; break; } }
+        var tags=(post&&post.tags)||[];
+        if(typeof tags==='string'){ try{tags=JSON.parse(tags)}catch(e){tags=[]} }
+        if(!Array.isArray(tags)) tags=[];
+        if(typeof withVthumbTag==='function') tags=withVthumbTag(tags, posterUrl);
+        if(post){ post.tags=tags; post.poster=posterUrl; post.thumb_url=posterUrl; }
+        if(typeof patchCfPost==='function'){
+          await patchCfPost(postId, {tags:tags, thumb_url:posterUrl});
+          return true;
+        }
+      }catch(e){}
+      return false;
+    }
+    // Controlled recovery for old posts missing vthumb: at most one durable upload at a time,
+    // only from an already-decoded main player frame (never a full remote download).
+    window.__gtVthumbPersist=window.__gtVthumbPersist||{};
+    async function maybePersistPosterFromActivePlayer(v, src){
+      try{
+        var id=v&&(v.getAttribute('data-gid')||'');
+        if(!id||!src) return;
+        if(window.__gtVthumbPersist[id]) return;
+        var existing=typeof videoPosterOf==='function'?videoPosterOf(null, src):'';
+        if(existing && String(existing).indexOf('http')===0) return;
+        var data=typeof capturePosterFromVideoEl==='function'?capturePosterFromVideoEl(v, src):'';
+        if(!data||data.indexOf('data:')!==0) return;
+        window.__gtVthumbPersist[id]=1;
+        var blob=await (await fetch(data)).blob();
+        if(!blob||blob.size<400){ delete window.__gtVthumbPersist[id]; return; }
+        var thumbFile=new File([blob],'vthumb_'+id+'_'+Date.now()+'.jpg',{type:'image/jpeg'});
+        var url='';
+        try{ if(typeof uploadCfFile==='function') url=await uploadCfFile(thumbFile); }catch(e){}
+        if(!url){ delete window.__gtVthumbPersist[id]; return; }
+        cacheVideoPosterUrl(src, url);
+        await persistVthumbForPost(id, url);
+      }catch(e){ try{delete window.__gtVthumbPersist[id]}catch(e2){} }
+    }
+    window.maybePersistPosterFromActivePlayer=maybePersistPosterFromActivePlayer;
+    window.persistVthumbForPost=persistVthumbForPost;
+
     async function compressVideoForUpload(file){
       // Best-effort mobile-friendly re-encode for huge originals (keeps payments/publish flow intact).
       // Skip if already small, or if MediaRecorder/captureStream unavailable.
@@ -14981,12 +15126,34 @@ function openRoulette(){
     async function uploadRawVideo(file){
       if(!file){window.__vpErr='No storage';return null}
       window.__vpWasOptimized=false;
+      window.__vpFastStart=false;
       try{
         var before=file;
         file=await compressVideoForUpload(file);
         if(file&&file.__rsOptimized) window.__vpWasOptimized=true;
         if(file!==before && file&&file.size<before.size) window.__vpWasOptimized=true;
       }catch(e){}
+      try{
+        // Fast Start remux before publish — moov at front, no recompress.
+        var preFs=file;
+        file=await ensureMp4FastStart(file);
+        if(file&&file.__rsFastStart) window.__vpFastStart=true;
+        // Validate remuxed bytes before upload; never publish a broken processed file.
+        if(file && file!==preFs){
+          var probe=await file.arrayBuffer();
+          var info=inspectMp4Buffer(probe);
+          if(!info.ok || !info.faststart){
+            console.warn('faststart validation failed — uploading original');
+            file=preFs;
+            window.__vpFastStart=false;
+          }else{
+            // Re-wrap once after validation read (arrayBuffer consumed on some engines).
+            file=new File([probe], preFs.name||file.name||('gt_'+Date.now()+'.mp4'), {type:file.type||'video/mp4'});
+            file.__rsFastStart=1;
+            if(preFs.__rsOptimized) file.__rsOptimized=1;
+          }
+        }
+      }catch(e){console.warn('faststart',e)}
       try{
         var cfUrl=await uploadCfFile(file);
         if(cfUrl)return cfUrl;
@@ -15126,12 +15293,16 @@ function openRoulette(){
           imageField=uploaded[0];
         }
         if(!imageField || String(imageField).indexOf('http')!==0){toast(window.__vpErr||'Upload failed');window.__publishingVideo=false;return}
-        updateVideoProgress('Upload complete','Making thumbnail…',82); if(!window.__vpPosterBlob && window.__vpFile && typeof grabVideoPoster==='function'){try{window.__vpPosterBlob=await grabVideoPoster(window.__vpFile)}catch(e){}}
+        updateVideoProgress('Upload complete','Making thumbnail…',82);
+        // Always generate a real poster from the local file — never download the just-uploaded MP4.
+        if(!window.__vpPosterBlob && window.__vpFile && typeof grabVideoPoster==='function'){
+          try{window.__vpPosterBlob=await grabVideoPoster(window.__vpFile)}catch(e){}
+        }
         var posterUrl='';
         try{
           var shot=window.__vpPosterBlob||null;
           if(!shot && window.__vpFile) shot=await grabVideoPoster(window.__vpFile);
-          if(!shot && imageField) shot=await grabVideoPosterFromUrl(imageField);
+          // Do NOT call grabVideoPosterFromUrl here (full remote download). Local file only.
           if(shot){
             var thumbFile=new File([shot],'thumb_'+Date.now()+'.jpg',{type:'image/jpeg'});
             try{posterUrl=await uploadCfFile(thumbFile)}catch(e){}
@@ -15796,7 +15967,7 @@ function openRoulette(){
       if(isVideoHiddenFromGoonTok(p.id))return '';
       var pst=m.poster||'';
       if(!pst){
-        // Kick off async frame grab so the empty shell fills before play
+        // Cache-only fill — never download the remote MP4 solely for a poster.
         try{
           scheduleVideoPosterFill(m.src, function(data){
             var box=document.getElementById('gt-scroller');
@@ -15812,15 +15983,14 @@ function openRoulette(){
       var alreadyCd=0;try{alreadyCd=typeof getLocalExtendCooldown==='function'?getLocalExtendCooldown(p.id):0}catch(e){alreadyCd=0}
       var alreadyExt=alreadyCd>0;
       var extAmt=typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360);
-      // R2 public host has no CORS — never set crossorigin on the player (breaks CF clips).
-      // When no stored thumb exists, arm a muted metadata preload (no media-fragment seek:
-      // fragments hang on moov-at-end MP4s). Main player still uses clean R2 src.
+      // Single player only. Missing durable thumb → empty poster shell (no gt-poster-vid).
+      // Main player uses clean R2 src (Range). No secondary metadata download.
       var posterHtml=pst
         ?('<img class="gt-poster" src="'+esc(pst)+'" alt="" decoding="async" fetchpriority="high"/>')
-        :('<video class="gt-poster gt-poster-vid" muted playsinline preload="metadata" src="'+esc(String(m.src||'').split('#')[0])+'" aria-hidden="true"></video>');
+        :('<img class="gt-poster gt-poster-empty" alt="" aria-hidden="true"/>');
       var album='<div class="gt-media" data-i="0">'
         +posterHtml
-        +'<video playsinline webkit-playsinline loop muted preload="metadata" poster="'+(pst?esc(pst):'')+'" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#000"></video>'
+        +'<video playsinline webkit-playsinline loop muted preload="none" poster="'+(pst?esc(pst):'')+'" data-src="'+esc(m.src)+'" data-gt-vid="1" data-gid="'+esc(String(p.id))+'" style="width:100%;height:100%;object-fit:contain;object-position:center;background:#000"></video>'
         +'<div class="gt-load" hidden>Loading…</div>'
         +'<div class="gt-err" hidden><div>Video stalled</div><button type="button" class="btn btn-secondary btn-sm gt-retry" style="margin-top:8px;pointer-events:auto">Retry</button></div>'
         +'</div>';
@@ -16306,7 +16476,11 @@ function openRoulette(){
           var hasImg=sl&&sl.querySelector('img.gt-poster');
           if(hasImg&&hasImg.getAttribute('src')) return;
           var data=capturePosterFromVideoEl(v, src);
-          if(data) applyPosterToGtSlide(sl, data);
+          if(data){
+            applyPosterToGtSlide(sl, data);
+            // Controlled durable recovery for old posts missing vthumb (no full download).
+            try{maybePersistPosterFromActivePlayer(v, src)}catch(e2){}
+          }
         }catch(e){}
       }
       function armVideo(v, play){
@@ -16574,23 +16748,24 @@ function openRoulette(){
           var vids=sl.querySelectorAll('video[data-gt-vid]');
           var dist=Math.abs(n-i);
           if(n===i){
-            // Active: play. Pause every other decode buffer first.
-            vids.forEach(function(v){armVideo(v,true)});
-          } else if(dist===1){
-            // Precache ONLY the immediate next/prev — TikTok-style, not 3-deep downloads.
+            // Visible: preload=auto so first frame starts quickly (single active player).
             vids.forEach(function(v){
               try{v.preload='auto'}catch(e){}
+              armVideo(v,true);
+            });
+          } else if(n===i+1){
+            // Next only: limited metadata warm — never compete with full 15MB downloads.
+            vids.forEach(function(v){
+              try{v.preload='metadata'}catch(e){}
               armVideo(v,false);
             });
-          } else if(dist===2){
+          } else {
+            // Prev + far: no download. Keep poster so swipe never hits black.
             vids.forEach(function(v){
-              try{v.pause()}catch(e){}
-              try{v.preload='metadata'}catch(e){}
+              try{v.preload='none'}catch(e){}
+              unloadFarVideo(v);
               showPoster(v);
             });
-          } else {
-            // Far slides: free decode buffer but KEEP poster so swipe never hits black.
-            vids.forEach(function(v){unloadFarVideo(v); showPoster(v)});
           }
         });
       }
