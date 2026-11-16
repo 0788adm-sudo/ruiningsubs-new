@@ -174,24 +174,47 @@ async function retirePinBoard(postId) {
 }
 
 async function clearDbPin(client, postId) {
-  const key = /^\d+$/.test(String(postId)) ? Number(postId) : postId;
-  const patch = { featured_until: null, featured: false };
-  if (client) {
-    let q = await client.from('posts').update(patch).eq('id', key).select('id,username,featured,featured_until');
-    if (q.error && /featured/i.test(String(q.error.message || ''))) {
-      q = await client.from('posts').update({ featured_until: null }).eq('id', key).select('id,username,featured_until');
-    }
-    if (q.error) return { ok: false, error: q.error.message, rows: [] };
-    const rows = q.data || [];
-    return { ok: rows.length > 0, rows, error: rows.length ? null : 'no_row_updated' };
+  // Try numeric and string ids — Supabase bigint columns accept both, but some
+  // environments coerce inconsistently (e.g. "2472" vs 2472).
+  const raw = String(postId);
+  const keys = [];
+  if (/^\d+$/.test(raw)) {
+    keys.push(Number(raw));
+    keys.push(raw);
+  } else {
+    keys.push(postId);
   }
-  const rest = await sbRest('/rest/v1/posts?id=eq.' + encodeURIComponent(String(key)), {
-    method: 'PATCH',
-    body: JSON.stringify(patch)
-  });
-  if (!rest.ok) return { ok: false, error: 'rest_patch_failed', rows: [] };
-  const rows = Array.isArray(rest.data) ? rest.data : [];
-  return { ok: rows.length > 0, rows, error: rows.length ? null : 'no_row_updated' };
+  const patch = { featured_until: null, featured: false };
+  let lastError = null;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (client) {
+      let q = await client.from('posts').update(patch).eq('id', key).select('id,username,featured,featured_until');
+      if (q.error && /featured/i.test(String(q.error.message || ''))) {
+        q = await client.from('posts').update({ featured_until: null }).eq('id', key).select('id,username,featured_until');
+      }
+      if (q.error) {
+        lastError = q.error.message;
+        continue;
+      }
+      const rows = q.data || [];
+      if (rows.length > 0) return { ok: true, rows, error: null };
+      lastError = 'no_row_updated';
+      continue;
+    }
+    const rest = await sbRest('/rest/v1/posts?id=eq.' + encodeURIComponent(String(key)), {
+      method: 'PATCH',
+      body: JSON.stringify(patch)
+    });
+    if (!rest.ok) {
+      lastError = 'rest_patch_failed';
+      continue;
+    }
+    const rows = Array.isArray(rest.data) ? rest.data : [];
+    if (rows.length > 0) return { ok: true, rows, error: null };
+    lastError = 'no_row_updated';
+  }
+  return { ok: false, error: lastError || 'no_row_updated', rows: [] };
 }
 
 async function clearDbPinsForUser(client, username) {
