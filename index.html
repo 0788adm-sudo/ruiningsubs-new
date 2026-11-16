@@ -11507,6 +11507,7 @@ function openRoulette(){
           if(act==='pin') return (window.approveFeature||approveFeature)(id);
           if(act==='cf-pin-approve') return (window.approveCloudflarePinRequest||approveCloudflarePinRequest)(id);
           if(act==='cf-pin-reject') return (window.rejectCloudflareRequest||rejectCloudflareRequest)(id);
+          if(act==='unpin') return (window.adminUnpinFromPanel||adminUnpinFromPanel)(id);
           if(act==='unpin-dismiss') return (window.dismissFeatureReq||dismissFeatureReq)(id);
           if(act==='delete') return (window.approveRemoveReq||approveRemoveReq)(id,{requester:user});
           if(act==='remove-dismiss') return (window.dismissRemoveReq||dismissRemoveReq)(id,{requester:user,paidWithFc:paidFc});
@@ -18691,7 +18692,20 @@ function openRoulette(){
         var j=await r.json();
         var list=(j&&j.notifs)||[];
         var out=[];
+        var seen={};
         var nowMs=Date.now();
+        function pushPinRow(row){
+          if(!row||row.id==null)return;
+          var id=String(row.id);
+          if(!id||seen[id])return;
+          if(typeof isDeletedId==='function' && isDeletedId(id))return;
+          if(typeof isBlockedPinContent==='function' && isBlockedPinContent(row)){
+            try{markDeleted(id)}catch(e){}
+            return;
+          }
+          seen[id]=1;
+          out.push(typeof hydratePinnedPost==='function'?hydratePinnedPost(row):row);
+        }
         list.forEach(function(n){
           var data={};
           try{data=JSON.parse(n.message||'{}')}catch(e){}
@@ -18731,12 +18745,38 @@ function openRoulette(){
           if(row.rouletteWon){
             try{rememberRouletteWonPin(String(id), until, data)}catch(e){}
           }
-          if(typeof isBlockedPinContent==='function' && isBlockedPinContent(row)){
-            try{markDeleted(id)}catch(e){}
-            return;
-          }
-          out.push(typeof hydratePinnedPost==='function'?hydratePinnedPost(row):row);
+          pushPinRow(row);
         });
+        // Source of truth for everyone (admin + visitors): active Supabase featured_until rows.
+        // CF D1 /posts is often empty, so Spotlight must not depend on CF post lookup or admin localStorage.
+        try{
+          if(typeof sb!=='undefined' && sb){
+            var featCols='id,username,title,description,tags,image_url,created_at,expires_at,views,likes_count,extensions_count,extend_amount,featured_until';
+            var featQ=await sb.from('posts').select(featCols).gt('featured_until', new Date().toISOString()).order('featured_until',{ascending:false}).limit(20);
+            (featQ&&featQ.data||[]).forEach(function(row){
+              if(!row||row.id==null)return;
+              var until=row.featured_until?new Date(row.featured_until).getTime():0;
+              if(!(until>nowMs))return;
+              var imgs=[];
+              try{
+                if(typeof parseImages==='function') imgs=parseImages(row.image_url)||[];
+                else if(row.image_url) imgs=[row.image_url];
+              }catch(e){imgs=row.image_url?[row.image_url]:[]}
+              var tags=row.tags||[];
+              if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e2){tags=[]}}
+              var exp=row.expires_at?new Date(row.expires_at).getTime():0;
+              if(exp && exp<=nowMs) exp=0;
+              pushPinRow({
+                id:row.id,user:row.username||'anon',title:row.title||'Pinned',desc:row.description||'',
+                image:imgs[0]||'',images:imgs,featuredUntil:until,expires:exp,
+                views:Number(row.views)||0,likes:Number(row.likes_count)||0,tags:tags,
+                created:row.created_at?new Date(row.created_at).getTime():Date.now(),
+                extensions:Number(row.extensions_count)||0,extendAmount:Number(row.extend_amount)||360,
+                pinSource:'supabase'
+              });
+            });
+          }
+        }catch(e){}
         window.__pinBoard=out;
         try{renderPosts()}catch(e){}
       }catch(e){}
@@ -20085,53 +20125,56 @@ function openRoulette(){
         try{if(!viewingSaved)renderPosts()}catch(e){}
         if(currentDetailId===post.id)try{openDetail(post.id)}catch(e){}
       };
-      try{
-        var META='id,username,title,description,tags,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions,deletion_tier';
-        var res=null, lastErr=null;
-        var LIST='id,username,title,description,tags,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,featured_until';
-        async function qPosts(sel, lim, ms){
-          var tables=['posts_feed','posts'];
-          var last=null;
-          for(var i=0;i<tables.length;i++){
-            try{
-              var r=await withTimeout(
-                sb.from(tables[i]).select(sel).order('created_at',{ascending:false}).limit(lim),
-                ms
-              );
-              if(r&&!r.error&&r.data)return r;
-              last=r&&r.error;
-            }catch(e){last=e}
-          }
-          if(last)throw last;
-          return {data:[]};
-        }
         try{
-          res=await qPosts(LIST, 16, 8000);
-        }catch(err){
-          lastErr=err;
-          res={data:[]};
-        }
-        if(!res)res={data:[]};
-        res.data=res.data||[];
-        try{
-          var timed=await withTimeout(
-            sb.from('posts_feed').select(LIST).gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(16),
-            7000
-          );
-          if(timed&&timed.data&&timed.data.length){
-            var have={};
-            res.data.forEach(function(r){have[String(r.id)]=1});
-            timed.data.forEach(function(r){if(!have[String(r.id)])res.data.push(r)});
+          // NOTE: never select posts.deletion_tier — column is missing in production and 400s the whole query.
+          var META='id,username,title,description,tags,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions';
+          var FEAT_COLS=META+',image_url';
+          var res=null, lastErr=null;
+          var LIST='id,username,title,description,tags,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,featured_until';
+          async function qPosts(sel, lim, ms){
+            var tables=['posts_feed','posts'];
+            var last=null;
+            for(var i=0;i<tables.length;i++){
+              try{
+                var r=await withTimeout(
+                  sb.from(tables[i]).select(sel).order('created_at',{ascending:false}).limit(lim),
+                  ms
+                );
+                if(r&&!r.error&&r.data)return r;
+                last=r&&r.error;
+              }catch(e){last=e}
+            }
+            if(last)throw last;
+            return {data:[]};
           }
-        }catch(e){}
-        try{
-          var featQ=await withTimeout(sb.from('posts').select(META+',image_url').gt('featured_until',new Date().toISOString()).limit(10),6000);
-          if(featQ&&featQ.data&&featQ.data.length){
-            var have={};
-            (res.data||[]).forEach(function(r){have[String(r.id)]=1});
-            featQ.data.forEach(function(r){if(!have[String(r.id)])(res.data=res.data||[]).unshift(r)});
+          try{
+            res=await qPosts(LIST, 16, 8000);
+          }catch(err){
+            lastErr=err;
+            res={data:[]};
           }
-        }catch(e){}
+          if(!res)res={data:[]};
+          res.data=res.data||[];
+          try{
+            var timed=await withTimeout(
+              sb.from('posts_feed').select(LIST).gt('expires_at',new Date().toISOString()).order('expires_at',{ascending:false}).limit(16),
+              7000
+            );
+            if(timed&&timed.data&&timed.data.length){
+              var have={};
+              res.data.forEach(function(r){have[String(r.id)]=1});
+              timed.data.forEach(function(r){if(!have[String(r.id)])res.data.push(r)});
+            }
+          }catch(e){}
+          try{
+            // Public Spotlight source: active featured_until for ALL visitors (not admin-only localStorage).
+            var featQ=await withTimeout(sb.from('posts').select(FEAT_COLS).gt('featured_until',new Date().toISOString()).order('featured_until',{ascending:false}).limit(10),6000);
+            if(featQ&&!featQ.error&&featQ.data&&featQ.data.length){
+              var have={};
+              (res.data||[]).forEach(function(r){have[String(r.id)]=1});
+              featQ.data.forEach(function(r){if(!have[String(r.id)])(res.data=res.data||[]).unshift(r)});
+            }
+          }catch(e){}
         try{
           var snaps=getFeaturedSnaps();
           Object.keys(snaps||{}).forEach(function(id){
@@ -30046,7 +30089,7 @@ async function onIdFace(e){
           +adminPostLinkHtml(p.id)
           +'<span class="admin-status paid">PINNED · '+esc(typeof fmt==='function'?fmt(left):'')+' left</span>'
           +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+(created?('Published '+esc(created)):'')+'</div>'
-          +'</div></div><div class="admin-actions"><button class="btn btn-danger btn-sm" type="button" onclick="adminUnpinFromPanel('+JSON.stringify(String(p.id))+')">Unpin</button><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(p.id))+')">Open post</button></div></div>';
+          +'</div></div><div class="admin-actions"><button class="btn btn-danger btn-sm" type="button" data-admin="unpin" data-id="'+esc(String(p.id))+'">Unpin</button><button class="btn btn-secondary btn-sm" type="button" onclick="openDetail('+JSON.stringify(String(p.id))+')">Open post</button></div></div>';
       }).join('');
       try{refreshAdminBadges()}catch(e){}
     }
@@ -30057,6 +30100,9 @@ async function onIdFace(e){
       var btn=null;
       try{btn=document.querySelector('#admin-pin-'+CSS.escape(String(id))+' button.btn-danger')}catch(e){
         try{btn=document.querySelector('#admin-pin-'+String(id).replace(/"/g,'')+' button.btn-danger')}catch(e2){}
+      }
+      if(!btn){
+        try{btn=document.querySelector('[data-admin="unpin"][data-id="'+String(id).replace(/"/g,'')+'"]')}catch(e){}
       }
       try{if(btn){btn.disabled=true;btn.textContent='Unpinning…'}}catch(e){}
       try{
@@ -30098,9 +30144,14 @@ async function onIdFace(e){
           try{await retirePinBoardNotifs(id,{skipDb:true})}catch(e){}
           try{clearFeaturedForPost(id)}catch(e){}
           try{
+            var key=/^\d+$/.test(id)?Number(id):id;
             if(sb){
-              var key=/^\d+$/.test(id)?Number(id):id;
-              await sb.from('posts').update({featured_until:null, featured:false}).eq('id', key);
+              var up=await sb.from('posts').update({featured_until:null, featured:false}).eq('id', key).select('id');
+              if(up&&!up.error&&(!up.data||!up.data.length)){
+                try{await adminSbAnonPatchPost(key,{featured_until:null, featured:false})}catch(e3){}
+              }
+            }else{
+              try{await adminSbAnonPatchPost(key,{featured_until:null, featured:false})}catch(e3){}
             }
           }catch(e){}
           try{await patchCfPost(id,{featured_until:0})}catch(e){}
@@ -30113,6 +30164,7 @@ async function onIdFace(e){
         toast('✓ Unpinned #'+id);
       }catch(e){
         try{if(btn){btn.disabled=false;btn.textContent='Unpin'}}catch(e2){}
+        try{await renderAdminPinnedList()}catch(e3){}
         toast((e&&e.message)||'Could not unpin');
       }
     }
@@ -30139,29 +30191,71 @@ async function onIdFace(e){
       return j;
     }
     window.adminUnpinLoserFaggPins=adminUnpinLoserFaggPins;
+    async function resolvePinRequestPostId(requestId){
+      requestId=String(requestId||'');
+      if(!requestId) return '';
+      try{
+        var pending=await cfAdminRequests('pending','pin_payment_request');
+        for(var i=0;i<(pending||[]).length;i++){
+          if(String(pending[i].id)===requestId){
+            return normalizeAdminPostId(pending[i].post_id||'');
+          }
+        }
+      }catch(e){}
+      return '';
+    }
     async function approveCloudflarePinRequest(id){
       try{
         id=String(id);
         toast('Approving '+id+'…');
-        var res=await cfAdminApproveRequest(id,50);
-        if(!res||res.ok===false)throw new Error('Approval failed');
-        var until=Number(res.featured_until)||0;
-        var pid=normalizeAdminPostId(res.post_id||'');
-        if(pid){
-          try{
-            var meta=await fetchAdminPostThumb(pid);
-            var mapped={id:pid,user:meta.user,title:meta.title,image:meta.src,images:meta.src?[meta.src]:[],featuredUntil:until};
-            var i=(posts||[]).findIndex(function(x){return normalizeAdminPostId(x.id)===pid});
-            if(i>=0)posts[i]=Object.assign({},posts[i],mapped,{featuredUntil:Math.max(Number(posts[i].featuredUntil)||0,until)});
-            else {posts=posts||[];posts.unshift(mapped);}
-            try{setLocalFeatured(pid,until)}catch(e){}
-            try{saveFeaturedSnap(mapped,until)}catch(e){}
-            try{await adminPin(pid,true)}catch(e){}
-          }catch(e){console.warn('refresh approved pin',e)}
+        var res=null;
+        var approveErr=null;
+        try{
+          res=await cfAdminApproveRequest(id,50);
+          if(!res||res.ok===false){
+            approveErr=new Error((res&&res.error)||'Approval failed');
+          }
+        }catch(e){
+          approveErr=e;
+          res=null;
         }
+        var until=Number(res&&res.featured_until)||0;
+        var pid=normalizeAdminPostId((res&&res.post_id)||'');
+        // CF Worker approve looks up D1 /posts — many Wall posts exist only in Supabase.
+        // On "post not found: N", resolve the request's post_id and pin via Supabase + pin board.
+        if(!pid){
+          try{pid=await resolvePinRequestPostId(id)}catch(e){pid=''}
+        }
+        if(!pid && approveErr){
+          var m=String((approveErr&&approveErr.message)||'').match(/post not found:\s*([A-Za-z0-9_-]+)/i);
+          if(m) pid=normalizeAdminPostId(m[1]);
+        }
+        if(!pid){
+          throw approveErr||new Error('Approval failed — missing post id');
+        }
+        if(!until) until=Date.now()+48*60*60*1000;
+        try{authorizePinGrant(pid, 120000)}catch(e){}
+        try{
+          var meta=await fetchAdminPostThumb(pid);
+          var mapped={id:pid,user:meta.user,title:meta.title,image:meta.src,images:meta.src?[meta.src]:[],featuredUntil:until};
+          var i=(posts||[]).findIndex(function(x){return normalizeAdminPostId(x.id)===pid});
+          if(i>=0)posts[i]=Object.assign({},posts[i],mapped,{featuredUntil:Math.max(Number(posts[i].featuredUntil)||0,until)});
+          else {posts=posts||[];posts.unshift(mapped);}
+          try{setLocalFeatured(pid,until)}catch(e){}
+          try{saveFeaturedSnap(mapped,until)}catch(e){}
+          // Always persist through adminPin (Supabase featured_until + public __PIN_BOARD__).
+          await adminPin(pid,true);
+        }catch(e){
+          throw e;
+        }
+        if(approveErr){
+          // Clear the pending CF request after a successful Supabase pin so Approve does not loop.
+          try{await cfAdminRejectRequest(String(id),'Approved via Supabase pin (CF post missing)')}catch(e){}
+        }
+        try{await loadPublicPins()}catch(e){}
         try{await loadPosts()}catch(e){}
         try{renderPosts()}catch(e){}
-        toast('✓ Pin approved — post is now at the top for 48h');
+        toast('✓ Pin approved — post #'+pid+' is now at the top for 48h');
         await renderAdminReqTab('pin');
         try{await renderAdminPinnedList()}catch(e){}
         try{refreshAdminBadges()}catch(e){}
@@ -30927,7 +31021,7 @@ async function onIdFace(e){
       return consumePinGrant(id);
     }
     async function adminPin(id, pin){
-      id=String(id);
+      id=String(normalizeAdminPostId(id)||id||'');
       var until=pin?(Date.now()+48*60*60*1000):0;
       // Global Spotlight writes require admin session or a fresh payment/game grant.
       if(pin && !canAuthorizePin(id)){
@@ -30947,6 +31041,27 @@ async function onIdFace(e){
       try{src=(posts||[]).find(function(p){return String(p.id)===String(id)})}catch(e){}
       try{if(!src)src=(normalFeedPosts||[]).find(function(p){return String(p.id)===String(id)})}catch(e){}
       try{if(!src && typeof findPostAnywhere==='function') src=findPostAnywhere(id)}catch(e){}
+      // Wall posts often live only in Supabase (CF /posts/:id → not found). Hydrate from SB.
+      if(!src && window.sb){
+        try{
+          var keyLookup=/^\d+$/.test(String(id))?Number(id):id;
+          var sbRow=await sb.from('posts').select('id,username,title,description,tags,image_url,created_at,expires_at,views,likes_count,extensions_count,extend_amount,featured_until').eq('id',keyLookup).maybeSingle();
+          if(sbRow&&sbRow.data){
+            var d=sbRow.data;
+            var imgs=[];
+            try{imgs=(typeof parseImages==='function'?parseImages(d.image_url):[])||[]}catch(e){imgs=[]}
+            src={
+              id:d.id,user:d.username||'anon',title:d.title||'',desc:d.description||'',tags:d.tags||[],
+              image:imgs[0]||'',images:imgs,created:d.created_at?new Date(d.created_at).getTime():Date.now(),
+              expires:d.expires_at?new Date(d.expires_at).getTime():0,
+              views:Number(d.views)||0,likes:Number(d.likes_count)||0,
+              extensions:Number(d.extensions_count)||0,extendAmount:Number(d.extend_amount)||360,
+              featuredUntil:d.featured_until?new Date(d.featured_until).getTime():0
+            };
+            try{rememberFeedPost(src)}catch(e){}
+          }
+        }catch(e){}
+      }
       try{if(src && typeof hydratePinnedPost==='function') src=hydratePinnedPost(src)}catch(e){}
       try{
         (posts||[]).forEach(function(p){if(String(p.id)===String(id))p.featuredUntil=until});
@@ -30961,58 +31076,81 @@ async function onIdFace(e){
           clearFeaturedForPost(id);
         }
       }catch(e){}
-      var ok=false, err='';
+      var ok=false, err='', sbOk=false, cfMissing=false;
+      var key=/^\d+$/.test(String(id))?Number(id):id;
+      var iso=until?new Date(until).toISOString():null;
       try{
         var pinRes=await patchCfPost(id,{featured_until:until||0});
         if(pinRes&&pinRes.ok) ok=true;
-        else err=(pinRes&&pinRes.error)||'not found';
-      }catch(e){err=(e&&e.message)||err}
+        else {
+          err=(pinRes&&pinRes.error)||'not found';
+          if(/not found/i.test(String(err))) cfMissing=true;
+        }
+      }catch(e){err=(e&&e.message)||err; if(/not found/i.test(String(err))) cfMissing=true}
       try{
         if(window.sb){
-          var iso=until?new Date(until).toISOString():null;
-          var key=/^\d+$/.test(String(id))?Number(id):id;
           // Prefer return=representation so RLS "0 rows updated" is not mistaken for success.
           var up=await sb.from('posts').update({featured_until:iso, featured:!!pin}).eq('id',key).select('id');
-          if(up&&!up.error && up.data && up.data.length) ok=true;
+          if(up&&!up.error && up.data && up.data.length){ ok=true; sbOk=true; }
           else if(up&&!up.error && (!up.data || !up.data.length)){
             // Authenticated JWT RLS often silently no-ops — fall back to anon REST.
             try{
               var anonOk=await adminSbAnonPatchPost(key,{featured_until:iso, featured:!!pin});
-              if(anonOk) ok=true;
-              else err=err||'db_unpin_no_row';
-            }catch(e2){err=(e2&&e2.message)||err||'db_unpin_no_row'}
+              if(anonOk){ ok=true; sbOk=true; }
+              else err=err||'db_pin_no_row';
+            }catch(e2){err=(e2&&e2.message)||err||'db_pin_no_row'}
           }else if(up&&up.error) err=up.error.message||err;
+        }else{
+          try{
+            var anonOnly=await adminSbAnonPatchPost(key,{featured_until:iso, featured:!!pin});
+            if(anonOnly){ ok=true; sbOk=true; }
+          }catch(e){}
         }
       }catch(e){err=(e&&e.message)||err}
-      // Fallback create only if patch failed — keep original id when possible to avoid feed dupes.
-      if(!ok && src && typeof createCfPost==='function'){
+      // Never create a CF duplicate for an existing Supabase post (keeps #2472 identity intact).
+      // Only invent a CF mirror when the row is missing from BOTH stores.
+      if(!ok && !sbOk && src && typeof createCfPost==='function'){
+        var sbExists=false;
         try{
-          var created=await createCfPost({
-            username:src.user||src.username||'anon',
-            title:src.title||'Pinned',
-            description:src.desc||src.description||'',
-            tags:src.tags||['exposed'],
-            media_url:(src.images&&src.images[0])||src.image||src.media_url||'',
-            thumb_url:(src.images&&src.images[0])||src.image||'',
-            media_type:src.video?'video':'image',
-            expires_at:src.expires||null,
-            featured_until:until||0
-          });
-          var row=(created&&(created.post||created.data))||created||{};
-          var newId=row.id||created.id;
-          if(newId){
-            // Keep pin board linked to the new row, but also map local featured for both ids.
-            var oldId=id;
-            id=String(newId);
-            src.id=newId;
-            try{setLocalFeatured(oldId, until)}catch(e){}
-            try{setLocalFeatured(id, until)}catch(e){}
-            try{saveFeaturedSnap(src, until)}catch(e){}
-            var again=await patchCfPost(id,{featured_until:until||0});
-            if(again&&again.ok) ok=true;
+          if(window.sb){
+            var chk=await sb.from('posts').select('id').eq('id',key).maybeSingle();
+            sbExists=!!(chk&&chk.data);
           }
-        }catch(e){err=(e&&e.message)||err}
+        }catch(e){}
+        if(sbExists){
+          try{
+            var retry=await adminSbAnonPatchPost(key,{featured_until:iso, featured:!!pin});
+            if(retry){ ok=true; sbOk=true; err=''; }
+          }catch(e){}
+        }else{
+          try{
+            var created=await createCfPost({
+              username:src.user||src.username||'anon',
+              title:src.title||'Pinned',
+              description:src.desc||src.description||'',
+              tags:src.tags||['exposed'],
+              media_url:(src.images&&src.images[0])||src.image||src.media_url||'',
+              thumb_url:(src.images&&src.images[0])||src.image||'',
+              media_type:src.video?'video':'image',
+              expires_at:src.expires||null,
+              featured_until:until||0
+            });
+            var row=(created&&(created.post||created.data))||created||{};
+            var newId=row.id||created.id;
+            if(newId){
+              var oldId=id;
+              id=String(newId);
+              src.id=newId;
+              try{setLocalFeatured(oldId, until)}catch(e){}
+              try{setLocalFeatured(id, until)}catch(e){}
+              try{saveFeaturedSnap(src, until)}catch(e){}
+              var again=await patchCfPost(id,{featured_until:until||0});
+              if(again&&again.ok) ok=true;
+            }
+          }catch(e){err=(e&&e.message)||err}
+        }
       }
+      var boardOk=false;
       try{
         if(pin){
           var snap=src||{};
@@ -31025,7 +31163,7 @@ async function onIdFace(e){
             if(isRouletteWonPin(snap)||isRouletteWonPin({id:id})) pinSrc='roulette';
             else if(snap&&snap.pinSource) pinSrc=String(snap.pinSource);
           }catch(e){}
-          await fetch(CF_API+'/notifs',{
+          var boardRes=await fetch(CF_API+'/notifs',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({
@@ -31054,10 +31192,15 @@ async function onIdFace(e){
               })
             })
           });
+          var boardJson=await boardRes.json().catch(function(){return{}});
+          boardOk=!!(boardRes.ok && boardJson && boardJson.ok!==false);
+          // Public visibility = Supabase featured_until and/or pin board (CF D1 optional).
+          if(sbOk || boardOk){ ok=true; if(cfMissing) err=''; }
         }else{
           try{clearFeaturedForPost(id)}catch(e){}
           // Drop every __PIN_BOARD__ row for this id so Spotlight / admin list stay clean after refresh.
           try{await retirePinBoardNotifs(id,{skipDb:true})}catch(e){}
+          if(sbOk) ok=true;
         }
       }catch(e){}
       try{payProgress(false)}catch(e){}
@@ -31069,7 +31212,7 @@ async function onIdFace(e){
       try{await renderAdminReqTab('pin')}catch(e){}
       try{if(!pin && typeof renderAdminPinnedList==='function') await renderAdminPinnedList()}catch(e){}
       if(!ok) throw new Error(err||(pin?'Pin failed':'Unpin failed'));
-      return {ok:ok,id:id,until:until};
+      return {ok:ok,id:id,until:until,sbOk:sbOk,boardOk:boardOk,cfMissing:cfMissing};
     }
     async function deleteOwnProfilePost(id){
       var post=posts.find(function(p){return String(p.id)===String(id)});
