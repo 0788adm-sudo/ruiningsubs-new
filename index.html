@@ -27828,7 +27828,11 @@ async function onIdFace(e){
       if(!ticketPostId && /remove/i.test(String(opts.kind||'')+' '+String(opts.label||''))){
         ticketPostId=window.__removePostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
       }
-      if(ticketPostId!=null) ticketPostId=String(ticketPostId);
+      if(ticketPostId!=null) ticketPostId=String(ticketPostId).trim()||null;
+      if(/remove/i.test(String(opts.kind||'')+' '+String(opts.label||'')) && !ticketPostId){
+        toast('Open the post first — delete payment needs a post ID');
+        return;
+      }
       var t={
         code:code,
         kind:opts.kind||'payment',
@@ -27890,7 +27894,11 @@ async function onIdFace(e){
       // Backfill missing delete post id before notifying admin (legacy tickets / race).
       if(t && !t.postId && /remove/i.test(String(t.kind||'')+' '+String(t.label||''))){
         t.postId=window.__removePostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
-        if(t.postId!=null) t.postId=String(t.postId);
+        if(t.postId!=null) t.postId=String(t.postId).trim()||null;
+      }
+      if(t&&/remove/i.test(String(t.kind||'')+' '+String(t.label||'')) && !t.postId){
+        toast('Missing post ID — reopen the post, then tap I PAID');
+        return false;
       }
       savePayTickets(arr);
       var kind='pay_ticket';
@@ -27904,7 +27912,7 @@ async function onIdFace(e){
         user:t&&t.user,
         amount:t&&t.amount,
         label:t&&t.label,
-        message:'💰 TICKET '+(t&&t.code)+' · @'+(t&&t.user)+' · '+(t&&t.label)+' · '+(t&&t.amount)+((t&&t.coins)?' → '+t.coins+' FC':'')+(t&&t.postId?' · post #'+t.postId:'')+' · PAID'
+        message:'💰 TICKET '+(t&&t.code)+' · @'+(t&&t.user)+' · '+(t&&t.label)+' · '+(t&&t.amount)+((t&&t.coins)?' → '+t.coins+' FC':'')+(t&&t.postId?' · post #'+t.postId:'')+' · PAID · pending admin verify'
       });
       if(kind==='coins' && t && Number(t.coins||0)>0){
         try{
@@ -27948,7 +27956,7 @@ async function onIdFace(e){
         }catch(e){}
         // Official CF admin queue (same as "I paid $5") so APPROVE & DELETE has the post id.
         try{
-          await cfCreateRequest({
+          var ticketReq=await cfCreateRequest({
             kind:'remove_request',
             postId:String(t.postId),
             user:t.user||'',
@@ -27967,8 +27975,24 @@ async function onIdFace(e){
               auto_delete:false,
               ticket:t.code||''
             },
-            message:'🚨 DELETE PAYMENT REQUEST · ticket '+(t.code||'')+' · requester @'+(t.user||'')+' · post #'+t.postId+' · $5 · method PayPal/Throne · PAID'
+            message:'🚨 DELETE PAYMENT REQUEST · ticket '+(t.code||'')+' · requester @'+(t.user||'')+' · post #'+t.postId+' · $5 · method PayPal/Throne · PAID · pending admin verify'
           });
+          try{
+            var reqR2=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+            reqR2=reqR2.map(function(x){
+              if(String(x.id)===String(t.postId)){
+                if(ticketReq&&(ticketReq.id||ticketReq.request_id)) x.requestId=String(ticketReq.id||ticketReq.request_id);
+                x.status='pending';
+              }
+              return x;
+            });
+            localStorage.setItem('rs_remove_req',JSON.stringify(reqR2.slice(0,40)));
+          }catch(e2){}
+          // Fresh claim must reappear even if this post was previously rejected.
+          try{
+            var dd2=dismissedSet('rs_remove_dismissed').filter(function(x){return normalizeAdminPostId(x)!==normalizeAdminPostId(t.postId)});
+            localStorage.setItem('rs_remove_dismissed',JSON.stringify(dd2.slice(-200)));
+          }catch(e3){}
         }catch(e){console.warn('ticket remove_request CF',e)}
       }
       try{await pingAdminMail('RS PAID '+(t&&t.code),'@'+(t&&t.user)+' paid '+(t&&t.amount)+' for '+(t&&t.label)+(t&&t.postId?' post #'+t.postId:''))}catch(e){}
@@ -28276,6 +28300,10 @@ async function onIdFace(e){
           try{openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}
           return false;
         }
+        if(j && (j.error==='delete_in_progress'||r.status===409)){
+          toast(j.detail||'Delete already in progress — wait and refresh');
+          return false;
+        }
         if(j && j.refunded){
           toast('Delete failed — 50 FC refunded');
           try{await loadFagBalance()}catch(e){}
@@ -28295,19 +28323,26 @@ async function onIdFace(e){
         toast(String(errMsg));
         return false;
       }catch(e){
-        // Timeout / network: server may have already charged+deleted — verify before failing.
+        // Timeout / network: server may have already charged+deleted — ALWAYS verify against
+        // Supabase. Local feed cache often still holds the row and must not decide failure.
         console.error('secureDeletePost network', e);
         try{
-          var still=typeof findPostAnywhere==='function'?findPostAnywhere(id):null;
-          if(!still && window.sb){
-            var chk=await sb.from('posts').select('id').eq('id',id).maybeSingle();
-            if(!(chk&&chk.data&&chk.data.id)){
-              try{await loadFagBalance()}catch(e2){}
-              applyDeletedLocally();
-              toast('Post deleted successfully');
-              return true;
-            }
-          }else if(!still){
+          var gone=false;
+          if(window.sb){
+            var chkId=/^\d+$/.test(String(id))?Number(id):id;
+            var chk=await sb.from('posts').select('id').eq('id',chkId).maybeSingle();
+            gone=!(chk&&chk.data&&chk.data.id);
+          }else{
+            try{
+              var fr=await fetch((typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'')+'/rest/v1/posts?select=id&id=eq.'+encodeURIComponent(String(id))+'&limit=1',{
+                headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},
+                cache:'no-store'
+              });
+              var fj=await fr.json().catch(function(){return[]});
+              gone=!(Array.isArray(fj)&&fj.length);
+            }catch(e4){gone=false}
+          }
+          if(gone){
             try{await loadFagBalance()}catch(e2){}
             applyDeletedLocally();
             toast('Post deleted successfully');
@@ -28558,20 +28593,10 @@ async function onIdFace(e){
         :('🚨 DELETE PAYMENT REQUEST · requester @'+userName+' · publisher @'+(ownerName||'?')+' · post #'+id+' · $5 · method PayPal/Throne · user pressed I PAID'+(title?' · '+String(title).slice(0,40):''));
       var removeSent=false;
       var lastErr='';
+      var savedRequestId='';
       try{closePinRequestProgress()}catch(e){}
       toast(isRights?'Sending rights review request…':'Sending delete request…');
       try{
-        try{
-          await notifyAdminPayment({
-            kind:'remove_request',
-            postId:id,
-            user:userName,
-            amount:amount,
-            label:label,
-            message:removeMsg
-          });
-          removeSent=true;
-        }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('remove notif',e)}
         try{
           var rr=await cfCreateRequest({
             kind:'remove_request',
@@ -28584,8 +28609,22 @@ async function onIdFace(e){
             payload:{message:removeMsg,post_id:String(id),product:isRights?'Rights remove':'Delete post',reason:kind,publisher:ownerName,requester:userName,payment:isRights?'none':'$5',paidWithFc:false,auto_delete:false,thumb_url:thumbUrl||''},
             message:removeMsg
           });
-          if(rr) removeSent=true;
+          if(rr){
+            removeSent=true;
+            savedRequestId=String(rr.id||rr.request_id||'');
+          }
         }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('remove request',e)}
+        try{
+          await notifyAdminPayment({
+            kind:'remove_request',
+            postId:id,
+            user:userName,
+            amount:amount,
+            label:label,
+            message:removeMsg
+          });
+          removeSent=true;
+        }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('remove notif',e)}
         if(!removeSent){
           try{
             var alt=await sendAdminSiteRequest('remove_request', id, userName, removeMsg);
@@ -28593,6 +28632,22 @@ async function onIdFace(e){
           }catch(e){lastErr=(e&&e.message)||lastErr}
         }
         if(removeSent){
+          try{
+            var req2=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
+            req2=req2.map(function(x){
+              if(String(x.id)===String(id) && String(x.user||x.requester||'').toLowerCase()===String(userName).toLowerCase()){
+                if(savedRequestId) x.requestId=savedRequestId;
+                x.status='pending';
+              }
+              return x;
+            });
+            localStorage.setItem('rs_remove_req',JSON.stringify(req2.slice(0,60)));
+          }catch(e){}
+          // Clear legacy post-id dismissals so a fresh payment claim reappears for admin.
+          try{
+            var dd=dismissedSet('rs_remove_dismissed').filter(function(x){return normalizeAdminPostId(x)!==normalizeAdminPostId(id)});
+            localStorage.setItem('rs_remove_dismissed',JSON.stringify(dd.slice(-200)));
+          }catch(e){}
           closeModals();
           toast(isRights?'Rights request sent ✓ Admin will review (no payment).':'Remove request sent ✓ Admin has received it.');
           return true;
@@ -30451,9 +30506,11 @@ async function onIdFace(e){
       try{
         var cfRows=await cfAdminRequests('pending','remove_request');
         (cfRows||[]).forEach(function(row){
-          var pid=normalizeAdminPostId(row.post_id||(row.payload&&row.payload.post_id));
+          var payload=row.payload;
+          if(typeof payload==='string'){try{payload=JSON.parse(payload)||{}}catch(e){payload={}}}
+          if(!payload||typeof payload!=='object') payload={};
+          var pid=normalizeAdminPostId(row.post_id||payload.post_id);
           if(!pid) return;
-          var payload=row.payload&&typeof row.payload==='object'?row.payload:{};
           var coins=Number(row.coins||payload.coins||0)||0;
           var paidFc=!!payload.paidWithFc || coins>=50 || /FC/i.test(String(row.amount||''));
           rreq.push({
@@ -30474,6 +30531,33 @@ async function onIdFace(e){
           });
         });
       }catch(e){console.warn('load CF remove_request queue',e)}
+      // Durable Supabase deletion_payment_requests (survives CF /requests timeouts + refresh).
+      if(sb){
+        try{
+          var dpr=await sb.from('deletion_payment_requests').select('*').eq('status','pending').order('created_at',{ascending:false}).limit(80);
+          (dpr.data||[]).forEach(function(row){
+            var pid=normalizeAdminPostId(row.post_id);
+            if(!pid) return;
+            var payload=row.payload&&typeof row.payload==='object'?row.payload:{};
+            rreq.push({
+              id:pid,
+              title:payload.title||row.message||'DELETE',
+              user:row.requester||payload.requester||'',
+              publisher:row.publisher||payload.publisher||'',
+              at:row.created_at?new Date(row.created_at).getTime():Date.now(),
+              amount:row.amount||'$5',
+              coins:0,
+              paidWithFc:false,
+              provider:row.provider||'PayPal/Throne',
+              requestId:row.cf_request_id||('sb-del-'+row.id),
+              sbRequestId:row.id,
+              thumb:row.thumb_url||payload.thumb_url||'',
+              status:row.status||'pending',
+              source:'sb-request'
+            });
+          });
+        }catch(e){console.warn('load SB deletion_payment_requests',e)}
+      }
       try{
         var cfR=[];
         var cfRemoveTargets=['admin','MasterSan','mastersan'];
@@ -30550,7 +30634,22 @@ async function onIdFace(e){
         if(r.user && !prev.user) prev.user=r.user;
         if((r.at||0)>(prev.at||0)) prev.at=r.at;
       });
-      rreq=dedupeAdminRequests(Object.keys(mergeMap).map(function(k){return mergeMap[k]})).filter(function(x){return remDismissed.indexOf(normalizeAdminPostId(x.id))<0});
+      // Dismiss by requestId / nid — NEVER hide a fresh pending claim just because
+      // the same post id was rejected earlier (that made PayPal/Throne "vanish").
+      function isRemoveRowDismissed(x){
+        if(!x) return false;
+        var rid=String(x.requestId||'');
+        var sid=String(x.sbRequestId||'');
+        var nid=String(x.nid||'');
+        if(rid && remDismissed.indexOf(rid)>=0) return true;
+        if(sid && remDismissed.indexOf(sid)>=0) return true;
+        if(nid && remDismissed.indexOf(String(nid))>=0) return true;
+        if((x.nids||[]).some(function(n){return remDismissed.indexOf(String(n))>=0})) return true;
+        // Legacy post-id dismiss only for local-only rows with no server ids.
+        if(!rid && !sid && !nid && !(x.nids&&x.nids.length) && remDismissed.indexOf(normalizeAdminPostId(x.id))>=0) return true;
+        return false;
+      }
+      rreq=dedupeAdminRequests(Object.keys(mergeMap).map(function(k){return mergeMap[k]})).filter(function(x){return !isRemoveRowDismissed(x)});
       rreq.forEach(function(r){r.nids=nidBag[normalizeAdminPostId(r.id)]||r.nids||[]});
       rreq.sort(function(a,b){return (b.at||0)-(a.at||0)});
       if(!rreq.length){box.innerHTML='<div class="empty">No DELETE REQUESTS</div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
@@ -31013,10 +31112,29 @@ async function onIdFace(e){
       return false;
     }
     window.refundRemoveReqFc=refundRemoveReqFc;
+    async function resolveDeletionPaymentRequest(postId, status, opts){
+      opts=opts||{};
+      postId=normalizeAdminPostId(postId)||String(postId||'');
+      status=String(status||'rejected').toLowerCase();
+      if(!postId || !sb) return false;
+      try{
+        var patch={
+          status:status,
+          updated_at:new Date().toISOString(),
+          resolved_at:new Date().toISOString(),
+          resolved_by:String((currentUser&&currentUser.name)||'admin')
+        };
+        var q=sb.from('deletion_payment_requests').update(patch).eq('post_id',postId).eq('status','pending');
+        if(opts.requester) q=q.eq('requester', String(opts.requester).replace(/^@/,''));
+        var res=await q;
+        return !(res&&res.error);
+      }catch(e){return false}
+    }
     async function dismissRemoveReq(id, opts){
       opts=opts||{};
       id=normalizeAdminPostId(id)||String(id);
-      var histMeta={id:id,status:'rejected',requester:opts.requester||'',publisher:'',kind:'paid',paidWithFc:!!opts.paidWithFc};
+      var requestId=String(opts.requestId||'');
+      var histMeta={id:id,status:'rejected',requester:opts.requester||'',publisher:'',kind:'paid',paidWithFc:!!opts.paidWithFc,requestId:requestId};
       try{
         var a=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
         var hit=a.find(function(x){return normalizeAdminPostId(x.id)===id});
@@ -31025,9 +31143,10 @@ async function onIdFace(e){
           histMeta.publisher=hit.publisher||'';
           histMeta.kind=hit.kind||'paid';
           histMeta.paidWithFc=histMeta.paidWithFc||!!hit.paidWithFc||Number(hit.coins||0)>=50;
+          if(!requestId && hit.requestId) requestId=String(hit.requestId);
         }
       }catch(e){}
-      if(!confirm('REJECT delete request for post #'+id+'?')) return;
+      if(!confirm('REJECT delete request for post #'+id+'? Post stays public.')) return;
       var doRefund=false;
       if(histMeta.paidWithFc && histMeta.requester){
         doRefund=!!confirm('Also refund 50 FC to @'+histMeta.requester+'? (refund is idempotent — cannot double-credit)');
@@ -31038,13 +31157,21 @@ async function onIdFace(e){
         a2=a2.filter(function(x){return normalizeAdminPostId(x.id)!==id});
         localStorage.setItem('rs_remove_req',JSON.stringify(a2));
       }catch(e){}
-      markDismissed('rs_remove_dismissed', id);
+      // Dismiss this request identity — keep post id free for future payment claims.
+      if(requestId) markDismissed('rs_remove_dismissed', requestId);
       try{
         await adminRequestDeleteAction('reject', id, {
           requester:histMeta.requester,
-          refund:doRefund
+          refund:doRefund,
+          requestId:requestId
         });
       }catch(e){}
+      try{
+        if(requestId && typeof cfAdminRejectRequest==='function'){
+          await cfAdminRejectRequest(requestId,'Rejected by admin — post #'+id+' kept');
+        }
+      }catch(e){}
+      try{await resolveDeletionPaymentRequest(id,'rejected',{requester:histMeta.requester})}catch(e){}
       try{recordRemoveHistory(histMeta)}catch(e){}
       if(sb){
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',id)}catch(e){}
@@ -31065,11 +31192,12 @@ async function onIdFace(e){
             }
             if(cpid===id || String(cn.id||'')===id){
               try{await fetch(CF_API+'/notifs/'+encodeURIComponent(String(cn.id)),{method:'DELETE'})}catch(e){}
+              try{markDismissed('rs_remove_dismissed', String(cn.id))}catch(e2){}
             }
           }
         }
       }catch(e){}
-      toast(doRefund?'Rejected · refund processed':'Rejected');
+      toast(doRefund?'Rejected · refund processed':'Rejected — post kept');
       try{await renderAdminReqTab('remove')}catch(e){}
       try{refreshAdminBadges()}catch(e){}
     }
@@ -31117,8 +31245,9 @@ async function onIdFace(e){
         a2=a2.filter(function(x){return normalizeAdminPostId(x.id)!==id});
         localStorage.setItem('rs_remove_req',JSON.stringify(a2));
       }catch(e){}
-      markDismissed('rs_remove_dismissed', id);
+      if(requestId) markDismissed('rs_remove_dismissed', requestId);
       histMeta.status='completed';
+      try{await resolveDeletionPaymentRequest(id,'approved',{requester:histMeta.requester})}catch(e){}
       try{recordRemoveHistory(histMeta)}catch(e){}
       if(sb){
         try{await sb.from('notifications').delete().eq('type','remove_request').eq('post_id',id)}catch(e){}

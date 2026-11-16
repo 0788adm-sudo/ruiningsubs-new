@@ -61,6 +61,7 @@ var apiMap = {
   '/api/game-play': '../api/game-play.js',
   '/api/fc-spend': '../api/fc-spend.js',
   '/api/admin-request': '../api/admin-request.js',
+  '/api/delete-post': '../api/delete-post.js',
   '/api/videos': '../api/videos.js',
   // Hobby plan ≤12 functions: /api/media is rewritten onto videos.js
   '/api/media': '../api/videos.js'

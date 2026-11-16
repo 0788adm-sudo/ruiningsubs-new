@@ -344,9 +344,79 @@ async function resolveFcBalance(rawUser) {
   return best;
 }
 
+/**
+ * Claim an idempotent spend slot in coin_ledger BEFORE debiting the wallet.
+ * Unique (user_id, ref) → concurrent clicks cannot double-charge.
+ * Returns { claimed:true } on fresh insert, { reused:true } if ref already spent,
+ * or { skipped:true } when the ledger table is missing (legacy prod).
+ */
+async function claimSbSpendRef(user, cost, ref) {
+  if (!ref) return { skipped: true };
+  const client = sbClient();
+  const row = {
+    user_id: user,
+    kind: 'spend',
+    action: 'delete',
+    coins: cost,
+    ref: String(ref)
+  };
+  if (client) {
+    try {
+      const prior = await findSbDeleteSpend(user, ref, cost);
+      if (prior) return { reused: true, row: prior };
+      const ins = await client.from('coin_ledger').insert(row).select('user_id,kind,action,coins,ref').maybeSingle();
+      if (ins.error) {
+        const msg = String(ins.error.message || ins.error.code || '');
+        if (/duplicate|unique|23505/i.test(msg)) return { reused: true };
+        if (/PGRST205|does not exist|schema cache/i.test(msg)) return { skipped: true };
+        return { skipped: true, error: msg };
+      }
+      return { claimed: true, row: ins.data };
+    } catch (e) {
+      const msg = String(e && e.message ? e.message : e);
+      if (/PGRST205|does not exist/i.test(msg)) return { skipped: true };
+      return { skipped: true, error: msg };
+    }
+  }
+  try {
+    const prior = await findSbDeleteSpend(user, ref, cost);
+    if (prior) return { reused: true, row: prior };
+    const rest = await sbRest('/rest/v1/coin_ledger', {
+      method: 'POST',
+      body: JSON.stringify(row)
+    });
+    if (rest.ok) return { claimed: true };
+    const detail = JSON.stringify(rest.data || {});
+    if (/duplicate|unique|23505/i.test(detail)) return { reused: true };
+    if (/PGRST205|does not exist/i.test(detail)) return { skipped: true };
+    return { skipped: true, error: detail.slice(0, 160) };
+  } catch (e) {
+    return { skipped: true, error: String(e && e.message ? e.message : e) };
+  }
+}
+
 async function spendSupabaseFc(user, cost, ref) {
   const client = sbClient();
   let bal = 0;
+
+  // Balance check BEFORE claiming the idempotency slot — never leave a
+  // ledger row that blocks a later real spend after an insufficient attempt.
+  bal = await sbWalletBalance(user);
+  if (bal < cost) {
+    // Still honor an existing successful claim (double-click after real spend).
+    const prior = ref ? await findSbDeleteSpend(user, ref, cost) : null;
+    if (prior) {
+      return { ok: true, reused: true, balance: bal, source: 'supabase', user, coins: cost };
+    }
+    return { ok: false, error: 'insufficient', balance: bal, need: cost };
+  }
+
+  const claim = await claimSbSpendRef(user, cost, ref);
+  if (claim.reused) {
+    bal = await sbWalletBalance(user);
+    return { ok: true, reused: true, balance: bal, source: 'supabase', user, coins: cost };
+  }
+
   if (client) {
     const q = await client.from('coin_wallets').select('balance').eq('user_id', user).maybeSingle();
     if (q.error) return { ok: false, error: 'sb_load_failed', detail: q.error.message };
@@ -362,15 +432,18 @@ async function spendSupabaseFc(user, cost, ref) {
       .maybeSingle();
     if (upd.error) return { ok: false, error: 'sb_spend_failed', detail: upd.error.message, balance: bal };
     if (!upd.data) return { ok: false, error: 'insufficient', balance: bal, need: cost };
-    try {
-      await client.from('coin_ledger').insert({
-        user_id: user,
-        kind: 'spend',
-        action: 'delete',
-        coins: cost,
-        ref: ref || null
-      });
-    } catch (_) {}
+    // Ledger claim already inserted when table exists; best-effort insert if claim was skipped.
+    if (claim.skipped && ref) {
+      try {
+        await client.from('coin_ledger').insert({
+          user_id: user,
+          kind: 'spend',
+          action: 'delete',
+          coins: cost,
+          ref: ref || null
+        });
+      } catch (_) {}
+    }
     return { ok: true, reused: false, balance: Number(upd.data.balance) || next, source: 'supabase', user };
   }
 
@@ -392,6 +465,20 @@ async function spendSupabaseFc(user, cost, ref) {
   }
   const rows = Array.isArray(rest.data) ? rest.data : [];
   if (!rows.length) return { ok: false, error: 'insufficient', balance: bal, need: cost };
+  if (claim.skipped && ref) {
+    try {
+      await sbRest('/rest/v1/coin_ledger', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: user,
+          kind: 'spend',
+          action: 'delete',
+          coins: cost,
+          ref: ref || null
+        })
+      });
+    } catch (_) {}
+  }
   return {
     ok: true,
     reused: false,
@@ -802,6 +889,47 @@ function withTimeout(promise, ms, fallback) {
   });
 }
 
+/** Best-effort same-isolate lock against double-click races on one serverless instance. */
+const __deleteLocks = new Map();
+function acquireDeleteLock(key) {
+  const k = String(key || '');
+  if (!k) return true;
+  const now = Date.now();
+  const prev = __deleteLocks.get(k) || 0;
+  if (prev && now - prev < 45000) return false;
+  __deleteLocks.set(k, now);
+  return true;
+}
+function releaseDeleteLock(key) {
+  try {
+    __deleteLocks.delete(String(key || ''));
+  } catch (_) {}
+}
+
+/** Durable moderation audit trail (CF notif board). Never fails the delete. */
+async function recordModerationAudit(meta) {
+  meta = meta || {};
+  try {
+    await cfFetch('/notifs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE },
+      body: JSON.stringify({
+        to_username: '__MOD_AUDIT__',
+        from_username: String(meta.admin || 'admin'),
+        type: 'moderation_delete',
+        post_id: String(meta.postId || ''),
+        message: JSON.stringify({
+          post_id: String(meta.postId || ''),
+          admin: String(meta.admin || ''),
+          reason: String(meta.reason || 'moderation'),
+          owner: String(meta.owner || ''),
+          at: Date.now()
+        })
+      })
+    });
+  } catch (_) {}
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
   if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
@@ -839,11 +967,43 @@ module.exports = async function handler(req, res) {
   const canonicalId = row && row.id != null ? canonicalPostId(row.id) || postId : postId;
   const spendIdem =
     idempotencyKey || `delete-post:${canonicalId}:${userKey}:${DELETE_COST_FC}`;
+  const lockKey = userKey + '|' + canonicalId + '|' + String(reason || 'owner');
+  if (!acquireDeleteLock(lockKey)) {
+    return json(res, 409, {
+      error: 'delete_in_progress',
+      detail: 'A delete for this post is already running. Wait a moment and refresh.',
+      postId: canonicalId
+    });
+  }
+  try {
+    return await handleDeletePost(req, res, {
+      rawUser,
+      userKey,
+      postId,
+      canonicalId,
+      reason,
+      spendIdem,
+      row,
+      body,
+      idempotencyKey
+    });
+  } finally {
+    releaseDeleteLock(lockKey);
+  }
+};
+
+async function handleDeletePost(req, res, ctx) {
+  const rawUser = ctx.rawUser;
+  const userKey = ctx.userKey;
+  let canonicalId = ctx.canonicalId;
+  const reason = ctx.reason;
+  const spendIdem = ctx.spendIdem;
+  let row = ctx.row;
+  const body = ctx.body;
 
   // Idempotent DELETE: missing post ⇒ success, never charge again.
-  // (Production has no coin_ledger table; CF ledger alone cannot prove a prior SB spend.
-  //  Returning not_found here caused APPROVE & DELETE / double-click to look broken
-  //  after the first successful removal.)
+  // Prefer coin_ledger (when migrated) + CF ledger to detect a prior spend so
+  // APPROVE & DELETE / double-click never look like failures or re-charge.
   if (!row) {
     let reused = false;
     const candidates = walletUserCandidates(rawUser);
@@ -1042,6 +1202,19 @@ module.exports = async function handler(req, res) {
   // Hint for Google Search Console Removals (manual): list the URL that must drop.
   const removalUrl = SITE + '/post/' + encodeURIComponent(String(canonicalId));
 
+  if (freeOverride) {
+    await withTimeout(
+      recordModerationAudit({
+        postId: canonicalId,
+        admin: rawUser,
+        reason: deleteReason,
+        owner: row && row.username
+      }),
+      1500,
+      null
+    );
+  }
+
   return json(res, 200, {
     ok: true,
     postId: canonicalId,
@@ -1057,9 +1230,10 @@ module.exports = async function handler(req, res) {
     via_owner_token: !!tokenOk,
     auto_deleted: true,
     admin_notified: false,
+    moderated: !!freeOverride,
     pinCleanup,
     cachePurge,
     removalUrl,
     gscHint: 'Request temporary removal for ' + removalUrl + ' in Google Search Console if it still appears in search.'
   });
-};
+}
