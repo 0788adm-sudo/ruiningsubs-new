@@ -6540,9 +6540,24 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function verifiedBadgeHtml(){
       return '<span class="verified-badge" title="Verified" aria-label="Verified"><svg viewBox="0 0 24 24" fill="none"><path d="M9.2 16.6 4.8 12.2l1.4-1.4 3 3 8-8 1.4 1.4-9.4 9.4z" fill="#fff"/></svg></span>';
     }
+    /** Short UI handle — anon_<longsession> → anon_xxxxxx; keep real usernames readable. */
+    function shortDisplayUser(name){
+      var n=String(name||'').replace(/^@+/,'').trim();
+      if(!n) return 'anon';
+      if(/^anon[_:]/i.test(n) || /^anon\d*$/i.test(n)){
+        var rest=n.replace(/^anon[_:]?/i,'');
+        if(rest.length>6) return 'anon_'+rest.slice(0,6);
+        if(rest) return 'anon_'+rest;
+        return 'anon';
+      }
+      if(n.length>16) return n.slice(0,14)+'…';
+      return n;
+    }
+    window.shortDisplayUser=shortDisplayUser;
     function nameWithVerified(name){
-      var n = String(name||'').replace(/^@/,'');
-      var badge = isVerifiedUser(n) ? verifiedBadgeHtml() : '';
+      var raw = String(name||'').replace(/^@/,'');
+      var n = typeof shortDisplayUser==='function'?shortDisplayUser(raw):raw;
+      var badge = isVerifiedUser(raw) ? verifiedBadgeHtml() : '';
       return '<span class="name-with-verified"><span class="name-text">@'+esc(n)+'</span>'+badge+'</span>';
     }
 
@@ -16015,7 +16030,7 @@ function openRoulette(){
           '<button class="gt-act gt-share" type="button" onclick="event.stopPropagation();sharePost && sharePost(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">↗</span>Share</button>'+
         '</div>'+
         '<div class="gt-meta">'+
-          '<div class="gt-user" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">@'+esc(p.user||'anon')+'</div>'+
+          '<div class="gt-user" onclick="event.stopPropagation();openUser(\''+String(p.user||'').replace(/'/g,'')+'\')">@'+esc(typeof shortDisplayUser==='function'?shortDisplayUser(p.user||'anon'):(p.user||'anon'))+'</div>'+
           '<div class="gt-title">'+esc(p.title||'')+'</div>'+
           (p.desc?'<div class="gt-desc">'+esc(String(p.desc).slice(0,180))+(String(p.desc).length>180?'…':'')+'</div>':'')+
           (tags?'<div class="gt-tags">'+esc(tags)+'</div>':'')+
@@ -17311,9 +17326,10 @@ function openRoulette(){
       }
       if(challengeLine) body=challengeLine+(body||'');
       var clickable=userClickable(p.user);
+      var userShown=typeof shortDisplayUser==='function'?shortDisplayUser(p.user):String(p.user||'');
       var userName=clickable
-        ? '<span class="normal-feed-post-user" style="cursor:pointer" onclick="openUser(\''+String(p.user).replace(/'/g,'')+'\')">@'+esc(p.user)+'</span>'
-        : '<span class="normal-feed-post-user">@'+esc(p.user)+'</span>';
+        ? '<span class="normal-feed-post-user" style="cursor:pointer" onclick="openUser(\''+String(p.user).replace(/'/g,'')+'\')">@'+esc(userShown)+'</span>'
+        : '<span class="normal-feed-post-user">@'+esc(userShown)+'</span>';
       var mine=getMyReaction(p);
       var saved=isSaved(p.id);
       var summary=reactionSummary(p)||{};
@@ -17366,8 +17382,7 @@ function openRoulette(){
       }else{
         actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
       }
-      // Universal Delete — every Wall card exposes it (owner free / others $5·50 FC).
-      var delBtn=typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(p):('<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+pid+'" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">🗑 Delete</button>');
+      // Delete lives only inside the post detail — never on Wall/feed cards.
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+tierBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div></div>'
@@ -17381,7 +17396,6 @@ function openRoulette(){
         +'<button class="btn btn-secondary nf-feed-comment" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
         +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span> '+(saved?'Saved':'Save')+'</button>'
         +(vsrc?'<button class="btn btn-secondary" type="button" data-nf-act="dl" data-nf-id="'+pid+'"><span class="nf-action-icon">⬇️</span> Download</button>':'')
-        +delBtn
         +'</div>'
         +'</article>';
     }
@@ -20469,7 +20483,7 @@ function openRoulette(){
       if(!text && !media)return '';
       return '<article class="normal-profile-post" id="normal-pg-post-'+String(p.id)+'">'
         +'<div class="npp-head"><div class="av">'+avatarHtml(p.user)+'</div>'
-        +'<div class="npp-meta"><div class="npp-user">@'+esc(p.user)+'</div><div class="npp-time">'+ago(p.created)+'</div></div></div>'
+        +'<div class="npp-meta"><div class="npp-user">@'+esc(typeof shortDisplayUser==='function'?shortDisplayUser(p.user):p.user)+'</div><div class="npp-time">'+ago(p.created)+'</div></div></div>'
         +media+'<div class="npp-body">'+(text?'<div class="npp-text">'+text+'</div>':'')+'</div>'
         +'<div class="npp-stats"><span>👀 '+displayViews(p.views||0)+'</span><span>❤️ '+(p.likes||0)+'</span></div>'
         +'</article>';
@@ -23571,7 +23585,7 @@ function profileStatsHtml(userPosts, extra){
       var ownerDelete=typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(p,{style:'pg'}):('<button class="btn btn-secondary pg-delete" type="button" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">🗑 Delete</button>');
       var safeCount=imgs.length;
       var html='<article class="profile-gallery-post" id="pg-post-'+pid+'">'
-        +'<div class="pg-head"><div class="av">'+avatarHtml(p.user)+'</div><div class="pg-meta"><div class="pg-user">@'+esc(p.user)+'</div><div class="pg-time">'+ago(p.created)+'</div></div></div>'
+        +'<div class="pg-head"><div class="av">'+avatarHtml(p.user)+'</div><div class="pg-meta"><div class="pg-user">@'+esc(typeof shortDisplayUser==='function'?shortDisplayUser(p.user):p.user)+'</div><div class="pg-time">'+ago(p.created)+'</div></div></div>'
         +'<div class="pg-carousel" data-pgid="'+pid+'" data-index="0">'
         +'<div class="pg-track" id="'+trackId+'">'+slides+'</div>'
         +(safeCount>1?'<div class="pg-counter" id="'+counterId+'">1 / '+safeCount+'</div>':'')+nav+'</div>'
@@ -23630,7 +23644,7 @@ function profileStatsHtml(userPosts, extra){
     function postCardActionButtons(p, permanent, already, alreadyCd){
       // Permanent / no timer → Hot only. Active timer → Extend.
       // Timed videos → Extend + Hot (timer must not block Hot on video posts).
-      // Universal Delete on every feed card.
+      // Delete is detail-only — never render on feed/Wall cards.
       var hasTimer = (typeof postHasActiveTimer === 'function')
         ? postHasActiveTimer(p)
         : (!!(Number(p && p.expires || 0) > Date.now()));
@@ -23641,13 +23655,12 @@ function profileStatsHtml(userPosts, extra){
       var hotBtn = '<button class="btn btn-hot' + (hotOn ? ' on' : '') + '" type="button" ' + (hotOn ? 'disabled' : '') +
         ' data-nf-act="hot" data-nf-id="' + String(p.id).replace(/"/g, '') +
         '" onclick="event.stopPropagation();hotBumpWall(' + jsId(p.id) + ',{allowAnon:true,skipTimer:true})">🔥 Hot' + (hotN ? (' · ' + hotN) : '') + '</button>';
-      var delBtn=typeof universalDeleteButtonHtml==='function'?universalDeleteButtonHtml(p):('<button class="btn btn-secondary" type="button" data-nf-act="delete" data-nf-id="'+String(p.id).replace(/"/g,'')+'" onclick="event.stopPropagation();openRemove('+jsId(p.id)+')">Delete</button>');
       // Span full row when Comment would sit alone under Like + one action (balanced centering).
       function cmtBtn(span){
         return '<button class="btn btn-secondary'+(span?' feed-cmt-span':'')+'" type="button" onclick="event.stopPropagation();openDetail(' + jsId(p.id) + ',true)">Comment</button>';
       }
       if(!hasTimer){
-        return hotBtn + delBtn + cmtBtn(false);
+        return hotBtn + cmtBtn(true);
       }
       var extAmt = (typeof postExtendMinutes === 'function' ? postExtendMinutes(p) : (Number(p.extendAmount) || 360));
       var label = already
@@ -23657,8 +23670,8 @@ function profileStatsHtml(userPosts, extra){
         '" type="button" data-nf-act="extend" data-nf-id="' + String(p.id).replace(/"/g, '') + '" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
         (already ? 'disabled aria-disabled="true"' : '') +
         ' onclick="event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;openExtend(' + jsId(p.id) + ')">' + label + '</button>';
-      if(isVid) return extBtn + hotBtn + delBtn + cmtBtn(false);
-      return extBtn + delBtn + cmtBtn(false);
+      if(isVid) return extBtn + hotBtn + cmtBtn(false);
+      return extBtn + cmtBtn(true);
     }
 function postCardHtml(p, compact){
       // Same pin/exposure source as Spotlight — never leave stubs at expires:0 while pinned.
@@ -23700,7 +23713,7 @@ function postCardHtml(p, compact){
       var rankHtml=feat?(typeof pinBadgeHtml==='function'?pinBadgeHtml(p,true):'<div class="pinned-badge">Pinned</div>'):(rank?'<div class="rank-badge">#'+rank+'</div>':'');
       var cls='post'+(compact?' post-compact':'')+(feat?' featured-card':'');
       var saved=isSaved(p.id);
-      var displayName=isVerifiedUser(p.user)?nameWithVerified(p.user):('@'+esc(p.user));
+      var displayName=isVerifiedUser(p.user)?nameWithVerified(p.user):('@'+esc(typeof shortDisplayUser==='function'?shortDisplayUser(p.user):p.user));
       var myR=getMyReaction(p);
       // Dying warning only for real exposure timers (not pin-only stubs).
       var dying=(!permanent && hasExposure && rem>0 && rem<4*3600000);
@@ -24676,7 +24689,7 @@ function postCardHtml(p, compact){
       var wallOwned=false;
       try{wallOwned=!!(isOwner && (timeless || (typeof isWallPost==='function' && isWallPost(post)) || (typeof isWallNormalPost==='function' && isWallNormalPost(post))))}catch(e){wallOwned=!!(isOwner&&permanent)}
       if(isOwner&&post.extenders&&post.extenders.length){extHtml='<div style="background:var(--elev);border:1px solid var(--border);border-radius:12px;padding:12px;margin:12px 14px"><strong style="color:var(--orange)">Who extended</strong>'+post.extenders.map(function(e){return '<div style="font-size:13px;color:var(--muted);padding:3px 0">@'+esc(e)+'</div>'}).join('')+'</div>'}
-      var who='@'+String(post.user||'him').replace(/^@/,'');
+      var who='@'+(typeof shortDisplayUser==='function'?shortDisplayUser(post.user||'him'):String(post.user||'him').replace(/^@/,''));
       var mineR=getMyReaction(post);
       var hotNDetail=(typeof postHotCount==='function'?postHotCount(post):0)||0;
       var alreadyHotDetail=(typeof iAlreadyHotted==='function'&&iAlreadyHotted(post.id));
@@ -24708,7 +24721,7 @@ function postCardHtml(p, compact){
         +'<div><div class="n">'+neonChip('extends','')+'<b>'+(post.extensions||0)+'</b></div><em>extends</em></div>'
         +'<div><div class="n">'+neonChip('saves','')+'<b>'+postSaveCount(post)+'</b></div><em>saves</em></div>'
         +'</div>';
-      document.getElementById('detail-content').innerHTML='<div class="post"><div class="post-h"><div class="av">'+avatarHtml(post.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+(isVerifiedUser(post.user)?nameWithVerified(post.user):('@'+esc(post.user)))+'</div><div class="post-time">'+ago(post.created)+'</div></div>'+(permanent?'':hourTimerHtml(post.expires,rem))+'</div><div class="post-b"><div class="dx-title">'+esc(post.title)+(tierBadgeDetail?' '+tierBadgeDetail:'')+'</div>'+(post.desc?'<div class="dx-desc">'+esc(post.desc)+'</div>':'')+'<div class="tags">'+publicTags(post.tags||[]).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div>'+media+((!permanent && rem>0 && rem<4*3600000)?'<div style="margin:8px 14px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'')+dxStats+reactBarHtml(post)+'<div style="padding:12px 14px">'+acts+contactNotice+'</div>'+extHtml+'<div class="cmt-box" style="padding:0 14px 14px"><div class="cmt-in"><input type="text" id="cmt-in" placeholder="Say it to '+esc(who)+'…"/><button class="btn btn-primary btn-sm" type="button" onclick="addComment('+jsId(post.id)+')">Send</button></div><div>'+(comments.map(function(c,ci){return commentCardHtml(post,c,ci)}).join('')||'<div class="cmt">Nobody has spoken to him yet.</div>')+'</div><p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Post ID: '+post.id+'</p></div></div>';
+      document.getElementById('detail-content').innerHTML='<div class="post"><div class="post-h"><div class="av">'+avatarHtml(post.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+(isVerifiedUser(post.user)?nameWithVerified(post.user):('@'+esc(typeof shortDisplayUser==='function'?shortDisplayUser(post.user):post.user)))+'</div><div class="post-time">'+ago(post.created)+'</div></div>'+(permanent?'':hourTimerHtml(post.expires,rem))+'</div><div class="post-b"><div class="dx-title">'+esc(post.title)+(tierBadgeDetail?' '+tierBadgeDetail:'')+'</div>'+(post.desc?'<div class="dx-desc">'+esc(post.desc)+'</div>':'')+'<div class="tags">'+publicTags(post.tags||[]).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div>'+media+((!permanent && rem>0 && rem<4*3600000)?'<div style="margin:8px 14px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.4);color:#ff8a8a;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px"><i class="neon-ico ico-hourglass st-ico"></i> '+fmt(rem)+' left · extend or he’s gone</div>':'')+dxStats+reactBarHtml(post)+'<div style="padding:12px 14px">'+acts+contactNotice+'</div>'+extHtml+'<div class="cmt-box" style="padding:0 14px 14px"><div class="cmt-in"><input type="text" id="cmt-in" placeholder="Say it to '+esc(who)+'…"/><button class="btn btn-primary btn-sm" type="button" onclick="addComment('+jsId(post.id)+')">Send</button></div><div>'+(comments.map(function(c,ci){return commentCardHtml(post,c,ci)}).join('')||'<div class="cmt">Nobody has spoken to him yet.</div>')+'</div><p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Post ID: '+post.id+'</p></div></div>';
       showPanel('detail');
       window.__blockFeedTap=Date.now()+500;
       function pinDetailTop(){
