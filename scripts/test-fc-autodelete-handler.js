@@ -408,6 +408,10 @@ function noAdminTraffic() {
   assert.ok(html.indexOf("fetchWithTimeout('/api/delete-post'") >= 0, 'client uses timed delete fetch');
   assert.ok(html.indexOf('verifyPostDeletedPoll') >= 0, 'timeout verifies/polls post status');
   assert.ok(html.indexOf('precharged') >= 0 && html.indexOf('getOrCreateDeleteTxn') >= 0, 'txn + precharge client path');
+  assert.ok(html.indexOf("spendFagCoins('delete'") >= 0, 'delete reuses spendFagCoins');
+  assert.ok(html.indexOf('rs_fc_wallet_user') >= 0, 'persists funded wallet casing');
+  assert.ok(api.indexOf('12000') >= 0, 'Pin-speed CF timeout for ledger/balance');
+  assert.ok(api.indexOf('statusForDeleteTxn') >= 0, 'status recovery helper');
   assert.ok(html.indexOf('function shortDisplayUser') >= 0, 'anon display names shortened');
   console.log('PASS · static balance/identity contract');
 
@@ -463,6 +467,33 @@ function noAdminTraffic() {
   assert.strictEqual(cfWallets.PrePay, balBefore, 'precharged did not debit again');
   assert.strictEqual(posts['post-pre'], undefined, 'precharged deleted');
   console.log('PASS · precharged verifies ledger without double charge');
+
+  // 10) Case-sensitive funded wallet (MasterSan) + precharged ledger hit finishes delete
+  resetState();
+  cfWallets.MasterSan = 999830;
+  cfWallets.mastersan = 0;
+  posts['3251'] = samplePost('3251', 'masterzore');
+  ledgerFor('MasterSan').unshift({
+    kind: 'spend',
+    action: 'delete',
+    ref_id: 'delete-post:3251:mastersan:50:mwl6m5kc',
+    ref: 'delete-post:3251:mastersan:50:mwl6m5kc',
+    coins: 50
+  });
+  var balMS = cfWallets.MasterSan;
+  var rMS = await invoke({
+    user: 'MasterSan',
+    postId: '3251',
+    reason: 'paid',
+    idempotencyKey: 'delete-post:3251:mastersan:50:mwl6m5kc',
+    precharged: true,
+    walletUsers: ['MasterSan', 'mastersan']
+  });
+  assert.strictEqual(rMS.status, 200, 'MasterSan precharged finishes');
+  assert.strictEqual(rMS.json.status, 'completed', 'MasterSan status completed');
+  assert.strictEqual(cfWallets.MasterSan, balMS, 'MasterSan no second debit');
+  assert.strictEqual(posts['3251'], undefined, 'post 3251 deleted');
+  console.log('PASS · MasterSan casing + charged txn completes without double charge');
 
   console.log('OK · fc-autodelete-handler');
 })().catch(function (e) {

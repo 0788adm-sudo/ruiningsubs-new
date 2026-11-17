@@ -9323,12 +9323,27 @@ async function claimPayPalPack(p){
       var el=document.getElementById('coin-balance');
       var uid=coinUserId();
       var n=0;
+      var bestWallet=String(uid||'');
       // Same numeric truth as /api/delete-post: highest of CF (exact/lowercase/aliases) and Supabase.
-      function consider(v){v=Number(v)||0; if(v>n) n=v}
-      try{consider(await cfWalletGet(uid))}catch(e){}
+      // CF wallets are case-sensitive (MasterSan ≠ mastersan) — remember the funded key.
+      function consider(v, walletKey){
+        v=Number(v)||0;
+        if(v>n){
+          n=v;
+          if(walletKey) bestWallet=String(walletKey);
+        }
+      }
+      try{
+        var remembered='';
+        try{remembered=localStorage.getItem('rs_fc_wallet_user')||''}catch(e){}
+        if(remembered && remembered!==uid){
+          try{consider(await cfWalletGet(remembered), remembered)}catch(e){}
+        }
+      }catch(e){}
+      try{consider(await cfWalletGet(uid), uid)}catch(e){}
       try{
         var low=String(uid||'').toLowerCase();
-        if(low && low!==String(uid||'')) consider(await cfWalletGet(low));
+        if(low && low!==String(uid||'')) consider(await cfWalletGet(low), low);
       }catch(e){}
       try{
         var aliases=JSON.parse(localStorage.getItem('rs_wallet_alias')||'{}')||{};
@@ -9336,23 +9351,27 @@ async function claimPayPalPack(p){
         for(var ai=0;ai<olds.length;ai++){
           try{
             var ab=await cfWalletGet(olds[ai]);
-            if(ab){consider(ab); try{await migrateCoinsOnRename(olds[ai],uid)}catch(e){}}
+            if(ab){consider(ab, olds[ai]); try{await migrateCoinsOnRename(olds[ai],uid)}catch(e){}}
           }catch(e){}
         }
       }catch(e){}
       if(window.sb){
         try{
           var r=await sb.from('coin_wallets').select('balance').eq('user_id',uid).maybeSingle();
-          if(r.data&&r.data.balance!=null) consider(r.data.balance);
+          if(r.data&&r.data.balance!=null) consider(r.data.balance, uid);
         }catch(e){}
         try{
           var low2=String(uid||'').toLowerCase();
           if(low2 && low2!==String(uid||'')){
             var r2=await sb.from('coin_wallets').select('balance').eq('user_id',low2).maybeSingle();
-            if(r2.data&&r2.data.balance!=null) consider(r2.data.balance);
+            if(r2.data&&r2.data.balance!=null) consider(r2.data.balance, low2);
           }
         }catch(e){}
       }
+      try{
+        if(bestWallet && n>0) localStorage.setItem('rs_fc_wallet_user', bestWallet);
+      }catch(e){}
+      window.__fcWalletUser=bestWallet||uid;
       try{
         if(el) el.textContent='Balance: '+n+' FC';
         var h=document.getElementById('hdr-fc');
@@ -28283,8 +28302,12 @@ async function onIdFace(e){
       opts=opts||{};
       id=String(typeof normalizeAdminPostId==='function'?normalizeAdminPostId(id):id||'').trim()||String(id||'');
       if(!id){toast('Open the post first');return false}
-      // Must match header balance identity (coinUserId), not a lowercased / divergent key.
-      var user=(typeof coinUserId==='function'?coinUserId():'')||((currentUser&&currentUser.name)||'');
+      // Must match header balance identity — prefer exact funded CF casing (MasterSan ≠ mastersan).
+      var user=String(opts.user||opts.walletUser||'').replace(/^@/,'').trim();
+      if(!user){
+        try{user=String(window.__fcWalletUser||localStorage.getItem('rs_fc_wallet_user')||'').replace(/^@/,'').trim()}catch(e){user=''}
+      }
+      if(!user) user=(typeof coinUserId==='function'?coinUserId():'')||((currentUser&&currentUser.name)||'');
       user=String(user||'').replace(/^@/,'').trim();
       var ownerToken=opts.ownerToken||getOwnerToken(id)||'';
       var moderation=String(opts.reason||'')==='moderation'||String(opts.reason||'')==='privacy';
@@ -28292,7 +28315,7 @@ async function onIdFace(e){
       if(!user) user=moderation?'admin':'anon_token';
       var reason=String(opts.reason||'owner');
       var txnId=String(opts.idempotencyKey||opts.transactionId||('delete-post:'+id+':'+String(user).toLowerCase()+':50')).trim();
-      var body={user:user,postId:id,reason:reason,idempotencyKey:txnId,transactionId:txnId};
+      var body={user:user,walletUser:user,postId:id,reason:reason,idempotencyKey:txnId,transactionId:txnId};
       try{
         body.account_type=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'anonymous':'registered';
         body.role=(currentUser&&currentUser.role)||'guest';
@@ -28431,7 +28454,7 @@ async function onIdFace(e){
           try{openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}
           return false;
         }
-        if(j && (j.error==='spend_timeout' || j.error==='awaiting_spend_verify' || j.error==='delete_in_progress' || r.status===409 || r.status===503)){
+        if(j && (j.error==='spend_timeout' || j.error==='awaiting_spend_verify' || j.error==='spend_not_found' || j.error==='delete_in_progress' || r.status===409 || r.status===503)){
           // Do NOT treat in-progress / slow wallet as failure — verify DB / same transaction.
           window.__lastDeleteStatus='verifying';
           try{if(typeof deleteRequestProgress==='function') deleteRequestProgress(true,'verifying_deletion',{txn:txnId})}catch(e){}
@@ -28501,7 +28524,7 @@ async function onIdFace(e){
             window.__lastDeleteStatus='completed';
             return await finishDeletedOk(retry.j.already_deleted?'Post already deleted':'Post deleted successfully');
           }
-          if(retry.j && (retry.j.error==='delete_in_progress' || retry.j.error==='awaiting_spend_verify' || retry.j.error==='spend_timeout' || (retry.r&&(retry.r.status===409||retry.r.status===503)))){
+          if(retry.j && (retry.j.error==='delete_in_progress' || retry.j.error==='awaiting_spend_verify' || retry.j.error==='spend_not_found' || retry.j.error==='spend_timeout' || (retry.r&&(retry.r.status===409||retry.r.status===503)))){
             if(await verifyPostDeletedPoll(6000)){
               window.__lastDeleteStatus='completed';
               return await finishDeletedOk('Post deleted successfully');
@@ -28705,16 +28728,29 @@ async function onIdFace(e){
         if(!v) return;
         if(out.indexOf(v)<0) out.push(v);
       }
+      // Funded CF wallet key first (MasterSan ≠ mastersan).
+      try{push(window.__fcWalletUser||localStorage.getItem('rs_fc_wallet_user')||'')}catch(e){}
       push(uid);
       push(String(uid).toLowerCase());
       try{
         var aliases=JSON.parse(localStorage.getItem('rs_wallet_alias')||'{}')||{};
         Object.keys(aliases).forEach(function(k){
-          if(String(aliases[k])===uid) push(k);
+          if(String(aliases[k])===uid || String(aliases[k]).toLowerCase()===String(uid).toLowerCase()) push(k);
+          push(aliases[k]);
         });
         if(aliases[uid]) push(aliases[uid]);
       }catch(e){}
       return out;
+    }
+    async function fetchDeleteTxnStatus(txnId, user, postId, walletUsers){
+      var qs='txn='+encodeURIComponent(txnId)
+        +'&user='+encodeURIComponent(user)
+        +'&postId='+encodeURIComponent(postId);
+      if(walletUsers && walletUsers.length){
+        qs+='&walletUsers='+encodeURIComponent(walletUsers.join(','));
+      }
+      var r=await fetchWithTimeout('/api/delete-post?'+qs,{method:'GET',cache:'no-store'},20000);
+      return r.json().catch(function(){return{}});
     }
     function loadDeleteTxnMap(){
       try{return JSON.parse(sessionStorage.getItem('rs_delete_txn')||'{}')||{}}catch(e){return{}}
@@ -28776,13 +28812,13 @@ async function onIdFace(e){
       var finishedOk=false;
       var txnRow=getOrCreateDeleteTxn(id, uid);
       var txnId=String(txnRow.transactionId||'');
-      var aliases=walletAliasListFor(uid);
       try{
         deleteRequestProgress(true,'checking_balance',{txn:txnId});
         var bal=0;
         try{bal=Number(await loadFagBalance())||0}catch(e){bal=Number(window.__fcLast||0)||0}
-        // Prefer the wallet key that actually holds the header balance (case/alias).
-        var fundedUser=uid;
+        var aliases=walletAliasListFor(uid);
+        // Prefer the exact CF wallet key that holds the header balance (case-sensitive).
+        var fundedUser=String(window.__fcWalletUser||uid);
         try{
           for(var ai=0;ai<aliases.length;ai++){
             var probe=0;
@@ -28790,6 +28826,9 @@ async function onIdFace(e){
             if(probe>=cost){fundedUser=aliases[ai];bal=Math.max(bal,probe);break}
           }
         }catch(e){}
+        try{localStorage.setItem('rs_fc_wallet_user', fundedUser)}catch(e){}
+        window.__fcWalletUser=fundedUser;
+        aliases=walletAliasListFor(fundedUser);
         if(bal<cost){
           deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
           toast('Insufficient FC — need '+cost+' FC · have '+bal);
@@ -28799,35 +28838,41 @@ async function onIdFace(e){
           return false;
         }
 
-        // Charge from the SAME browser session that loaded the header balance.
-        // CF wallet POST is NOT idempotent — charge once per transactionId, then
-        // ask the server to verify that ledger row and delete (no second charge).
+        // Same spend pipeline as Premium Pin: /api/fc-spend → CF browser → SB.
+        // One durable txn id — never a parallel coin system.
         var charged=!!txnRow.charged;
         if(!charged){
           deleteRequestProgress(true,'processing_deletion',{txn:txnId});
-          var spendUsers=[fundedUser].concat(aliases.filter(function(u){return u!==fundedUser}));
+          var prevUser=null;
+          try{
+            prevUser=window.currentUser?Object.assign({},window.currentUser):null;
+            if(window.currentUser) window.currentUser.name=fundedUser;
+            else window.currentUser={name:fundedUser};
+          }catch(e){}
           var spendOk=false;
-          var spendBal=null;
-          for(var si=0;si<spendUsers.length && !spendOk;si++){
-            try{
-              var cf=await cfWalletSpend(spendUsers[si], cost, 'delete', txnId);
-              if(cf && cf.ok){
-                spendOk=true;
-                charged=true;
-                if(cf.balance!=null) spendBal=Number(cf.balance);
-                break;
-              }
-              if(cf && /insufficient|not enough|balance/i.test(String(cf.error||''))){
-                continue;
-              }
-            }catch(e){}
-          }
-          if(!spendOk){
-            // Server may still spend from Supabase / CF if browser CF path failed.
-            charged=false;
+          try{
+            // Temporarily align coinUserId() with the funded CF casing.
+            spendOk=!!(await spendFagCoins('delete', txnId));
+          }catch(e){spendOk=false}
+          try{
+            if(prevUser) window.currentUser=prevUser;
+          }catch(e){}
+          if(spendOk){
+            charged=true;
+            patchDeleteTxn(id,uid,{status:'charged',charged:true,walletUser:fundedUser});
+            try{await loadFagBalance()}catch(e){}
           }else{
-            patchDeleteTxn(id,uid,{status:'charged',charged:true,balance:spendBal});
-            if(spendBal!=null) window.__fcLast=spendBal;
+            // If Pin-path spend failed, re-check balance — do not claim pending forever.
+            try{bal=Number(await loadFagBalance())||0}catch(e){}
+            if(bal<cost){
+              deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
+              toast('Insufficient FC — need '+cost+' FC · have '+bal);
+              patchDeleteTxn(id,uid,{status:'failed_no_charge'});
+              setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
+              return false;
+            }
+            // Fall through: server spendDeleteFc with exact funded user (no precharge).
+            charged=false;
           }
         }
 
@@ -28835,13 +28880,50 @@ async function onIdFace(e){
         var ok=await secureDeletePost(id,{
           reason:'paid',
           allowLocalFallback:false,
+          user:fundedUser,
           idempotencyKey:txnId,
           transactionId:txnId,
           precharged:!!charged,
           walletUsers:aliases,
-          timeoutMs:28000
+          timeoutMs:45000
         });
         if(!ok){
+          // Recover from server truth — never stay on verifying forever.
+          deleteRequestProgress(true,'verifying_deletion',{txn:txnId});
+          var recovered=false;
+          for(var pi=0;pi<3 && !recovered;pi++){
+            try{
+              var stj=await fetchDeleteTxnStatus(txnId, fundedUser, id, aliases);
+              if(stj && stj.status==='completed'){
+                recovered=true;
+                break;
+              }
+              if(stj && stj.status==='charged'){
+                // Spend landed — finish delete once more with same txn (no new charge).
+                ok=await secureDeletePost(id,{
+                  reason:'paid',
+                  allowLocalFallback:false,
+                  user:fundedUser,
+                  idempotencyKey:txnId,
+                  transactionId:txnId,
+                  precharged:true,
+                  walletUsers:aliases,
+                  timeoutMs:45000
+                });
+                if(ok){recovered=true;break}
+              }
+            }catch(e){}
+            await new Promise(function(r){setTimeout(r,1200)});
+          }
+          if(recovered || ok){
+            finishedOk=true;
+            patchDeleteTxn(id,uid,{status:'completed',charged:true,walletUser:fundedUser});
+            deleteRequestProgress(true,'completed',{txn:txnId});
+            closeModals();
+            try{await loadFagBalance()}catch(e){}
+            setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
+            return true;
+          }
           var st=String((window.__lastDeleteStatus||'')||'');
           if(st==='refunded'){
             deleteRequestProgress(true,'failed_refunded',{txn:txnId});
@@ -28849,34 +28931,34 @@ async function onIdFace(e){
           }else if(st==='insufficient'){
             deleteRequestProgress(true,'failed_no_charge',{txn:txnId});
             patchDeleteTxn(id,uid,{status:'failed_no_charge',charged:false});
-          }else if(st==='pending' || st==='verifying'){
-            deleteRequestProgress(true,'pending',{txn:txnId});
-            patchDeleteTxn(id,uid,{status:'pending'});
-            // Keep overlay briefly then leave a toast — refresh resumes same txn.
-            toast('Deletion pending — refresh keeps the same transaction (no double charge)');
+          }else if(charged){
+            deleteRequestProgress(true,'failed_no_charge',{
+              detail:'Charge may have landed — tap Delete again with the same transaction (no double charge).',
+              txn:txnId
+            });
+            patchDeleteTxn(id,uid,{status:'charged',charged:true,walletUser:fundedUser});
+            toast('Delete incomplete — tap Delete again (same transaction, no double charge)');
           }else{
-            deleteRequestProgress(true, charged?'pending':'failed_no_charge',{txn:txnId});
-            patchDeleteTxn(id,uid,{status:charged?'pending':'failed_no_charge'});
+            deleteRequestProgress(true,'failed_no_charge',{txn:txnId});
+            patchDeleteTxn(id,uid,{status:'failed_no_charge'});
           }
-          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1800);
+          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},2200);
           return false;
         }
         finishedOk=true;
-        patchDeleteTxn(id,uid,{status:'completed',charged:true});
+        patchDeleteTxn(id,uid,{status:'completed',charged:true,walletUser:fundedUser});
         deleteRequestProgress(true,'completed',{txn:txnId});
         closeModals();
+        try{await loadFagBalance()}catch(e){}
         setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
         return true;
       }catch(e){
         toast('Could not delete');
         console.warn('requestDeleteWithCoins',e);
-        deleteRequestProgress(true,'pending',{txn:txnId,detail:'Network error — retry uses the same transaction.'});
+        deleteRequestProgress(true,'failed_no_charge',{txn:txnId,detail:'Network error — retry uses the same transaction.'});
         setTimeout(function(){try{deleteRequestProgress(false)}catch(err){}},1800);
         return false;
       }finally{
-        if(!finishedOk && !(window.__lastDeleteStatus==='pending'||window.__lastDeleteStatus==='verifying')){
-          /* overlay closed above on failure paths */
-        }
         __requestDeleteLocks[lockKey]=false;
         if(btn){btn.disabled=false;btn.removeAttribute('aria-busy')}
       }
@@ -28889,7 +28971,7 @@ async function onIdFace(e){
     window.openRemove=openRemove;
     window.walletAliasListFor=walletAliasListFor;
     window.getOrCreateDeleteTxn=getOrCreateDeleteTxn;
-    // Resume a pending FC delete after refresh / slow network (same transaction id).
+    // Resume a charged/pending FC delete from SERVER truth (same transaction id).
     (function resumePendingDeleteTxn(){
       try{
         var map=loadDeleteTxnMap();
@@ -28902,9 +28984,17 @@ async function onIdFace(e){
           if(Date.now()-Number(row.at||row.updatedAt||0) > 30*60*1000) continue;
           setTimeout(function(){
             (async function(){
+              var wuser=String(row.walletUser||row.user||'');
+              var aliases=walletAliasListFor(wuser||row.user);
               try{
-                if(typeof postMissingInDb==='function' && await postMissingInDb(row.postId)){
+                var stj=await fetchDeleteTxnStatus(row.transactionId, wuser||row.user, row.postId, aliases);
+                if(stj && stj.status==='completed'){
                   patchDeleteTxn(row.postId,row.user,{status:'completed'});
+                  try{purgePostEverywhere(row.postId)}catch(e){}
+                  return;
+                }
+                if(!(stj && (stj.status==='charged' || row.charged))){
+                  patchDeleteTxn(row.postId,row.user,{status:'failed_no_charge'});
                   return;
                 }
               }catch(e){}
@@ -28913,23 +29003,25 @@ async function onIdFace(e){
                 var ok=await secureDeletePost(row.postId,{
                   reason:'paid',
                   allowLocalFallback:false,
+                  user:wuser||row.user,
                   idempotencyKey:row.transactionId,
                   transactionId:row.transactionId,
-                  precharged:!!row.charged,
-                  walletUsers:walletAliasListFor(row.user),
-                  timeoutMs:20000,
+                  precharged:true,
+                  walletUsers:aliases,
+                  timeoutMs:45000,
                   quietSuccess:true
                 });
                 if(ok){
                   patchDeleteTxn(row.postId,row.user,{status:'completed'});
                   deleteRequestProgress(true,'completed',{txn:row.transactionId});
+                  try{await loadFagBalance()}catch(e){}
                   setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
                 }else{
                   deleteRequestProgress(false);
                 }
               }catch(e){try{deleteRequestProgress(false)}catch(err){}}
             })();
-          },1200);
+          },800);
           break;
         }
       }catch(e){}
