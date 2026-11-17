@@ -49,7 +49,7 @@ try {
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store'
@@ -276,11 +276,12 @@ async function cfFetch(path, opts, timeoutMs) {
 }
 
 async function findLedgerRow(user, kind, action, ref, minCoins, timeoutMs) {
-  // CF ledger is usually fast but can hang 10–15s — never block delete UX that long.
+  // Production CF wallet/ledger from Vercel regularly needs ~8–12s (same as /api/fc-spend).
+  // A 3s cap caused false awaiting_spend_verify while the spend already existed (MasterSan/3251).
   const res = await cfFetch(
     '/wallet/ledger?user=' + encodeURIComponent(user),
     null,
-    timeoutMs == null ? 3500 : Number(timeoutMs) || 3500
+    timeoutMs == null ? 12000 : Number(timeoutMs) || 12000
   );
   const rows = (res.json && res.json.ledger) || [];
   for (let i = 0; i < rows.length; i++) {
@@ -298,10 +299,11 @@ async function findLedgerSpend(user, action, ref, minCoins, timeoutMs) {
   return findLedgerRow(user, 'spend', action, ref, minCoins, timeoutMs);
 }
 
-/** Parallel short ledger probe across wallet case/alias candidates. */
-async function findAnyDeleteSpend(candidates, postId, idemRef, minCoins) {
+/** Parallel ledger probe across wallet case/alias candidates (Pin-speed CF budget). */
+async function findAnyDeleteSpend(candidates, postId, idemRef, minCoins, timeoutMs) {
   const need = Number(minCoins || DELETE_COST_FC) || DELETE_COST_FC;
   const users = Array.isArray(candidates) ? candidates : [];
+  const cfMs = timeoutMs == null ? 12000 : Number(timeoutMs) || 12000;
   const jobs = [];
   for (let i = 0; i < users.length; i++) {
     const u = users[i];
@@ -312,7 +314,7 @@ async function findAnyDeleteSpend(candidates, postId, idemRef, minCoins) {
         .catch(() => null)
     );
     jobs.push(
-      findLedgerSpend(u, 'delete', spendRef, need, 3000)
+      findLedgerSpend(u, 'delete', spendRef, need, cfMs)
         .then((row) => (row ? { user: u, ref: spendRef, row: row, source: 'cf' } : null))
         .catch(() => null)
     );
@@ -336,7 +338,7 @@ async function cfWalletBalance(user, timeoutMs) {
   const res = await cfFetch(
     '/wallet?user=' + encodeURIComponent(user),
     null,
-    timeoutMs == null ? 4000 : Number(timeoutMs) || 4000
+    timeoutMs == null ? 12000 : Number(timeoutMs) || 12000
   );
   if (!(res.json && res.json.ok !== false) && !res.ok) return 0;
   return Number((res.json && res.json.balance) || 0) || 0;
@@ -369,7 +371,7 @@ async function resolveFcBalance(rawUser, extraUsers) {
   for (let i = 0; i < candidates.length; i++) {
     const u = candidates[i];
     jobs.push(
-      cfWalletBalance(u, 3500)
+      cfWalletBalance(u, 12000)
         .then((bal) => ({ user: u, balance: Number(bal) || 0, source: 'cf' }))
         .catch(() => ({ user: u, balance: 0, source: 'cf' }))
     );
@@ -623,7 +625,7 @@ async function spendDeleteFc(rawUser, postId, idemRef, extraUsers) {
 
     // Re-check this exact ref quickly (race with a parallel tab).
     try {
-      const existing = await findLedgerSpend(u, action, spendRef, cost, 2500);
+      const existing = await findLedgerSpend(u, action, spendRef, cost, 12000);
       if (existing) {
         return {
           ok: true,
@@ -1072,8 +1074,80 @@ async function recordModerationAudit(meta) {
   } catch (_) {}
 }
 
+/** Durable status for a delete transaction — never invent infinite pending. */
+async function statusForDeleteTxn(rawUser, postId, spendIdem, walletExtras) {
+  const candidates = walletUserCandidates(rawUser, walletExtras);
+  const canonicalId = canonicalPostId(postId);
+  let row = null;
+  try {
+    row = await loadPostRow(canonicalId);
+  } catch (_) {
+    row = null;
+  }
+  const hit = await findAnyDeleteSpend(candidates, canonicalId, spendIdem, DELETE_COST_FC, 12000);
+  if (!row) {
+    return {
+      ok: true,
+      status: 'completed',
+      postId: canonicalId,
+      already_deleted: true,
+      charged: hit ? DELETE_COST_FC : 0,
+      reused: !!hit,
+      transactionId: spendIdem,
+      wallet_user: (hit && hit.user) || candidates[0] || rawUser
+    };
+  }
+  if (hit) {
+    return {
+      ok: true,
+      status: 'charged',
+      postId: canonicalId,
+      detail: 'FC spend found — post still present. Retry delete to finish without a second charge.',
+      charged: DELETE_COST_FC,
+      transactionId: spendIdem,
+      wallet_user: hit.user,
+      source: hit.source
+    };
+  }
+  const resolved = await resolveFcBalance(rawUser, walletExtras);
+  return {
+    ok: true,
+    status: 'pending',
+    postId: canonicalId,
+    have: Number(resolved.balance) || 0,
+    balance: Number(resolved.balance) || 0,
+    wallet_user: resolved.user || candidates[0] || rawUser,
+    transactionId: spendIdem,
+    detail: 'No completed spend for this transaction yet.'
+  };
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
+
+  // GET /api/delete-post?txn=&user=&postId= — recover real status (no new charge).
+  if (req.method === 'GET') {
+    const q = req.query || {};
+    const url = String(req.url || '');
+    const sp = new URL(url, 'http://localhost').searchParams;
+    const rawUser = walletUser(q.user || q.username || sp.get('user') || sp.get('username'));
+    const postId = canonicalPostId(q.postId || q.post_id || q.id || sp.get('postId') || sp.get('post_id') || sp.get('id'));
+    const spendIdem = String(q.txn || q.transactionId || q.idempotencyKey || sp.get('txn') || sp.get('transactionId') || '').trim();
+    const extras = []
+      .concat(String(q.walletUsers || sp.get('walletUsers') || '').split(','))
+      .map(walletUser)
+      .filter(Boolean);
+    if (!rawUser || !postId || !spendIdem) {
+      return json(res, 400, { error: 'missing_params', detail: 'user, postId, txn required' });
+    }
+    try {
+      const st = await statusForDeleteTxn(rawUser, postId, spendIdem, extras);
+      return json(res, 200, st);
+    } catch (e) {
+      return json(res, 500, { error: 'status_failed', detail: String(e && e.message ? e.message : e) });
+    }
+  }
+
   if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
 
   let body;
@@ -1083,7 +1157,7 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { error: 'bad_json' });
   }
 
-  const rawUser = walletUser(body.user || body.username);
+  const rawUser = walletUser(body.user || body.username || body.walletUser || body.wallet_user);
   const userKey = normUser(rawUser); // ownership comparisons only
   // Prefer explicit postId. Never fall back to requestId / notification id fields.
   const postId = canonicalPostId(body.postId || body.post_id || body.id);
@@ -1185,14 +1259,16 @@ async function handleDeletePost(req, res, ctx) {
   const precharged = !!ctx.precharged;
 
   // Idempotent DELETE: missing post ⇒ success, never charge again.
-  // Keep this FAST — sequential CF ledger calls previously hung mobile for 20s+.
   if (!row) {
     let reused = false;
     try {
-      const hit = await withTimeout(
-        findAnyDeleteSpend(walletUserCandidates(rawUser, walletExtras), canonicalId, spendIdem, DELETE_COST_FC),
-        2500,
-        null
+      // Pin-speed CF budget so a prior charge is recognized (not truncated at 2.5s).
+      const hit = await findAnyDeleteSpend(
+        walletUserCandidates(rawUser, walletExtras),
+        canonicalId,
+        spendIdem,
+        DELETE_COST_FC,
+        12000
       );
       reused = !!hit;
     } catch (_) {
@@ -1207,6 +1283,7 @@ async function handleDeletePost(req, res, ctx) {
       balance: null,
       free: !reused,
       reason: 'already_deleted',
+      status: 'completed',
       transactionId: spendIdem
     });
   }
@@ -1297,29 +1374,34 @@ async function handleDeletePost(req, res, ctx) {
     }
     if (cost > 0) {
       if (precharged) {
-        // Browser already charged CF (header network). Server only verifies —
-        // CF wallet POST is NOT idempotent, so we must not charge again.
+        // Browser /api/fc-spend (Pin path) already charged. CF POST is NOT
+        // idempotent — verify ledger with Pin-speed timeout, never re-charge.
         spend = await verifyClientDeleteSpend(rawUser, canonicalId, spendIdem, walletExtras);
         if (!spend.ok) {
-          // Brief retry — ledger can lag a moment behind the spend POST.
+          // One short lag retry only (ledger write can trail the spend POST).
           await new Promise(function (r) {
-            setTimeout(r, 400);
+            setTimeout(r, 600);
           });
           spend = await verifyClientDeleteSpend(rawUser, canonicalId, spendIdem, walletExtras);
         }
         if (!spend.ok) {
-          const resolved = await resolveFcBalance(rawUser, walletExtras);
+          // Do NOT leave the client in infinite pending. Report terminal failed
+          // so the UI can recover via GET status / retry of the SAME txn.
+          const st = await statusForDeleteTxn(rawUser, canonicalId, spendIdem, walletExtras);
+          if (st.status === 'completed') {
+            return json(res, 200, Object.assign({}, st, { ok: true, free: false, reason: 'already_deleted' }));
+          }
           return json(res, 409, {
-            error: 'awaiting_spend_verify',
+            error: 'spend_not_found',
+            status: st.status || 'failed',
             detail:
-              'Payment not visible in the ledger yet. Keep this transaction id and retry — you will not be charged twice.',
+              'Could not confirm the 50 FC charge for this transaction. Retry with the same id — you will not be charged twice if the first spend landed.',
             need: cost,
-            have: Number(resolved.balance) || 0,
-            balance: Number(resolved.balance) || 0,
+            have: st.have != null ? st.have : st.balance,
+            balance: st.balance,
             cost,
             tier,
-            wallet_user: resolved.user || rawUser,
-            source: resolved.source || null,
+            wallet_user: st.wallet_user || rawUser,
             transactionId: spendIdem,
             postId: canonicalId
           });
@@ -1431,6 +1513,7 @@ async function handleDeletePost(req, res, ctx) {
 
   return json(res, 200, {
     ok: true,
+    status: 'completed',
     postId: canonicalId,
     tier,
     free_deletion_enabled: freeDeletionEnabled(row),

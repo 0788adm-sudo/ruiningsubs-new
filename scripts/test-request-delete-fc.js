@@ -96,8 +96,10 @@ assert(delApi.indexOf('walletUserCandidates') >= 0, 'delete-post preserves walle
 assert(delApi.indexOf('resolveFcBalance') >= 0, 'delete-post resolves same balance as header');
 assert(delApi.indexOf('spendSupabaseFc') >= 0, 'delete-post can spend Supabase coin_wallets');
 assert(delApi.indexOf('verifyClientDeleteSpend') >= 0, 'delete-post verifies client CF precharge');
-assert(delApi.indexOf('awaiting_spend_verify') >= 0, 'delete-post pending verify status');
+assert(delApi.indexOf('spend_not_found') >= 0 || delApi.indexOf('awaiting_spend_verify') >= 0, 'delete-post terminal verify failure');
+assert(delApi.indexOf('statusForDeleteTxn') >= 0, 'delete-post status recovery');
 assert(delApi.indexOf('spend_timeout') >= 0, 'delete-post does not mask CF timeout as empty wallet');
+assert(html.indexOf("spendFagCoins('delete'") >= 0, 'delete uses same spendFagCoins as Pin');
 assert(html.indexOf('Same numeric truth as /api/delete-post') >= 0 || html.indexOf('highest of CF') >= 0, 'header uses same balance resolution');
 assert(
   JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).dependencies['@supabase/supabase-js'],
