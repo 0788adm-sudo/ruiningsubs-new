@@ -26,7 +26,11 @@ assert(del.indexOf('verifyCfAdminToken') >= 0 && (del.indexOf('attempt < 2') >= 
 assert(unpin.indexOf('already_unpinned') >= 0, 'unpin idempotent already_unpinned');
 assert(unpin.indexOf('cfFetchTimed') >= 0 || unpin.indexOf('attempt < 3') >= 0, 'unpin retries admin verify');
 assert(html.indexOf('Always clear local + SB + CF pin state') >= 0, 'unpin always clears DB/CF');
-assert(html.indexOf("secureDeletePost(id,{reason:'paid'") >= 0, 'FC still uses paid auto-delete');
+assert(
+  html.indexOf("secureDeletePost(id,{reason:'paid'") >= 0 ||
+    /secureDeletePost\(id,\s*\{\s*reason:'paid'/.test(html),
+  'FC still uses paid auto-delete'
+);
 assert(html.indexOf('requestDeleteWithCoins') >= 0, 'FC delete helper kept');
 // GoonTok / media untouched markers
 assert(html.indexOf('goontok') >= 0 || html.indexOf('GoonTok') >= 0, 'GoonTok still present');

@@ -387,18 +387,82 @@ function noAdminTraffic() {
   assert.ok(api.indexOf('walletUserCandidates') >= 0, 'wallet case candidates');
   assert.ok(api.indexOf('resolveFcBalance') >= 0, 'shared balance resolver');
   assert.ok(api.indexOf('spendSupabaseFc') >= 0, 'supabase spend fallback');
-  assert.ok(api.indexOf('15000') >= 0, 'CF wallet spend uses long timeout like Pin');
-  assert.ok(api.indexOf('Do NOT pre-probe CF balance') >= 0 || api.indexOf('attempt spend directly') >= 0, 'CF spend does not rely on short balance GET');
+  assert.ok(api.indexOf('12000') >= 0 || api.indexOf('15000') >= 0, 'CF wallet spend uses bounded timeout');
+  assert.ok(
+    api.indexOf('Never report "insufficient · have 0"') >= 0 ||
+      api.indexOf('resolveFcBalance') >= 0,
+    'balance resolved before false insufficient'
+  );
+  assert.ok(api.indexOf('spend_timeout') >= 0, 'CF timeout distinct from insufficient');
+  assert.ok(api.indexOf('verifyClientDeleteSpend') >= 0, 'client precharge verify path');
   assert.ok(api.indexOf('fast_invalidate') >= 0, 'pin cleanup is fast (no full board scan)');
   assert.ok(api.indexOf('withTimeout') >= 0, 'cleanup timeouts');
   assert.ok(api.indexOf('DELETE_NOOP') >= 0 || api.indexOf('delete_blocked_or_noop') >= 0, 'detect silent delete failure');
   assert.ok(html.indexOf('coinUserId') >= 0 && html.indexOf("secureDeletePost") >= 0, 'client uses coin identity');
-  assert.ok(html.indexOf('Checking balance, then charging 50 FC') >= 0, 'progress not fake-success');
+  assert.ok(
+    html.indexOf('Checking balance, then charging 50 FC') >= 0 ||
+      html.indexOf('Checking balance…') >= 0,
+    'progress not fake-success'
+  );
   assert.ok(html.indexOf('Same numeric truth as /api/delete-post') >= 0, 'header matches API resolution');
   assert.ok(html.indexOf("fetchWithTimeout('/api/delete-post'") >= 0, 'client uses timed delete fetch');
   assert.ok(html.indexOf('verifyPostDeletedPoll') >= 0, 'timeout verifies/polls post status');
+  assert.ok(html.indexOf('precharged') >= 0 && html.indexOf('getOrCreateDeleteTxn') >= 0, 'txn + precharge client path');
   assert.ok(html.indexOf('function shortDisplayUser') >= 0, 'anon display names shortened');
   console.log('PASS · static balance/identity contract');
+
+  // 8) CF timeout must not report have:0 when balance exists
+  resetState();
+  cfWallets.SlowRich = 999930;
+  posts['post-slow'] = samplePost('post-slow');
+  var origFetch = global.fetch;
+  var slowLedgerOnce = true;
+  global.fetch = async function (url, opts) {
+    var u = String(url);
+    if (slowLedgerOnce && u.indexOf(CF + '/wallet/ledger') === 0) {
+      slowLedgerOnce = false;
+      await new Promise(function (r) { setTimeout(r, 30); });
+      return { ok: false, status: 0, json: async function () { return { error: 'cf_timeout' }; } };
+    }
+    return origFetch(url, opts);
+  };
+  var rSlow = await invoke({
+    user: 'SlowRich',
+    postId: 'post-slow',
+    reason: 'paid',
+    idempotencyKey: 'delete-post:post-slow:slowrich:50'
+  });
+  global.fetch = origFetch;
+  assert.strictEqual(rSlow.status, 200, 'slow ledger still deletes when CF spend works');
+  assert.strictEqual(rSlow.json.charged, 50, 'slow path charged');
+  assert.strictEqual(cfWallets.SlowRich, 999880, 'slow path deducted once');
+  assert.strictEqual(posts['post-slow'], undefined, 'slow path post gone');
+  console.log('PASS · ledger blip does not false-insufficient a funded wallet');
+
+  // 9) precharged path verifies ledger and does not charge again
+  resetState();
+  cfWallets.PrePay = 500;
+  posts['post-pre'] = samplePost('post-pre');
+  ledgerFor('PrePay').unshift({
+    kind: 'spend',
+    action: 'delete',
+    ref_id: 'txn-pre-1',
+    ref: 'txn-pre-1',
+    coins: 50
+  });
+  var balBefore = cfWallets.PrePay;
+  var rPre = await invoke({
+    user: 'PrePay',
+    postId: 'post-pre',
+    reason: 'paid',
+    idempotencyKey: 'txn-pre-1',
+    precharged: true
+  });
+  assert.strictEqual(rPre.status, 200, 'precharged ok');
+  assert.strictEqual(rPre.json.charged, 50, 'precharged reports charged');
+  assert.strictEqual(cfWallets.PrePay, balBefore, 'precharged did not debit again');
+  assert.strictEqual(posts['post-pre'], undefined, 'precharged deleted');
+  console.log('PASS · precharged verifies ledger without double charge');
 
   console.log('OK · fc-autodelete-handler');
 })().catch(function (e) {

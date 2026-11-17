@@ -28291,13 +28291,20 @@ async function onIdFace(e){
       if(!user && !ownerToken && !moderation){toast('Login required');try{showAuth('login')}catch(e){}return false}
       if(!user) user=moderation?'admin':'anon_token';
       var reason=String(opts.reason||'owner');
-      var body={user:user,postId:id,reason:reason,idempotencyKey:'delete-post:'+id+':'+String(user).toLowerCase()+':50'};
+      var txnId=String(opts.idempotencyKey||opts.transactionId||('delete-post:'+id+':'+String(user).toLowerCase()+':50')).trim();
+      var body={user:user,postId:id,reason:reason,idempotencyKey:txnId,transactionId:txnId};
       try{
         body.account_type=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'anonymous':'registered';
         body.role=(currentUser&&currentUser.role)||'guest';
       }catch(e){}
       if(ownerToken) body.ownerToken=ownerToken;
       if(opts.adminKey) body.adminKey=opts.adminKey;
+      if(opts.precharged) body.precharged=true;
+      try{
+        var extras=opts.walletUsers||(typeof walletAliasListFor==='function'?walletAliasListFor(user):null);
+        if(extras && extras.length) body.walletUsers=extras;
+      }catch(e){}
+      window.__lastDeleteStatus='';
       var headers={'Content-Type':'application/json'};
       if(moderation){
         // Prefer existing bearer. Never block APPROVE on a password prompt unless explicitly allowed.
@@ -28379,8 +28386,8 @@ async function onIdFace(e){
         }catch(e){}
         return false;
       }
-      // Paid FC path may need ~55s; admin APPROVE uses a short budget so the panel never hangs.
-      var deleteTimeoutMs=Number(opts.timeoutMs)|| (moderation ? 18000 : 55000);
+      // Paid FC path: browser may pre-charge; keep API budget tight so verifying stays short.
+      var deleteTimeoutMs=Number(opts.timeoutMs)|| (moderation ? 18000 : 28000);
       async function postDeleteOnce(hdrs){
         var r=await fetchWithTimeout('/api/delete-post',{
           method:'POST',
@@ -28412,9 +28419,11 @@ async function onIdFace(e){
         }
         if(r.ok && j && j.ok){
           jBalance=j.balance;
+          window.__lastDeleteStatus='completed';
           return await finishDeletedOk(j.already_deleted?'Post already deleted':'Post deleted successfully');
         }
         if(j && (j.error==='insufficient'||j.error==='insufficient_fc'||r.status===402)){
+          window.__lastDeleteStatus='insufficient';
           try{if(j.balance!=null) window.__fcLast=Number(j.balance)||0}catch(e){}
           try{await loadFagBalance()}catch(e){}
           var have=j.have!=null?j.have:(j.balance!=null?j.balance:window.__fcLast);
@@ -28422,31 +28431,38 @@ async function onIdFace(e){
           try{openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}
           return false;
         }
-        if(j && (j.error==='delete_in_progress'||r.status===409)){
-          // Do NOT treat in-progress as failure — verify DB / wait for the inflight op.
-          try{if(typeof deleteRequestProgress==='function') deleteRequestProgress(true,'verifying')}catch(e){}
-          var waitMs=moderation ? 5000 : 14000;
+        if(j && (j.error==='spend_timeout' || j.error==='awaiting_spend_verify' || j.error==='delete_in_progress' || r.status===409 || r.status===503)){
+          // Do NOT treat in-progress / slow wallet as failure — verify DB / same transaction.
+          window.__lastDeleteStatus='verifying';
+          try{if(typeof deleteRequestProgress==='function') deleteRequestProgress(true,'verifying_deletion',{txn:txnId})}catch(e){}
+          var waitMs=moderation ? 5000 : 8000;
           if(await verifyPostDeletedPoll(waitMs)){
+            window.__lastDeleteStatus='completed';
             return await finishDeletedOk('Post deleted successfully');
           }
           if(!moderation){
-            // Idempotent retry with the SAME key — server will not double-charge.
+            // Idempotent retry with the SAME transaction id — server will not double-charge.
             try{
+              // If browser already charged, keep precharged so server only verifies.
               res=await postDeleteOnce(headers);
               r=res.r; j=res.j;
               if(r.ok && j && j.ok){
                 jBalance=j.balance;
+                window.__lastDeleteStatus='completed';
                 return await finishDeletedOk('Post deleted successfully');
               }
             }catch(e){}
-            if(await verifyPostDeletedPoll(6000)){
+            if(await verifyPostDeletedPoll(5000)){
+              window.__lastDeleteStatus='completed';
               return await finishDeletedOk('Post deleted successfully');
             }
           }
+          window.__lastDeleteStatus='pending';
           if(!opts.quietSuccess) toast(j&&j.detail?j.detail:'Delete still processing — refresh and check the post');
           return false;
         }
         if(j && j.refunded){
+          window.__lastDeleteStatus='refunded';
           toast('Delete failed — 50 FC refunded');
           try{await loadFagBalance()}catch(e){}
           return false;
@@ -28462,15 +28478,18 @@ async function onIdFace(e){
         }
         var errMsg=(j&&(j.detail||j.error))||('Could not delete (HTTP '+r.status+')');
         console.error('secureDeletePost failed', r.status, j);
+        window.__lastDeleteStatus='failed';
         toast(String(errMsg));
         return false;
       }catch(e){
         // Timeout / network: NEVER treat AbortError as proof of failure.
         // Server may have already charged+deleted — verify DB, then idempotent retry.
         console.error('secureDeletePost network', e);
-        try{if(typeof deleteRequestProgress==='function') deleteRequestProgress(true,'verifying')}catch(e2){}
+        window.__lastDeleteStatus='verifying';
+        try{if(typeof deleteRequestProgress==='function') deleteRequestProgress(true,'verifying_deletion',{txn:txnId})}catch(e2){}
         try{
-          if(await verifyPostDeletedPoll(10000)){
+          if(await verifyPostDeletedPoll(7000)){
+            window.__lastDeleteStatus='completed';
             return await finishDeletedOk('Post deleted successfully');
           }
         }catch(e3){}
@@ -28479,26 +28498,33 @@ async function onIdFace(e){
           var retry=await postDeleteOnce(headers);
           if(retry.r && retry.r.ok && retry.j && retry.j.ok){
             jBalance=retry.j.balance;
+            window.__lastDeleteStatus='completed';
             return await finishDeletedOk(retry.j.already_deleted?'Post already deleted':'Post deleted successfully');
           }
-          if(retry.j && (retry.j.error==='delete_in_progress' || (retry.r&&retry.r.status===409))){
-            if(await verifyPostDeletedPoll(12000)){
+          if(retry.j && (retry.j.error==='delete_in_progress' || retry.j.error==='awaiting_spend_verify' || retry.j.error==='spend_timeout' || (retry.r&&(retry.r.status===409||retry.r.status===503)))){
+            if(await verifyPostDeletedPoll(6000)){
+              window.__lastDeleteStatus='completed';
               return await finishDeletedOk('Post deleted successfully');
             }
+            window.__lastDeleteStatus='pending';
           }
           if(retry.j && (retry.j.error==='insufficient'||retry.j.error==='insufficient_fc'||(retry.r&&retry.r.status===402))){
+            window.__lastDeleteStatus='insufficient';
             try{await loadFagBalance()}catch(e4){}
-            toast('Insufficient FC — need '+(retry.j.need||retry.j.cost||50)+' FC');
+            var have2=retry.j.have!=null?retry.j.have:(retry.j.balance!=null?retry.j.balance:null);
+            toast('Insufficient FC — need '+(retry.j.need||retry.j.cost||50)+' FC'+(have2!=null?(' · have '+have2):''));
             return false;
           }
           if(retry.j && retry.j.refunded){
+            window.__lastDeleteStatus='refunded';
             toast('Delete failed — 50 FC refunded');
             try{await loadFagBalance()}catch(e5){}
             return false;
           }
         }catch(e6){
           try{
-            if(await verifyPostDeletedPoll(8000)){
+            if(await verifyPostDeletedPoll(5000)){
+              window.__lastDeleteStatus='completed';
               return await finishDeletedOk('Post deleted successfully');
             }
           }catch(e7){}
@@ -28508,10 +28534,12 @@ async function onIdFace(e){
         }
         // Final truth check — if the post is gone, ALWAYS report success.
         try{
-          if(await verifyPostDeletedPoll(3000)){
+          if(await verifyPostDeletedPoll(2500)){
+            window.__lastDeleteStatus='completed';
             return await finishDeletedOk('Post deleted successfully');
           }
         }catch(e8){}
+        window.__lastDeleteStatus='pending';
         toast((e&&e.name==='AbortError')
           ?'Network slow — post still present. Not charged twice; tap Delete again to finish.'
           :'Could not delete');
@@ -28587,7 +28615,7 @@ async function onIdFace(e){
      * Delete with FC — atomic /api/delete-post (charge + delete immediately).
      * NO admin notification, NO pending request. PayPal / I paid stay on submitRemoveRequest.
      */
-    function deleteRequestProgress(on, stage){
+    function deleteRequestProgress(on, stage, extra){
       var ov=document.getElementById('pay-progress');
       if(!on){if(ov)ov.remove();return}
       if(!ov){
@@ -28596,16 +28624,29 @@ async function onIdFace(e){
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px';
         document.body.appendChild(ov);
       }
+      // Canonical statuses for paid FC delete (never leave users on a blank loader).
       var stages={
-        processing_payment:{title:'Delete · 50 FC',text:'Checking balance, then charging 50 FC…'},
-        verifying:{title:'Delete · verifying',text:'Network was slow — confirming the post status. You will not be charged twice.'},
-        completed:{title:'Post deleted successfully',text:'50 FC charged. The post is gone.'}
+        checking_balance:{title:'Checking balance…',text:'Confirming your FC wallet before charging 50 FC.'},
+        processing_payment:{title:'Processing deletion…',text:'Checking balance, then charging 50 FC…'},
+        processing_deletion:{title:'Processing deletion…',text:'Charging 50 FC and removing the post.'},
+        verifying:{title:'Verifying deletion…',text:'Network was slow — confirming the post status. You will not be charged twice.'},
+        verifying_deletion:{title:'Verifying deletion…',text:'Confirming the original transaction. You will not be charged twice.'},
+        completed:{title:'Post successfully deleted.',text:'50 FC charged. The post is gone.'},
+        failed_no_charge:{title:'Failed — no FC charged',text:String((extra&&extra.detail)||'Deletion did not complete. Your balance was not charged.')},
+        failed_refunded:{title:'Failed — FC refunded',text:String((extra&&extra.detail)||'Deletion failed after charge. 50 FC was refunded.')},
+        pending:{title:'Deletion pending…',text:'Still processing the original transaction. Keep this page open — retry uses the same id.'}
       };
-      var s=stages[stage]||stages.processing_payment;
+      var key=String(stage||'processing_deletion');
+      if(key==='processing_payment') key='processing_deletion';
+      if(key==='verifying') key='verifying_deletion';
+      var s=stages[key]||stages.processing_deletion;
+      var statusLabel=String(key).replace(/_/g,' ');
       ov.innerHTML='<div style="width:100%;max-width:360px;background:#0c0c10;border:1px solid #2a2a32;border-radius:18px;padding:22px;text-align:center">'
         +'<div style="font-size:18px;font-weight:900;margin-bottom:8px">'+s.title+'</div>'
         +'<div style="font-size:13px;color:#9a9aa8;margin-bottom:8px">'+s.text+'</div>'
-        +'<div style="font-size:12px;color:#f5c518;font-weight:800">Status: '+esc(String(stage||'processing_payment').replace(/_/g,' '))+'</div></div>';
+        +'<div style="font-size:12px;color:#f5c518;font-weight:800">Status: '+esc(statusLabel)+'</div>'
+        +((extra&&extra.txn)?'<div style="font-size:10px;color:#666;margin-top:10px;word-break:break-all">txn '+esc(String(extra.txn))+'</div>':'')
+        +'</div>';
     }
     function rememberRemoveRequestLocal(meta){
       meta=meta||{};
@@ -28656,6 +28697,63 @@ async function onIdFace(e){
       box.style.display='block';
     }
     var __requestDeleteLocks={};
+    function walletAliasListFor(uid){
+      uid=String(uid||'').replace(/^@/,'').trim();
+      var out=[];
+      function push(v){
+        v=String(v||'').replace(/^@/,'').trim().slice(0,40);
+        if(!v) return;
+        if(out.indexOf(v)<0) out.push(v);
+      }
+      push(uid);
+      push(String(uid).toLowerCase());
+      try{
+        var aliases=JSON.parse(localStorage.getItem('rs_wallet_alias')||'{}')||{};
+        Object.keys(aliases).forEach(function(k){
+          if(String(aliases[k])===uid) push(k);
+        });
+        if(aliases[uid]) push(aliases[uid]);
+      }catch(e){}
+      return out;
+    }
+    function loadDeleteTxnMap(){
+      try{return JSON.parse(sessionStorage.getItem('rs_delete_txn')||'{}')||{}}catch(e){return{}}
+    }
+    function saveDeleteTxnMap(map){
+      try{sessionStorage.setItem('rs_delete_txn',JSON.stringify(map||{}))}catch(e){}
+    }
+    function getOrCreateDeleteTxn(postId, uid){
+      postId=String(postId||'');
+      uid=String(uid||'').replace(/^@/,'').trim();
+      var key=String(uid).toLowerCase()+'|'+postId;
+      var map=loadDeleteTxnMap();
+      var row=map[key];
+      if(row && row.transactionId && row.status!=='completed' && row.status!=='failed_refunded'){
+        return row;
+      }
+      var txn='delete-post:'+postId+':'+String(uid).toLowerCase()+':50:'+Date.now().toString(36);
+      row={
+        transactionId:txn,
+        postId:postId,
+        user:uid,
+        status:'pending',
+        charged:false,
+        at:Date.now()
+      };
+      map[key]=row;
+      saveDeleteTxnMap(map);
+      return row;
+    }
+    function patchDeleteTxn(postId, uid, patch){
+      var key=String(uid||'').toLowerCase()+'|'+String(postId||'');
+      var map=loadDeleteTxnMap();
+      var row=map[key]||getOrCreateDeleteTxn(postId, uid);
+      for(var k in patch){ if(Object.prototype.hasOwnProperty.call(patch,k)) row[k]=patch[k]; }
+      row.updatedAt=Date.now();
+      map[key]=row;
+      saveDeleteTxnMap(map);
+      return row;
+    }
     async function requestDeleteWithCoins(){
       var id=String(window.__removePostId||currentDetailId||'');
       if(!id){toast('Open the post first');return false}
@@ -28676,22 +28774,109 @@ async function onIdFace(e){
       var btn=document.getElementById('btn-remove-fc');
       if(btn){btn.disabled=true;btn.setAttribute('aria-busy','true')}
       var finishedOk=false;
+      var txnRow=getOrCreateDeleteTxn(id, uid);
+      var txnId=String(txnRow.transactionId||'');
+      var aliases=walletAliasListFor(uid);
       try{
-        deleteRequestProgress(true,'processing_payment');
-        // Atomic charge + delete on the server. Never creates an admin request.
-        var ok=await secureDeletePost(id,{reason:'paid',allowLocalFallback:false});
-        if(!ok) return false;
+        deleteRequestProgress(true,'checking_balance',{txn:txnId});
+        var bal=0;
+        try{bal=Number(await loadFagBalance())||0}catch(e){bal=Number(window.__fcLast||0)||0}
+        // Prefer the wallet key that actually holds the header balance (case/alias).
+        var fundedUser=uid;
+        try{
+          for(var ai=0;ai<aliases.length;ai++){
+            var probe=0;
+            try{probe=Number(await cfWalletGet(aliases[ai]))||0}catch(e){probe=0}
+            if(probe>=cost){fundedUser=aliases[ai];bal=Math.max(bal,probe);break}
+          }
+        }catch(e){}
+        if(bal<cost){
+          deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
+          toast('Insufficient FC — need '+cost+' FC · have '+bal);
+          try{openNeedCoins({cost:cost,why:'delete post'})}catch(e){}
+          patchDeleteTxn(id,uid,{status:'failed_no_charge'});
+          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
+          return false;
+        }
+
+        // Charge from the SAME browser session that loaded the header balance.
+        // CF wallet POST is NOT idempotent — charge once per transactionId, then
+        // ask the server to verify that ledger row and delete (no second charge).
+        var charged=!!txnRow.charged;
+        if(!charged){
+          deleteRequestProgress(true,'processing_deletion',{txn:txnId});
+          var spendUsers=[fundedUser].concat(aliases.filter(function(u){return u!==fundedUser}));
+          var spendOk=false;
+          var spendBal=null;
+          for(var si=0;si<spendUsers.length && !spendOk;si++){
+            try{
+              var cf=await cfWalletSpend(spendUsers[si], cost, 'delete', txnId);
+              if(cf && cf.ok){
+                spendOk=true;
+                charged=true;
+                if(cf.balance!=null) spendBal=Number(cf.balance);
+                break;
+              }
+              if(cf && /insufficient|not enough|balance/i.test(String(cf.error||''))){
+                continue;
+              }
+            }catch(e){}
+          }
+          if(!spendOk){
+            // Server may still spend from Supabase / CF if browser CF path failed.
+            charged=false;
+          }else{
+            patchDeleteTxn(id,uid,{status:'charged',charged:true,balance:spendBal});
+            if(spendBal!=null) window.__fcLast=spendBal;
+          }
+        }
+
+        deleteRequestProgress(true,'processing_deletion',{txn:txnId});
+        var ok=await secureDeletePost(id,{
+          reason:'paid',
+          allowLocalFallback:false,
+          idempotencyKey:txnId,
+          transactionId:txnId,
+          precharged:!!charged,
+          walletUsers:aliases,
+          timeoutMs:28000
+        });
+        if(!ok){
+          var st=String((window.__lastDeleteStatus||'')||'');
+          if(st==='refunded'){
+            deleteRequestProgress(true,'failed_refunded',{txn:txnId});
+            patchDeleteTxn(id,uid,{status:'failed_refunded'});
+          }else if(st==='insufficient'){
+            deleteRequestProgress(true,'failed_no_charge',{txn:txnId});
+            patchDeleteTxn(id,uid,{status:'failed_no_charge',charged:false});
+          }else if(st==='pending' || st==='verifying'){
+            deleteRequestProgress(true,'pending',{txn:txnId});
+            patchDeleteTxn(id,uid,{status:'pending'});
+            // Keep overlay briefly then leave a toast — refresh resumes same txn.
+            toast('Deletion pending — refresh keeps the same transaction (no double charge)');
+          }else{
+            deleteRequestProgress(true, charged?'pending':'failed_no_charge',{txn:txnId});
+            patchDeleteTxn(id,uid,{status:charged?'pending':'failed_no_charge'});
+          }
+          setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1800);
+          return false;
+        }
         finishedOk=true;
-        deleteRequestProgress(true,'completed');
+        patchDeleteTxn(id,uid,{status:'completed',charged:true});
+        deleteRequestProgress(true,'completed',{txn:txnId});
         closeModals();
         setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
         return true;
       }catch(e){
         toast('Could not delete');
         console.warn('requestDeleteWithCoins',e);
+        deleteRequestProgress(true,'pending',{txn:txnId,detail:'Network error — retry uses the same transaction.'});
+        setTimeout(function(){try{deleteRequestProgress(false)}catch(err){}},1800);
         return false;
       }finally{
-        if(!finishedOk){try{deleteRequestProgress(false)}catch(e){}}
+        if(!finishedOk && !(window.__lastDeleteStatus==='pending'||window.__lastDeleteStatus==='verifying')){
+          /* overlay closed above on failure paths */
+        }
         __requestDeleteLocks[lockKey]=false;
         if(btn){btn.disabled=false;btn.removeAttribute('aria-busy')}
       }
@@ -28702,6 +28887,53 @@ async function onIdFace(e){
     window.removeWithCoins=removeWithCoins;
     window.secureDeletePost=secureDeletePost;
     window.openRemove=openRemove;
+    window.walletAliasListFor=walletAliasListFor;
+    window.getOrCreateDeleteTxn=getOrCreateDeleteTxn;
+    // Resume a pending FC delete after refresh / slow network (same transaction id).
+    (function resumePendingDeleteTxn(){
+      try{
+        var map=loadDeleteTxnMap();
+        var keys=Object.keys(map||{});
+        for(var i=0;i<keys.length;i++){
+          var row=map[keys[i]];
+          if(!row||!row.postId||!row.transactionId) continue;
+          var st=String(row.status||'');
+          if(st!=='pending' && st!=='charged' && st!=='verifying') continue;
+          if(Date.now()-Number(row.at||row.updatedAt||0) > 30*60*1000) continue;
+          setTimeout(function(){
+            (async function(){
+              try{
+                if(typeof postMissingInDb==='function' && await postMissingInDb(row.postId)){
+                  patchDeleteTxn(row.postId,row.user,{status:'completed'});
+                  return;
+                }
+              }catch(e){}
+              try{
+                deleteRequestProgress(true,'verifying_deletion',{txn:row.transactionId});
+                var ok=await secureDeletePost(row.postId,{
+                  reason:'paid',
+                  allowLocalFallback:false,
+                  idempotencyKey:row.transactionId,
+                  transactionId:row.transactionId,
+                  precharged:!!row.charged,
+                  walletUsers:walletAliasListFor(row.user),
+                  timeoutMs:20000,
+                  quietSuccess:true
+                });
+                if(ok){
+                  patchDeleteTxn(row.postId,row.user,{status:'completed'});
+                  deleteRequestProgress(true,'completed',{txn:row.transactionId});
+                  setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
+                }else{
+                  deleteRequestProgress(false);
+                }
+              }catch(e){try{deleteRequestProgress(false)}catch(err){}}
+            })();
+          },1200);
+          break;
+        }
+      }catch(e){}
+    })();
     var __removeRequestLocks={};
     async function submitRemoveRequest(opts){
       opts=opts||{};

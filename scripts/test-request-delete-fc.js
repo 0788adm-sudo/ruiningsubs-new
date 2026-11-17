@@ -26,12 +26,18 @@ assert(html.indexOf('/api/request-delete') < 0, 'no /api/request-delete referenc
 assert(html.indexOf('function requestDeleteWithCoins') >= 0, 'requestDeleteWithCoins helper');
 assert(html.indexOf("reason:'paid'") >= 0 || html.indexOf('reason:\'paid\'') >= 0, 'FC path uses reason=paid');
 assert(html.indexOf('/api/delete-post') >= 0, 'SPA uses /api/delete-post for FC delete');
-assert(html.indexOf("secureDeletePost(id,{reason:'paid'") >= 0, 'requestDeleteWithCoins calls secureDeletePost paid');
+assert(
+  html.indexOf("secureDeletePost(id,{reason:'paid'") >= 0 ||
+    /secureDeletePost\(id,\s*\{\s*reason:'paid'/.test(html),
+  'requestDeleteWithCoins calls secureDeletePost paid'
+);
 (function () {
   var m = html.match(/async function requestDeleteWithCoins\(\)\{[\s\S]*?\n    \}/);
   assert(!!m, 'requestDeleteWithCoins body extractable');
   assert(m[0].indexOf('/api/request-delete') < 0, 'requestDeleteWithCoins does not call /api/request-delete');
   assert(m[0].indexOf('/api/delete-post') >= 0 || m[0].indexOf('secureDeletePost') >= 0, 'requestDeleteWithCoins uses secure delete');
+  assert(m[0].indexOf('precharged') >= 0, 'requestDeleteWithCoins passes precharged');
+  assert(m[0].indexOf('transactionId') >= 0 || m[0].indexOf('idempotencyKey') >= 0, 'requestDeleteWithCoins passes txn id');
 })();
 assert(html.indexOf("spendFagCoins('pin'") >= 0, 'Premium Pin spend path still present');
 assert(
@@ -64,8 +70,21 @@ assert(html.indexOf('function adminRequestDeleteAction') >= 0, 'admin approve/re
 assert(fcSpend.indexOf('delete') >= 0, 'fc-spend delete cost kept for other spends');
 
 // Progress is delete-oriented, not admin-request-oriented
-assert(html.indexOf("deleteRequestProgress(true,'processing_payment')") >= 0, 'processing payment stage');
-assert(html.indexOf("deleteRequestProgress(true,'completed')") >= 0, 'completed stage');
+assert(
+  html.indexOf("deleteRequestProgress(true,'checking_balance'") >= 0 ||
+    html.indexOf("deleteRequestProgress(true,'processing_deletion'") >= 0 ||
+    html.indexOf("deleteRequestProgress(true,'processing_payment'") >= 0,
+  'checking/processing progress stage'
+);
+assert(html.indexOf("deleteRequestProgress(true,'completed'") >= 0, 'completed stage');
+assert(html.indexOf('Checking balance…') >= 0, 'checking balance copy');
+assert(html.indexOf('Processing deletion…') >= 0, 'processing deletion copy');
+assert(html.indexOf('Verifying deletion…') >= 0, 'verifying deletion copy');
+assert(html.indexOf('Post successfully deleted.') >= 0 || html.indexOf('Post deleted successfully') >= 0, 'success copy');
+assert(html.indexOf('Failed — no FC charged') >= 0, 'failed no charge copy');
+assert(html.indexOf('Failed — FC refunded') >= 0 || html.indexOf('failed_refunded') >= 0, 'failed refunded copy');
+assert(html.indexOf('getOrCreateDeleteTxn') >= 0, 'delete transaction id helper');
+assert(html.indexOf('precharged') >= 0, 'client precharge flag for CF spend');
 assert(html.indexOf('Sending request to admin') < 0, 'no sending-to-admin progress for FC');
 assert(html.indexOf('Your deletion request has been sent to the administrator') < 0, 'no admin-request success toast on FC path');
 assert(html.indexOf('admin will review (post stays up)') < 0, 'no admin-will-review FC toast');
@@ -76,6 +95,9 @@ assert(delApi.indexOf('sbRest') >= 0, 'delete-post REST fallback present');
 assert(delApi.indexOf('walletUserCandidates') >= 0, 'delete-post preserves wallet casing');
 assert(delApi.indexOf('resolveFcBalance') >= 0, 'delete-post resolves same balance as header');
 assert(delApi.indexOf('spendSupabaseFc') >= 0, 'delete-post can spend Supabase coin_wallets');
+assert(delApi.indexOf('verifyClientDeleteSpend') >= 0, 'delete-post verifies client CF precharge');
+assert(delApi.indexOf('awaiting_spend_verify') >= 0, 'delete-post pending verify status');
+assert(delApi.indexOf('spend_timeout') >= 0, 'delete-post does not mask CF timeout as empty wallet');
 assert(html.indexOf('Same numeric truth as /api/delete-post') >= 0 || html.indexOf('highest of CF') >= 0, 'header uses same balance resolution');
 assert(
   JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).dependencies['@supabase/supabase-js'],
