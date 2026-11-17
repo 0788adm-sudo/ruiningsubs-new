@@ -28764,12 +28764,26 @@ async function onIdFace(e){
       var key=String(uid).toLowerCase()+'|'+postId;
       var map=loadDeleteTxnMap();
       var row=map[key];
-      if(row && row.transactionId && row.status!=='completed' && row.status!=='failed_refunded'){
-        return row;
+      // STABLE txn id (no random suffix). Random ids caused triple charges for post 3251
+      // because each retry/refresh minted a new ref and CF spend is not idempotent.
+      var stable='delete-post:'+postId+':'+String(uid).toLowerCase()+':50';
+      if(row && row.transactionId){
+        // Migrate legacy random-suffix ids onto the stable key for the same post.
+        if(String(row.transactionId).indexOf(stable)===0 && row.status==='completed'){
+          return row;
+        }
+        if(row.status!=='completed' && row.status!=='failed_refunded'){
+          if(String(row.transactionId)!==stable){
+            row.transactionId=stable;
+            row.legacyRefs=row.legacyRefs||[];
+            map[key]=row;
+            saveDeleteTxnMap(map);
+          }
+          return row;
+        }
       }
-      var txn='delete-post:'+postId+':'+String(uid).toLowerCase()+':50:'+Date.now().toString(36);
       row={
-        transactionId:txn,
+        transactionId:stable,
         postId:postId,
         user:uid,
         status:'pending',
@@ -28829,7 +28843,36 @@ async function onIdFace(e){
         try{localStorage.setItem('rs_fc_wallet_user', fundedUser)}catch(e){}
         window.__fcWalletUser=fundedUser;
         aliases=walletAliasListFor(fundedUser);
-        if(bal<cost){
+
+        // Server truth FIRST — if any delete-post:<id>:… spend already exists, do NOT charge again.
+        var charged=!!txnRow.charged;
+        try{
+          var prior=await fetchDeleteTxnStatus(txnId, fundedUser, id, aliases);
+          if(prior && prior.status==='completed'){
+            finishedOk=true;
+            patchDeleteTxn(id,uid,{status:'completed',charged:true,walletUser:fundedUser});
+            deleteRequestProgress(true,'completed',{txn:txnId});
+            try{purgePostEverywhere(id)}catch(e){}
+            closeModals();
+            try{await loadFagBalance()}catch(e){}
+            setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
+            toast('Post already deleted');
+            return true;
+          }
+          if(prior && prior.status==='charged'){
+            charged=true;
+            if(prior.transactionId) txnId=String(prior.transactionId);
+            patchDeleteTxn(id,uid,{status:'charged',charged:true,walletUser:prior.wallet_user||fundedUser,transactionId:txnId});
+          }
+          if(prior && prior.status==='unavailable'){
+            deleteRequestProgress(true,'failed_no_charge',{detail:'Database temporarily unavailable. Try again shortly — no new charge yet.',txn:txnId});
+            toast('Database temporarily unavailable — try again shortly');
+            setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},2200);
+            return false;
+          }
+        }catch(e){}
+
+        if(!charged && bal<cost){
           deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
           toast('Insufficient FC — need '+cost+' FC · have '+bal);
           try{openNeedCoins({cost:cost,why:'delete post'})}catch(e){}
@@ -28839,8 +28882,7 @@ async function onIdFace(e){
         }
 
         // Same spend pipeline as Premium Pin: /api/fc-spend → CF browser → SB.
-        // One durable txn id — never a parallel coin system.
-        var charged=!!txnRow.charged;
+        // Stable txn id — never mint a new ref after a failed attempt.
         if(!charged){
           deleteRequestProgress(true,'processing_deletion',{txn:txnId});
           var prevUser=null;
@@ -28862,17 +28904,36 @@ async function onIdFace(e){
             patchDeleteTxn(id,uid,{status:'charged',charged:true,walletUser:fundedUser});
             try{await loadFagBalance()}catch(e){}
           }else{
-            // If Pin-path spend failed, re-check balance — do not claim pending forever.
-            try{bal=Number(await loadFagBalance())||0}catch(e){}
-            if(bal<cost){
-              deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
-              toast('Insufficient FC — need '+cost+' FC · have '+bal);
-              patchDeleteTxn(id,uid,{status:'failed_no_charge'});
-              setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
-              return false;
+            // Re-check server — spend may have landed even if the client response failed.
+            try{
+              var after=await fetchDeleteTxnStatus(txnId, fundedUser, id, aliases);
+              if(after && (after.status==='charged' || after.status==='completed')){
+                charged=true;
+                if(after.transactionId) txnId=String(after.transactionId);
+                patchDeleteTxn(id,uid,{status:after.status==='completed'?'completed':'charged',charged:true,walletUser:fundedUser,transactionId:txnId});
+                if(after.status==='completed'){
+                  finishedOk=true;
+                  deleteRequestProgress(true,'completed',{txn:txnId});
+                  try{purgePostEverywhere(id)}catch(e){}
+                  closeModals();
+                  try{await loadFagBalance()}catch(e){}
+                  setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
+                  return true;
+                }
+              }
+            }catch(e){}
+            if(!charged){
+              try{bal=Number(await loadFagBalance())||0}catch(e){}
+              if(bal<cost){
+                deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
+                toast('Insufficient FC — need '+cost+' FC · have '+bal);
+                patchDeleteTxn(id,uid,{status:'failed_no_charge'});
+                setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
+                return false;
+              }
+              // Fall through: server spendDeleteFc with exact funded user (no precharge).
+              charged=false;
             }
-            // Fall through: server spendDeleteFc with exact funded user (no precharge).
-            charged=false;
           }
         }
 
