@@ -52,8 +52,45 @@ export async function handleMediaRequest(request, env, key) {
     });
   }
 
-  const range = request.headers.get('Range');
-  const obj = await bucket.get(key, range ? { range: parseRangeHeader(range) } : undefined);
+  const rangeHdr = request.headers.get('Range');
+  const parsed = rangeHdr ? parseRangeHeader(rangeHdr) : null;
+
+  // Prefer head first when Range is present so we can emit a correct 416
+  // without downloading the whole object (legacy Worker path did that).
+  let totalSize = null;
+  if (parsed && typeof bucket.head === 'function') {
+    try {
+      const meta = await bucket.head(key);
+      if (!meta) {
+        return new Response(JSON.stringify({ error: 'not_found' }), {
+          status: 404,
+          headers: { ...cors, 'Content-Type': 'application/json' }
+        });
+      }
+      if (typeof meta.size === 'number') totalSize = meta.size;
+    } catch (e) {}
+  }
+
+  if (parsed && totalSize != null && parsed.offset >= totalSize) {
+    return new Response(null, {
+      status: 416,
+      headers: {
+        ...cors,
+        'Content-Type': 'video/mp4',
+        'Accept-Ranges': 'bytes',
+        'Content-Range': 'bytes */' + totalSize
+      }
+    });
+  }
+
+  let rangeOpt;
+  if (parsed) {
+    if (parsed.length != null) rangeOpt = { offset: parsed.offset, length: parsed.length };
+    else if (totalSize != null) rangeOpt = { offset: parsed.offset, length: totalSize - parsed.offset };
+    else rangeOpt = { offset: parsed.offset };
+  }
+
+  const obj = await bucket.get(key, rangeOpt ? { range: rangeOpt } : undefined);
   if (!obj) {
     return new Response(JSON.stringify({ error: 'not_found' }), {
       status: 404,
@@ -69,11 +106,11 @@ export async function handleMediaRequest(request, env, key) {
   if (obj.httpEtag) headers.set('ETag', obj.httpEtag);
   if (obj.uploaded) headers.set('Last-Modified', obj.uploaded.toUTCString());
 
-  const total = typeof obj.size === 'number' ? obj.size : null;
+  const total = typeof obj.size === 'number' ? obj.size : totalSize;
   let status = 200;
 
-  if (range && obj.range) {
-    // R2 returns { offset, length } on ranged gets
+  if (rangeHdr && obj.range) {
+    // R2 returns { offset, length } on ranged gets — never stream the full object.
     const start = obj.range.offset || 0;
     const length = obj.range.length != null ? obj.range.length : total != null ? total - start : null;
     if (length != null) headers.set('Content-Length', String(length));
@@ -81,6 +118,10 @@ export async function handleMediaRequest(request, env, key) {
       headers.set('Content-Range', 'bytes ' + start + '-' + (start + length - 1) + '/' + total);
       status = 206;
     }
+  } else if (rangeHdr && !obj.range) {
+    // Binding ignored Range — refuse to pretend this is progressive. Callers must
+    // fall back to R2 public host for <video>. Still return CORS for diagnostics.
+    if (total != null) headers.set('Content-Length', String(total));
   } else if (total != null) {
     headers.set('Content-Length', String(total));
   }
@@ -92,13 +133,15 @@ export async function handleMediaRequest(request, env, key) {
 }
 
 function parseRangeHeader(range) {
-  // bytes=start-end
+  // bytes=start-end (single range only; multipart not used by Safari/video)
   const m = String(range || '').match(/bytes=(\d+)-(\d*)/i);
-  if (!m) return undefined;
+  if (!m) return null;
   const offset = Number(m[1]);
+  if (!Number.isFinite(offset) || offset < 0) return null;
   if (m[2]) {
     const end = Number(m[2]);
-    return { offset, length: end - offset + 1 };
+    if (!Number.isFinite(end) || end < offset) return null;
+    return { offset, length: end - offset + 1, end: end };
   }
   return { offset };
 }
@@ -107,8 +150,11 @@ function guessType(key) {
   const k = String(key || '').toLowerCase();
   if (/\.webm($|\?)/.test(k)) return 'video/webm';
   if (/\.mov($|\?)/.test(k)) return 'video/quicktime';
+  if (/\.m4v($|\?)/.test(k)) return 'video/mp4';
   if (/\.mp4($|\?)/.test(k)) return 'video/mp4';
   if (/\.jpe?g($|\?)/.test(k)) return 'image/jpeg';
   if (/\.png($|\?)/.test(k)) return 'image/png';
+  if (/\.webp($|\?)/.test(k)) return 'image/webp';
+  if (/\.gif($|\?)/.test(k)) return 'image/gif';
   return 'application/octet-stream';
 }

@@ -1,6 +1,12 @@
 # Worker dashboard patch — `/media` HTTP Range
 
-Paste this block into the Cloudflare Worker **before** the final:
+**Status (2026-11-16):** Live Worker still ignores `Range` (GET → full HTTP 200 body; HEAD → 404).
+`<video>` playback uses public R2 (already 206-correct). Deploy this patch so Worker
+`fetch()`/canvas paths stop downloading entire MP4s when only a few bytes are needed.
+
+Canonical implementation: `workers/media-range.js` (`handleMediaRequest`).
+
+Paste the Range handler into the Cloudflare Worker **before** the final:
 
 ```js
 return json({ error: 'not found' }, 404);
@@ -9,6 +15,8 @@ return json({ error: 'not found' }, 404);
 Uses the same binding as your delete handler: `env.MEDIA`.
 
 Keeps CORS `*` for fetch/canvas. Does **not** change R2 `<video>` playback.
+
+Minimal paste (prefer copying from `workers/media-range.js` for 416 + HEAD):
 
 ```js
       // —— GET/HEAD /media/:key with HTTP Range (Safari progressive MP4) ——
@@ -36,11 +44,23 @@ Keeps CORS `*` for fetch/canvas. Does **not** change R2 `<video>` playback.
         }
         const rangeHdr = req.headers.get('Range');
         let rangeOpt;
+        let totalHint = null;
         if (rangeHdr) {
           const m = String(rangeHdr).match(/bytes=(\d+)-(\d*)/i);
           if (m) {
             const offset = Number(m[1]);
             rangeOpt = m[2] ? { offset, length: Number(m[2]) - offset + 1 } : { offset };
+          }
+          if (typeof env.MEDIA.head === 'function') {
+            const meta = await env.MEDIA.head(key);
+            if (!meta) return json({ error: 'not_found' }, 404, cors);
+            totalHint = typeof meta.size === 'number' ? meta.size : null;
+            if (rangeOpt && totalHint != null && rangeOpt.offset >= totalHint) {
+              return new Response(null, {
+                status: 416,
+                headers: { ...cors, 'Accept-Ranges': 'bytes', 'Content-Range': 'bytes */' + totalHint },
+              });
+            }
           }
         }
         const obj = await env.MEDIA.get(key, rangeOpt ? { range: rangeOpt } : undefined);
@@ -54,7 +74,7 @@ Keeps CORS `*` for fetch/canvas. Does **not** change R2 `<video>` playback.
         if (obj.httpEtag) headers.set('ETag', obj.httpEtag);
         if (obj.uploaded) headers.set('Last-Modified', obj.uploaded.toUTCString());
 
-        const total = typeof obj.size === 'number' ? obj.size : null;
+        const total = typeof obj.size === 'number' ? obj.size : totalHint;
         let status = 200;
         if (rangeHdr && obj.range) {
           const start = obj.range.offset || 0;
