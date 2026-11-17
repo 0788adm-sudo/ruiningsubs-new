@@ -6348,10 +6348,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(!id)return;
         if(typeof isDeletedId==='function' && isDeletedId(id)){ showPostGone(id); return; }
         if(typeof sb==='undefined'||!sb)return;
+        if(typeof supabaseLikelyDown==='function' && supabaseLikelyDown())return;
         if(window.__detailLiveCheckBusy)return;
         window.__detailLiveCheckBusy=true;
         sb.from('posts').select('id').eq('id',id).maybeSingle().then(function(q){
           window.__detailLiveCheckBusy=false;
+          if(q&&q.error){ noteSupabaseOutage(q.error); return; }
           if(q && !q.error && !q.data && String(currentDetailId)===String(id)){
             try{purgePostEverywhere(id)}catch(e){}
             showPostGone(id);
@@ -8434,17 +8436,46 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function likeTask(id){
       var key='rs_task_liked_'+id;
       if(localStorage.getItem(key)==='1'){toast('Already liked');return}
-      localStorage.setItem(key,'1');
       var t=tasksCache.find(function(x){return String(x.id)===String(id)});
-      if(t){t.likes_count=(t.likes_count||0)+1}
-      if(sb){
-        try{sb.from('tasks').update({likes_count:(t&&t.likes_count)||1}).eq('id',id)}catch(e){}
+      var prevCount=t?Number(t.likes_count)||0:0;
+      var nextCount=prevCount+1;
+      if(t){t.likes_count=nextCount}
+      if(!sb || (typeof supabaseLikelyDown==='function' && supabaseLikelyDown())){
+        if(t) t.likes_count=prevCount;
+        noteSupabaseOutage('sb_outage');
+        toast('Backend unavailable — like not saved');
+        return;
+      }
+      try{
+        sb.from('tasks').update({likes_count:nextCount}).eq('id',id).select('likes_count').maybeSingle().then(function(up){
+          if(up&&up.error){
+            if(t) t.likes_count=prevCount;
+            noteSupabaseOutage(up.error);
+            toast('Backend unavailable — like not saved');
+            return;
+          }
+          if(!up||!up.data){
+            if(t) t.likes_count=prevCount;
+            toast('Like not saved — try again');
+            return;
+          }
+          localStorage.setItem(key,'1');
+          if(t&&up.data.likes_count!=null) t.likes_count=Number(up.data.likes_count)||nextCount;
+          toast('❤️ Liked');
+          try{loadTasks()}catch(e){}
+          try{loadPrintDirty()}catch(e){}
+          if(currentTaskId&&String(currentTaskId)===String(id))try{openTaskDetail(id)}catch(e){}
+        }).catch(function(e){
+          if(t) t.likes_count=prevCount;
+          noteSupabaseOutage(e);
+          toast('Backend unavailable — like not saved');
+        });
+      }catch(e){
+        if(t) t.likes_count=prevCount;
+        noteSupabaseOutage(e);
+        toast('Backend unavailable — like not saved');
       }
       window.likeTask=likeTask;
-      toast('❤️ Liked');
-      try{loadTasks()}catch(e){}
-      try{loadPrintDirty()}catch(e){}
-      if(currentTaskId&&String(currentTaskId)===String(id))try{openTaskDetail(id)}catch(e){}
     }
 
     function openDeleteTask(id){
@@ -20614,9 +20645,12 @@ function openRoulette(){
       var s=getSaves().map(String);
       var k=String(id);
       var adding=s.indexOf(k)<0;
+      var prevLocal=s.slice();
       if(adding)s.push(k); else s=s.filter(function(x){return x!==k});
       setSavesLocal(s);
       var cfCount=null;
+      var persisted=false;
+      var lastErr=null;
       try{
         var saveUser=String(currentUser.name).slice(0,80);
         var sr=await fetch(CF_API+'/posts/'+encodeURIComponent(k)+'/save',{
@@ -20626,15 +20660,27 @@ function openRoulette(){
         var sj=await sr.json().catch(function(){return{}});
         if(!sr.ok||sj.ok===false)throw new Error((sj&&sj.error)||('Cloudflare save HTTP '+sr.status));
         if(sj&&sj.saves_count!=null)cfCount=Number(sj.saves_count)||0;
+        persisted=true;
       }catch(e){
+        lastErr=e;
         console.warn('Cloudflare save counter',e);
       }
       // Keep the legacy personal-save record if available, but Cloudflare is the public counter.
-      if(sb){
+      if(sb && !(typeof supabaseLikelyDown==='function' && supabaseLikelyDown())){
         try{
-          if(adding) await sb.from('user_saves').upsert({username:currentUser.name,post_id:Number(id)||id},{onConflict:'username,post_id'});
-          else await sb.from('user_saves').delete().eq('username',currentUser.name).eq('post_id',Number(id)||id);
-        }catch(e){console.warn(e)}
+          var saveRes;
+          if(adding) saveRes=await sb.from('user_saves').upsert({username:currentUser.name,post_id:Number(id)||id},{onConflict:'username,post_id'}).select('post_id').maybeSingle();
+          else saveRes=await sb.from('user_saves').delete().eq('username',currentUser.name).eq('post_id',Number(id)||id).select('post_id');
+          if(saveRes&&saveRes.error){ lastErr=saveRes.error; noteSupabaseOutage(saveRes.error); }
+          else persisted=true;
+        }catch(e){lastErr=e;noteSupabaseOutage(e);console.warn(e)}
+      }
+      if(!persisted){
+        setSavesLocal(prevLocal);
+        noteSupabaseOutage(lastErr||'save_failed');
+        toast('Save not stored — backend unavailable');
+        try{if(viewingSaved)renderSavedPostsOnly();else renderPosts()}catch(e){}
+        return;
       }
       try{
         posts.forEach(function(pp){if(String(pp.id)===k){
@@ -27135,6 +27181,10 @@ async function onIdFace(e){
       }catch(e){}
       var mins=postExtendMinutes(post);
       var amtLab=fmtMin(mins);
+      // Snapshot for rollback if every persist path fails (never fake a successful extend).
+      var snapExpires=Number((post&&post.expires)||0)||readCardExpires(id)||0;
+      var snapExtensions=(post&&Number(post.extensions))||0;
+      var snapExtenders=(post&&Array.isArray(post.extenders))?post.extenders.slice():[];
       // IMMEDIATE optimistic apply — light DOM only; heavy re-renders deferred.
       var base=Number((post&&post.expires)||0)||readCardExpires(id);
       if(!base || base<Date.now()) base=Date.now();
@@ -27157,7 +27207,7 @@ async function onIdFace(e){
         localStorage.setItem('rs_ext_map',JSON.stringify(map));
       }catch(e){}
       paintPostExtend(id, expires, extensions, EXTEND_COOLDOWN_MS);
-      toast('Extended +'+amtLab);
+      // Toast only after server confirmation (see persistExtend).
       // Unlock right away — never block UI on network/re-render.
       setTimeout(function(){ if(window.__extLock===id) window.__extLock=null; }, 120);
 
@@ -27245,12 +27295,39 @@ async function onIdFace(e){
               syncPostExpiresEverywhere(id, serverExp, extJ.extensions!=null?Number(extJ.extensions):extensions);
               paintPostExtend(id, serverExp, extJ.extensions!=null?Number(extJ.extensions):extensions, getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS);
             }
+            toast('Extended +'+amtLab);
             return;
           }
-          // Soft fail — keep optimistic UI; toast once so user knows to retry later if needed.
-          console.warn('extend persist soft-fail', extJ);
+          // Hard fail — revert optimistic extend; never leave a fake success.
+          console.warn('extend persist failed', extJ);
+          try{
+            if(post){
+              post.expires=snapExpires;
+              post.extensions=snapExtensions;
+              post.extenders=snapExtenders.slice();
+            }
+            syncPostExpiresEverywhere(id, snapExpires, snapExtensions);
+            try{
+              var map2=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};
+              if(snapExpires) map2[id]={expires:snapExpires,extensions:snapExtensions};
+              else delete map2[id];
+              localStorage.setItem('rs_ext_map',JSON.stringify(map2));
+            }catch(eMap){}
+            try{
+              var coolMap=readExtendCooldownMap();
+              var coolUser=extendUserId();
+              if(coolUser) delete coolMap[extendCooldownKey(coolUser,id)];
+              writeExtendCooldownMap(coolMap);
+            }catch(eCd){}
+            paintPostExtend(id, snapExpires, snapExtensions, 0);
+            restoreExtendButtons(id, post);
+          }catch(eRev){}
+          noteSupabaseOutage(extJ&&(extJ.error||extJ.message)||'extend_failed');
+          toast('Extend not saved — backend unavailable');
         }catch(e){
           console.warn('extend persist', e);
+          noteSupabaseOutage(e);
+          toast('Extend not saved — try again');
         }finally{
           if(window.__extLock===id) window.__extLock=null;
         }

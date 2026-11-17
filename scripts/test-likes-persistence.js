@@ -28,6 +28,9 @@ assert(html.includes('Backend unavailable — like not saved') || html.includes(
 assert(html.includes('like_write_unconfirmed') || html.includes(".select('likes_count,liked_by,reactions').maybeSingle()"), 'like write requires confirmed response');
 assert(html.includes('Comment not posted — backend unavailable'), 'comments do not fake success');
 assert(html.includes('sb-outage-banner') || html.includes('database quota'), 'outage banner for users');
+assert(html.includes('Save not stored — backend unavailable'), 'saves do not fake success');
+assert(html.includes("toast('Extended +'+amtLab)"), 'extend toast only after persist');
+assert(html.includes('Extend not saved — backend unavailable'), 'extend reverts on failure');
 
 // Behavioral model
 (function(){
