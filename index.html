@@ -16980,11 +16980,19 @@ function openRoulette(){
     async function runVideoOptimizeWorker(){
       if(window.__gtOptRunning)return;
       // Never steal the UI while the user is publishing a video, or while Random Cam is open.
+      // Also never compete with an active GoonTok / Wall player for bandwidth.
       try{
         if(window.__publishingVideo)return;
         if(document.body.classList.contains('rc-on'))return;
         var act=document.querySelector('.panel.active');
         if(act&&(act.id==='panel-randomcam'||act.id==='panel-map'||act.id==='panel-video-composer'))return;
+        var busyVid=document.querySelector('#gt-scroller video[data-gt-vid][src], .lazy-video[data-lv-active="1"] video[src]');
+        if(busyVid && !busyVid.paused && busyVid.readyState<3) return;
+        if(document.body.classList.contains('gt-on')){
+          // During GoonTok viewing, only remux when the active clip is already playing stably.
+          var activeGt=document.querySelector('#gt-scroller .gt-slide video[data-gt-vid].gt-on');
+          if(activeGt && (activeGt.paused || activeGt.readyState<2)) return;
+        }
       }catch(e){}
       if(!canRunVideoOptimizeNow())return;
       var q=loadOptQueue();
@@ -17047,6 +17055,8 @@ function openRoulette(){
         var out=file;
         // Silent: background repair must not open the user-facing upload modal.
         try{if(typeof compressVideoForUpload==='function') out=await compressVideoForUpload(file,{silent:true})}catch(e){}
+        // Fast Start remux (moov before mdat) — same as upload path; no recompress.
+        try{if(typeof ensureMp4FastStart==='function') out=await ensureMp4FastStart(out)}catch(e){}
         if(!out||out.size<1000){markVideoNeedsOpt(job.id,'compress_fail');return}
         // If compress didn't shrink much and original was already small/playable, just mark needs_opt lightly
         var up=null;
@@ -25225,6 +25235,7 @@ function postCardHtml(p, compact){
     async function uploadPostPhotos(list){
       var out=[];
       list=list||[];
+      window.__lastUploadPosters=window.__lastUploadPosters||{};
       for(var i=0;i<list.length;i++){
         var src=list[i];
         if(!src)continue;
@@ -25239,7 +25250,29 @@ function postCardHtml(p, compact){
           var blob=dataUrlToBlob(src);
           if(!blob && String(src).indexOf('data:')===0) blob=await(await fetch(src)).blob();
           if(blob){
-            var file=new File([blob],'p'+i+'.'+(isVid?'mp4':'jpg'),{type:blob.type||(isVid?'video/mp4':'image/jpeg')});
+            var vExt='mp4';
+            var vType=blob.type||(isVid?'video/mp4':'image/jpeg');
+            if(/webm/i.test(vType)) vExt='webm';
+            else if(/quicktime|video\/mov/i.test(vType)) vExt='mov';
+            var file=new File([blob],'p'+i+'.'+(isVid?vExt:'jpg'),{type:vType});
+            // Wall / roulette / game proofs historically skipped Fast Start → moov-at-end
+            // MP4s that force Safari to pull nearly the whole file before first frame.
+            if(isVid && typeof ensureMp4FastStart==='function'){
+              try{
+                file=await ensureMp4FastStart(file);
+              }catch(eFs){console.warn('wall faststart',eFs)}
+            }
+            // Local poster from the same bytes — never download the just-uploaded MP4.
+            if(isVid && typeof grabVideoPoster==='function'){
+              try{
+                var posterBlob=await grabVideoPoster(file);
+                if(posterBlob&&posterBlob.size>400){
+                  var thumbFile=new File([posterBlob],'vthumb_wall_'+Date.now()+'.jpg',{type:'image/jpeg'});
+                  var thumbUrl=await uploadCfFile(thumbFile);
+                  if(thumbUrl) window.__lastUploadPosters[i]=thumbUrl;
+                }
+              }catch(eTh){console.warn('wall vthumb',eTh)}
+            }
             var cfUrl=await uploadCfFile(file);
             if(cfUrl && String(cfUrl).indexOf('http')===0){out.push(cfUrl);continue}
           }
@@ -26249,10 +26282,17 @@ async function onIdFace(e){
       toast(photos.length ? 'Publishing… step 1/3 photos' : 'Publishing status…');
       try{
         var uploaded=[];
+        window.__lastUploadPosters={};
         if(photos.length){
           uploaded=await uploadPostPhotos(photos.slice(0,getPhotoMax()));
           if(!uploaded.length) throw new Error('Photo did not upload. Try a smaller photo.');
         }
+        // Prefer a real image thumb for video Wall/roulette proofs (never pack MP4 as thumb_url).
+        var uploadPoster='';
+        try{
+          var posterMap=window.__lastUploadPosters||{};
+          Object.keys(posterMap).forEach(function(k){ if(!uploadPoster && posterMap[k]) uploadPoster=posterMap[k]; });
+        }catch(e){}
         var imageField=uploaded.length ? (uploaded.length===1?uploaded[0]:JSON.stringify(uploaded)) : null;
         // hard size guard — huge base64 can make insert "succeed" nowhere
         var sizeApprox=String(imageField).length;
@@ -26286,29 +26326,41 @@ async function onIdFace(e){
             }
           }
         }catch(e){}
-        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var acct=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'account:anonymous':'account:registered';if(base.indexOf(acct)<0)base.push(acct);var aid='';try{aid=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'')}catch(eA){}if(aid&&base.indexOf('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40))<0)base.push('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40));}catch(eAc){}try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');if(gpub&&(gpub.game==='challenges'||gpub.badge==='challenges')&&base.indexOf('challenge_proof')<0)base.push('challenge_proof');if(gpub&&gpub.game_origin&&base.indexOf('game_origin:'+gpub.game_origin)<0)base.push('game_origin:'+gpub.game_origin);if(gpub&&gpub.taskId&&base.indexOf('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40))<0)base.push('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));}catch(eG){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
+        var hasUploadedVideo=uploaded.some(function(u){return /\.mp4|\.webm|\.mov|\.m4v/i.test(String(u||''))});
+        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var acct=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'account:anonymous':'account:registered';if(base.indexOf(acct)<0)base.push(acct);var aid='';try{aid=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'')}catch(eA){}if(aid&&base.indexOf('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40))<0)base.push('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40));}catch(eAc){}try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');if(gpub&&(gpub.game==='challenges'||gpub.badge==='challenges')&&base.indexOf('challenge_proof')<0)base.push('challenge_proof');if(gpub&&gpub.game_origin&&base.indexOf('game_origin:'+gpub.game_origin)<0)base.push('game_origin:'+gpub.game_origin);if(gpub&&gpub.taskId&&base.indexOf('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40))<0)base.push('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));}catch(eG){}try{if(hasUploadedVideo){if(base.indexOf('video')<0)base.push('video');if(base.indexOf('goontok')<0)base.push('goontok');if(uploadPoster&&typeof withVthumbTag==='function')base=withVthumbTag(base,uploadPoster);}}catch(eV){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
+        // Video Wall posts are permanent clips (same as GoonTok composer) — no Extend timer.
+        if(hasUploadedVideo){
+          try{imageField=uploaded.filter(function(u){return /\.mp4|\.webm|\.mov|\.m4v/i.test(String(u||''))})[0]||uploaded[0]||imageField}catch(e){}
+        }
         var payload={
           username:currentUser.name,
           title:title,
           description:desc||'',
           tags:pubTags,
           image_url:imageField,
-          expires_at:profileMode ? null : new Date(Date.now()+Math.max(15,selectedCreateMin||60)*60000).toISOString(),
-          extend_amount:profileMode ? 0 : (selectedExtendAmount||360),
+          expires_at:(profileMode || hasUploadedVideo) ? null : new Date(Date.now()+Math.max(15,selectedCreateMin||60)*60000).toISOString(),
+          extend_amount:(profileMode || hasUploadedVideo) ? 0 : (selectedExtendAmount||360),
           deletion_tier:delTier,
           free_deletion_enabled: delTier==='deletable',
           views:0,likes_count:0,extensions_count:0,saves_count:0,downloads_count:0
         };
         var cfRes=null;
         try{
+          var mediaIsVideo=hasUploadedVideo||uploaded.some(function(u){return /\.mp4|\.webm|\.mov|\.m4v/i.test(String(u||''))});
+          var mediaUrl=mediaIsVideo
+            ?(uploaded.filter(function(u){return /\.mp4|\.webm|\.mov|\.m4v/i.test(String(u||''))})[0]||uploaded[0]||'')
+            :(uploaded[0]||'');
+          var thumbUrl=uploadPoster
+            ||uploaded.find(function(u){return u && !/\.mp4|\.webm|\.mov|\.m4v/i.test(u)})
+            ||'';
           cfRes=await createCfPost({
             username:payload.username,
             title:payload.title,
-            description:payload.description+(uploaded.length>1?('\n@@ALBUM@@'+JSON.stringify(uploaded)):''),
+            description:payload.description+(uploaded.length>1 && !mediaIsVideo?('\n@@ALBUM@@'+JSON.stringify(uploaded)):''),
             tags:payload.tags,
-            media_url:uploaded[0]||'',
-            thumb_url:uploaded.find(function(u){return u && !/\.mp4|\.webm|\.mov/i.test(u)})||uploaded[0]||'',
-            media_type:uploaded.some(function(u){return /\.mp4|\.webm|\.mov/i.test(String(u||''))})?'video':'image',
+            media_url:mediaUrl,
+            thumb_url:thumbUrl,
+            media_type:mediaIsVideo?'video':'image',
             expires_at:payload.expires_at?Date.parse(payload.expires_at):null,
             extend_mins:payload.extend_amount||0,
             deletion_tier:delTier,

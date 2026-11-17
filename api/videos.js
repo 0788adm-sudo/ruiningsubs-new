@@ -347,6 +347,21 @@ async function handleMediaProxy(req, res) {
     return;
   }
 
+  // Unsatisfiable Range → 416 with Content-Range: bytes */total
+  if (upstreamRes.status === 416) {
+    var out416 = mediaCors({
+      'Content-Type': upstreamRes.headers.get('Content-Type') || guessMediaType(key),
+      'Accept-Ranges': 'bytes'
+    });
+    var cr416 = upstreamRes.headers.get('Content-Range');
+    if (cr416) out416['Content-Range'] = cr416;
+    try {
+      upstreamRes.body && upstreamRes.body.cancel && upstreamRes.body.cancel();
+    } catch (e) {}
+    writeMedia(res, 416, out416);
+    return;
+  }
+
   if (req.method === 'HEAD' && !range && upstreamRes.status === 200) {
     try {
       upstreamRes.body && upstreamRes.body.cancel && upstreamRes.body.cancel();

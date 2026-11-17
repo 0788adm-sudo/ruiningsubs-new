@@ -24,8 +24,10 @@ function assert(c, m) {
 assert(html.includes('function ensureMp4FastStart'), 'ensureMp4FastStart in upload path');
 assert(html.includes('function remuxMp4FastStartBuffer'), 'in-browser remux helper');
 assert(html.includes('await ensureMp4FastStart(file)'), 'uploadRawVideo calls ensureMp4FastStart');
+assert(/async function uploadPostPhotos[\s\S]*ensureMp4FastStart/.test(html), 'Wall/roulette uploadPostPhotos also Fast Starts');
 assert(html.includes('faststart validation failed'), 'validates remux before publish');
 assert(!/ffmpeg -c copy -movflags \+faststart/.test(html) || html.includes('movflags +faststart'), 'documents ffmpeg-equivalent intent');
+assert(fs.existsSync(path.join(__dirname, 'repair-mp4-faststart.js')), 'repair-mp4-faststart.js for existing moov-at-end clips');
 
 // —— Phase 2: Thumbnails ——
 assert(html.includes('Do NOT call grabVideoPosterFromUrl here'), 'publish does not remote-download for thumbs');
