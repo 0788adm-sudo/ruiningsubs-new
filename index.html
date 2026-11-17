@@ -3592,6 +3592,46 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
     // ---- Likes persistence (mirror views stack; do not alter views helpers above) ----
     var __likePersist={};
+    var __sbOutageUntil=0;
+    function isSupabaseUnavailableError(err){
+      var s='';
+      try{
+        if(!err) s='';
+        else if(typeof err==='string') s=err;
+        else if(err.message) s=String(err.message);
+        else s=JSON.stringify(err);
+      }catch(e){s=String(err||'')}
+      return /exceed_cached_egress_quota|egress_quota|project is restricted|Service for this project is restricted|542|PGRST002|Could not query the database|upstream connect error|ENOTFOUND|Failed to fetch|NetworkError|503|502/i.test(s);
+    }
+    function noteSupabaseOutage(err){
+      if(!isSupabaseUnavailableError(err)) return false;
+      __sbOutageUntil=Date.now()+120000;
+      try{
+        var bar=document.getElementById('sb-outage-banner');
+        if(!bar){
+          bar=document.createElement('div');
+          bar.id='sb-outage-banner';
+          bar.style.cssText='position:fixed;left:12px;right:12px;bottom:76px;z-index:10040;padding:10px 12px;border-radius:12px;background:#2a1010;border:1px solid #ff6a00;color:#ffd7bf;font-size:12px;font-weight:700;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.35)';
+          document.body.appendChild(bar);
+        }
+        bar.textContent='Backend temporarily unavailable (database quota). Likes, comments, and deletes cannot be saved right now.';
+        bar.style.display='block';
+      }catch(e){}
+      return true;
+    }
+    function clearSupabaseOutageBanner(){
+      __sbOutageUntil=0;
+      try{
+        var bar=document.getElementById('sb-outage-banner');
+        if(bar) bar.style.display='none';
+      }catch(e){}
+    }
+    function supabaseLikelyDown(){
+      return Date.now()<Number(__sbOutageUntil||0);
+    }
+    window.isSupabaseUnavailableError=isSupabaseUnavailableError;
+    window.noteSupabaseOutage=noteSupabaseOutage;
+    window.supabaseLikelyDown=supabaseLikelyDown;
     function readLocalReactionsMap(){
       try{return JSON.parse(localStorage.getItem('rs_reactions')||'{}')||{}}catch(e){return {}}
     }
@@ -3768,13 +3808,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return new Promise(function(resolve){
         try{
           if(typeof sb==='undefined' || !sb){
-            resolve({ok:false,reason:'no_sb'});
+            resolve({ok:false,reason:'no_sb',error:'supabase_unavailable'});
+            return;
+          }
+          if(supabaseLikelyDown()){
+            resolve({ok:false,reason:'sb_outage',error:'exceed_cached_egress_quota'});
             return;
           }
           var key=/^\d+$/.test(id)?Number(id):id;
           sb.from('posts').select('likes_count,liked_by,reactions').eq('id',key).maybeSingle().then(function(q){
             if(__likePersist[id]&&__likePersist[id].token!==token) return {skipped:true};
             if(q&&q.error) throw q.error;
+            clearSupabaseOutageBanner();
             var remote=q&&q.data||{};
             var remoteReactions={};
             try{
@@ -3786,6 +3831,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               if(Array.isArray(remote.liked_by)) remoteLikedBy=remote.liked_by.slice();
               else if(typeof remote.liked_by==='string') remoteLikedBy=JSON.parse(remote.liked_by)||[];
             }catch(e){remoteLikedBy=[]}
+            // Duplicate like from same user: keep one entry, no +1.
+            var already=!!(username && (remoteLikedBy.indexOf(username)>=0 || remoteReactions[username]));
+            if(username && emoji && already && prevEmoji){
+              // Changing emoji only — still rewrite absolute state.
+            } else if(username && emoji && already && !prevEmoji){
+              // Client thought it was a new like but server already has it — sync, don't inflate.
+              optimistic=Math.max(Number(remote.likes_count)||0, countUniqueLikers(remoteLikedBy, remoteReactions));
+            }
             var merged=mergeReactionsMaps(remoteReactions, localReactions);
             if(username){
               if(emoji) merged[username]=emoji;
@@ -3801,7 +3854,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             }
             var delta=0;
             if(username){
-              if(emoji && !prevEmoji) delta=1;
+              if(emoji && !prevEmoji && !already) delta=1;
               else if(!emoji && prevEmoji) delta=-1;
             }
             var remoteCount=Number(remote.likes_count)||0;
@@ -3815,31 +3868,48 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               likes_count:next,
               liked_by:likedBy,
               reactions:merged
-            }).eq('id',key).then(function(up){
+            }).eq('id',key).select('likes_count,liked_by,reactions').maybeSingle().then(function(up){
               if(up&&up.error) throw up.error;
               if(__likePersist[id]&&__likePersist[id].token!==token) return {skipped:true};
-              setLikesEverywhere(id, next, likedBy, merged);
+              // Require a successful write response — never claim ok on silent failure.
+              if(!up || !up.data) throw new Error('like_write_unconfirmed');
+              var saved=up.data;
+              var savedCount=Number(saved.likes_count);
+              if(!isFinite(savedCount)) savedCount=next;
+              var savedBy=likedBy;
+              try{
+                if(Array.isArray(saved.liked_by)) savedBy=saved.liked_by.slice();
+              }catch(e){}
+              var savedReact=merged;
+              try{
+                if(saved.reactions&&typeof saved.reactions==='object') savedReact=Object.assign({},saved.reactions);
+              }catch(e){}
+              setLikesEverywhere(id, savedCount, savedBy, savedReact);
               try{
                 var post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null;
                 if(post){
-                  post.likes=next;
-                  post.likedBy=likedBy.slice();
-                  post.reactions=Object.assign({},merged);
+                  post.likes=savedCount;
+                  post.likedBy=savedBy.slice();
+                  post.reactions=Object.assign({},savedReact);
                   rememberFeedPost(post);
                 }
               }catch(e){}
               try{paintPostEngagement(id)}catch(e){}
-              return {ok:true,likes:next,likedBy:likedBy,reactions:merged};
+              return {ok:true,likes:savedCount,likedBy:savedBy,reactions:savedReact};
             });
           }).then(function(res){
-            resolve(res||{ok:true});
+            if(res&&res.skipped) resolve(res);
+            else if(res&&res.ok) resolve(res);
+            else resolve(res||{ok:false,reason:'empty'});
           }).catch(function(err){
             console.warn('likes persist',err);
-            resolve({ok:false,error:err});
+            noteSupabaseOutage(err);
+            resolve({ok:false,error:err,unavailable:isSupabaseUnavailableError(err)});
           });
         }catch(e){
           console.warn('likes persist',e);
-          resolve({ok:false,error:e});
+          noteSupabaseOutage(e);
+          resolve({ok:false,error:e,unavailable:isSupabaseUnavailableError(e)});
         }
       });
     }
@@ -6236,11 +6306,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         bap.onclick=function(){setProfilePostMode();showPanel('post');};
       }
     }catch(e){}
-    setInterval(function(){loadBannedUsers().then(loadPosts).catch(function(){loadPosts()})},60000);
+    setInterval(function(){
+      // Pause heavy refresh while Supabase is quota-blocked — thrashing burns Cached Egress.
+      if(typeof supabaseLikelyDown==='function' && supabaseLikelyDown()) return;
+      loadBannedUsers().then(loadPosts).catch(function(){loadPosts()});
+    },90000);
     // Live feed refresh so brand-new publishes appear for everyone without a hard reload.
+    // 45s (was 18s): full feed selects are the main Cached Egress consumers.
     setInterval(function(){
       try{
         if(document.hidden) return;
+        if(typeof supabaseLikelyDown==='function' && supabaseLikelyDown()) return;
         var act=document.querySelector('.panel.active');
         var pid=act&&act.id||'';
         if(pid==='panel-feed'||pid==='panel-extended'||pid===''){
@@ -6263,7 +6339,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }).catch(function(){});
         }
       }catch(e){}
-    },18000);
+    },45000);
     setInterval(loadNotifs,20000);setInterval(updateMsgBadge,15000);setInterval(updateTimers,1000);
     // If another user deletes the post you're viewing, swap to the gone state.
     setInterval(function(){
@@ -6272,10 +6348,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(!id)return;
         if(typeof isDeletedId==='function' && isDeletedId(id)){ showPostGone(id); return; }
         if(typeof sb==='undefined'||!sb)return;
+        if(typeof supabaseLikelyDown==='function' && supabaseLikelyDown())return;
         if(window.__detailLiveCheckBusy)return;
         window.__detailLiveCheckBusy=true;
         sb.from('posts').select('id').eq('id',id).maybeSingle().then(function(q){
           window.__detailLiveCheckBusy=false;
+          if(q&&q.error){ noteSupabaseOutage(q.error); return; }
           if(q && !q.error && !q.data && String(currentDetailId)===String(id)){
             try{purgePostEverywhere(id)}catch(e){}
             showPostGone(id);
@@ -8358,17 +8436,46 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function likeTask(id){
       var key='rs_task_liked_'+id;
       if(localStorage.getItem(key)==='1'){toast('Already liked');return}
-      localStorage.setItem(key,'1');
       var t=tasksCache.find(function(x){return String(x.id)===String(id)});
-      if(t){t.likes_count=(t.likes_count||0)+1}
-      if(sb){
-        try{sb.from('tasks').update({likes_count:(t&&t.likes_count)||1}).eq('id',id)}catch(e){}
+      var prevCount=t?Number(t.likes_count)||0:0;
+      var nextCount=prevCount+1;
+      if(t){t.likes_count=nextCount}
+      if(!sb || (typeof supabaseLikelyDown==='function' && supabaseLikelyDown())){
+        if(t) t.likes_count=prevCount;
+        noteSupabaseOutage('sb_outage');
+        toast('Backend unavailable — like not saved');
+        return;
+      }
+      try{
+        sb.from('tasks').update({likes_count:nextCount}).eq('id',id).select('likes_count').maybeSingle().then(function(up){
+          if(up&&up.error){
+            if(t) t.likes_count=prevCount;
+            noteSupabaseOutage(up.error);
+            toast('Backend unavailable — like not saved');
+            return;
+          }
+          if(!up||!up.data){
+            if(t) t.likes_count=prevCount;
+            toast('Like not saved — try again');
+            return;
+          }
+          localStorage.setItem(key,'1');
+          if(t&&up.data.likes_count!=null) t.likes_count=Number(up.data.likes_count)||nextCount;
+          toast('❤️ Liked');
+          try{loadTasks()}catch(e){}
+          try{loadPrintDirty()}catch(e){}
+          if(currentTaskId&&String(currentTaskId)===String(id))try{openTaskDetail(id)}catch(e){}
+        }).catch(function(e){
+          if(t) t.likes_count=prevCount;
+          noteSupabaseOutage(e);
+          toast('Backend unavailable — like not saved');
+        });
+      }catch(e){
+        if(t) t.likes_count=prevCount;
+        noteSupabaseOutage(e);
+        toast('Backend unavailable — like not saved');
       }
       window.likeTask=likeTask;
-      toast('❤️ Liked');
-      try{loadTasks()}catch(e){}
-      try{loadPrintDirty()}catch(e){}
-      if(currentTaskId&&String(currentTaskId)===String(id))try{openTaskDetail(id)}catch(e){}
     }
 
     function openDeleteTask(id){
@@ -19979,14 +20086,20 @@ function openRoulette(){
         var featP=sbQueryTimeout(Promise.resolve(fetchCfFeed('featured', 20)).catch(function(){return[]}),8000,[]);
         var timedP=Promise.resolve([]);
         var recentP=Promise.resolve([]);
-        if(typeof sb!=='undefined' && sb){
+        if(typeof sb!=='undefined' && sb && !(typeof supabaseLikelyDown==='function' && supabaseLikelyDown())){
           timedP=sbQueryTimeout(
-            sb.from('posts').select(SB_FEED_COLS).gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(160).then(function(r){return (r&&r.data)||[]}),
+            sb.from('posts').select(SB_FEED_COLS).gt('expires_at', nowIso).order('expires_at',{ascending:false}).limit(160).then(function(r){
+              if(r&&r.error){ noteSupabaseOutage(r.error); throw r.error; }
+              return (r&&r.data)||[];
+            }),
             7000,
             []
           );
           recentP=sbQueryTimeout(
-            sb.from('posts').select(SB_FEED_COLS).order('created_at',{ascending:false}).limit(120).then(function(r){return (r&&r.data)||[]}),
+            sb.from('posts').select(SB_FEED_COLS).order('created_at',{ascending:false}).limit(120).then(function(r){
+              if(r&&r.error){ noteSupabaseOutage(r.error); throw r.error; }
+              return (r&&r.data)||[];
+            }),
             7000,
             []
           );
@@ -20532,9 +20645,12 @@ function openRoulette(){
       var s=getSaves().map(String);
       var k=String(id);
       var adding=s.indexOf(k)<0;
+      var prevLocal=s.slice();
       if(adding)s.push(k); else s=s.filter(function(x){return x!==k});
       setSavesLocal(s);
       var cfCount=null;
+      var persisted=false;
+      var lastErr=null;
       try{
         var saveUser=String(currentUser.name).slice(0,80);
         var sr=await fetch(CF_API+'/posts/'+encodeURIComponent(k)+'/save',{
@@ -20544,15 +20660,27 @@ function openRoulette(){
         var sj=await sr.json().catch(function(){return{}});
         if(!sr.ok||sj.ok===false)throw new Error((sj&&sj.error)||('Cloudflare save HTTP '+sr.status));
         if(sj&&sj.saves_count!=null)cfCount=Number(sj.saves_count)||0;
+        persisted=true;
       }catch(e){
+        lastErr=e;
         console.warn('Cloudflare save counter',e);
       }
       // Keep the legacy personal-save record if available, but Cloudflare is the public counter.
-      if(sb){
+      if(sb && !(typeof supabaseLikelyDown==='function' && supabaseLikelyDown())){
         try{
-          if(adding) await sb.from('user_saves').upsert({username:currentUser.name,post_id:Number(id)||id},{onConflict:'username,post_id'});
-          else await sb.from('user_saves').delete().eq('username',currentUser.name).eq('post_id',Number(id)||id);
-        }catch(e){console.warn(e)}
+          var saveRes;
+          if(adding) saveRes=await sb.from('user_saves').upsert({username:currentUser.name,post_id:Number(id)||id},{onConflict:'username,post_id'}).select('post_id').maybeSingle();
+          else saveRes=await sb.from('user_saves').delete().eq('username',currentUser.name).eq('post_id',Number(id)||id).select('post_id');
+          if(saveRes&&saveRes.error){ lastErr=saveRes.error; noteSupabaseOutage(saveRes.error); }
+          else persisted=true;
+        }catch(e){lastErr=e;noteSupabaseOutage(e);console.warn(e)}
+      }
+      if(!persisted){
+        setSavesLocal(prevLocal);
+        noteSupabaseOutage(lastErr||'save_failed');
+        toast('Save not stored — backend unavailable');
+        try{if(viewingSaved)renderSavedPostsOnly();else renderPosts()}catch(e){}
+        return;
       }
       try{
         posts.forEach(function(pp){if(String(pp.id)===k){
@@ -27053,6 +27181,10 @@ async function onIdFace(e){
       }catch(e){}
       var mins=postExtendMinutes(post);
       var amtLab=fmtMin(mins);
+      // Snapshot for rollback if every persist path fails (never fake a successful extend).
+      var snapExpires=Number((post&&post.expires)||0)||readCardExpires(id)||0;
+      var snapExtensions=(post&&Number(post.extensions))||0;
+      var snapExtenders=(post&&Array.isArray(post.extenders))?post.extenders.slice():[];
       // IMMEDIATE optimistic apply — light DOM only; heavy re-renders deferred.
       var base=Number((post&&post.expires)||0)||readCardExpires(id);
       if(!base || base<Date.now()) base=Date.now();
@@ -27075,7 +27207,7 @@ async function onIdFace(e){
         localStorage.setItem('rs_ext_map',JSON.stringify(map));
       }catch(e){}
       paintPostExtend(id, expires, extensions, EXTEND_COOLDOWN_MS);
-      toast('Extended +'+amtLab);
+      // Toast only after server confirmation (see persistExtend).
       // Unlock right away — never block UI on network/re-render.
       setTimeout(function(){ if(window.__extLock===id) window.__extLock=null; }, 120);
 
@@ -27163,12 +27295,39 @@ async function onIdFace(e){
               syncPostExpiresEverywhere(id, serverExp, extJ.extensions!=null?Number(extJ.extensions):extensions);
               paintPostExtend(id, serverExp, extJ.extensions!=null?Number(extJ.extensions):extensions, getLocalExtendCooldown(id)||EXTEND_COOLDOWN_MS);
             }
+            toast('Extended +'+amtLab);
             return;
           }
-          // Soft fail — keep optimistic UI; toast once so user knows to retry later if needed.
-          console.warn('extend persist soft-fail', extJ);
+          // Hard fail — revert optimistic extend; never leave a fake success.
+          console.warn('extend persist failed', extJ);
+          try{
+            if(post){
+              post.expires=snapExpires;
+              post.extensions=snapExtensions;
+              post.extenders=snapExtenders.slice();
+            }
+            syncPostExpiresEverywhere(id, snapExpires, snapExtensions);
+            try{
+              var map2=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};
+              if(snapExpires) map2[id]={expires:snapExpires,extensions:snapExtensions};
+              else delete map2[id];
+              localStorage.setItem('rs_ext_map',JSON.stringify(map2));
+            }catch(eMap){}
+            try{
+              var coolMap=readExtendCooldownMap();
+              var coolUser=extendUserId();
+              if(coolUser) delete coolMap[extendCooldownKey(coolUser,id)];
+              writeExtendCooldownMap(coolMap);
+            }catch(eCd){}
+            paintPostExtend(id, snapExpires, snapExtensions, 0);
+            restoreExtendButtons(id, post);
+          }catch(eRev){}
+          noteSupabaseOutage(extJ&&(extJ.error||extJ.message)||'extend_failed');
+          toast('Extend not saved — backend unavailable');
         }catch(e){
           console.warn('extend persist', e);
+          noteSupabaseOutage(e);
+          toast('Extend not saved — try again');
         }finally{
           if(window.__extLock===id) window.__extLock=null;
         }
@@ -27368,10 +27527,10 @@ async function onIdFace(e){
           if((Number(post.likes)||0)>=100 && String(post.user)===String(name)) unlockBadge('likes_100');
         }
       }catch(e){}
+      // Optimistic UI only until server confirms — never toast success early.
       try{setLikesEverywhere(id, nextCount, likedBy, reactions)}catch(e){}
       try{rememberFeedPost(post)}catch(e){}
       try{paintPostEngagement(id)}catch(e){}
-      toast(emoji?('Liked'):'Like removed');
       Promise.resolve(persistLikes(id,{
         username:name,
         emoji:emoji||null,
@@ -27380,17 +27539,27 @@ async function onIdFace(e){
         likedBy:likedBy,
         reactions:reactions
       })).then(function(res){
-        if(res&&res.ok===false && res.reason!=='no_sb' && !res.skipped){
-          try{applyLikesSnapshot(id, snapshot)}catch(e){}
+        if(res&&res.skipped) return;
+        if(res&&res.ok){
           try{paintPostEngagement(id)}catch(e){}
-          try{toast('Like not saved — try again')}catch(e){}
-        }else if(res&&typeof res.likes==='number'){
-          try{paintPostEngagement(id)}catch(e){}
+          toast(emoji?('Liked'):'Like removed');
+          return;
+        }
+        // Revert optimistic UI — like was NOT saved.
+        try{applyLikesSnapshot(id, snapshot)}catch(e){}
+        try{paintPostEngagement(id)}catch(e){}
+        if(res&&(res.unavailable||res.reason==='sb_outage'||res.reason==='no_sb'||isSupabaseUnavailableError(res.error))){
+          noteSupabaseOutage(res.error||res.reason||'sb_outage');
+          toast('Backend unavailable — like not saved');
+        }else{
+          toast('Like not saved — try again');
         }
       }).catch(function(e){
         console.warn(e);
         try{applyLikesSnapshot(id, snapshot)}catch(e2){}
         try{paintPostEngagement(id)}catch(e2){}
+        noteSupabaseOutage(e);
+        toast('Like not saved — try again');
       });
     }
     function reactFromFeed(id, emoji){
@@ -27527,6 +27696,7 @@ async function onIdFace(e){
       var who=(currentUser&&currentUser.name)||localStorage.getItem('rs_guest_name');
       if(!who){who='Guest_'+Math.floor(1000+Math.random()*9000);try{localStorage.setItem('rs_guest_name',who)}catch(e){}}
       var saved=false;
+      var lastErr=null;
       try{
         var cr=await fetch(CF_API+'/posts/'+encodeURIComponent(postId)+'/comments',{
           method:'POST',
@@ -27535,12 +27705,19 @@ async function onIdFace(e){
         });
         var cj=await cr.json().catch(function(){return{}});
         if(cj&&cj.ok)saved=true;
-      }catch(e){console.warn(e)}
-      if(!saved && sb){
+        else lastErr=cj&&(cj.error||cj.message)||('comment_http_'+cr.status);
+      }catch(e){lastErr=e;console.warn(e)}
+      if(!saved && sb && !(typeof supabaseLikelyDown==='function' && supabaseLikelyDown())){
         try{
           var ins=await sb.from('comments').insert({post_id:postId,username:who,text:text});
-          if(!ins.error)saved=true;
-        }catch(e){console.warn(e)}
+          if(ins&&ins.error){ lastErr=ins.error; noteSupabaseOutage(ins.error); }
+          else if(!ins.error) saved=true;
+        }catch(e){lastErr=e;noteSupabaseOutage(e);console.warn(e)}
+      }
+      if(!saved){
+        noteSupabaseOutage(lastErr||'comment_failed');
+        toast('Comment not posted — backend unavailable');
+        return;
       }
       try{
         var key='rs_cmt_'+String(postId);
@@ -27554,7 +27731,7 @@ async function onIdFace(e){
       try{if(post){noteEngagementAuthor(post.user);noteEngagementTags(post.tags);maybeViralReward(post)}}catch(e){}
       if(post&&sb)try{await pushNotif(post.user,who,'comment',postId,'💬 @'+who+' commented on your post')}catch(e){}
       if(input)input.value='';
-      toast(saved?'Comment posted':'Comment saved');
+      toast('Comment posted');
       try{openDetail(postId,true)}catch(e){}
     }
     async function pushNotif(toUser,fromUser,type,postId,message){
@@ -28764,12 +28941,26 @@ async function onIdFace(e){
       var key=String(uid).toLowerCase()+'|'+postId;
       var map=loadDeleteTxnMap();
       var row=map[key];
-      if(row && row.transactionId && row.status!=='completed' && row.status!=='failed_refunded'){
-        return row;
+      // STABLE txn id (no random suffix). Random ids caused triple charges for post 3251
+      // because each retry/refresh minted a new ref and CF spend is not idempotent.
+      var stable='delete-post:'+postId+':'+String(uid).toLowerCase()+':50';
+      if(row && row.transactionId){
+        // Migrate legacy random-suffix ids onto the stable key for the same post.
+        if(String(row.transactionId).indexOf(stable)===0 && row.status==='completed'){
+          return row;
+        }
+        if(row.status!=='completed' && row.status!=='failed_refunded'){
+          if(String(row.transactionId)!==stable){
+            row.transactionId=stable;
+            row.legacyRefs=row.legacyRefs||[];
+            map[key]=row;
+            saveDeleteTxnMap(map);
+          }
+          return row;
+        }
       }
-      var txn='delete-post:'+postId+':'+String(uid).toLowerCase()+':50:'+Date.now().toString(36);
       row={
-        transactionId:txn,
+        transactionId:stable,
         postId:postId,
         user:uid,
         status:'pending',
@@ -28829,7 +29020,36 @@ async function onIdFace(e){
         try{localStorage.setItem('rs_fc_wallet_user', fundedUser)}catch(e){}
         window.__fcWalletUser=fundedUser;
         aliases=walletAliasListFor(fundedUser);
-        if(bal<cost){
+
+        // Server truth FIRST — if any delete-post:<id>:… spend already exists, do NOT charge again.
+        var charged=!!txnRow.charged;
+        try{
+          var prior=await fetchDeleteTxnStatus(txnId, fundedUser, id, aliases);
+          if(prior && prior.status==='completed'){
+            finishedOk=true;
+            patchDeleteTxn(id,uid,{status:'completed',charged:true,walletUser:fundedUser});
+            deleteRequestProgress(true,'completed',{txn:txnId});
+            try{purgePostEverywhere(id)}catch(e){}
+            closeModals();
+            try{await loadFagBalance()}catch(e){}
+            setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
+            toast('Post already deleted');
+            return true;
+          }
+          if(prior && prior.status==='charged'){
+            charged=true;
+            if(prior.transactionId) txnId=String(prior.transactionId);
+            patchDeleteTxn(id,uid,{status:'charged',charged:true,walletUser:prior.wallet_user||fundedUser,transactionId:txnId});
+          }
+          if(prior && prior.status==='unavailable'){
+            deleteRequestProgress(true,'failed_no_charge',{detail:'Database temporarily unavailable. Try again shortly — no new charge yet.',txn:txnId});
+            toast('Database temporarily unavailable — try again shortly');
+            setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},2200);
+            return false;
+          }
+        }catch(e){}
+
+        if(!charged && bal<cost){
           deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
           toast('Insufficient FC — need '+cost+' FC · have '+bal);
           try{openNeedCoins({cost:cost,why:'delete post'})}catch(e){}
@@ -28839,8 +29059,7 @@ async function onIdFace(e){
         }
 
         // Same spend pipeline as Premium Pin: /api/fc-spend → CF browser → SB.
-        // One durable txn id — never a parallel coin system.
-        var charged=!!txnRow.charged;
+        // Stable txn id — never mint a new ref after a failed attempt.
         if(!charged){
           deleteRequestProgress(true,'processing_deletion',{txn:txnId});
           var prevUser=null;
@@ -28862,17 +29081,36 @@ async function onIdFace(e){
             patchDeleteTxn(id,uid,{status:'charged',charged:true,walletUser:fundedUser});
             try{await loadFagBalance()}catch(e){}
           }else{
-            // If Pin-path spend failed, re-check balance — do not claim pending forever.
-            try{bal=Number(await loadFagBalance())||0}catch(e){}
-            if(bal<cost){
-              deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
-              toast('Insufficient FC — need '+cost+' FC · have '+bal);
-              patchDeleteTxn(id,uid,{status:'failed_no_charge'});
-              setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
-              return false;
+            // Re-check server — spend may have landed even if the client response failed.
+            try{
+              var after=await fetchDeleteTxnStatus(txnId, fundedUser, id, aliases);
+              if(after && (after.status==='charged' || after.status==='completed')){
+                charged=true;
+                if(after.transactionId) txnId=String(after.transactionId);
+                patchDeleteTxn(id,uid,{status:after.status==='completed'?'completed':'charged',charged:true,walletUser:fundedUser,transactionId:txnId});
+                if(after.status==='completed'){
+                  finishedOk=true;
+                  deleteRequestProgress(true,'completed',{txn:txnId});
+                  try{purgePostEverywhere(id)}catch(e){}
+                  closeModals();
+                  try{await loadFagBalance()}catch(e){}
+                  setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},900);
+                  return true;
+                }
+              }
+            }catch(e){}
+            if(!charged){
+              try{bal=Number(await loadFagBalance())||0}catch(e){}
+              if(bal<cost){
+                deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' FC · have '+bal,txn:txnId});
+                toast('Insufficient FC — need '+cost+' FC · have '+bal);
+                patchDeleteTxn(id,uid,{status:'failed_no_charge'});
+                setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
+                return false;
+              }
+              // Fall through: server spendDeleteFc with exact funded user (no precharge).
+              charged=false;
             }
-            // Fall through: server spendDeleteFc with exact funded user (no precharge).
-            charged=false;
           }
         }
 

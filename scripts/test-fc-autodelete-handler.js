@@ -495,6 +495,38 @@ function noAdminTraffic() {
   assert.strictEqual(posts['3251'], undefined, 'post 3251 deleted');
   console.log('PASS · MasterSan casing + charged txn completes without double charge');
 
+  // 11) Random-suffix legacy charge still finishes delete (no 4th charge)
+  resetState();
+  cfWallets.MasterSan = 999730;
+  posts['3251b'] = samplePost('3251b', 'masterzore');
+  ledgerFor('MasterSan').unshift({
+    kind: 'spend',
+    action: 'delete',
+    ref_id: 'delete-post:3251b:mastersan:50:mwlan6lx',
+    ref: 'delete-post:3251b:mastersan:50:mwlan6lx',
+    coins: 50
+  });
+  var balLegacy = cfWallets.MasterSan;
+  var rLegacy = await invoke({
+    user: 'MasterSan',
+    postId: '3251b',
+    reason: 'paid',
+    idempotencyKey: 'delete-post:3251b:mastersan:50',
+    precharged: true,
+    walletUsers: ['MasterSan', 'mastersan']
+  });
+  assert.strictEqual(rLegacy.status, 200, 'legacy suffix precharged finishes');
+  assert.strictEqual(cfWallets.MasterSan, balLegacy, 'legacy suffix no extra debit');
+  assert.strictEqual(posts['3251b'], undefined, 'legacy suffix post deleted');
+  console.log('PASS · legacy random-suffix charge completes without re-charging');
+
+  var api2 = require('fs').readFileSync(path.join(__dirname, '..', 'api', 'delete-post.js'), 'utf8');
+  var html2 = require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(api2.indexOf('refMatchesDeletePost') >= 0, 'ref matcher for post-scoped spends');
+  assert.ok(html2.indexOf("delete-post:'+postId+':'+String(uid).toLowerCase()+':50'") >= 0, 'stable txn id (no random suffix)');
+  assert.ok(api2.indexOf("status: 'unavailable'") >= 0, 'load failure ≠ completed');
+  console.log('PASS · stable txn + unavailable status contracts');
+
   console.log('OK · fc-autodelete-handler');
 })().catch(function (e) {
   console.error('FAIL ·', e && e.stack ? e.stack : e);

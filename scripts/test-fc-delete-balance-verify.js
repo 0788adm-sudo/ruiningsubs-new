@@ -42,5 +42,8 @@ ok(html.indexOf('fetchDeleteTxnStatus') >= 0, 'client polls server txn status');
 ok(html.indexOf('walletAliasListFor') >= 0, 'alias list matches header wallets');
 ok(html.indexOf('resumePendingDeleteTxn') >= 0 || html.indexOf('Resume a charged/pending FC delete') >= 0, 'refresh resumes same txn');
 ok(html.indexOf('rs_delete_txn') >= 0, 'sessionStorage txn map');
+ok(html.indexOf("delete-post:'+postId+':'+String(uid).toLowerCase()+':50'") >= 0, 'stable txn id without random suffix');
+ok(api.indexOf('refMatchesDeletePost') >= 0, 'matches any delete-post:<id>: ledger ref');
+ok(api.indexOf("status: 'unavailable'") >= 0, 'DB outage is unavailable not completed');
 
 console.log('\nOK · fc-delete-balance-verify');

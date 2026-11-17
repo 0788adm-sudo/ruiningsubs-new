@@ -299,6 +299,39 @@ async function findLedgerSpend(user, action, ref, minCoins, timeoutMs) {
   return findLedgerRow(user, 'spend', action, ref, minCoins, timeoutMs);
 }
 
+/** Match any delete spend for this post (exact txn ref OR legacy/random-suffix refs). */
+function refMatchesDeletePost(ref, postId, idemRef) {
+  const r = String(ref || '');
+  const id = String(postId || '');
+  const want = String(idemRef || '');
+  if (want && r === want) return true;
+  if (!id) return false;
+  // delete-post:3251:mastersan:50 or delete-post:3251:mastersan:50:mwl6m5kc
+  if (r.indexOf('delete-post:' + id + ':') === 0) return true;
+  if (r === 'delete-post:' + id) return true;
+  return false;
+}
+
+async function findCfDeleteSpendForPost(user, postId, idemRef, minCoins, timeoutMs) {
+  const need = Number(minCoins || DELETE_COST_FC) || DELETE_COST_FC;
+  const res = await cfFetch(
+    '/wallet/ledger?user=' + encodeURIComponent(user),
+    null,
+    timeoutMs == null ? 12000 : Number(timeoutMs) || 12000
+  );
+  const rows = (res.json && res.json.ledger) || [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || {};
+    if (String(row.kind || '') !== 'spend') continue;
+    if (String(row.action || '') !== 'delete') continue;
+    if (Number(row.coins || 0) < need) continue;
+    const ref = String(row.ref_id || row.ref || '');
+    if (!refMatchesDeletePost(ref, postId, idemRef)) continue;
+    return row;
+  }
+  return null;
+}
+
 /** Parallel ledger probe across wallet case/alias candidates (Pin-speed CF budget). */
 async function findAnyDeleteSpend(candidates, postId, idemRef, minCoins, timeoutMs) {
   const need = Number(minCoins || DELETE_COST_FC) || DELETE_COST_FC;
@@ -313,9 +346,20 @@ async function findAnyDeleteSpend(candidates, postId, idemRef, minCoins, timeout
         .then((row) => (row ? { user: u, ref: spendRef, row: row, source: 'supabase' } : null))
         .catch(() => null)
     );
+    // Prefer exact ref, but also accept any delete-post:<postId>:… spend so
+    // random-suffix retries (mwl6m5kc / mwlalx9n) still finish without re-charging.
     jobs.push(
-      findLedgerSpend(u, 'delete', spendRef, need, cfMs)
-        .then((row) => (row ? { user: u, ref: spendRef, row: row, source: 'cf' } : null))
+      findCfDeleteSpendForPost(u, postId, idemRef || spendRef, need, cfMs)
+        .then((row) =>
+          row
+            ? {
+                user: u,
+                ref: String(row.ref_id || row.ref || spendRef),
+                row: row,
+                source: 'cf'
+              }
+            : null
+        )
         .catch(() => null)
     );
   }
@@ -1079,12 +1123,27 @@ async function statusForDeleteTxn(rawUser, postId, spendIdem, walletExtras) {
   const candidates = walletUserCandidates(rawUser, walletExtras);
   const canonicalId = canonicalPostId(postId);
   let row = null;
+  let loadError = null;
   try {
     row = await loadPostRow(canonicalId);
-  } catch (_) {
+  } catch (e) {
+    loadError = String(e && e.message ? e.message : e);
     row = null;
   }
   const hit = await findAnyDeleteSpend(candidates, canonicalId, spendIdem, DELETE_COST_FC, 12000);
+  // Supabase outage must NOT look like a successful delete (false completed).
+  if (loadError) {
+    return {
+      ok: false,
+      status: 'unavailable',
+      error: 'load_failed',
+      detail: loadError,
+      postId: canonicalId,
+      charged: hit ? DELETE_COST_FC : 0,
+      transactionId: spendIdem,
+      wallet_user: (hit && hit.user) || candidates[0] || rawUser
+    };
+  }
   if (!row) {
     return {
       ok: true,
@@ -1104,7 +1163,7 @@ async function statusForDeleteTxn(rawUser, postId, spendIdem, walletExtras) {
       postId: canonicalId,
       detail: 'FC spend found — post still present. Retry delete to finish without a second charge.',
       charged: DELETE_COST_FC,
-      transactionId: spendIdem,
+      transactionId: String((hit && hit.ref) || spendIdem),
       wallet_user: hit.user,
       source: hit.source
     };
