@@ -45,7 +45,12 @@ assert(/function ownerDeleteCost[\s\S]*?return 0/.test(api), 'API ownerDeleteCos
 assert(/anonymous_cannot_delete/.test(api), 'API still gates anon non-owners');
 assert(/requesterAnon && !isOwner/.test(api), 'anon non-owner must pay');
 assert(/DELETE_COST_FC/.test(api) && /50/.test(api), 'paid path still 50 FC');
-assert(/15000/.test(api) && /attempt spend directly|Pin \/api\/fc-spend|Do NOT pre-probe CF balance/.test(api), 'delete FC spends like Pin (no short CF balance probe)');
+assert(
+  (/12000/.test(api) || /15000/.test(api)) &&
+    (/resolveFcBalance/.test(api) || /spendDeleteFc/.test(api)) &&
+    /spend_timeout|Never report "insufficient/.test(api),
+  'delete FC resolves real balance and does not mask CF timeout as empty wallet'
+);
 
 assert(/Never promote a JPEG|treatAsVideo/.test(html), 'Wall photo→video gate');
 assert(/if\(vsrc && typeof isVideoUrl==='function' && !isVideoUrl\(vsrc\)\) vsrc=''/.test(html), 'feed rejects non-video src');

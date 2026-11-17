@@ -19,10 +19,18 @@ function ok(cond, msg) {
 // --- Timeout / idempotency ---
 ok(html.indexOf('verifyPostDeletedPoll') >= 0, 'client polls DB after timeout');
 ok(html.indexOf('Network slow — post still present') >= 0, 'timeout no longer claims hard failure');
-ok(html.indexOf("deleteRequestProgress(true,'verifying')") >= 0, 'verifying progress stage');
+ok(
+  html.indexOf("deleteRequestProgress(true,'verifying") >= 0 ||
+    html.indexOf("deleteRequestProgress(true,'verifying_deletion'") >= 0,
+  'verifying progress stage'
+);
 ok(html.indexOf('Never treat AbortError as proof of failure') >= 0 || html.indexOf('NEVER treat AbortError') >= 0, 'abort ≠ failure');
+ok(html.indexOf('rs_delete_txn') >= 0 && html.indexOf('transactionId') >= 0, 'persistent delete transaction id');
+ok(html.indexOf('resumePendingDeleteTxn') >= 0 || html.indexOf('Resume a pending FC delete') >= 0, 'resume pending delete after refresh');
 ok(del.indexOf('waited_for_inflight') >= 0, 'server waits on inflight delete lock');
 ok(del.indexOf('acquireDeleteLock') >= 0 && del.indexOf('claimSbSpendRef') >= 0, 'idempotent spend + lock');
+ok(del.indexOf('findAnyDeleteSpend') >= 0, 'parallel short ledger probe');
+ok(del.indexOf('verifyClientDeleteSpend') >= 0, 'client precharge verification');
 
 // --- Admin sorting ---
 ok(html.indexOf('function adminRequestTimestamp') >= 0, 'adminRequestTimestamp helper');

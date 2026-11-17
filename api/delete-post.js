@@ -114,7 +114,7 @@ function walletUser(u) {
     .slice(0, 40);
 }
 
-function walletUserCandidates(raw) {
+function walletUserCandidates(raw, extra) {
   const primary = walletUser(raw);
   const lower = primary.toLowerCase();
   const out = [];
@@ -125,6 +125,8 @@ function walletUserCandidates(raw) {
   }
   push(primary);
   push(lower);
+  const list = Array.isArray(extra) ? extra : extra ? [extra] : [];
+  for (let i = 0; i < list.length; i++) push(list[i]);
   return out;
 }
 
@@ -273,8 +275,13 @@ async function cfFetch(path, opts, timeoutMs) {
   }
 }
 
-async function findLedgerRow(user, kind, action, ref, minCoins) {
-  const res = await cfFetch('/wallet/ledger?user=' + encodeURIComponent(user));
+async function findLedgerRow(user, kind, action, ref, minCoins, timeoutMs) {
+  // CF ledger is usually fast but can hang 10–15s — never block delete UX that long.
+  const res = await cfFetch(
+    '/wallet/ledger?user=' + encodeURIComponent(user),
+    null,
+    timeoutMs == null ? 3500 : Number(timeoutMs) || 3500
+  );
   const rows = (res.json && res.json.ledger) || [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] || {};
@@ -287,8 +294,34 @@ async function findLedgerRow(user, kind, action, ref, minCoins) {
   return null;
 }
 
-async function findLedgerSpend(user, action, ref, minCoins) {
-  return findLedgerRow(user, 'spend', action, ref, minCoins);
+async function findLedgerSpend(user, action, ref, minCoins, timeoutMs) {
+  return findLedgerRow(user, 'spend', action, ref, minCoins, timeoutMs);
+}
+
+/** Parallel short ledger probe across wallet case/alias candidates. */
+async function findAnyDeleteSpend(candidates, postId, idemRef, minCoins) {
+  const need = Number(minCoins || DELETE_COST_FC) || DELETE_COST_FC;
+  const users = Array.isArray(candidates) ? candidates : [];
+  const jobs = [];
+  for (let i = 0; i < users.length; i++) {
+    const u = users[i];
+    const spendRef = deleteSpendRef(u, postId, idemRef);
+    jobs.push(
+      findSbDeleteSpend(u, spendRef, need)
+        .then((row) => (row ? { user: u, ref: spendRef, row: row, source: 'supabase' } : null))
+        .catch(() => null)
+    );
+    jobs.push(
+      findLedgerSpend(u, 'delete', spendRef, need, 3000)
+        .then((row) => (row ? { user: u, ref: spendRef, row: row, source: 'cf' } : null))
+        .catch(() => null)
+    );
+  }
+  const results = await Promise.all(jobs);
+  for (let i = 0; i < results.length; i++) {
+    if (results[i]) return results[i];
+  }
+  return null;
 }
 
 function deleteSpendRef(user, postId, idemRef) {
@@ -299,8 +332,12 @@ function deleteRefundRef(user, postId) {
   return String(`delete-refund:${postId}:${user}`).slice(0, 120);
 }
 
-async function cfWalletBalance(user) {
-  const res = await cfFetch('/wallet?user=' + encodeURIComponent(user));
+async function cfWalletBalance(user, timeoutMs) {
+  const res = await cfFetch(
+    '/wallet?user=' + encodeURIComponent(user),
+    null,
+    timeoutMs == null ? 4000 : Number(timeoutMs) || 4000
+  );
   if (!(res.json && res.json.ok !== false) && !res.ok) return 0;
   return Number((res.json && res.json.balance) || 0) || 0;
 }
@@ -322,17 +359,17 @@ async function sbWalletBalance(user) {
 
 /**
  * Same numeric FC the header should show: pick the highest available wallet
- * across CF case variants and Supabase coin_wallets (never hide SB coins
- * behind a near-empty CF key). Parallel lookups keep delete-post under mobile timeouts.
+ * across CF case variants, optional aliases, and Supabase coin_wallets (never
+ * hide SB coins behind a near-empty CF key). Parallel short lookups.
  */
-async function resolveFcBalance(rawUser) {
-  const candidates = walletUserCandidates(rawUser);
+async function resolveFcBalance(rawUser, extraUsers) {
+  const candidates = walletUserCandidates(rawUser, extraUsers);
   let best = { user: candidates[0] || walletUser(rawUser), balance: 0, source: 'cf' };
   const jobs = [];
   for (let i = 0; i < candidates.length; i++) {
     const u = candidates[i];
     jobs.push(
-      cfWalletBalance(u)
+      cfWalletBalance(u, 3500)
         .then((bal) => ({ user: u, balance: Number(bal) || 0, source: 'cf' }))
         .catch(() => ({ user: u, balance: 0, source: 'cf' }))
     );
@@ -496,18 +533,53 @@ async function spendSupabaseFc(user, cost, ref) {
 
 /**
  * Charge 50 FC from the SAME wallet the header / Pin path uses.
- * Prefer Supabase coin_wallets first (fast). Then spend on CF directly —
- * same pattern as /api/fc-spend (Pin). Do NOT pre-probe CF balance: a short
- * GET timeout used to return have:0 while the real wallet still held coins.
+ *
+ * Order:
+ *  1) Reuse an existing spend for this transaction id (SB + short CF ledger).
+ *  2) Supabase coin_wallets (fast).
+ *  3) CF wallet spend on the highest-balance candidate (CF refs are NOT
+ *     idempotent — always check ledger/reuse before a new POST).
+ *
+ * Never report "insufficient · have 0" when resolveFcBalance shows coins —
+ * CF timeouts must not be masked as an empty wallet.
  */
-async function spendDeleteFc(rawUser, postId, idemRef) {
+async function spendDeleteFc(rawUser, postId, idemRef, extraUsers) {
   const action = 'delete';
   const cost = DELETE_COST_FC;
-  const candidates = walletUserCandidates(rawUser);
+  const candidates = walletUserCandidates(rawUser, extraUsers);
   const primary = candidates[0] || walletUser(rawUser);
   const ref = deleteSpendRef(primary, postId, idemRef);
 
-  // --- Fast path: Supabase (typically <500ms) ---
+  // --- Idempotent reuse (CF wallet POST double-charges the same ref!) ---
+  const prior = await findAnyDeleteSpend(candidates, postId, idemRef, cost);
+  if (prior) {
+    return {
+      ok: true,
+      reused: true,
+      balance: null,
+      coins: cost,
+      ref: prior.ref,
+      user: prior.user,
+      source: prior.source === 'supabase' ? 'ledger_sb' : 'ledger'
+    };
+  }
+
+  // --- Authoritative balance (same truth as header) ---
+  const resolved = await resolveFcBalance(rawUser, extraUsers);
+  if ((Number(resolved.balance) || 0) < cost) {
+    return {
+      ok: false,
+      error: 'insufficient',
+      need: cost,
+      balance: Number(resolved.balance) || 0,
+      have: Number(resolved.balance) || 0,
+      ref,
+      user: resolved.user || primary,
+      source: resolved.source || null
+    };
+  }
+
+  // --- Fast path: Supabase when that wallet holds the funds ---
   let bestSb = { user: primary, balance: 0 };
   const sbBalances = await Promise.all(
     candidates.map(async (u) => {
@@ -526,21 +598,32 @@ async function spendDeleteFc(rawUser, postId, idemRef) {
     const sb = await spendSupabaseFc(bestSb.user, cost, spendRef);
     if (sb.ok) return Object.assign({ coins: cost, ref: spendRef }, sb);
     if (sb.error && sb.error !== 'insufficient') {
-      return Object.assign({ need: cost, ref: spendRef }, sb);
+      return Object.assign({ need: cost, ref: spendRef, have: bestSb.balance }, sb);
     }
   }
 
-  // --- CF path: attempt spend directly (Pin /api/fc-spend style) ---
-  let bestCfHave = 0;
-  let bestCfUser = primary;
-  let lastCfError = null;
+  // --- CF path: spend on the resolved wallet first, then other candidates ---
+  const ordered = [];
+  function pushUser(u) {
+    u = walletUser(u);
+    if (!u) return;
+    if (ordered.indexOf(u) < 0) ordered.push(u);
+  }
+  pushUser(resolved.user);
+  for (let i = 0; i < candidates.length; i++) pushUser(candidates[i]);
 
-  for (let i = 0; i < candidates.length; i++) {
-    const u = candidates[i];
+  let bestCfHave = 0;
+  let bestCfUser = ordered[0] || primary;
+  let lastCfError = null;
+  let sawTimeout = false;
+
+  for (let i = 0; i < ordered.length; i++) {
+    const u = ordered[i];
     const spendRef = deleteSpendRef(u, postId, idemRef);
 
+    // Re-check this exact ref quickly (race with a parallel tab).
     try {
-      const existing = await findLedgerSpend(u, action, spendRef, cost);
+      const existing = await findLedgerSpend(u, action, spendRef, cost, 2500);
       if (existing) {
         return {
           ok: true,
@@ -561,7 +644,7 @@ async function spendDeleteFc(rawUser, postId, idemRef) {
         headers: { 'Content-Type': 'application/json', Origin: SITE },
         body: JSON.stringify({ user: u, spend: cost, action, ref: spendRef })
       },
-      15000
+      12000
     );
 
     if (res.json && res.json.ok) {
@@ -582,6 +665,11 @@ async function spendDeleteFc(rawUser, postId, idemRef) {
       bestCfHave = reported;
       bestCfUser = u;
     }
+    if (res.status === 0 || /cf_timeout|aborted|timeout/i.test(err)) {
+      sawTimeout = true;
+      lastCfError = 'spend_timeout';
+      continue;
+    }
     if (/insufficient|not enough|balance/i.test(err) || res.status === 402 || res.status === 400) {
       lastCfError = 'insufficient';
       continue;
@@ -589,16 +677,64 @@ async function spendDeleteFc(rawUser, postId, idemRef) {
     lastCfError = err || (res.json && res.json.error) || 'spend_failed';
   }
 
-  const have = Math.max(bestSb.balance, bestCfHave);
+  // Re-resolve after failures — never claim have:0 when the header wallet still has FC.
+  const again = await resolveFcBalance(rawUser, extraUsers);
+  const have = Math.max(
+    Number(again.balance) || 0,
+    Number(resolved.balance) || 0,
+    bestSb.balance,
+    bestCfHave
+  );
+
+  if (have >= cost && (sawTimeout || lastCfError === 'spend_timeout')) {
+    return {
+      ok: false,
+      error: 'spend_timeout',
+      detail: 'Wallet spend timed out. Retry the same transaction — you will not be charged twice if the first spend landed.',
+      need: cost,
+      balance: have,
+      have: have,
+      ref,
+      user: again.user || bestCfUser || primary,
+      source: again.source || 'cf'
+    };
+  }
+
   return {
     ok: false,
-    error: lastCfError === 'insufficient' || have < cost ? 'insufficient' : lastCfError || 'insufficient',
+    error: have < cost ? 'insufficient' : lastCfError || 'spend_failed',
     need: cost,
     balance: have,
     have: have,
     ref,
-    user: have === bestCfHave && bestCfHave >= bestSb.balance ? bestCfUser : bestSb.user,
-    source: bestCfHave >= bestSb.balance ? 'cf' : 'supabase'
+    user: again.user || (have === bestCfHave && bestCfHave >= bestSb.balance ? bestCfUser : bestSb.user),
+    source: again.source || (bestCfHave >= bestSb.balance ? 'cf' : 'supabase')
+  };
+}
+
+/**
+ * Verify a browser-side CF spend for this delete transaction.
+ * CF wallet POST is NOT idempotent on ref — client charges once, server only verifies.
+ */
+async function verifyClientDeleteSpend(rawUser, postId, idemRef, extraUsers) {
+  const candidates = walletUserCandidates(rawUser, extraUsers);
+  const hit = await findAnyDeleteSpend(candidates, postId, idemRef, DELETE_COST_FC);
+  if (hit) {
+    return {
+      ok: true,
+      reused: true,
+      balance: null,
+      coins: DELETE_COST_FC,
+      ref: hit.ref,
+      user: hit.user,
+      source: hit.source === 'supabase' ? 'client_cf_sb' : 'client_cf'
+    };
+  }
+  return {
+    ok: false,
+    error: 'spend_not_found',
+    need: DELETE_COST_FC,
+    ref: deleteSpendRef(candidates[0] || walletUser(rawUser), postId, idemRef)
   };
 }
 
@@ -954,7 +1090,16 @@ module.exports = async function handler(req, res) {
   const reason = String(body.reason || 'owner')
     .trim()
     .toLowerCase();
-  const idempotencyKey = String(body.idempotencyKey || body.ref || '').trim() || null;
+  const idempotencyKey = String(body.idempotencyKey || body.ref || body.transactionId || '').trim() || null;
+  const walletExtras = []
+    .concat(body.walletUsers || body.wallet_users || body.aliases || [])
+    .map(walletUser)
+    .filter(Boolean);
+  const precharged =
+    body.precharged === true ||
+    body.precharged === 'true' ||
+    body.clientCharged === true ||
+    String(body.chargeMode || '').toLowerCase() === 'client';
 
   if (!rawUser) return json(res, 400, { error: 'missing_user' });
   if (!postId) return json(res, 400, { error: 'missing_post_id' });
@@ -977,9 +1122,9 @@ module.exports = async function handler(req, res) {
   if (!acquireDeleteLock(lockKey)) {
     // Client timed out and retried while the first delete still runs.
     // Poll DB briefly — if the post is already gone, return SUCCESS (never a false failure).
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 8; i++) {
       await new Promise(function (r) {
-        setTimeout(r, 400);
+        setTimeout(r, 350);
       });
       let still = null;
       try {
@@ -997,6 +1142,7 @@ module.exports = async function handler(req, res) {
           balance: null,
           free: false,
           reason: 'already_deleted',
+          transactionId: spendIdem,
           waited_for_inflight: true
         });
       }
@@ -1004,7 +1150,8 @@ module.exports = async function handler(req, res) {
     return json(res, 409, {
       error: 'delete_in_progress',
       detail: 'A delete for this post is already running. Wait a moment and refresh.',
-      postId: canonicalId
+      postId: canonicalId,
+      transactionId: spendIdem
     });
   }
   try {
@@ -1017,7 +1164,9 @@ module.exports = async function handler(req, res) {
       spendIdem,
       row,
       body,
-      idempotencyKey
+      idempotencyKey,
+      walletExtras,
+      precharged
     });
   } finally {
     releaseDeleteLock(lockKey);
@@ -1032,22 +1181,22 @@ async function handleDeletePost(req, res, ctx) {
   const spendIdem = ctx.spendIdem;
   let row = ctx.row;
   const body = ctx.body;
+  const walletExtras = ctx.walletExtras || [];
+  const precharged = !!ctx.precharged;
 
   // Idempotent DELETE: missing post ⇒ success, never charge again.
-  // Prefer coin_ledger (when migrated) + CF ledger to detect a prior spend so
-  // APPROVE & DELETE / double-click never look like failures or re-charge.
+  // Keep this FAST — sequential CF ledger calls previously hung mobile for 20s+.
   if (!row) {
     let reused = false;
-    const candidates = walletUserCandidates(rawUser);
-    for (let i = 0; i < candidates.length; i++) {
-      const spendRef = deleteSpendRef(candidates[i], canonicalId, spendIdem);
-      const priorSpend =
-        (await findLedgerSpend(candidates[i], 'delete', spendRef, DELETE_COST_FC)) ||
-        (await findSbDeleteSpend(candidates[i], spendRef, DELETE_COST_FC));
-      if (priorSpend) {
-        reused = true;
-        break;
-      }
+    try {
+      const hit = await withTimeout(
+        findAnyDeleteSpend(walletUserCandidates(rawUser, walletExtras), canonicalId, spendIdem, DELETE_COST_FC),
+        2500,
+        null
+      );
+      reused = !!hit;
+    } catch (_) {
+      reused = false;
     }
     return json(res, 200, {
       ok: true,
@@ -1057,7 +1206,8 @@ async function handleDeletePost(req, res, ctx) {
       reused: reused,
       balance: null,
       free: !reused,
-      reason: 'already_deleted'
+      reason: 'already_deleted',
+      transactionId: spendIdem
     });
   }
 
@@ -1146,10 +1296,41 @@ async function handleDeletePost(req, res, ctx) {
       cost = ownerDeleteCost(row);
     }
     if (cost > 0) {
-      spend = await spendDeleteFc(rawUser, canonicalId, spendIdem);
+      if (precharged) {
+        // Browser already charged CF (header network). Server only verifies —
+        // CF wallet POST is NOT idempotent, so we must not charge again.
+        spend = await verifyClientDeleteSpend(rawUser, canonicalId, spendIdem, walletExtras);
+        if (!spend.ok) {
+          // Brief retry — ledger can lag a moment behind the spend POST.
+          await new Promise(function (r) {
+            setTimeout(r, 400);
+          });
+          spend = await verifyClientDeleteSpend(rawUser, canonicalId, spendIdem, walletExtras);
+        }
+        if (!spend.ok) {
+          const resolved = await resolveFcBalance(rawUser, walletExtras);
+          return json(res, 409, {
+            error: 'awaiting_spend_verify',
+            detail:
+              'Payment not visible in the ledger yet. Keep this transaction id and retry — you will not be charged twice.',
+            need: cost,
+            have: Number(resolved.balance) || 0,
+            balance: Number(resolved.balance) || 0,
+            cost,
+            tier,
+            wallet_user: resolved.user || rawUser,
+            source: resolved.source || null,
+            transactionId: spendIdem,
+            postId: canonicalId
+          });
+        }
+      } else {
+        spend = await spendDeleteFc(rawUser, canonicalId, spendIdem, walletExtras);
+      }
       if (!spend.ok) {
         const code = spend.error || 'spend_failed';
-        const status = code === 'insufficient' ? 402 : spend.status || 400;
+        const status =
+          code === 'insufficient' ? 402 : code === 'spend_timeout' ? 503 : spend.status || 400;
         return json(res, status, {
           error: code,
           detail: spend.detail || null,
@@ -1161,6 +1342,7 @@ async function handleDeletePost(req, res, ctx) {
           wallet_user: spend.user || rawUser,
           source: spend.source || null,
           buyUrl: '/coins',
+          transactionId: spendIdem,
           postId: canonicalId
         });
       }
@@ -1263,9 +1445,15 @@ async function handleDeletePost(req, res, ctx) {
     auto_deleted: true,
     admin_notified: false,
     moderated: !!freeOverride,
+    transactionId: spendIdem,
     pinCleanup,
     cachePurge,
     removalUrl,
     gscHint: 'Request temporary removal for ' + removalUrl + ' in Google Search Console if it still appears in search.'
   });
 }
+
+// Allow slow CF wallet paths on Vercel without killing mid-charge.
+try {
+  module.exports.maxDuration = 60;
+} catch (_) {}

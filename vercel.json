@@ -1,4 +1,8 @@
 {
+  "functions": {
+    "api/delete-post.js": { "maxDuration": 60 },
+    "api/fc-spend.js": { "maxDuration": 30 }
+  },
   "headers": [
     {
       "source": "/robots.txt",
