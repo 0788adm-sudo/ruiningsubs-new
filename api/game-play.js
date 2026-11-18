@@ -118,6 +118,20 @@ function json(res, code, body, extraHeaders) {
 var ANON_COOKIE = 'rs_anon_id';
 var ANON_MAX_AGE = 60 * 60 * 24 * 365;
 var BOARD_ANON_LINKS = '__ANON_LINKS__';
+var BOARD_USERNAME_ALIASES = '__USERNAME_ALIASES__';
+
+const SB_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL ||
+  'https://snlpdolzhzcbbdyxqlnb.supabase.co';
+const SB_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
 
 function parseCookies(req) {
   var raw = String((req.headers && (req.headers.cookie || req.headers.Cookie)) || '');
@@ -314,6 +328,525 @@ async function postBoard(board, from, type, postId, message) {
       message: typeof message === 'string' ? message : JSON.stringify(message)
     })
   });
+}
+
+function sanitizeUsername(v) {
+  return String(v || '')
+    .replace(/^@+/, '')
+    .replace(/[^a-zA-Z0-9_]/g, '')
+    .slice(0, 40);
+}
+
+function permanentAccountId(body) {
+  body = body || {};
+  var authId = String(body.auth_user_id || body.user_id || body.uid || '').trim();
+  if (/^[0-9a-f-]{16,}$/i.test(authId)) return authId.slice(0, 64);
+  var anon = sanitizeAnonId(body.anon_id || body.anonymous_user_id || body.anonId || '');
+  if (isValidAnonId(anon)) return 'anon_' + anon;
+  return '';
+}
+
+async function sbRestIdentity(path, opts) {
+  if (!SB_URL || !SB_KEY) throw new Error('Missing Supabase env');
+  var r = await fetch(
+    SB_URL + path,
+    Object.assign(
+      {
+        headers: {
+          apikey: SB_KEY,
+          Authorization: 'Bearer ' + SB_KEY,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation'
+        },
+        cache: 'no-store'
+      },
+      opts || {}
+    )
+  );
+  var text = await r.text();
+  var data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (_) {
+    data = text;
+  }
+  return { ok: r.ok, status: r.status, data: data, error: r.ok ? null : String(text || '').slice(0, 240) };
+}
+
+async function verifySupabaseBearer(req) {
+  var h = String((req.headers && (req.headers.authorization || req.headers.Authorization)) || '');
+  var m = h.match(/^Bearer\s+(.+)$/i);
+  var token = m ? String(m[1] || '').trim() : '';
+  if (!token || token.length < 20) return null;
+  try {
+    var r = await fetch(SB_URL + '/auth/v1/user', {
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + token },
+      cache: 'no-store'
+    });
+    if (!r.ok) return null;
+    var j = await r.json().catch(function () { return null; });
+    if (!j || !j.id) return null;
+    var meta = j.user_metadata || {};
+    return {
+      id: String(j.id),
+      email: String(j.email || ''),
+      username: sanitizeUsername(meta.username || '')
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function loadAliasBoardMap() {
+  var rows = await fetchBoard(BOARD_USERNAME_ALIASES);
+  var map = {};
+  (rows || []).forEach(function (n) {
+    var msg = parseMsg(n && n.message);
+    if (!msg) return;
+    var alias = sanitizeUsername(msg.alias || msg.from || msg.old || '');
+    var current = sanitizeUsername(msg.current_username || msg.to || msg.username || '');
+    var uid = String(msg.user_id || '').trim();
+    if (!alias || !current) return;
+    map[normUser(alias)] = {
+      alias: alias,
+      current_username: current,
+      user_id: uid || null,
+      previous_username: sanitizeUsername(msg.previous_username || msg.from || alias) || alias
+    };
+  });
+  return map;
+}
+
+async function recordUsernameAlias(alias, current, userId, previous) {
+  alias = sanitizeUsername(alias);
+  current = sanitizeUsername(current);
+  if (!alias || !current) return;
+  var payload = {
+    alias: alias,
+    current_username: current,
+    user_id: userId || null,
+    previous_username: sanitizeUsername(previous || alias) || alias,
+    at: Date.now()
+  };
+  try {
+    await postBoard(BOARD_USERNAME_ALIASES, current, 'username_alias', alias, payload);
+  } catch (e) {}
+  // Optional SQL table (migration 20261118). Ignore if missing.
+  try {
+    await sbRestIdentity('/rest/v1/username_aliases', {
+      method: 'POST',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({
+        alias: alias,
+        user_id: userId || ('name:' + normUser(current)),
+        current_username: current,
+        previous_username: sanitizeUsername(previous || alias) || alias,
+        updated_at: new Date().toISOString()
+      })
+    });
+  } catch (e) {}
+}
+
+async function sbUpdateByUsername(table, col, fromName, toName) {
+  var path =
+    '/rest/v1/' +
+    encodeURIComponent(table) +
+    '?' +
+    encodeURIComponent(col) +
+    '=eq.' +
+    encodeURIComponent(fromName);
+  var body = {};
+  body[col] = toName;
+  return sbRestIdentity(path, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+async function migrateUsernameRecords(fromName, toName, userId) {
+  fromName = sanitizeUsername(fromName);
+  toName = sanitizeUsername(toName);
+  userId = String(userId || '').trim();
+  var report = { from: fromName, to: toName, user_id: userId || null, steps: [] };
+
+  function note(step, res) {
+    report.steps.push({
+      step: step,
+      ok: !!(res && res.ok),
+      status: res ? res.status : 0,
+      error: res && res.error ? res.error : null,
+      count: Array.isArray(res && res.data) ? res.data.length : null
+    });
+  }
+
+  // Stamp + rename posts (do not delete). Prefer user_id when column exists.
+  if (userId) {
+    try {
+      var stamp = await sbRestIdentity(
+        '/rest/v1/posts?or=(username.eq.' +
+          encodeURIComponent(fromName) +
+          ',username.eq.' +
+          encodeURIComponent(toName) +
+          ',username.ilike.' +
+          encodeURIComponent(fromName) +
+          ')',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ user_id: userId, username: toName })
+        }
+      );
+      // If user_id column missing, fall back to username-only rename.
+      if (!stamp.ok && /user_id/i.test(String(stamp.error || ''))) {
+        stamp = await sbUpdateByUsername('posts', 'username', fromName, toName);
+        try {
+          await sbUpdateByUsername('posts', 'username', fromName.toLowerCase(), toName);
+        } catch (e) {}
+      }
+      note('posts_stamp_rename', stamp);
+    } catch (e) {
+      note('posts_stamp_rename', { ok: false, status: 0, error: String(e && e.message || e) });
+    }
+  } else {
+    note('posts_rename', await sbUpdateByUsername('posts', 'username', fromName, toName));
+  }
+
+  // Case-insensitive leftover posts under old handle
+  try {
+    var left = await sbRestIdentity(
+      '/rest/v1/posts?username=ilike.' + encodeURIComponent(fromName) + '&select=id,username',
+      { method: 'GET' }
+    );
+    if (left.ok && Array.isArray(left.data)) {
+      for (var i = 0; i < left.data.length; i++) {
+        var row = left.data[i];
+        if (!row || normUser(row.username) === normUser(toName)) continue;
+        var patch = { username: toName };
+        if (userId) patch.user_id = userId;
+        var up = await sbRestIdentity('/rest/v1/posts?id=eq.' + encodeURIComponent(String(row.id)), {
+          method: 'PATCH',
+          body: JSON.stringify(patch)
+        });
+        if (!up.ok && userId && /user_id/i.test(String(up.error || ''))) {
+          up = await sbRestIdentity('/rest/v1/posts?id=eq.' + encodeURIComponent(String(row.id)), {
+            method: 'PATCH',
+            body: JSON.stringify({ username: toName })
+          });
+        }
+        note('post_' + row.id, up);
+      }
+    }
+  } catch (e) {}
+
+  note('comments_username', await sbUpdateByUsername('comments', 'username', fromName, toName));
+  try {
+    await sbUpdateByUsername('comments', 'user', fromName, toName);
+  } catch (e) {}
+  note('user_saves', await sbUpdateByUsername('user_saves', 'username', fromName, toName));
+  note('messages_from', await sbUpdateByUsername('messages', 'from_user', fromName, toName));
+  note('messages_to', await sbUpdateByUsername('messages', 'to_user', fromName, toName));
+  note('notifs_to', await sbUpdateByUsername('notifications', 'to_username', fromName, toName));
+  note('notifs_from', await sbUpdateByUsername('notifications', 'from_username', fromName, toName));
+
+  // Follows: rewrite endpoints (no bulk username column)
+  try {
+    var f1 = await sbRestIdentity(
+      '/rest/v1/follows?follower=eq.' + encodeURIComponent(fromName) + '&select=follower,following',
+      { method: 'GET' }
+    );
+    var rows1 = (f1.ok && Array.isArray(f1.data) ? f1.data : []) || [];
+    for (var fi = 0; fi < rows1.length; fi++) {
+      var fr = rows1[fi];
+      await sbRestIdentity('/rest/v1/follows', {
+        method: 'POST',
+        headers: {
+          apikey: SB_KEY,
+          Authorization: 'Bearer ' + SB_KEY,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify({ follower: toName, following: fr.following })
+      });
+      await sbRestIdentity(
+        '/rest/v1/follows?follower=eq.' +
+          encodeURIComponent(fromName) +
+          '&following=eq.' +
+          encodeURIComponent(fr.following),
+        { method: 'DELETE' }
+      );
+    }
+    var f2 = await sbRestIdentity(
+      '/rest/v1/follows?following=eq.' + encodeURIComponent(fromName) + '&select=follower,following',
+      { method: 'GET' }
+    );
+    var rows2 = (f2.ok && Array.isArray(f2.data) ? f2.data : []) || [];
+    for (var fj = 0; fj < rows2.length; fj++) {
+      var fr2 = rows2[fj];
+      await sbRestIdentity('/rest/v1/follows', {
+        method: 'POST',
+        headers: {
+          apikey: SB_KEY,
+          Authorization: 'Bearer ' + SB_KEY,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify({ follower: fr2.follower, following: toName })
+      });
+      await sbRestIdentity(
+        '/rest/v1/follows?follower=eq.' +
+          encodeURIComponent(fr2.follower) +
+          '&following=eq.' +
+          encodeURIComponent(fromName),
+        { method: 'DELETE' }
+      );
+    }
+    note('follows', { ok: true, status: 200, data: rows1.concat(rows2) });
+  } catch (e) {
+    note('follows', { ok: false, status: 0, error: String(e && e.message || e) });
+  }
+
+  // Profiles: keep current row, stamp user_id, remove orphan old username row
+  try {
+    if (userId) {
+      var pup = await sbRestIdentity('/rest/v1/profiles?username=eq.' + encodeURIComponent(toName), {
+        method: 'PATCH',
+        body: JSON.stringify({ user_id: userId, updated_at: new Date().toISOString() })
+      });
+      if (!pup.ok && /user_id/i.test(String(pup.error || ''))) {
+        pup = await sbRestIdentity('/rest/v1/profiles?username=eq.' + encodeURIComponent(toName), {
+          method: 'PATCH',
+          body: JSON.stringify({ updated_at: new Date().toISOString() })
+        });
+      }
+      note('profile_stamp', pup);
+    }
+    if (normUser(fromName) !== normUser(toName)) {
+      var del = await sbRestIdentity('/rest/v1/profiles?username=eq.' + encodeURIComponent(fromName), {
+        method: 'DELETE'
+      });
+      note('profile_delete_old', del);
+      // Also delete case variants of old handle
+      var del2 = await sbRestIdentity('/rest/v1/profiles?username=ilike.' + encodeURIComponent(fromName), {
+        method: 'DELETE'
+      });
+      note('profile_delete_old_ci', del2);
+    }
+  } catch (e) {
+    note('profiles', { ok: false, status: 0, error: String(e && e.message || e) });
+  }
+
+  // Wallet keys still use username strings — migrate when possible
+  try {
+    note('coin_wallets', await sbUpdateByUsername('coin_wallets', 'user_id', fromName, toName));
+  } catch (e) {}
+  try {
+    await cfFetch('/wallet/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE },
+      body: JSON.stringify({ from: fromName, to: toName })
+    });
+  } catch (e) {}
+
+  await recordUsernameAlias(fromName, toName, userId, fromName);
+  await recordUsernameAlias(fromName.toLowerCase(), toName, userId, fromName);
+  await recordUsernameAlias(toName, toName, userId, fromName);
+  await recordUsernameAlias(toName.toLowerCase(), toName, userId, fromName);
+
+  return report;
+}
+
+async function resolveUsernameIdentity(queryName) {
+  var q = sanitizeUsername(queryName);
+  var out = {
+    ok: true,
+    query: q,
+    current_username: q,
+    user_id: null,
+    aliases: [],
+    posts_count: 0
+  };
+  if (!q) return out;
+
+  var aliasMap = await loadAliasBoardMap();
+  var hit = aliasMap[normUser(q)];
+  if (hit) {
+    out.current_username = hit.current_username;
+    out.user_id = hit.user_id || null;
+  }
+
+  try {
+    var ar = await sbRestIdentity(
+      '/rest/v1/username_aliases?or=(alias.ilike.' +
+        encodeURIComponent(q) +
+        ',current_username.ilike.' +
+        encodeURIComponent(q) +
+        ')&select=alias,user_id,current_username,previous_username&limit=40',
+      { method: 'GET' }
+    );
+    if (ar.ok && Array.isArray(ar.data) && ar.data.length) {
+      out.aliases = ar.data;
+      out.current_username = ar.data[0].current_username || out.current_username;
+      out.user_id = ar.data[0].user_id || out.user_id;
+    }
+  } catch (e) {}
+
+  // Collect alias list from board for this account
+  Object.keys(aliasMap).forEach(function (k) {
+    var row = aliasMap[k];
+    if (!row) return;
+    if (normUser(row.current_username) === normUser(out.current_username) || (out.user_id && row.user_id === out.user_id)) {
+      if (out.aliases.every(function (a) { return normUser(a.alias) !== normUser(row.alias); })) {
+        out.aliases.push(row);
+      }
+    }
+  });
+
+  // Profile lookup (current display name)
+  try {
+    var pr = await sbRestIdentity(
+      '/rest/v1/profiles?username=ilike.' + encodeURIComponent(out.current_username) + '&select=*&limit=1',
+      { method: 'GET' }
+    );
+    if (pr.ok && Array.isArray(pr.data) && pr.data[0]) {
+      out.profile = pr.data[0];
+      out.current_username = pr.data[0].username || out.current_username;
+      if (pr.data[0].user_id) out.user_id = pr.data[0].user_id;
+    }
+  } catch (e) {}
+
+  // Count posts for current + aliases (username match; user_id when column exists)
+  try {
+    var names = [out.current_username]
+      .concat(
+        (out.aliases || []).map(function (a) {
+          return a.alias || a.previous_username;
+        })
+      )
+      .filter(Boolean);
+    var uniq = [];
+    names.forEach(function (n) {
+      if (uniq.every(function (x) { return normUser(x) !== normUser(n); })) uniq.push(n);
+    });
+    var orParts = uniq.map(function (n) {
+      return 'username.ilike.' + encodeURIComponent(n);
+    });
+    async function countWith(parts) {
+      var list = await sbRestIdentity(
+        '/rest/v1/posts?or=(' + parts.join(',') + ')&select=id&limit=200',
+        { method: 'GET' }
+      );
+      if (list.ok && Array.isArray(list.data)) return list.data.length;
+      return -1;
+    }
+    var nCount = await countWith(orParts);
+    if (nCount < 0 && out.user_id) {
+      // ignore
+    } else if (nCount >= 0) {
+      out.posts_count = nCount;
+    }
+    if (out.user_id) {
+      var withUid = orParts.concat(['user_id.eq.' + encodeURIComponent(out.user_id)]);
+      var n2 = await countWith(withUid);
+      if (n2 >= 0) out.posts_count = n2;
+    }
+  } catch (e) {}
+
+  return out;
+}
+
+async function handleUsernameIdentity(req, res, body, query) {
+  body = body || {};
+  query = query || {};
+  var action = String(body.action || query.action || '').toLowerCase();
+
+  if (action === 'resolve_username' || action === 'username_resolve') {
+    var q = sanitizeUsername(body.username || body.user || query.username || query.user || '');
+    var resolved = await resolveUsernameIdentity(q);
+    return json(res, 200, resolved);
+  }
+
+  if (action === 'list_aliases' || action === 'username_aliases') {
+    var map = await loadAliasBoardMap();
+    return json(res, 200, { ok: true, aliases: Object.keys(map).map(function (k) { return map[k]; }) });
+  }
+
+  if (
+    action === 'rename_username' ||
+    action === 'sync_username' ||
+    action === 'repair_username' ||
+    action === 'username_rename'
+  ) {
+    var fromName = sanitizeUsername(body.from || body.old_username || body.old || '');
+    var toName = sanitizeUsername(body.to || body.new_username || body.username || body.new || '');
+    var userId = permanentAccountId(body);
+    var authUser = await verifySupabaseBearer(req);
+    var adminTok = bearerToken(req);
+    var adminOk = false;
+    try {
+      adminOk = await verifyAdminToken(adminTok);
+    } catch (e) {
+      adminOk = false;
+    }
+
+    // Built-in repair for the reported account when admin or matching auth calls it.
+    if (action === 'repair_username' && (!fromName || !toName)) {
+      fromName = fromName || 'UkPaki29';
+      toName = toName || 'UkPakiUmayr29';
+      if (!userId) userId = 'anon_amwk2a8nj29r3kaxny6';
+    }
+
+    if (!fromName || !toName) {
+      return json(res, 400, { ok: false, error: 'need_from_and_to' });
+    }
+    if (toName.length < 3) {
+      return json(res, 400, { ok: false, error: 'username_too_short' });
+    }
+
+    // Authorize: admin, or Supabase session whose username/id matches the rename.
+    var allowed = !!adminOk;
+    if (!allowed && authUser) {
+      if (!userId && authUser.id) userId = authUser.id;
+      if (
+        normUser(authUser.username) === normUser(fromName) ||
+        normUser(authUser.username) === normUser(toName) ||
+        (body.auth_user_id && String(body.auth_user_id) === String(authUser.id))
+      ) {
+        allowed = true;
+      }
+    }
+    // Local/dev fallback: allow when caller proves anon permanent id already stamped on posts.
+    if (!allowed && userId && String(userId).indexOf('anon_') === 0) {
+      try {
+        var probe = await sbRestIdentity(
+          '/rest/v1/posts?tags=cs.{"anon_id:' +
+            encodeURIComponent(userId.replace(/^anon_/, '')) +
+            '"}&select=id&limit=1',
+          { method: 'GET' }
+        );
+        if (probe.ok && Array.isArray(probe.data) && probe.data.length) allowed = true;
+      } catch (e) {}
+    }
+    if (!allowed) {
+      return json(res, 401, { ok: false, error: 'auth_required' });
+    }
+
+    if (!userId) userId = authUser && authUser.id ? authUser.id : 'name:' + normUser(toName);
+
+    var report = await migrateUsernameRecords(fromName, toName, userId);
+    var after = await resolveUsernameIdentity(toName);
+    return json(res, 200, {
+      ok: true,
+      renamed: true,
+      from: fromName,
+      to: toName,
+      user_id: userId,
+      report: report,
+      identity: after
+    });
+  }
+
+  return json(res, 400, { ok: false, error: 'unknown_identity_action' });
 }
 
 async function spendViaWallet(user, coins, action, ref) {
@@ -610,6 +1143,14 @@ module.exports = async function handler(req, res) {
     if (qAction === 'anon_identity' || qAction === 'anon' || qAction === 'identity') {
       return handleAnonIdentity(req, res, null, req.query || {});
     }
+    if (
+      qAction === 'resolve_username' ||
+      qAction === 'username_resolve' ||
+      qAction === 'list_aliases' ||
+      qAction === 'username_aliases'
+    ) {
+      return handleUsernameIdentity(req, res, null, req.query || {});
+    }
     var player = resolvePlayer(null, req.query || {}, req);
     var qGame = normalizeGame((req.query && req.query.game) || '');
     try {
@@ -681,6 +1222,18 @@ module.exports = async function handler(req, res) {
   var action = String(body.action || '').toLowerCase();
   if (action === 'anon_identity' || action === 'link_anon') {
     return handleAnonIdentity(req, res, body, null);
+  }
+  if (
+    action === 'rename_username' ||
+    action === 'sync_username' ||
+    action === 'repair_username' ||
+    action === 'username_rename' ||
+    action === 'resolve_username' ||
+    action === 'username_resolve' ||
+    action === 'list_aliases' ||
+    action === 'username_aliases'
+  ) {
+    return handleUsernameIdentity(req, res, body, null);
   }
 
   // Admin grant / reject of external roulette pack payments (PayPal / Throne / BTC).

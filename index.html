@@ -4288,8 +4288,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if((p.media_type==='video'||(Array.isArray(tags)&&tags.indexOf('video')>=0)) && p.media_url && imgs.indexOf(p.media_url)<0) imgs.unshift(p.media_url);
       var created=p.created_at?new Date(p.created_at).getTime():Date.now();
       if(!isFinite(created)) created=Number(p.created_at)||Date.now();
+      var displayUser=p.username||p.user||'anon';
+      try{if(typeof displayAuthorName==='function') displayUser=displayAuthorName({user:displayUser,username:displayUser,tags:tags,user_id:p.user_id||null})||displayUser}catch(e){}
       return {
-        id:p.id,user:p.username||p.user||'anon',title:p.title||'',desc:stripAlbumMarker(p.description||p.desc||''),tags:tags,
+        id:p.id,user:displayUser,user_id:p.user_id||null,title:p.title||'',desc:stripAlbumMarker(p.description||p.desc||''),tags:tags,
         created:created,
         expires:(function(){var exp=p.expires_at?new Date(p.expires_at).getTime():0;try{var m=JSON.parse(localStorage.getItem('rs_ext_map')||'{}')||{};if(m[p.id]&&m[p.id].expires>exp)exp=m[p.id].expires}catch(e){}return exp})(),
         views:(typeof mergeViewsValue==='function'?mergeViewsValue(p.id,p.views):Number(p.views||0)),likes:(function(){
@@ -4414,6 +4416,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           expires_at:String(row.media_type||'')==='video'?null:(row.expires_at||null),
           extend_amount:String(row.media_type||'')==='video'?0:(Number(row.extend_amount||row.extend_mins||360)||360)
         };
+        try{
+          var uidIns=row.user_id||(typeof getPermanentAccountId==='function'?getPermanentAccountId():'');
+          if(uidIns) ins.user_id=String(uidIns).slice(0,64);
+        }catch(eUidIns){}
         var tierCol=normalizeDeletionTier(row.deletion_tier||row.deletionTier||parseDeletionTierTag(tags));
         if(tierCol){
           ins.deletion_tier=tierCol;
@@ -4421,6 +4427,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }
         if(row.owner_token_hash) ins.owner_token_hash=row.owner_token_hash;
         var up=await sb.from('posts').insert(ins).select('*').limit(1);
+        if(up&&up.error && /user_id/i.test(String(up.error.message||''))){
+          delete ins.user_id;
+          up=await sb.from('posts').insert(ins).select('*').limit(1);
+        }
         if(up&&up.error && /owner_token_hash|free_deletion_enabled/i.test(String(up.error.message||''))){
           delete ins.owner_token_hash;
           delete ins.free_deletion_enabled;
@@ -6455,11 +6465,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             var meta=session.user.user_metadata||{};
             var name=meta.username||localStorage.getItem('rs_uid')||(session.user.email||'').split('@')[0];
             name=String(name).replace(/[^a-zA-Z0-9_]/g,'').slice(0,20)||'user';
-            currentUser={name:name,role:'user',email:session.user.email||email};
+            try{name=resolveCurrentUsername(name)||name}catch(e){}
+            if(session.user.id) rememberAuthUserId(session.user.id);
+            currentUser={name:name,role:'user',email:session.user.email||email,auth_user_id:session.user.id||getAuthUserId()||null,account_type:'registered',anonymous_user_id:getStableAnonId()||null};
             try{enforceCurrentAccount()}catch(e){}
             localStorage.setItem('rs_uid',name);
             localStorage.setItem('rs_role','user');
             if(session.user.email)localStorage.setItem('rs_email',session.user.email);
+            try{refreshUsernameAliasMap(false)}catch(e){}
             refreshProfileUI();
             try{updateProfilePanel()}catch(e){}
           } else if(role==='user' && uid && uid.indexOf('Anon_')!==0){
@@ -6529,38 +6542,44 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var logged=isRegistered();
       var serverMine=[];
 
-      /* Profile statistics must come from Cloudflare/D1, not only from the
-         local browser cache. This keeps profile views consistent with posts. */
+      /* Profile statistics: Supabase by permanent account id / aliases first,
+         then Cloudflare/D1. Username alone is not the ownership key. */
       if(logged && currentUser && currentUser.name){
         try{
-          var cf=await fetchCfFeed();
-          var me=String(currentUser.name).toLowerCase();
-          serverMine=(cf||[]).filter(function(r){
-            return String(r.username||'').toLowerCase()===me;
-          }).map(function(r){
-            var tags=r.tags||[];
-            if(typeof tags==='string'){
-              try{tags=JSON.parse(tags)}catch(e){tags=[]}
-            }
-            if(!Array.isArray(tags))tags=[];
-            return {
-              id:r.id,
-              user:r.username||'anon',
-              title:r.title||'',
-              desc:r.description||'',
-              tags:tags,
-              created:r.created_at?new Date(r.created_at).getTime():Date.now(),
-              expires:r.expires_at?new Date(r.expires_at).getTime():0,
-              views:(typeof mergeViewsValue==='function'?mergeViewsValue(r.id,r.views):Number(r.views)||0),
-              likes:Number(r.likes_count)||0,
-              extensions:0,
-              savesCount:0,
-              downloadsCount:0,
-              image:r.image_url||'',
-              images:mergePostImages(r.image_url||r.media_url||'', tags, extractAlbumMarker(r.description||'')),
-              featuredUntil:r.featured_until?new Date(r.featured_until).getTime():0
-            };
-          });
+          try{await refreshUsernameAliasMap(false)}catch(eA){}
+          try{
+            serverMine=await fetchSbPostsForAccount(currentUser.name,{limit:120});
+          }catch(eSb){serverMine=[]}
+          if(!(serverMine&&serverMine.length)){
+            var cf=await fetchCfFeed();
+            var me=normUserKey(currentUser.name);
+            serverMine=(cf||[]).filter(function(r){
+              return accountNamesMatch(r.username||r.user, currentUser.name) || normUserKey(r.username)===me;
+            }).map(function(r){
+              var tags=r.tags||[];
+              if(typeof tags==='string'){
+                try{tags=JSON.parse(tags)}catch(e){tags=[]}
+              }
+              if(!Array.isArray(tags))tags=[];
+              return applyDisplayUsernameToPost({
+                id:r.id,
+                user:r.username||'anon',
+                title:r.title||'',
+                desc:r.description||'',
+                tags:tags,
+                created:r.created_at?new Date(r.created_at).getTime():Date.now(),
+                expires:r.expires_at?new Date(r.expires_at).getTime():0,
+                views:(typeof mergeViewsValue==='function'?mergeViewsValue(r.id,r.views):Number(r.views)||0),
+                likes:Number(r.likes_count)||0,
+                extensions:0,
+                savesCount:0,
+                downloadsCount:0,
+                image:r.image_url||'',
+                images:mergePostImages(r.image_url||r.media_url||'', tags, extractAlbumMarker(r.description||'')),
+                featuredUntil:r.featured_until?new Date(r.featured_until).getTime():0
+              });
+            });
+          }
           window.__profileStatsPosts=serverMine;
 
           /* Sync current local copies with the server counts — never lower live views. */
@@ -6571,6 +6590,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             if(i>=0){
               posts[i].views=Math.max(Number(posts[i].views)||0, Number(sp.views)||0, typeof localViewsFloor==='function'?localViewsFloor(sp.id):0);
               posts[i].likes=Math.max(Number(posts[i].likes)||0, Number(sp.likes)||0, typeof localLikesFloor==='function'?localLikesFloor(posts[i].id):0);
+              try{
+                posts[i].user=displayAuthorName(sp)||posts[i].user;
+                if(sp.user_id) posts[i].user_id=sp.user_id;
+              }catch(e){}
+            } else {
+              posts.push(sp);
             }
           });
         }catch(e){
@@ -6589,7 +6614,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               if(s&&isRegistered()){
                 var mine=(window.__profileStatsPosts&&window.__profileStatsPosts.length)
                   ?window.__profileStatsPosts
-                  :posts.filter(function(p){return p.user===currentUser.name});
+                  :posts.filter(function(p){return sameAccountPost(p, currentUser.name)});
                 s.innerHTML=profileStatsHtml(mine,{comments:0,saves:sumSavesOnPosts(mine),username:currentUser.name,xp:getUserXp()})+savedPostsBtnHtml();
               }
             }catch(e){}
@@ -6606,7 +6631,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(stats){
         var mine=(window.__profileStatsPosts&&window.__profileStatsPosts.length)
           ?window.__profileStatsPosts
-          :posts.filter(function(p){return p.user===currentUser.name});
+          :posts.filter(function(p){return sameAccountPost(p, currentUser.name)});
         stats.style.display=logged?'block':'none';
         stats.innerHTML=profileStatsHtml(mine,{comments:0,saves:sumSavesOnPosts(mine),username:currentUser.name,xp:getUserXp()})+savedPostsBtnHtml();
         try{if(logged){evaluateProfileBadges(mine);paintProfileRetention()}}catch(e){}
@@ -6688,6 +6713,383 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return n;
     }
     window.shortDisplayUser=shortDisplayUser;
+
+    /* ── Permanent account identity (username is display-only) ─────────────
+       Posts/comments/saves should resolve via user_id / anon_id / aliases.
+       Changing username must NOT orphan publications. */
+    var __usernameAliasMap={}; // lower(alias) -> {current, user_id, aliases:[]}
+    var __usernameAliasLoadedAt=0;
+    function normUserKey(u){
+      return String(u||'').replace(/^@+/,'').trim().toLowerCase().slice(0,64);
+    }
+    function getAuthUserId(){
+      try{
+        if(currentUser&&currentUser.auth_user_id) return String(currentUser.auth_user_id);
+      }catch(e){}
+      try{
+        var s=localStorage.getItem('rs_auth_uid');
+        if(s) return String(s);
+      }catch(e){}
+      return '';
+    }
+    function getStableAnonId(){
+      try{
+        var a=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'');
+        a=a.toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
+        if(a.length>=8) return a;
+      }catch(e){}
+      try{
+        if(currentUser&&currentUser.anonymous_user_id){
+          var b=String(currentUser.anonymous_user_id).toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
+          if(b.length>=8) return b;
+        }
+      }catch(e){}
+      return '';
+    }
+    function getPermanentAccountId(){
+      var auth=getAuthUserId();
+      if(auth) return auth;
+      var anon=getStableAnonId();
+      if(anon) return 'anon_'+anon;
+      try{
+        if(currentUser&&currentUser.name&&!isAnonymousAccountName(currentUser.name)){
+          return 'name:'+normUserKey(currentUser.name);
+        }
+      }catch(e){}
+      return '';
+    }
+    function rememberAuthUserId(id){
+      id=String(id||'').trim();
+      if(!id) return;
+      try{localStorage.setItem('rs_auth_uid',id)}catch(e){}
+      try{if(currentUser) currentUser.auth_user_id=id}catch(e){}
+    }
+    function postTagsList(p){
+      var tags=(p&&(p.tags||p.Tags))||[];
+      if(typeof tags==='string'){
+        try{tags=JSON.parse(tags)}catch(e){tags=String(tags).split(/[,\s]+/)}
+      }
+      return Array.isArray(tags)?tags:[];
+    }
+    function postAccountIdFromTags(p){
+      var tags=postTagsList(p);
+      for(var i=0;i<tags.length;i++){
+        var t=String(tags[i]||'');
+        var m=t.match(/^uid:(.+)$/i);
+        if(m&&m[1]) return String(m[1]).trim().slice(0,64);
+        var a=t.match(/^anon_id:(.+)$/i);
+        if(a&&a[1]){
+          var id=String(a[1]).toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
+          if(id) return 'anon_'+id;
+        }
+      }
+      return '';
+    }
+    function postAccountId(p){
+      if(!p) return '';
+      if(p.user_id) return String(p.user_id);
+      if(p.account_id) return String(p.account_id);
+      var fromTags=postAccountIdFromTags(p);
+      if(fromTags) return fromTags;
+      return '';
+    }
+    function loadLocalUsernameAliases(){
+      try{return JSON.parse(localStorage.getItem('rs_username_aliases')||'{}')||{}}catch(e){return {}}
+    }
+    function saveLocalUsernameAlias(oldName, newName, userId){
+      oldName=String(oldName||'').replace(/^@/,'').trim();
+      newName=String(newName||'').replace(/^@/,'').trim();
+      if(!oldName||!newName) return;
+      var map=loadLocalUsernameAliases();
+      var entry={current:newName,user_id:userId||null,at:Date.now()};
+      map[normUserKey(oldName)]=entry;
+      map[normUserKey(newName)]=entry;
+      try{localStorage.setItem('rs_username_aliases',JSON.stringify(map))}catch(e){}
+      __usernameAliasMap[normUserKey(oldName)]=entry;
+      __usernameAliasMap[normUserKey(newName)]=entry;
+    }
+    var KNOWN_USERNAME_REPAIRS={
+      ukpaki29:'UkPakiUmayr29',
+      ukpakiumayr29:'UkPakiUmayr29'
+    };
+    var KNOWN_USERNAME_ACCOUNT_IDS={
+      ukpaki29:'anon_amwk2a8nj29r3kaxny6',
+      ukpakiumayr29:'anon_amwk2a8nj29r3kaxny6'
+    };
+    function seedKnownUsernameAliases(){
+      // One-shot seed for the reported rename until the alias board/table is populated.
+      Object.keys(KNOWN_USERNAME_REPAIRS).forEach(function(k){
+        saveLocalUsernameAlias(k, KNOWN_USERNAME_REPAIRS[k], KNOWN_USERNAME_ACCOUNT_IDS[k]||null);
+      });
+      saveLocalUsernameAlias('UkPaki29','UkPakiUmayr29','anon_amwk2a8nj29r3kaxny6');
+      saveLocalUsernameAlias('UKPAKIUMAYR29','UkPakiUmayr29','anon_amwk2a8nj29r3kaxny6');
+      saveLocalUsernameAlias('UkPakiUmayr29','UkPakiUmayr29','anon_amwk2a8nj29r3kaxny6');
+    }
+    function aliasesForUsername(name){
+      var key=normUserKey(name);
+      var out=[];
+      function push(n){
+        n=String(n||'').replace(/^@/,'').trim();
+        if(!n) return;
+        if(out.every(function(x){return normUserKey(x)!==normUserKey(n)})) out.push(n);
+      }
+      push(name);
+      var local=loadLocalUsernameAliases();
+      Object.keys(local).forEach(function(k){
+        var row=local[k];
+        if(!row) return;
+        if(normUserKey(k)===key || normUserKey(row.current)===key){
+          push(k); push(row.current);
+        }
+      });
+      Object.keys(__usernameAliasMap||{}).forEach(function(k){
+        var row=__usernameAliasMap[k];
+        if(!row) return;
+        if(normUserKey(k)===key || normUserKey(row.current)===key || (row.user_id && key && false)){
+          push(k); push(row.current);
+        }
+        if(row.user_id){
+          var want=null;
+          try{
+            var hit=local[key];
+            if(hit&&hit.user_id&&hit.user_id===row.user_id) want=true;
+          }catch(e){}
+          if(want){ push(k); push(row.current); }
+        }
+      });
+      // Same account via shared user_id in alias map
+      var uid=null;
+      try{uid=(local[key]&&local[key].user_id)||(__usernameAliasMap[key]&&__usernameAliasMap[key].user_id)||null}catch(e){}
+      if(uid){
+        Object.keys(local).forEach(function(k){
+          if(local[k]&&local[k].user_id===uid){ push(k); push(local[k].current); }
+        });
+        Object.keys(__usernameAliasMap||{}).forEach(function(k){
+          if(__usernameAliasMap[k]&&__usernameAliasMap[k].user_id===uid){
+            push(k); push(__usernameAliasMap[k].current);
+          }
+        });
+      }
+      return out;
+    }
+    function resolveCurrentUsername(name){
+      var key=normUserKey(name);
+      if(!key) return String(name||'');
+      try{seedKnownUsernameAliases()}catch(e){}
+      try{
+        var local=loadLocalUsernameAliases();
+        if(local[key]&&local[key].current) return local[key].current;
+      }catch(e){}
+      try{
+        if(__usernameAliasMap[key]&&__usernameAliasMap[key].current) return __usernameAliasMap[key].current;
+      }catch(e){}
+      try{
+        if(KNOWN_USERNAME_REPAIRS[key]) return KNOWN_USERNAME_REPAIRS[key];
+      }catch(e){}
+      return String(name||'').replace(/^@/,'');
+    }
+    function displayAuthorName(postOrName){
+      if(postOrName && typeof postOrName==='object'){
+        var cur=resolveCurrentUsername(postOrName.user||postOrName.username||'');
+        // If alias map knows this account id, prefer its current username.
+        try{
+          var aid=postAccountId(postOrName);
+          if(aid){
+            var local=loadLocalUsernameAliases();
+            var hit=Object.keys(local).map(function(k){return local[k]}).find(function(r){return r&&r.user_id===aid&&r.current});
+            if(hit&&hit.current) return hit.current;
+            var hit2=Object.keys(__usernameAliasMap||{}).map(function(k){return __usernameAliasMap[k]}).find(function(r){return r&&r.user_id===aid&&r.current});
+            if(hit2&&hit2.current) return hit2.current;
+          }
+        }catch(e){}
+        return cur||String(postOrName.user||postOrName.username||'anon');
+      }
+      return resolveCurrentUsername(postOrName);
+    }
+    function accountNamesMatch(a,b){
+      if(!a||!b) return false;
+      if(normUserKey(a)===normUserKey(b)) return true;
+      var aa=aliasesForUsername(a).map(normUserKey);
+      var bb=aliasesForUsername(b).map(normUserKey);
+      for(var i=0;i<aa.length;i++){
+        if(bb.indexOf(aa[i])>=0) return true;
+      }
+      return false;
+    }
+    function sameAccountPost(post, user){
+      if(!post||!user) return false;
+      if(accountNamesMatch(post.user||post.username, user)) return true;
+      var postId=postAccountId(post);
+      var myId='';
+      try{myId=getPermanentAccountId()}catch(e){}
+      if(postId && myId && postId===myId) return true;
+      // Compare against alias user_ids for the viewed user
+      try{
+        var aliases=aliasesForUsername(user);
+        for(var i=0;i<aliases.length;i++){
+          var row=loadLocalUsernameAliases()[normUserKey(aliases[i])]||__usernameAliasMap[normUserKey(aliases[i])];
+          if(row&&row.user_id&&postId&&row.user_id===postId) return true;
+        }
+      }catch(e){}
+      return false;
+    }
+    async function refreshUsernameAliasMap(force){
+      var now=Date.now();
+      if(!force && __usernameAliasLoadedAt && (now-__usernameAliasLoadedAt)<60000){
+        return __usernameAliasMap;
+      }
+      seedKnownUsernameAliases();
+      try{
+        var local=loadLocalUsernameAliases();
+        Object.keys(local).forEach(function(k){__usernameAliasMap[k]=local[k]});
+      }catch(e){}
+      try{
+        var r=await fetch('/api/game-play?action=list_aliases',{cache:'no-store'});
+        var j=await r.json().catch(function(){return {}});
+        (j.aliases||[]).forEach(function(row){
+          if(!row) return;
+          var cur=row.current_username||row.current||'';
+          var alias=row.alias||'';
+          if(!cur) return;
+          var entry={current:cur,user_id:row.user_id||null,at:Date.now()};
+          if(alias) __usernameAliasMap[normUserKey(alias)]=entry;
+          __usernameAliasMap[normUserKey(cur)]=entry;
+          try{saveLocalUsernameAlias(alias||cur,cur,row.user_id||null)}catch(e){}
+        });
+      }catch(e){}
+      __usernameAliasLoadedAt=now;
+      return __usernameAliasMap;
+    }
+    async function serverRenameUsername(oldName, newName, userId){
+      oldName=String(oldName||'').replace(/^@/,'').trim();
+      newName=String(newName||'').replace(/^@/,'').trim();
+      if(!oldName||!newName||normUserKey(oldName)===normUserKey(newName) && oldName===newName){
+        // Still allow case-only changes through
+      }
+      var headers={'Content-Type':'application/json'};
+      try{
+        if(sb){
+          var sess=await sb.auth.getSession();
+          var token=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+          if(token) headers.Authorization='Bearer '+token;
+        }
+      }catch(e){}
+      var body={
+        action:'rename_username',
+        from:oldName,
+        to:newName,
+        user_id:userId||getPermanentAccountId()||undefined,
+        auth_user_id:getAuthUserId()||undefined,
+        anon_id:getStableAnonId()||undefined
+      };
+      var r=await fetch('/api/game-play',{method:'POST',headers:headers,credentials:'include',body:JSON.stringify(body),cache:'no-store'});
+      var j=await r.json().catch(function(){return {}});
+      if(r.ok && j && j.ok!==false){
+        saveLocalUsernameAlias(oldName,newName,j.user_id||userId||getPermanentAccountId());
+      }
+      return j;
+    }
+    function applyDisplayUsernameToPost(p){
+      if(!p) return p;
+      try{
+        var shown=displayAuthorName(p);
+        if(shown){
+          p.user=shown;
+          if(p.username!=null) p.username=shown;
+        }
+      }catch(e){}
+      return p;
+    }
+    async function fetchSbPostsForAccount(username, opts){
+      opts=opts||{};
+      var limit=Number(opts.limit||120)||120;
+      if(!sb) return [];
+      await refreshUsernameAliasMap(false);
+      var names=aliasesForUsername(username);
+      var rows=[];
+      var seen={};
+      function absorb(list){
+        (list||[]).forEach(function(row){
+          if(!row||row.id==null) return;
+          var id=String(row.id);
+          if(seen[id]) return;
+          seen[id]=1;
+          rows.push(row);
+        });
+      }
+      var cols='id,username,title,description,tags,image_url,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions';
+      // Try with user_id column first
+      try{
+        var cols2=cols+',user_id';
+        for(var i=0;i<names.length;i++){
+          var r=await sb.from('posts').select(cols2).ilike('username', names[i]).order('created_at',{ascending:false}).limit(limit);
+          if(r.error && /user_id/i.test(String(r.error.message||''))){
+            r=await sb.from('posts').select(cols).ilike('username', names[i]).order('created_at',{ascending:false}).limit(limit);
+          }
+          if(!r.error) absorb(r.data);
+        }
+      }catch(e){
+        try{
+          for(var j=0;j<names.length;j++){
+            var r2=await sb.from('posts').select(cols).ilike('username', names[j]).order('created_at',{ascending:false}).limit(limit);
+            if(!r2.error) absorb(r2.data);
+          }
+        }catch(e2){}
+      }
+      // Also match permanent anon_id tag when known for this account
+      try{
+        var uid=null;
+        var local=loadLocalUsernameAliases();
+        var key=normUserKey(username);
+        uid=(local[key]&&local[key].user_id)||(__usernameAliasMap[key]&&__usernameAliasMap[key].user_id)||null;
+        if(uid && String(uid).indexOf('anon_')===0){
+          var anon=String(uid).replace(/^anon_/,'');
+          var tag='anon_id:'+anon;
+          var tr=await sb.from('posts').select(cols).contains('tags',[tag]).order('created_at',{ascending:false}).limit(limit);
+          if(tr.error){
+            // ignore missing contains support
+          } else absorb(tr.data);
+        } else if(uid){
+          try{
+            var ur=await sb.from('posts').select(cols+',user_id').eq('user_id',uid).order('created_at',{ascending:false}).limit(limit);
+            if(!ur.error) absorb(ur.data);
+          }catch(e3){}
+        }
+      }catch(e){}
+      return rows.map(function(row){
+        var item=null;
+        try{item=typeof cfRowToFeed==='function'?cfRowToFeed(row):null}catch(e){item=null}
+        if(!item){
+          item={
+            id:row.id,
+            user:row.username||'anon',
+            title:row.title||'',
+            desc:row.description||'',
+            tags:row.tags||[],
+            created:row.created_at?new Date(row.created_at).getTime():Date.now(),
+            expires:row.expires_at?new Date(row.expires_at).getTime():0,
+            views:Number(row.views||0)||0,
+            likes:Number(row.likes_count||0)||0,
+            image:row.image_url||'',
+            images:[],
+            featuredUntil:row.featured_until?new Date(row.featured_until).getTime():0,
+            user_id:row.user_id||null
+          };
+        } else if(row.user_id){
+          item.user_id=row.user_id;
+        }
+        return applyDisplayUsernameToPost(item);
+      });
+    }
+    window.normUserKey=normUserKey;
+    window.getPermanentAccountId=getPermanentAccountId;
+    window.displayAuthorName=displayAuthorName;
+    window.sameAccountPost=sameAccountPost;
+    window.fetchSbPostsForAccount=fetchSbPostsForAccount;
+    window.serverRenameUsername=serverRenameUsername;
+    window.refreshUsernameAliasMap=refreshUsernameAliasMap;
+    try{seedKnownUsernameAliases()}catch(e){}
+
     function nameWithVerified(name){
       var raw = String(name||'').replace(/^@/,'');
       var n = typeof shortDisplayUser==='function'?shortDisplayUser(raw):raw;
@@ -6802,7 +7204,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           // fallback if xp column missing
           r=await sb.from('profiles').select('*').eq('username',username).maybeSingle();
         }
-        profileCache[username]=r.data||null;
+        if((!r.data) && username){
+          try{
+            var r2=await sb.from('profiles').select('username,bio,avatar_url,twitter,telegram,link,xp,updated_at').ilike('username',username).maybeSingle();
+            if(r2&&r2.data) r=r2;
+          }catch(e2){}
+        }
+        var row=r.data||null;
+        // Follow soft-merge marker left on orphan profile rows after a rename.
+        try{
+          var m=row&&row.bio&&String(row.bio).match(/<!--merged:@([A-Za-z0-9_]+)-->/);
+          if(m&&m[1]&&normUserKey(m[1])!==normUserKey(username)){
+            try{saveLocalUsernameAlias(username, m[1], null)}catch(eA){}
+            var cur=await loadProfile(m[1], true);
+            if(cur){profileCache[username]=cur;return cur}
+          }
+        }catch(eM){}
+        profileCache[username]=row;
         return profileCache[username];
       }catch(e){profileCache[username]=null;return null}
     }
@@ -25060,6 +25478,11 @@ function postCardHtml(p, compact){
     }
     async function openUser(username){
       if(!userClickable(username))return;
+      try{await refreshUsernameAliasMap(false)}catch(e){}
+      // Old handles resolve to the current display username BEFORE ban checks,
+      // so a soft-merged orphan row cannot block access to the live account.
+      var requested=String(username||'');
+      username=resolveCurrentUsername(requested)||requested;
       if(isUserBanned(username)){
         toast('This account is banned');
         return;
@@ -25082,12 +25505,20 @@ function postCardHtml(p, compact){
       var av=document.getElementById('user-avatar');
       av.textContent=username.charAt(0).toUpperCase();
       delete profileCache[username];
+      delete profileCache[requested];
       var p=await loadProfile(username,true);
+      // If current handle profile missing, try requested alias then fall back.
+      if(!p && requested && normUserKey(requested)!==normUserKey(username)){
+        try{p=await loadProfile(requested,true)}catch(e){}
+      }
       // explicit XP read (never trust stale cache)
       var otherXp=0;
       try{
         if(sb){
-          var xr=await sb.from('profiles').select('xp').eq('username',username).maybeSingle();
+          var xr=await sb.from('profiles').select('xp').ilike('username',username).maybeSingle();
+          if((!xr.data||xr.data.xp==null) && requested){
+            xr=await sb.from('profiles').select('xp').ilike('username',requested).maybeSingle();
+          }
           if(xr.data&&xr.data.xp!=null)otherXp=Number(xr.data.xp)||0;
           if(p)p.xp=otherXp;
           else if(xr.data)p={username:username,xp:otherXp};
@@ -25095,7 +25526,7 @@ function postCardHtml(p, compact){
       }catch(e){console.warn('xp fetch',e)}
       if(p&&p.avatar_url)av.innerHTML='<img src="'+p.avatar_url+'" alt=""/>';
       else av.textContent=username.charAt(0).toUpperCase();
-      try{paintProfileStoryRing('user-av-wrap', username, String(username)===String(currentUser&&currentUser.name))}catch(e){}
+      try{paintProfileStoryRing('user-av-wrap', username, accountNamesMatch(username, currentUser&&currentUser.name))}catch(e){}
       var pxu=parseProfileExtra(p&&p.bio?p.bio:'');
       document.getElementById('user-bio').innerHTML=(pxu.text?esc(pxu.text):'No bio yet')+profileChipsHtml(pxu);
       var links=document.getElementById('user-links');links.innerHTML='';
@@ -25105,12 +25536,12 @@ function postCardHtml(p, compact){
 
       var fb=document.getElementById('btn-follow');
       var mb=document.getElementById('btn-msg-user');
-      var can=isRegistered()&&username!==currentUser.name;
+      var can=isRegistered()&&!accountNamesMatch(username, currentUser.name);
       if(fb){fb.style.display=can?'inline-block':'none';fb.textContent='Follow';
         if(can&&sb){sb.from('follows').select('*').eq('follower',currentUser.name).eq('following',username).maybeSingle().then(function(r){if(r.data)fb.textContent='Following'});}
       }
       if(mb)mb.style.display=can?'inline-block':'none';
-      var ups=posts.filter(function(x){return x.user===username||x.user===String(username)});
+      var ups=posts.filter(function(x){return sameAccountPost(x, username)});
       var statsEl=document.getElementById('user-stats');
       if(typeof otherXp!=='number')otherXp=(p&&p.xp!=null)?(Number(p.xp)||0):0;
       if(statsEl){
@@ -25126,30 +25557,41 @@ function postCardHtml(p, compact){
 
       (async function(){
         var gallery=[];
+        var uname=normUserKey(username);
+        // Primary source: Supabase posts linked by account id / aliases (not CF username feed).
+        try{
+          var sbRows=await fetchSbPostsForAccount(username,{limit:120});
+          (sbRows||[]).forEach(function(item){
+            if(!item)return;
+            applyDisplayUsernameToPost(item);
+            gallery.push(item);
+            if(!posts.some(function(p){return String(p.id)===String(item.id)}))posts.push(item);
+          });
+        }catch(e){console.warn('sb user gallery',e)}
         try{
           var cf=await fetchCfFeed();
-          var uname=String(username||'').toLowerCase();
           (cf||[]).forEach(function(row){
-            var who=String(row.username||row.user||'').toLowerCase();
-            if(who!==uname)return;
+            var who=String(row.username||row.user||'');
+            if(!accountNamesMatch(who, username) && normUserKey(who)!==uname) return;
             var item=cfRowToFeed(row);
             if(!item)return;
             item._cf=true;
-            gallery.push(item);
+            applyDisplayUsernameToPost(item);
+            if(!gallery.some(function(g){return String(g.id)===String(item.id)})) gallery.push(item);
             if(!posts.some(function(p){return String(p.id)===String(item.id)}))posts.push(item);
           });
         }catch(e){console.warn('gallery',e)}
         try{
           var localArch=JSON.parse(localStorage.getItem('rs_id_archive')||'[]')||[];
           localArch.forEach(function(r){
-            if(String(r.username||'').toLowerCase()!==uname)return;
+            if(!accountNamesMatch(r.username, username) && normUserKey(r.username)!==uname) return;
             if(gallery.some(function(g){return String(g.id)===String(r.id)}))return;
-            var item={id:r.id,user:r.username,title:r.title||'',desc:r.description||'',tags:r.tags||[],created:new Date(r.created_at||Date.now()).getTime(),expires:0,views:r.views||0,likes:r.likes_count||0,image:r.image_url,images:r.image_url?[r.image_url]:[],featuredUntil:0,_cf:true};
+            var item={id:r.id,user:resolveCurrentUsername(r.username)||r.username,title:r.title||'',desc:r.description||'',tags:r.tags||[],created:new Date(r.created_at||Date.now()).getTime(),expires:0,views:r.views||0,likes:r.likes_count||0,image:r.image_url,images:r.image_url?[r.image_url]:[],featuredUntil:0,_cf:true};
             gallery.push(item);
             if(!posts.some(function(p){return String(p.id)===String(item.id)}))posts.push(item);
           });
         }catch(e){}
-        if(!gallery.length)gallery=(ups||[]).filter(isCfPost);
+        if(!gallery.length)gallery=(ups||[]).filter(function(p){return !!p});
         window.__profileGalleryItems=gallery;
         setupProfileFeedTabs();
         setProfileFeedView(window.__profileFeedView||'extended');
@@ -25808,17 +26250,29 @@ async function onIdFace(e){
         var imageField=uploaded[0];
         // 10 years — permanent profile gallery (not in feed)
         var exp=null;
+        var idTags=['profile_only','generated_id','profile_gallery','normal_feed'];
+        try{
+          var aidId=getStableAnonId();
+          if(aidId) idTags.push('anon_id:'+aidId);
+          var permId=getPermanentAccountId();
+          if(permId) idTags.push('uid:'+String(permId).slice(0,64));
+        }catch(e){}
         var payload={
           username:currentUser.name,
           title:(idRenderMode==='pea'?'Published PEA':'Published ID'),
           description:'Published PEA card',
-          tags:['profile_only','generated_id'],
+          tags:idTags,
           image_url:imageField,
           expires_at:exp,
           extend_amount:0,
           views:0,likes_count:0,extensions_count:0
         };
+        try{var uidP=getPermanentAccountId(); if(uidP) payload.user_id=uidP}catch(e){}
         var res=await sb.from('posts').insert(payload).select('*').limit(1);
+        if(res.error && /user_id/i.test(String(res.error.message||''))){
+          delete payload.user_id;
+          res=await sb.from('posts').insert(payload).select('*').limit(1);
+        }
         if(res.error){
           res=await sb.from('posts').insert({
             username:payload.username,title:payload.title,description:payload.description,
@@ -26244,17 +26698,29 @@ async function onIdFace(e){
         var uploaded=await uploadPostPhotos(list);
         var imageField=uploaded.length===1?uploaded[0]:JSON.stringify(uploaded);
         var far=null;
+        var galTags=['profile_only','profile_gallery','normal_feed'];
+        try{
+          var aidG=getStableAnonId();
+          if(aidG) galTags.push('anon_id:'+aidG);
+          var permG=getPermanentAccountId();
+          if(permG) galTags.push('uid:'+String(permG).slice(0,64));
+        }catch(e){}
         var payload={
           username:currentUser.name,
           title:'Profile Gallery',
           description:'',
-          tags:['profile_only'],
+          tags:galTags,
           image_url:imageField,
           expires_at:far,
           extend_amount:0,
           views:0,likes_count:0,extensions_count:0
         };
+        try{var uidG=getPermanentAccountId(); if(uidG) payload.user_id=uidG}catch(e){}
         var res=await sb.from('posts').insert(payload).select('*').limit(1);
+        if(res.error && /user_id/i.test(String(res.error.message||''))){
+          delete payload.user_id;
+          res=await sb.from('posts').insert(payload).select('*').limit(1);
+        }
         if(res.error){
           res=await sb.from('posts').insert({
             username:payload.username,title:payload.title,description:'',
@@ -26274,28 +26740,53 @@ async function onIdFace(e){
       if(!box||!isRegistered())return;
       box.innerHTML='<div style="color:var(--muted);font-size:13px">Loading gallery…</div>';
       try{
-        var cf=await fetchCfFeed();
-        var me=String(currentUser.name||'').toLowerCase();
-        var rows=(cf||[]).filter(function(r){
-          var who=String(r.username||r.user||'').toLowerCase();
-          if(who!==me)return false;
-          var tags=r.tags||[];
-          if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
-          if(!Array.isArray(tags))tags=[];
-          return tags.indexOf('profile_only')>=0 || tags.indexOf('profile_gallery')>=0 || tags.indexOf('normal_feed')>=0;
-        });
-        if(!rows.length){
+        try{await refreshUsernameAliasMap(false)}catch(e){}
+        var meName=String(currentUser.name||'');
+        var gallery=[];
+        // Primary: Supabase by permanent account (user_id / aliases / anon_id) — not CF username feed.
+        try{
+          var sbRows=await fetchSbPostsForAccount(meName,{limit:120});
+          (sbRows||[]).forEach(function(item){
+            if(!item) return;
+            var tags=item.tags||[];
+            if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+            if(!Array.isArray(tags))tags=[];
+            var isGal=tags.indexOf('profile_only')>=0 || tags.indexOf('profile_gallery')>=0 || tags.indexOf('normal_feed')>=0 || tags.indexOf('generated_id')>=0 || tags.indexOf('generated_pea')>=0 || tags.indexOf('idcard')>=0 || tags.indexOf('pea')>=0;
+            if(!isGal && !(typeof isProfileOnly==='function' && isProfileOnly(item))) {
+              // Still keep wall/exposure posts out of the "Photos on my profile" strip unless tagged.
+              return;
+            }
+            gallery.push(item);
+          });
+        }catch(e){console.warn('sb gallery',e)}
+        // Secondary: CF feed (may be empty when Worker D1 is down)
+        try{
+          var cf=await fetchCfFeed();
+          var me=normUserKey(meName);
+          (cf||[]).forEach(function(r){
+            var who=String(r.username||r.user||'');
+            if(!accountNamesMatch(who, meName) && normUserKey(who)!==me) return;
+            var tags=r.tags||[];
+            if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+            if(!Array.isArray(tags))tags=[];
+            if(!(tags.indexOf('profile_only')>=0 || tags.indexOf('profile_gallery')>=0 || tags.indexOf('normal_feed')>=0)) return;
+            var item=typeof cfRowToFeed==='function'?cfRowToFeed(r):null;
+            if(!item) return;
+            applyDisplayUsernameToPost(item);
+            if(!gallery.some(function(g){return String(g.id)===String(item.id)})) gallery.push(item);
+          });
+        }catch(e){}
+        if(!gallery.length){
           box.innerHTML='<div style="color:var(--muted);font-size:13px;margin-top:8px">No profile photos yet</div>';
           return;
         }
         var html='<div style="font-weight:700;margin:10px 0 8px">Photos on my profile</div><div class="profile-gallery-feed">';
         window.myGalleryPosts=[];
-        rows.forEach(function(r){
-          var imgs=[];try{imgs=parseImages(r.image_url)}catch(e){imgs=r.image_url?[r.image_url]:[]}
-          var localPost={id:r.id,user:r.username,title:r.title,desc:r.description||'',tags:r.tags||['profile_gallery'],created:new Date(r.created_at).getTime(),expires:r.expires_at?new Date(r.expires_at).getTime():0,views:r.views||0,likes:r.likes_count||0,extensions:0,extendAmount:0,extenders:[],likedBy:[],image:r.image_url,images:imgs,featuredUntil:0,savesCount:0,downloadsCount:0,reactions:{},_needImg:false};
+        gallery.forEach(function(localPost){
+          applyDisplayUsernameToPost(localPost);
           window.myGalleryPosts.push(localPost);
           html+=profileGalleryPostHtml(localPost,true);
-          if(!posts.some(function(p){return String(p.id)===String(r.id)})) posts.push(localPost);
+          if(!posts.some(function(p){return String(p.id)===String(localPost.id)})) posts.push(localPost);
         });
         html+='</div>';
         box.innerHTML=html;
@@ -26474,7 +26965,7 @@ async function onIdFace(e){
           }
         }catch(e){}
         var hasUploadedVideo=uploaded.some(function(u){return /\.mp4|\.webm|\.mov|\.m4v/i.test(String(u||''))});
-        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var acct=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'account:anonymous':'account:registered';if(base.indexOf(acct)<0)base.push(acct);var aid='';try{aid=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'')}catch(eA){}if(aid&&base.indexOf('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40))<0)base.push('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40));}catch(eAc){}try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');if(gpub&&(gpub.game==='challenges'||gpub.badge==='challenges')&&base.indexOf('challenge_proof')<0)base.push('challenge_proof');if(gpub&&gpub.game_origin&&base.indexOf('game_origin:'+gpub.game_origin)<0)base.push('game_origin:'+gpub.game_origin);if(gpub&&gpub.taskId&&base.indexOf('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40))<0)base.push('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));}catch(eG){}try{if(hasUploadedVideo){if(base.indexOf('video')<0)base.push('video');if(base.indexOf('goontok')<0)base.push('goontok');if(uploadPoster&&typeof withVthumbTag==='function')base=withVthumbTag(base,uploadPoster);}}catch(eV){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
+        var pubTags=(function(){var g=selectedGender||'man';var base=profileMode?(tags.concat(['profile_gallery','normal_feed'])):((tags.length?tags.slice():['exposed']));if(!profileMode){base=base.filter(function(x){return String(x).indexOf('gender_')!==0 && String(x).indexOf('ext_')!==0 && String(x).indexOf('album:')!==0 && String(x).indexOf('del:')!==0});base.push('gender_'+g);if(base.indexOf(g)<0)base.push(g);base.push('ext_'+(selectedExtendAmount||360));}if(albumTag)base.push(albumTag);base=withDeletionTierTag(base,delTier);try{var acct=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'account:anonymous':'account:registered';if(base.indexOf(acct)<0)base.push(acct);var aid='';try{aid=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'')}catch(eA){}if(aid&&base.indexOf('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40))<0)base.push('anon_id:'+aid.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40));try{var perm=(typeof getPermanentAccountId==='function'?getPermanentAccountId():'')||'';if(perm&&base.indexOf('uid:'+perm)<0)base.push('uid:'+String(perm).slice(0,64));}catch(eUid){}}catch(eAc){}try{var gpub=window.__pendingGamePublish;if(gpub&&gpub.badge&&RS_GAME_BADGES[gpub.badge]){var bt=RS_GAME_BADGES[gpub.badge].tag;if(base.indexOf(bt)<0)base.push(bt);}if(gpub&&gpub.game==='roulette'&&base.indexOf('roulette_task')<0)base.push('roulette_task');if(gpub&&gpub.game==='dice'&&base.indexOf('exposure_dice')<0)base.push('exposure_dice');if(gpub&&gpub.game==='tic_tac_toe'&&base.indexOf('ttt_challenge')<0)base.push('ttt_challenge');if(gpub&&(gpub.game==='challenges'||gpub.badge==='challenges')&&base.indexOf('challenge_proof')<0)base.push('challenge_proof');if(gpub&&gpub.game_origin&&base.indexOf('game_origin:'+gpub.game_origin)<0)base.push('game_origin:'+gpub.game_origin);if(gpub&&gpub.taskId&&base.indexOf('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40))<0)base.push('game_task:'+String(gpub.taskId).replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,40));}catch(eG){}try{if(hasUploadedVideo){if(base.indexOf('video')<0)base.push('video');if(base.indexOf('goontok')<0)base.push('goontok');if(uploadPoster&&typeof withVthumbTag==='function')base=withVthumbTag(base,uploadPoster);}}catch(eV){}return base.filter(function(x,i,a){return x&&a.indexOf(x)===i});})();
         // Video Wall posts are permanent clips (same as GoonTok composer) — no Extend timer.
         if(hasUploadedVideo){
           try{imageField=uploaded.filter(function(u){return /\.mp4|\.webm|\.mov|\.m4v/i.test(String(u||''))})[0]||uploaded[0]||imageField}catch(e){}
@@ -26491,6 +26982,10 @@ async function onIdFace(e){
           free_deletion_enabled: delTier==='deletable',
           views:0,likes_count:0,extensions_count:0,saves_count:0,downloads_count:0
         };
+        try{
+          var pubUid=(typeof getPermanentAccountId==='function'?getPermanentAccountId():'')||'';
+          if(pubUid) payload.user_id=String(pubUid).slice(0,64);
+        }catch(ePubUid){}
         var cfRes=null;
         try{
           var mediaIsVideo=hasUploadedVideo||uploaded.some(function(u){return /\.mp4|\.webm|\.mov|\.m4v/i.test(String(u||''))});
@@ -26530,7 +27025,12 @@ async function onIdFace(e){
               deletion_tier:delTier,
               free_deletion_enabled: delTier==='deletable'
             };
+            if(payload.user_id) sbPayload.user_id=payload.user_id;
             var sbRes=await sb.from('posts').insert(sbPayload).select('*').limit(1);
+            if(sbRes&&sbRes.error && /user_id/i.test(String(sbRes.error.message||''))){
+              delete sbPayload.user_id;
+              sbRes=await sb.from('posts').insert(sbPayload).select('*').limit(1);
+            }
             if(sbRes&&sbRes.error && /free_deletion_enabled/i.test(String(sbRes.error.message||''))){
               delete sbPayload.free_deletion_enabled;
               sbRes=await sb.from('posts').insert(sbPayload).select('*').limit(1);
@@ -28013,13 +28513,26 @@ async function onIdFace(e){
 
         if(oldName&&oldName!==newName){
           toast('Migrating data to @'+newName+'…');
-          // posts
+          var accountId=getPermanentAccountId();
+          try{
+            if(accountId){
+              var stamped=await sb.from('profiles').update({user_id:accountId}).eq('username',newName);
+              if(stamped&&stamped.error&&/user_id/i.test(String(stamped.error.message||''))){
+                /* column not migrated yet — ignore */
+              }
+            }
+          }catch(e){}
+          // Server-side permanent rename: rewrite content by account id, keep rows, record aliases.
+          try{
+            var srv=await serverRenameUsername(oldName,newName,accountId);
+            if(!(srv&&srv.ok)) console.warn('server rename',srv);
+          }catch(e){console.warn('server rename',e)}
+          saveLocalUsernameAlias(oldName,newName,accountId);
+          // Client fallbacks (RLS may no-op; server path is authoritative when service role is set)
           try{await sb.from('posts').update({username:newName}).eq('username',oldName)}catch(e){console.warn(e)}
-          try{await sb.from('posts').update({user:newName}).eq('user',oldName)}catch(e){}
-          // comments
+          try{await sb.from('posts').update(accountId?{username:newName,user_id:accountId}:{username:newName}).ilike('username',oldName)}catch(e){}
           try{await sb.from('comments').update({username:newName}).eq('username',oldName)}catch(e){}
           try{await sb.from('comments').update({user:newName}).eq('user',oldName)}catch(e){}
-          // follows row-by-row
           try{
             var f1=await sb.from('follows').select('follower,following').eq('follower',oldName);
             var rows1=f1.data||[];
@@ -28051,10 +28564,27 @@ async function onIdFace(e){
             var m=JSON.parse(localStorage.getItem('rs_xp')||'{}')||{};
             if(m[oldName]!=null){m[newName]=Math.max(Number(m[newName]||0),Number(m[oldName]||0));delete m[oldName];localStorage.setItem('rs_xp',JSON.stringify(m))}
           }catch(e){}
+          // Rewrite in-memory feed authors to the new display name (no duplicate posts).
+          try{
+            (posts||[]).forEach(function(p){
+              if(sameAccountPost(p, oldName) || sameAccountPost(p, newName) || accountNamesMatch(p.user, oldName)){
+                p.user=newName;
+                if(p.username!=null) p.username=newName;
+                if(accountId) p.user_id=accountId;
+              }
+            });
+          }catch(e){}
           delete profileCache[oldName];
           delete avatarUrlCache[oldName];
+        } else {
+          // Same username: still stamp permanent user_id when column exists.
+          try{
+            var aid2=getPermanentAccountId();
+            if(aid2) await sb.from('profiles').update({user_id:aid2}).eq('username',newName);
+          }catch(e){}
         }
         currentUser.name=newName;
+        try{currentUser.auth_user_id=getAuthUserId()||currentUser.auth_user_id}catch(e){}
         localStorage.setItem('rs_uid',newName);
         try{localStorage.setItem('rs_user',newName)}catch(e){}
         delete profileCache[newName];
@@ -28372,6 +28902,9 @@ async function onIdFace(e){
     }
     function samePostOwner(post, user){
       if(!post||!user)return false;
+      try{
+        if(typeof sameAccountPost==='function' && sameAccountPost(post, user)) return true;
+      }catch(e){}
       var a=String(post.user||post.username||'').replace(/^@/,'').trim().toLowerCase();
       var b=String(user||'').replace(/^@/,'').trim().toLowerCase();
       return !!a && !!b && a===b;
@@ -30003,11 +30536,20 @@ async function onIdFace(e){
         var meta=(res.data&&res.data.user&&res.data.user.user_metadata)||{};
         var name=meta.username||email.split('@')[0].replace(/[^a-zA-Z0-9_]/g,'').slice(0,20)||'user';
         name=String(name).replace(/[^a-zA-Z0-9_]/g,'').slice(0,20);
-        currentUser={name:name,role:'user',email:email};
+        // Prefer current display username from alias map (handles prior renames).
+        try{name=resolveCurrentUsername(name)||name}catch(e){}
+        var authId=res.data&&res.data.user&&res.data.user.id?String(res.data.user.id):'';
+        if(authId) rememberAuthUserId(authId);
+        currentUser={name:name,role:'user',email:email,auth_user_id:authId||getAuthUserId()||null,account_type:'registered',anonymous_user_id:getStableAnonId()||null};
         if(await enforceCurrentAccount()===false)return;
         localStorage.setItem('rs_uid',name);
         localStorage.setItem('rs_role','user');
         localStorage.setItem('rs_email',email);
+        try{await refreshUsernameAliasMap(true)}catch(e){}
+        try{
+          var aid=getPermanentAccountId();
+          if(aid) await sb.from('profiles').update({user_id:aid}).eq('username',name);
+        }catch(e){}
         setAuthStatus('Step 3/3 — Syncing XP & saved posts…');
         try{await loadXpFromProfile()}catch(e){}
         try{await loadUserSaves()}catch(e){}
