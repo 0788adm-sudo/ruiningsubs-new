@@ -45,8 +45,8 @@ assert(
   'legacy EXTEND_ADD_MINUTES fallback for old posts stays 360'
 );
 
-// Button label helper: 1440 formats as 1 day (same duration as 24h option)
-assert(/function fmtMin\(min\)\{[^}]*min===1440\)return'1 day'/.test(html), 'fmtMin(1440) → 1 day for Extend button');
+// Button label helper: 1440 formats as 24h
+assert(/function fmtMin\(min\)\{[^}]*min===1440\)return'24h'/.test(html), 'fmtMin(1440) → 24h for Extend button');
 
 // Simulate publish without changing selection
 var selectedExtendAmount = 1440;
@@ -57,11 +57,11 @@ assert(
     min = Number(min) || 0;
     if (min < 60) return min + 'm';
     if (min < 1440) return min / 60 + 'h';
-    if (min === 1440) return '1 day';
+    if (min === 1440) return '24h';
     if (min === 4320) return '3 days';
     return min / 1440 + 'd';
-  })(payloadExtend) === '1 day',
-  'Extend button label for default is +1 day (24h)'
+  })(payloadExtend) === '24h',
+  'Extend button label for default is +24h'
 );
 
 // User can still pick 6h

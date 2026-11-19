@@ -14,7 +14,7 @@ function assert(c, m) {
 
 assert(html.includes('function postExtendMinutes'), 'postExtendMinutes helper');
 assert(/Each Extender adds whatever the publisher set/.test(html), 'publisher amount comment');
-assert(html.includes('parseExtendMins(post&&post.tags'), 'reads ext_N tags');
+assert(html.includes('function resolveExtendAmountMinutes') || html.includes('tagExtendMinutes'), 'reads ext_N tags via resolver');
 assert(html.includes("toast('Extended +'+amtLab"), 'toast uses publisher amount label');
 assert(html.includes("'⚡ Extend +'+fmtMin(postExtendMinutes(post))"), 'cooldown refresh uses publisher amount');
 assert(html.includes('EXTEND_COOLDOWN_MS=6*60*60*1000'), '6h same-post re-extend cooldown');
