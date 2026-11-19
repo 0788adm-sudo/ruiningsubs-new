@@ -15606,7 +15606,11 @@ function openRoulette(){
       if(!check.ok||!check.faststart) return {ok:false,changed:false,buffer:u8,error:'validate_failed'};
       return {ok:true,changed:true,buffer:out,info:check};
     }
-    async function ensureMp4FastStart(file){
+    async function ensureMp4FastStart(file, opts){
+      // opts.silent: background optimize must NEVER show the upload progress modal
+      // (same ghost-UI leak that compressVideoForUpload already guards against).
+      opts=opts||{};
+      var showUi=!!opts.showProgress || (!opts.silent && !!window.__publishingVideo);
       try{
         if(!file) return file;
         var name=String(file.name||'').toLowerCase();
@@ -15615,7 +15619,9 @@ function openRoulette(){
         if(!isMp4) return file;
         // Skip huge in-browser remux to avoid iPhone OOM; R2 Range still plays moov-at-end.
         if(file.size>55*1024*1024) return file;
-        try{if(typeof updateVideoProgress==='function') updateVideoProgress('Preparing video…','Fast Start remux (no quality loss)',10)}catch(e){}
+        if(showUi){
+          try{if(typeof updateVideoProgress==='function') updateVideoProgress('Preparing video…','Fast Start remux (no quality loss)',10)}catch(e){}
+        }
         var ab=await file.arrayBuffer();
         var before=inspectMp4Buffer(ab);
         if(!before.ok) return file;
@@ -17600,7 +17606,7 @@ function openRoulette(){
         // Silent: background repair must not open the user-facing upload modal.
         try{if(typeof compressVideoForUpload==='function') out=await compressVideoForUpload(file,{silent:true})}catch(e){}
         // Fast Start remux (moov before mdat) — same as upload path; no recompress.
-        try{if(typeof ensureMp4FastStart==='function') out=await ensureMp4FastStart(out)}catch(e){}
+        try{if(typeof ensureMp4FastStart==='function') out=await ensureMp4FastStart(out,{silent:true})}catch(e){}
         if(!out||out.size<1000){markVideoNeedsOpt(job.id,'compress_fail');return}
         // If compress didn't shrink much and original was already small/playable, just mark needs_opt lightly
         var up=null;
