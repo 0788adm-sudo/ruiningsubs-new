@@ -37,9 +37,11 @@ assert(html.includes('World_Dark_Gray_Base'), 'Esri dark basemap in addBasemap')
 assert(!/basemaps\.cartocdn\.com\/dark_all/.test(html), 'Carto dark_all URL removed');
 assert(html.includes('API KEY REQUIRED') || html.includes('watermark'), 'comment documents CARTO watermark cause');
 
-// 5) Ghost compression: silent background path + panel clear
+// 5) Ghost compression / Fast Start: silent background path + panel clear
 assert(/compressVideoForUpload\(file,\s*\{silent:true\}\)/.test(html), 'optimize worker uses silent compress');
-assert(/opts\.silent/.test(html)||/var showUi=!!opts\.showProgress/.test(html), 'compressVideoForUpload respects silent/showProgress');
+assert(/ensureMp4FastStart\(out,\s*\{silent:true\}\)/.test(html), 'optimize worker uses silent Fast Start remux');
+assert(/async function ensureMp4FastStart\(file,\s*opts\)/.test(html), 'ensureMp4FastStart accepts opts');
+assert(/opts\.silent/.test(html)||/var showUi=!!opts\.showProgress/.test(html), 'compress/faststart respect silent/showProgress');
 assert(/!window\.__publishingVideo[\s\S]{0,80}hideVideoProgress/.test(html), 'panel change hides orphan progress when not publishing');
 assert(/panel-randomcam[\s\S]{0,40}panel-map[\s\S]{0,80}return/.test(html)||/act\.id==='panel-randomcam'/.test(html), 'optimize worker skips Random Cam / Map panels');
 

@@ -44,7 +44,7 @@ assert(/async function uploadPostPhotos[\s\S]*ensureMp4FastStart/.test(html), 'u
 assert(/async function uploadPostPhotos[\s\S]*grabVideoPoster/.test(html), 'uploadPostPhotos can mint local vthumb');
 assert(/hasUploadedVideo[\s\S]{0,400}withVthumbTag/.test(html), 'createPost stamps vthumb for Wall videos');
 assert(/busyVid[\s\S]{0,200}lazy-video\[data-lv-active/.test(html), 'optimize worker yields to active players');
-assert(/ensureMp4FastStart\(out\)/.test(html), 'background optimize also Fast Starts');
+assert(/ensureMp4FastStart\(out,\s*\{silent:true\}\)/.test(html), 'background optimize Fast Starts silently');
 assert(worker.includes('status: 416') || worker.includes('status = 416') || /416/.test(worker), 'Worker patch handles 416');
 assert(worker.includes('Accept-Ranges'), 'Worker patch Accept-Ranges');
 assert(apiVideos.includes('status === 416') || apiVideos.includes('416'), 'media proxy forwards 416');
