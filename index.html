@@ -4257,6 +4257,55 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(fromCol>0) return fromCol;
       return 0;
     }
+    /** Normalize expires_at for Supabase timestamptz — never send raw epoch ms (PostgREST rejects it). */
+    function normalizeExpiresAtForDb(v){
+      if(v==null||v==='') return null;
+      if(typeof v==='number'){
+        if(!isFinite(v)||v<=0) return null;
+        var ms=v<1e12?Math.round(v*1000):Math.round(v);
+        try{return new Date(ms).toISOString()}catch(e){return null}
+      }
+      if(v instanceof Date){
+        try{return isNaN(v.getTime())?null:v.toISOString()}catch(e){return null}
+      }
+      var s=String(v).trim();
+      if(!s) return null;
+      if(/^\d+$/.test(s)){
+        var n=Number(s);
+        if(!isFinite(n)||n<=0) return null;
+        var ms2=n<1e12?Math.round(n*1000):Math.round(n);
+        try{return new Date(ms2).toISOString()}catch(e2){return null}
+      }
+      var t=Date.parse(s);
+      if(isFinite(t)) try{return new Date(t).toISOString()}catch(e3){return null}
+      return s;
+    }
+    /** Amount to persist on create — tags/selection win; never invent 360 when a real choice exists. */
+    function intendedExtendAmountForWrite(src, tags){
+      tags=tags!=null?tags:(src&&src.tags);
+      var n=0;
+      try{n=resolveExtendAmountMinutes(src, tags)}catch(e){n=0}
+      if(n>0) return n;
+      n=columnExtendMinutes(src);
+      if(n>0) return n;
+      return 0;
+    }
+    async function reconcilePostExtendAmount(postId, intendedMinutes){
+      intendedMinutes=clampPubExtendMinutes(intendedMinutes);
+      postId=postId!=null?postId:'';
+      if(!intendedMinutes||postId===''||!sb) return null;
+      try{
+        var key=/^\d+$/.test(String(postId))?Number(postId):postId;
+        var cur=await sb.from('posts').select('id,extend_amount,tags').eq('id', key).maybeSingle();
+        var row=cur&&cur.data;
+        if(!row) return null;
+        var have=Number(row.extend_amount);
+        if(have===intendedMinutes) return row;
+        var up=await sb.from('posts').update({extend_amount:intendedMinutes}).eq('id', key).select('id,extend_amount,tags').maybeSingle();
+        if(up&&up.data) return up.data;
+      }catch(e){}
+      return null;
+    }
     function seedHash(s){
       var h=2166136261;
       s=String(s||'');
@@ -4440,14 +4489,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             }
           }catch(e){}
         }
+        var isVideo=String(row.media_type||'')==='video';
+        var intendedExt=isVideo?0:(intendedExtendAmountForWrite(row, tags)||0);
+        // Timed posts must persist the publisher's choice. Only use legacy 360 when
+        // neither column nor ext_N tag carried an amount (old clients).
+        if(!isVideo && !(intendedExt>0)) intendedExt=360;
         var ins={
           username:row.username||'anon',
           title:row.title||'',
           description:row.description||'',
           tags:tags,
           image_url:imageField,
-          expires_at:String(row.media_type||'')==='video'?null:(row.expires_at||null),
-          extend_amount:String(row.media_type||'')==='video'?0:(Number(row.extend_amount||row.extend_mins||360)||360)
+          expires_at:isVideo?null:normalizeExpiresAtForDb(row.expires_at),
+          extend_amount:intendedExt
         };
         try{
           var uidIns=row.user_id||(typeof getPermanentAccountId==='function'?getPermanentAccountId():'');
@@ -4474,22 +4528,36 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           delete ins.free_deletion_enabled;
           up=await sb.from('posts').insert(ins).select('*').limit(1);
         }
+        // Retry once if a stale caller still passed epoch-ms expires_at.
+        if(up&&up.error && /date\/time|timestamptz|expires_at/i.test(String(up.error.message||''))){
+          ins.expires_at=isVideo?null:normalizeExpiresAtForDb(row.expires_at);
+          up=await sb.from('posts').insert(ins).select('*').limit(1);
+        }
         if(up&&up.error) throw new Error(up.error.message||errMsg);
         var saved=(up&&up.data&&up.data[0])||null;
         if(!saved||saved.id==null) throw new Error(errMsg);
+        // Belt-and-suspenders: DB default is 360 — force publisher amount if insert dropped it.
+        if(!isVideo && intendedExt>0 && Number(saved.extend_amount)!==intendedExt){
+          try{
+            var fixed=await reconcilePostExtendAmount(saved.id, intendedExt);
+            if(fixed&&fixed.extend_amount!=null) saved.extend_amount=fixed.extend_amount;
+            else saved.extend_amount=intendedExt;
+          }catch(eRec){saved.extend_amount=intendedExt}
+        }
+        var savedAmt=Number(saved.extend_amount!=null?saved.extend_amount:intendedExt)||0;
         return {ok:true, post:{
           id:saved.id,
           username:saved.username,
           title:saved.title,
           description:saved.description,
-          tags:saved.tags,
+          tags:saved.tags||tags,
           media_url:row.media_url||'',
           thumb_url:row.thumb_url||'',
           media_type:row.media_type||'video',
           created_at:saved.created_at,
           expires_at:saved.expires_at,
-          extend_amount:Number(saved.extend_amount!=null?saved.extend_amount:(row.extend_amount!=null?row.extend_amount:row.extend_mins))||0,
-          extend_mins:Number(saved.extend_amount!=null?saved.extend_amount:(row.extend_amount!=null?row.extend_amount:row.extend_mins))||0,
+          extend_amount:savedAmt,
+          extend_mins:savedAmt,
           deletion_tier:saved.deletion_tier||row.deletion_tier||row.deletionTier||null,
           _sb:true
         }, fallback:'supabase'};
@@ -20420,12 +20488,21 @@ function openRoulette(){
       try{
         var slim=(list||[]).slice(0,120).map(function(p){
           var tags=(p.tags||[]).filter(function(t){return String(t||'').indexOf('album:')!==0 && String(t||'').length<80}).slice(0,14);
+          // Keep ext_N in the slim tag list so Extend amount survives cache paint.
+          try{
+            var extTag=(p.tags||[]).find(function(t){return /^ext(?:end)?_?\d+$/i.test(String(t||''))});
+            if(extTag && tags.indexOf(extTag)<0) tags=[extTag].concat(tags).slice(0,14);
+          }catch(eExtTag){}
           var imgs=(p.images||[]).slice(0,3);
+          var cachedAmt=0;
+          try{cachedAmt=typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||0)}catch(eAmt){cachedAmt=Number(p.extendAmount)||0}
           return {
             id:p.id,user:p.user,username:p.user,title:p.title,desc:String(p.desc||'').slice(0,280),
             tags:tags,expires:p.expires,created:p.created,views:p.views,
             likes:p.likes,image:p.image,images:imgs,media_url:p.media_url||'',thumb_url:p.thumb_url||p.poster||'',
             poster:p.poster||'',media_type:p.media_type||'',featuredUntil:p.featuredUntil,
+            extendAmount:cachedAmt>0?cachedAmt:undefined,
+            extensions:Number(p.extensions)||0,
             hotCount:typeof postHotCount==='function'?postHotCount(p):(p.hotCount||0),_cf:!!p._cf
           };
         });
@@ -24195,7 +24272,7 @@ function profileStatsHtml(userPosts, extra){
         featuredUntil:until||postFeaturedUntil(post),savesCount:post.savesCount||0,
         downloadsCount:post.downloadsCount||0,reactions:post.reactions||{},
         extensions:Number(post.extensions||0)||0,
-        extendAmount:Number(post.extendAmount||360)||360
+        extendAmount:(function(){var n=0;try{n=typeof postExtendMinutes==='function'?postExtendMinutes(post):0}catch(e){n=0}if(!(n>0))n=Number(post.extendAmount)||0;return n>0?n:360})()
       };
       localStorage.setItem('rs_featured_posts',JSON.stringify(m));
     }
@@ -24459,7 +24536,7 @@ function postCardHtml(p, compact){
       } else if(imgs.length){media=mediaHtml(imgs,p.id,false,'',p.title||('Post '+p.id))}
       else if(p._needImg){media='<div class="photo-grid g1" style="min-height:150px;background:#141414;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px">Loading photo…</div>'}
       else {media='<div class="photo-grid g1" style="min-height:140px;background:#141414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#888;font-size:12px;padding:12px"><span>Photo slow</span><button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();retryPostImage('+p.id+')">Retry photo</button></div>'}
-      var extL=fmtMin(p.extendAmount||360);
+      var extL=fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(p.extendAmount||360));
       var uCls=userClickable(p.user)?'post-user clickable':'post-user';
       var uClick=userClickable(p.user)?'data-user="'+String(p.user).replace(/"/g,'')+'" onclick="event.stopPropagation();openUser(this.getAttribute(\'data-user\'))"':'';
       var feat=isFeatured(p)||isPin;
@@ -25435,7 +25512,7 @@ function postCardHtml(p, compact){
       var detailPoster='';
       try{detailPoster=typeof videoPosterOf==='function'?videoPosterOf(post, imgs[0]||post.media_url||post.video):(post.poster||post.thumb_url||'')}catch(e){detailPoster=post.poster||post.thumb_url||''}
       var media='<div class="dx-media-wrap" style="margin-bottom:10px;border-radius:12px;overflow:hidden;position:relative">'+(featDetail?(typeof pinBadgeHtml==='function'?pinBadgeHtml(post,true):'<div class="pinned-badge">Pinned</div>'):(rank?'<div class="rank-badge">#'+rank+'</div>':''))+mediaHtml(imgs, post.id, true, detailPoster, post.title||('Post '+post.id))+'</div>';
-      var extL=fmtMin(post.extendAmount||360);
+      var extL=fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360));
       var uCls=userClickable(post.user)?'post-user clickable':'post-user';
       var uClick=userClickable(post.user)?'data-user="'+String(post.user).replace(/"/g,'')+'" onclick="openUser(this.getAttribute(\'data-user\'))"':'';
       var extHtml='';
@@ -27045,7 +27122,7 @@ async function onIdFace(e){
             media_url:mediaUrl,
             thumb_url:thumbUrl,
             media_type:mediaIsVideo?'video':'image',
-            expires_at:payload.expires_at?Date.parse(payload.expires_at):null,
+            expires_at:payload.expires_at||null,
             extend_amount:payload.extend_amount||0,
             extend_mins:payload.extend_amount||0,
             deletion_tier:delTier,
@@ -27094,6 +27171,21 @@ async function onIdFace(e){
           }
         }
         if(!row || !row.id) throw new Error('Post did not save. The server is busy, try again.');
+        // Ensure posts.extend_amount matches Extend amount (not the 360 DB default / cooldown).
+        if(!(profileMode || hasUploadedVideo)){
+          try{
+            var wantExt=Number(payload.extend_amount)||0;
+            if(!(wantExt>0)){
+              try{wantExt=resolveExtendAmountMinutes(row, payload.tags||row.tags)||0}catch(eW){wantExt=0}
+            }
+            if(!(wantExt>0)) wantExt=Number(selectedExtendAmount)||1440;
+            if(wantExt>0 && Number(row.extend_amount)!==wantExt){
+              var patchedExt=await reconcilePostExtendAmount(row.id, wantExt);
+              row.extend_amount=wantExt;
+              if(patchedExt&&patchedExt.extend_amount!=null) row.extend_amount=patchedExt.extend_amount;
+            }
+          }catch(eExtFix){console.warn('extend_amount reconcile',eExtFix)}
+        }
         // Bind free-deletion + private owner token to this post id (DB + this browser).
         try{await persistOwnerDeleteProof(row.id, delTier)}catch(e){console.warn('owner delete proof',e)}
         // Soft verify with short timeout — never stall publish UI waiting on CF.
@@ -27597,18 +27689,44 @@ async function onIdFace(e){
         return;
       }
       currentExtendPostId=id;
-      var minsHint=postExtendMinutes(post);
-      var amtLab=fmtMin(minsHint);
-      var el=document.getElementById('extend-desc');
-      if(el)el.innerHTML='Do you want to add <strong style="color:var(--orange)">'+amtLab+'</strong> of visibility to this post?';
+      function paintExtendConfirmUi(p){
+        var minsHint=postExtendMinutes(p);
+        try{if(p && minsHint>0) p.extendAmount=minsHint}catch(eSync){}
+        var amtLab=fmtMin(minsHint);
+        var el=document.getElementById('extend-desc');
+        if(el)el.innerHTML='Do you want to add <strong style="color:var(--orange)">'+amtLab+'</strong> of visibility to this post?';
+        var confBtn=document.getElementById('btn-confirm-ext');
+        if(confBtn){confBtn.disabled=false;confBtn.textContent='Yes · +'+amtLab}
+        return minsHint;
+      }
+      paintExtendConfirmUi(post);
       var cdEl=document.getElementById('extend-cooldown');
       if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
-      var confBtn=document.getElementById('btn-confirm-ext');
-      if(confBtn){confBtn.disabled=false;confBtn.textContent='Yes · +'+amtLab}
       // Ask first (like before). Do NOT paint Extending… until the user taps Yes.
       try{sessionStorage.removeItem('rs_ext_skip_confirm')}catch(e){}
       var modal=document.getElementById('extend-modal');
       if(modal){modal.style.display='';modal.classList.add('show')}
+      // If in-memory post lacks tags/amount, refresh from Supabase so +24h is not shown as +6h.
+      try{
+        var needMeta=!post || !(resolveExtendAmountMinutes(post)>0) || (!post.tags||!post.tags.length);
+        if(needMeta && sb){
+          sb.from('posts').select('id,tags,extend_amount,expires_at,extensions_count').eq('id', /^\d+$/.test(id)?Number(id):id).maybeSingle().then(function(res){
+            var d=res&&res.data;
+            if(!d)return;
+            if(!post){
+              post={id:d.id,tags:d.tags||[],extendAmount:0,expires:d.expires_at?new Date(d.expires_at).getTime():0,extensions:Number(d.extensions_count)||0};
+            }else{
+              if(d.tags) post.tags=d.tags;
+              if(d.extend_amount!=null) post.extend_amount=d.extend_amount;
+            }
+            try{
+              var resolved=resolveExtendAmountMinutes(post, d.tags||post.tags);
+              if(resolved>0) post.extendAmount=resolved;
+            }catch(eR){}
+            if(String(currentExtendPostId)===String(id)) paintExtendConfirmUi(post);
+          }).catch(function(){});
+        }
+      }catch(eMeta){}
       // Soft background refresh of cooldown status (non-blocking)
       try{
         fetchExtendCooldownStatus(id).then(function(status){
@@ -27616,6 +27734,7 @@ async function onIdFace(e){
             paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, status.remaining_ms);
             refreshExtendCooldownButtons();
             if(cdEl){cdEl.style.display='block';cdEl.textContent=fmtExtendCooldown(status.remaining_ms)+' · '+fmtExtendCountdown(status.remaining_ms)}
+            var confBtn=document.getElementById('btn-confirm-ext');
             if(confBtn){confBtn.disabled=true;confBtn.textContent=fmtExtendCountdown(status.remaining_ms)}
           }
         }).catch(function(){});
@@ -27726,7 +27845,8 @@ async function onIdFace(e){
       if(post){
         post.expires=expires;
         post.extensions=extensions;
-        if(!Number(post.extendAmount)) post.extendAmount=mins;
+        // Always sync to publisher amount used for this click (not a stale 360 column).
+        if(mins>0) post.extendAmount=mins;
         if(user && (!post.extenders||post.extenders.indexOf(user)<0)){
           post.extenders=(post.extenders||[]).concat([user]);
         }
