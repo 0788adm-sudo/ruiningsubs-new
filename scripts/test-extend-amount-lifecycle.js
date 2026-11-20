@@ -125,7 +125,10 @@ assert((html.match(/resolveExtendAmountMinutes/g) || []).length >= 8, '7 · reso
 // 8) Refresh / last_pub does not force 360
 assert(!/extendAmount:360,extenders:\[\],likedBy:\[\],image:lp\.image/.test(html), '8 · last_pub inject no longer hardcodes 360');
 assert(html.includes('resolveExtendAmountMinutes(lp') || html.includes('lp.extendAmount'), '8 · last_pub uses stored/resolved amount');
-assert(html.includes('extend_amount:Number(saved.extend_amount'), '8 · createCfPost returns extend_amount');
+assert(
+  html.includes('extend_amount:savedAmt') || html.includes('extend_amount:Number(saved.extend_amount'),
+  '8 · createCfPost returns extend_amount'
+);
 assert(html.includes('extend_amount:payload.extend_amount||0') && html.includes('extend_mins:payload.extend_amount||0'), '8 · publish sends both fields');
 
 // 9) Different posts different amounts
@@ -150,5 +153,10 @@ assert(
   /extendAmount:profileMode \? 0 : \(function\(\)\{var n=0;try\{n=resolveExtendAmountMinutes/.test(html),
   'optimistic local post resolves amount (not bare ||360)'
 );
+
+// Persist path: never Date.parse-ms into SB; reconcile column after save
+assert(html.includes('normalizeExpiresAtForDb'), '10 · expires_at normalized for SB timestamptz');
+assert(html.includes('reconcilePostExtendAmount'), '10 · post-save reconcile for extend_amount');
+assert(html.includes('intendedExtendAmountForWrite'), '10 · write path uses intended amount helper');
 
 console.log('\nExtend amount lifecycle checks passed');
