@@ -114,9 +114,32 @@ function parseExtendMinsFromTags(tags, fallback) {
   return def;
 }
 
+/** Return publisher ext_N minutes when present; otherwise 0 (do not invent a default). */
+function tagExtendMinutesOrZero(tags) {
+  if (!tags) return 0;
+  if (typeof tags === 'string') {
+    try {
+      tags = JSON.parse(tags);
+    } catch (e) {
+      tags = String(tags).split(/[,\s]+/);
+    }
+  }
+  if (!Array.isArray(tags)) return 0;
+  for (var i = 0; i < tags.length; i++) {
+    var m = String(tags[i] || '').match(/^ext(?:end)?_?(\d+)$/i);
+    if (m) {
+      var n = Number(m[1]);
+      if (isFinite(n) && n > 0) return clampExtendMinutes(n);
+    }
+  }
+  return 0;
+}
+
 async function lookupPostExtendMinutes(postId, clientMinutes) {
   var client = clampExtendMinutes(clientMinutes || EXTEND_MINUTES_DEFAULT);
-  // Prefer the post's stored public amount so every Extender matches the publisher's choice.
+  // Prefer publisher's public ext_N tag when present. Column extend_amount can be a stale
+  // 360 default when CF/D1 ignored extend_mins — tags are written at create with the real choice.
+  // Cooldown (COOLDOWN_MS) is independent and must never be used as the add amount.
   try {
     var sel = await sbFetch(
       '/rest/v1/posts?select=id,extend_amount,tags&id=eq.' + encodeURIComponent(postId) + '&limit=1',
@@ -125,9 +148,11 @@ async function lookupPostExtendMinutes(postId, clientMinutes) {
     );
     var row = Array.isArray(sel.json) ? sel.json[0] : null;
     if (sel.ok && row) {
+      var fromTag = tagExtendMinutesOrZero(row.tags);
+      if (fromTag > 0) return fromTag;
       var fromAmt = Number(row.extend_amount);
       if (isFinite(fromAmt) && fromAmt > 0) return clampExtendMinutes(fromAmt);
-      return parseExtendMinsFromTags(row.tags, client);
+      return client;
     }
   } catch (e) {}
   if (!looksNumericId(postId)) {
@@ -135,9 +160,11 @@ async function lookupPostExtendMinutes(postId, clientMinutes) {
       var cf = await cfFetch('/posts/' + encodeURIComponent(postId), { method: 'GET' }, 5000);
       var p = cf.json && (cf.json.post || cf.json);
       if (cf.ok && p) {
+        var fromTagCf = tagExtendMinutesOrZero(p.tags);
+        if (fromTagCf > 0) return fromTagCf;
         var a = Number(p.extend_amount || p.extend_mins);
         if (isFinite(a) && a > 0) return clampExtendMinutes(a);
-        return parseExtendMinsFromTags(p.tags, client);
+        return client;
       }
     } catch (e2) {}
   }
