@@ -4490,6 +4490,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       return isFinite(t) && t>0 ? t : 0;
     }
     window.adminRequestTimestamp=adminRequestTimestamp;
+    /** Exact request datetime for admin PayPal matching — always America/Bogota. Uses stored created_at only. */
+    function formatAdminBogotaDateTime(v){
+      var ms=adminRequestTimestamp(v);
+      if(!ms) return '';
+      try{
+        var d=new Date(ms);
+        var date=d.toLocaleDateString('es-CO',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit'});
+        var time=d.toLocaleTimeString('es-CO',{timeZone:'America/Bogota',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+        return date+' · '+time+' (America/Bogota)';
+      }catch(e){return ''}
+    }
+    window.formatAdminBogotaDateTime=formatAdminBogotaDateTime;
     async function cfCreateRequest(o){
       o=o||{};
       // Street Print must go through /api/print-submit (server validates FC spend or payment screenshot).
@@ -31038,7 +31050,15 @@ async function onIdFace(e){
       try{
         var rows=await cfAdminRequests('pending','coins');
         if(!rows.length){box.innerHTML='<div class="empty">No pending coin requests</div>';return}
-        box.innerHTML='<div style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.3);border-radius:14px;padding:12px"><strong style="color:#f5c518">💰 Coin requests ('+rows.length+')</strong><p style="font-size:12px;color:var(--muted)">Verify payment, choose the FC amount, then approve.</p>'+rows.map(function(r){var iid='coin-credit-'+String(r.id).replace(/[^a-zA-Z0-9_-]/g,'_');return '<div style="border-top:1px solid rgba(255,255,255,.09);padding:12px 0"><strong>@'+esc(r.user_id||'')+'</strong> · '+esc(r.amount||'')+'<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">Requested '+Number(r.coins||0)+' FC · '+esc(r.id)+'</div><input id="'+iid+'" type="number" min="1" value="'+Number(r.coins||0)+'" style="width:100%;box-sizing:border-box;padding:10px;margin-bottom:8px;border-radius:10px;background:#09090b;color:#fff;border:1px solid var(--border)"><div style="display:flex;gap:7px"><button class="btn btn-primary btn-sm" style="flex:1" type="button" data-admin="coin-approve" data-id="'+esc(String(r.id))+'" data-input="'+esc(iid)+'">✓ Accept & add FC</button><button class="btn btn-ghost btn-sm" type="button" data-admin="coin-reject" data-id="'+esc(String(r.id))+'">Reject</button></div></div>'}).join('')+'</div>';
+        box.innerHTML='<div style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.3);border-radius:14px;padding:12px"><strong style="color:#f5c518">💰 Coin requests ('+rows.length+')</strong><p style="font-size:12px;color:var(--muted)">Verify payment, choose the FC amount, then approve.</p>'+rows.map(function(r){
+          var iid='coin-credit-'+String(r.id).replace(/[^a-zA-Z0-9_-]/g,'_');
+          // Per-request created_at from D1 — independent of when admin opens/refreshes the panel.
+          var when=formatAdminBogotaDateTime(r.created_at||r.created||r.at);
+          var whenHtml=when
+            ?'<div style="font-size:12px;color:#f5c518;margin:2px 0 6px">Solicitud: '+esc(when)+'</div>'
+            :'<div style="font-size:12px;color:var(--muted);margin:2px 0 6px">Solicitud: hora no registrada</div>';
+          return '<div style="border-top:1px solid rgba(255,255,255,.09);padding:12px 0"><strong>@'+esc(r.user_id||'')+'</strong> · '+esc(r.amount||'')+'<div style="font-size:12px;color:var(--muted);margin:4px 0 2px">Requested '+Number(r.coins||0)+' FC · '+esc(r.id)+'</div>'+whenHtml+'<input id="'+iid+'" type="number" min="1" value="'+Number(r.coins||0)+'" style="width:100%;box-sizing:border-box;padding:10px;margin-bottom:8px;border-radius:10px;background:#09090b;color:#fff;border:1px solid var(--border)"><div style="display:flex;gap:7px"><button class="btn btn-primary btn-sm" style="flex:1" type="button" data-admin="coin-approve" data-id="'+esc(String(r.id))+'" data-input="'+esc(iid)+'">✓ Accept & add FC</button><button class="btn btn-ghost btn-sm" type="button" data-admin="coin-reject" data-id="'+esc(String(r.id))+'">Reject</button></div></div>';
+        }).join('')+'</div>';
       }catch(e){box.innerHTML='<div class="empty">Could not load coin requests: '+esc((e&&e.message)||'error')+'</div>'}
     }
     async function approveCoinRequestCustom(id,inputId){try{var el=document.getElementById(inputId),coins=Math.max(0,Math.floor(Number(el&&el.value||0)));if(!coins){toast('Enter FC amount');return}if(!confirm('Credit '+coins+' FC?'))return;await cfAdminApproveRequest(id,coins);toast('✓ '+coins+' FC added');await renderAdminReqTab('pays')}catch(e){toast((e&&e.message)||'Could not approve')}}
