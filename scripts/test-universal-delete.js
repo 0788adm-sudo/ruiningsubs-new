@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Universal Delete: detail (+ GoonTok/profile/archive) shows Delete; feed/Wall cards do not.
+ * Universal Delete: detail (+ GoonTok/archive) shows Delete; feed/Wall cards do not.
+ * Profile gallery: Delete only inside owner admin menu (never a visible under-post button for visitors).
  * Owner free; non-owner $5/50 FC; backend ownerDeleteCost always 0.
  */
 'use strict';
@@ -29,7 +30,9 @@ assert(/function canDeletePostAsOwner/.test(html), 'canDeletePostAsOwner helper'
 assert(fnBody('normalFeedPostHtml').indexOf('universalDeleteButtonHtml') < 0, 'Wall cards hide Delete');
 assert(fnBody('postCardActionButtons').indexOf('universalDeleteButtonHtml') < 0, 'Feed cards hide Delete');
 assert(/function goontokSlideHtml[\s\S]*?universalDeleteButtonHtml|gt-del/.test(html), 'GoonTok has Delete');
-assert(/function profileGalleryPostHtml[\s\S]*?universalDeleteButtonHtml|pg-delete/.test(html), 'Profile gallery has Delete');
+assert(/function profileGalleryPostHtml[\s\S]*?pg-admin-menu[\s\S]*?openRemove/.test(html), 'Profile gallery Delete lives in owner admin menu');
+assert(/\.profile-gallery-post \.pg-delete\{display:none!important\}/.test(html), 'Profile gallery hides visible Delete button');
+assert(!/function profileGalleryPostHtml[\s\S]*?ownerDelete\s*=\s*typeof universalDeleteButtonHtml/.test(html), 'Profile gallery no longer injects universal Delete under posts');
 assert(/id-archive-actions[\s\S]{0,800}universalDeleteButtonHtml|openRemove/.test(html), 'Archive has Delete');
 assert(/universalDeleteButtonHtml\(post,\s*\{\s*style:\s*'dx'\s*\}/.test(html), 'Detail view always shows Delete');
 
