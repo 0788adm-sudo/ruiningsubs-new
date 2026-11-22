@@ -22,7 +22,7 @@ assert(html.indexOf('btn-explore-open-map') >= 0, 'Open Map button');
 assert(html.indexOf('window.refreshExploreMapPreview') >= 0, 'preview refresher');
 assert(html.indexOf('function redrawPreviewMarkers') >= 0, 'preview markers reuse pins');
 assert(html.indexOf("showPanel('map')") >= 0, 'full map still opens via showPanel map');
-assert(/one pin per user/i.test(html), 'one pin per account rule kept');
+assert(/one pin per account/i.test(html), 'one pin per account rule kept');
 
 assert(html.indexOf('id="search-results" class="explore-search-results"') >= 0, 'results sit under search bar');
 assert((html.match(/id="search-results"/g) || []).length === 1, 'exactly one search-results box');
