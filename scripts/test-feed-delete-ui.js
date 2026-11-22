@@ -44,6 +44,6 @@ assert(html.indexOf('universalDeleteButtonHtml') >= 0, 'universal Delete helper'
 assert(html.indexOf('$5 / 50 FC') >= 0 || html.indexOf('FC or $5') >= 0, 'third-party paid delete path');
 assert(html.indexOf('You already have a pending delete request') >= 0, 'duplicate remove request blocked');
 assert(html.indexOf('function shortDisplayUser') >= 0, 'anon names shortened for display');
-assert(html.indexOf("return 'Anon_'+num") >= 0 || /Anon_\d{3,6}/.test(html), 'anon display uses Anon_#### numbers');
+assert(html.indexOf("return 'Sub'+num") >= 0 || /Sub\d+/.test(html), 'anon display uses SubN numbers');
 
 console.log('\nFeed delete UI checks passed');

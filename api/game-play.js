@@ -119,6 +119,8 @@ var ANON_COOKIE = 'rs_anon_id';
 var ANON_MAX_AGE = 60 * 60 * 24 * 365;
 var BOARD_ANON_LINKS = '__ANON_LINKS__';
 var BOARD_USERNAME_ALIASES = '__USERNAME_ALIASES__';
+/** Permanent public SubN labels for anonymous users (display-only; does not rewrite posts). */
+var BOARD_ANON_SUBS = '__ANON_SUBS__';
 
 const SB_URL =
   process.env.SUPABASE_URL ||
@@ -195,6 +197,100 @@ function isSecureReq(req) {
   return proto.indexOf('https') === 0 || String(process.env.VERCEL || '') === '1';
 }
 
+async function loadAnonSubBoard() {
+  var rows = [];
+  try {
+    rows = await fetchBoard(BOARD_ANON_SUBS);
+  } catch (e) {
+    rows = [];
+  }
+  var byId = {};
+  var max = 0;
+  (rows || []).forEach(function (n) {
+    var msg = parseMsg(n && n.message);
+    if (!msg) return;
+    var id = sanitizeAnonId(msg.anonymous_user_id || msg.anon_id || msg.id || '');
+    var num = Number(msg.sub_number || msg.n || 0) || 0;
+    if (!id || num < 1) return;
+    if (!byId[id] || num < byId[id]) byId[id] = num;
+    if (num > max) max = num;
+  });
+  return { byId: byId, max: max };
+}
+
+async function getOrAssignSubNumber(anonId) {
+  anonId = sanitizeAnonId(anonId);
+  if (!isValidAnonId(anonId)) return null;
+  var board = await loadAnonSubBoard();
+  if (board.byId[anonId]) {
+    return { sub_number: board.byId[anonId], display_name: 'Sub' + board.byId[anonId], created: false };
+  }
+  var next = (board.max || 0) + 1;
+  try {
+    await postBoard(BOARD_ANON_SUBS, 'anon_' + anonId, 'anon_sub', String(next), {
+      anonymous_user_id: anonId,
+      sub_number: next,
+      display_name: 'Sub' + next,
+      at: Date.now()
+    });
+  } catch (e) {}
+  // Re-read in case of a concurrent assign — keep the lowest permanent number.
+  try {
+    board = await loadAnonSubBoard();
+    if (board.byId[anonId]) {
+      return { sub_number: board.byId[anonId], display_name: 'Sub' + board.byId[anonId], created: board.byId[anonId] === next };
+    }
+  } catch (e2) {}
+  return { sub_number: next, display_name: 'Sub' + next, created: true };
+}
+
+async function ensureAnonSubNumbers(ids) {
+  var list = Array.isArray(ids) ? ids : [];
+  var out = {};
+  var seen = {};
+  for (var i = 0; i < list.length; i++) {
+    var id = sanitizeAnonId(list[i]);
+    if (!isValidAnonId(id) || seen[id]) continue;
+    seen[id] = 1;
+    var row = await getOrAssignSubNumber(id);
+    if (row && row.sub_number) out[id] = row.sub_number;
+  }
+  return out;
+}
+
+async function handleAnonSubs(req, res, body, query) {
+  body = body || {};
+  query = query || {};
+  var action = String(body.action || query.action || '').toLowerCase();
+  if (action === 'list_anon_subs' || action === 'anon_subs') {
+    var board = await loadAnonSubBoard();
+    var subs = Object.keys(board.byId).map(function (id) {
+      return {
+        anonymous_user_id: id,
+        sub_number: board.byId[id],
+        display_name: 'Sub' + board.byId[id]
+      };
+    });
+    subs.sort(function (a, b) { return a.sub_number - b.sub_number; });
+    return json(res, 200, { ok: true, subs: subs, max: board.max || 0 });
+  }
+  var rawIds = body.anon_ids || body.ids || body.anonymous_user_ids || query.anon_ids || '';
+  var ids = Array.isArray(rawIds)
+    ? rawIds
+    : String(rawIds || '')
+        .split(',')
+        .map(function (s) { return s.trim(); })
+        .filter(Boolean);
+  if (body.anon_id || body.anonymous_user_id || query.anon_id) {
+    ids.push(body.anon_id || body.anonymous_user_id || query.anon_id);
+  }
+  var map = await ensureAnonSubNumbers(ids);
+  var subs = Object.keys(map).map(function (id) {
+    return { anonymous_user_id: id, sub_number: map[id], display_name: 'Sub' + map[id] };
+  });
+  return json(res, 200, { ok: true, subs: subs, map: map });
+}
+
 async function handleAnonIdentity(req, res, body, query) {
   body = body || {};
   query = query || {};
@@ -216,20 +312,28 @@ async function handleAnonIdentity(req, res, body, query) {
         at: Date.now()
       });
     } catch (e) {}
+    var linkedSub = null;
+    try { linkedSub = await getOrAssignSubNumber(resolved.id); } catch (e) {}
     return json(res, 200, {
       ok: true,
       anonymous_user_id: resolved.id,
       account_type: 'anonymous',
       linked_to: registered,
-      username: resolved.username
+      username: resolved.username,
+      sub_number: linkedSub && linkedSub.sub_number ? linkedSub.sub_number : null,
+      display_name: linkedSub && linkedSub.display_name ? linkedSub.display_name : null
     }, { 'Set-Cookie': cookie });
   }
+  var sub = null;
+  try { sub = await getOrAssignSubNumber(resolved.id); } catch (e) {}
   return json(res, 200, {
     ok: true,
     anonymous_user_id: resolved.id,
     account_type: 'anonymous',
     username: resolved.username,
-    created: !!resolved.created
+    created: !!resolved.created,
+    sub_number: sub && sub.sub_number ? sub.sub_number : null,
+    display_name: sub && sub.display_name ? sub.display_name : null
   }, { 'Set-Cookie': cookie });
 }
 
@@ -1144,6 +1248,13 @@ module.exports = async function handler(req, res) {
       return handleAnonIdentity(req, res, null, req.query || {});
     }
     if (
+      qAction === 'list_anon_subs' ||
+      qAction === 'anon_subs' ||
+      qAction === 'ensure_anon_subs'
+    ) {
+      return handleAnonSubs(req, res, null, req.query || {});
+    }
+    if (
       qAction === 'resolve_username' ||
       qAction === 'username_resolve' ||
       qAction === 'list_aliases' ||
@@ -1222,6 +1333,13 @@ module.exports = async function handler(req, res) {
   var action = String(body.action || '').toLowerCase();
   if (action === 'anon_identity' || action === 'link_anon') {
     return handleAnonIdentity(req, res, body, null);
+  }
+  if (
+    action === 'list_anon_subs' ||
+    action === 'anon_subs' ||
+    action === 'ensure_anon_subs'
+  ) {
+    return handleAnonSubs(req, res, body, null);
   }
   if (
     action === 'rename_username' ||

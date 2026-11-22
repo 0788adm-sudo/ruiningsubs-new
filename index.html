@@ -2663,7 +2663,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             </button>
           </div>
           <div class="prof-identity">
-            <div class="x-name" id="profile-name">@Anon</div>
+            <div class="x-name" id="profile-name">@Sub</div>
             <div class="x-role" id="profile-role">Guest</div>
             <div class="x-joined" id="profile-joined" style="display:none"></div>
             <div id="profile-badges-row" style="display:none;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0 2px"></div>
@@ -6658,18 +6658,22 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         localStorage.setItem('rs_anon_session', id);
       }catch(e){}
       var uname=(j&&j.username)?String(j.username):('anon_'+id);
+      try{
+        if(j&&j.sub_number) rememberAnonSub(id, j.sub_number);
+      }catch(e){}
       // Only adopt anon username when not a registered session.
+      // Internal rs_uid stays anon_<id>; public UI uses shortDisplayUser → SubN.
       try{
         if(!(typeof isRegistered==='function' && isRegistered())){
           var role=localStorage.getItem('rs_role')||'guest';
           if(role!=='user'){
-            currentUser={name:uname,role:'guest',email:localStorage.getItem('rs_email')||'',account_type:'anonymous',anonymous_user_id:id};
+            currentUser={name:uname,role:'guest',email:localStorage.getItem('rs_email')||'',account_type:'anonymous',anonymous_user_id:id,sub_number:(j&&j.sub_number)||null,display_name:(j&&j.display_name)||null};
             localStorage.setItem('rs_uid', uname);
             localStorage.setItem('rs_role', 'guest');
           }
         }
       }catch(e){}
-      return {anonymous_user_id:id, username:uname, account_type:'anonymous'};
+      return {anonymous_user_id:id, username:uname, account_type:'anonymous', sub_number:(j&&j.sub_number)||null, display_name:(j&&j.display_name)||null};
     }
     window.ensureAnonIdentity=ensureAnonIdentity;
     function initUser(){
@@ -6696,7 +6700,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         localStorage.setItem('rs_uid',uid);
       }
       currentUser={name:uid,role:role,email:email,account_type:(role==='user'&&!isAnonymousAccountName(uid))?'registered':'anonymous',anonymous_user_id:anonId||null};
+      try{loadLocalAnonSubMap()}catch(e){}
       refreshProfileUI();
+      try{
+        refreshAnonSubMap(false).then(function(){try{refreshProfileUI()}catch(e){}}).catch(function(){});
+      }catch(e){}
       try{ensureAnonIdentity(false).then(function(){try{refreshProfileUI()}catch(e){}}).catch(function(){})}catch(e){}
       if(sb){
         try{
@@ -6955,18 +6963,95 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     function verifiedBadgeHtml(){
       return '<span class="verified-badge" title="Verified" aria-label="Verified"><svg viewBox="0 0 24 24" fill="none"><path d="M9.2 16.6 4.8 12.2l1.4-1.4 3 3 8-8 1.4 1.4-9.4 9.4z" fill="#fff"/></svg></span>';
     }
-    /** Short UI handle — long anon_<session> → Anon_#### (stable digits, like before). */
+    /* Permanent SubN map for anonymous users (display-only; never rewrites stored usernames). */
+    var __anonSubMap={}; // anonId -> sub_number
+    var __anonSubLoadedAt=0;
+    function rememberAnonSub(anonId, num){
+      anonId=String(anonId||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
+      num=Number(num)||0;
+      if(!anonId || anonId.length<8 || num<1) return;
+      var prev=__anonSubMap[anonId];
+      if(!prev || num<prev) __anonSubMap[anonId]=num;
+      try{
+        var local=JSON.parse(localStorage.getItem('rs_anon_sub_map')||'{}')||{};
+        if(!local[anonId] || num<Number(local[anonId])){
+          local[anonId]=num;
+          localStorage.setItem('rs_anon_sub_map', JSON.stringify(local));
+        }
+      }catch(e){}
+    }
+    function loadLocalAnonSubMap(){
+      try{
+        var local=JSON.parse(localStorage.getItem('rs_anon_sub_map')||'{}')||{};
+        Object.keys(local).forEach(function(k){ rememberAnonSub(k, local[k]); });
+      }catch(e){}
+      return __anonSubMap;
+    }
+    async function refreshAnonSubMap(force){
+      var now=Date.now();
+      loadLocalAnonSubMap();
+      if(!force && __anonSubLoadedAt && (now-__anonSubLoadedAt)<60000) return __anonSubMap;
+      try{
+        var r=await fetch('/api/game-play?action=list_anon_subs',{cache:'no-store',credentials:'include'});
+        var j=await r.json().catch(function(){return null});
+        var rows=(j&&j.subs)||[];
+        rows.forEach(function(row){
+          if(row) rememberAnonSub(row.anonymous_user_id||row.anon_id, row.sub_number||row.n);
+        });
+        __anonSubLoadedAt=now;
+      }catch(e){}
+      return __anonSubMap;
+    }
+    async function ensureAnonSubNumbers(ids){
+      var list=(ids||[]).map(function(x){
+        return String(x||'').toLowerCase().replace(/^anon[_:]/i,'').replace(/[^a-z0-9_-]/g,'').slice(0,48);
+      }).filter(function(id){ return id && id.length>=8 && !__anonSubMap[id]; });
+      if(!list.length) return __anonSubMap;
+      try{
+        var r=await fetch('/api/game-play',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          credentials:'include',
+          cache:'no-store',
+          body:JSON.stringify({action:'ensure_anon_subs',anon_ids:list.slice(0,80)})
+        });
+        var j=await r.json().catch(function(){return null});
+        var map=(j&&j.map)||{};
+        Object.keys(map).forEach(function(k){ rememberAnonSub(k, map[k]); });
+        ((j&&j.subs)||[]).forEach(function(row){
+          if(row) rememberAnonSub(row.anonymous_user_id||row.anon_id, row.sub_number||row.n);
+        });
+      }catch(e){}
+      return __anonSubMap;
+    }
+    window.refreshAnonSubMap=refreshAnonSubMap;
+    window.ensureAnonSubNumbers=ensureAnonSubNumbers;
+    /**
+     * Public UI handle only — never rewrite stored usernames / ids.
+     * Anonymous identities (anon_<session>, guest, legacy Anon_####) → SubN.
+     * Prefers consecutive server-assigned Sub numbers; hash fallback until mapped.
+     * Registered / normal usernames are returned unchanged.
+     */
     function shortDisplayUser(name){
       var n=String(name||'').replace(/^@+/,'').trim();
-      if(!n) return 'Anon_0000';
-      if(/^Anon_\d{3,6}$/i.test(n)) return 'Anon_'+String(n).replace(/^Anon_/i,'');
-      if(/^anon[_:]/i.test(n) || /^anon\d*$/i.test(n)){
+      if(!n) return 'Sub0';
+      if(/^Sub\d+$/i.test(n)) return 'Sub'+String(n).replace(/^Sub/i,'');
+      // Legacy public Anon_#### labels keep the same digits under Sub.
+      if(/^Anon_\d{1,6}$/i.test(n)) return 'Sub'+String(n).replace(/^Anon_/i,'');
+      var isAnon=(typeof isAnonymousAccountName==='function')
+        ? isAnonymousAccountName(n)
+        : (n==='guest' || n==='anon' || /^anon[_:]/i.test(n) || /^anon\d*$/i.test(n));
+      if(isAnon){
         var rest=n.replace(/^anon[_:]?/i,'');
-        if(/^\d{3,6}$/.test(rest)) return 'Anon_'+rest;
+        if(!rest || n==='guest' || n==='anon') return 'Sub0';
+        if(/^\d{1,6}$/.test(rest)) return 'Sub'+rest;
+        try{ if(!__anonSubMap[rest]) loadLocalAnonSubMap(); }catch(e){}
+        if(__anonSubMap[rest]) return 'Sub'+__anonSubMap[rest];
         var h=0;
         for(var i=0;i<rest.length;i++){ h=((h<<5)-h)+rest.charCodeAt(i); h|=0; }
-        var num=(Math.abs(h)%9000)+1000;
-        return 'Anon_'+num;
+        // Temporary fallback until consecutive Sub is assigned/loaded from server.
+        var num=(Math.abs(h)%9000)+1;
+        return 'Sub'+num;
       }
       if(n.length>16) return n.slice(0,14)+'…';
       return n;
@@ -7441,31 +7526,33 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       },true);
     }
     function refreshProfileUI(){
+      var rawName=(currentUser&&currentUser.name)||'';
+      var shownName=(typeof shortDisplayUser==='function')?shortDisplayUser(rawName):rawName;
       var pn=document.getElementById('profile-name');
       if(pn){
-        if(isVerifiedUser(currentUser.name)){
-          pn.innerHTML=nameWithVerified(currentUser.name)+(isFeaturedProfile(currentUser.name)?featuredProfileBadgeHtml():'');
-        }else if(isFeaturedProfile(currentUser.name)){
-          pn.innerHTML='@'+esc(currentUser.name)+featuredProfileBadgeHtml();
-        }else pn.textContent='@'+currentUser.name;
+        if(isVerifiedUser(rawName)){
+          pn.innerHTML=nameWithVerified(rawName)+(isFeaturedProfile(rawName)?featuredProfileBadgeHtml():'');
+        }else if(isFeaturedProfile(rawName)){
+          pn.innerHTML='@'+esc(shownName)+featuredProfileBadgeHtml();
+        }else pn.textContent='@'+shownName;
       }
       var pr=document.getElementById('profile-role');
       if(pr){
-        if(isVerifiedUser(currentUser.name) && isFeaturedProfile(currentUser.name)) pr.innerHTML='<span style="color:#1d9bf0;font-weight:700">Verified</span> · Featured';
-        else if(isVerifiedUser(currentUser.name)) pr.innerHTML='<span style="color:#1d9bf0;font-weight:700">Verified</span> · Creator';
-        else if(isFeaturedProfile(currentUser.name)) pr.innerHTML='<span style="color:var(--orange);font-weight:700">Featured</span>';
+        if(isVerifiedUser(rawName) && isFeaturedProfile(rawName)) pr.innerHTML='<span style="color:#1d9bf0;font-weight:700">Verified</span> · Featured';
+        else if(isVerifiedUser(rawName)) pr.innerHTML='<span style="color:#1d9bf0;font-weight:700">Verified</span> · Creator';
+        else if(isFeaturedProfile(rawName)) pr.innerHTML='<span style="color:var(--orange);font-weight:700">Featured</span>';
         else pr.textContent=isRegistered()?'Registered':'Guest';
       }
       var av=document.getElementById('profile-avatar');
       var pen=document.getElementById('btn-av-pencil');
       if(pen)pen.style.display=isRegistered()?'flex':'none';
-      loadProfile(currentUser.name).then(function(p){
+      loadProfile(rawName).then(function(p){
         if(p&&p.avatar_url){
           av.innerHTML='<img src="'+p.avatar_url+'" alt=""/>';
-          rememberAvatar(currentUser.name,p.avatar_url);
-          try{fetch(CF_API+'/avatars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:currentUser.name,url:p.avatar_url})})}catch(e){}
+          rememberAvatar(rawName,p.avatar_url);
+          try{fetch(CF_API+'/avatars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:rawName,url:p.avatar_url})})}catch(e){}
         }
-        else{av.textContent=currentUser.name.charAt(0).toUpperCase();av.innerHTML=currentUser.name.charAt(0).toUpperCase()}
+        else{av.textContent=shownName.charAt(0).toUpperCase();av.innerHTML=shownName.charAt(0).toUpperCase()}
         var px=parseProfileExtra(p&&p.bio?p.bio:'');
         try{paintProfileBanner('profile-banner', px.bn||'')}catch(eBn){}
         try{paintJoinedDate('profile-joined', p, window.__profileStatsPosts||[])}catch(eJ){}
@@ -21256,6 +21343,22 @@ function openRoulette(){
         // IMPORTANT: paint the feed immediately. Do not make the user wait
         // for every image/video URL before seeing the page.
         try{if(!viewingSaved)renderPosts()}catch(e){}
+        // Assign/load consecutive SubN labels for anonymous authors (display-only).
+        try{
+          var anonIds=[];
+          (posts||[]).forEach(function(p){
+            var u=String((p&&p.user)||'');
+            if(typeof isAnonymousAccountName==='function' && isAnonymousAccountName(u)){
+              anonIds.push(u.replace(/^anon[_:]/i,''));
+            }
+          });
+          if(anonIds.length){
+            ensureAnonSubNumbers(anonIds).then(function(){
+              try{if(!viewingSaved)renderPosts()}catch(e){}
+              try{refreshProfileUI()}catch(e){}
+            }).catch(function(){});
+          }
+        }catch(e){}
 
         // Hydrate missing media quietly in the background, max 3 at a time.
         var need=posts.filter(function(p){return p._needImg&&!(p.images&&p.images.length)});
@@ -21300,7 +21403,14 @@ function openRoulette(){
         }
       }
     }
-    function userClickable(u){return u&&u.indexOf('Anon_')!==0}
+    function userClickable(u){
+      if(!u) return false;
+      var s=String(u);
+      if(s.indexOf('Anon_')===0) return false;
+      if(/^Sub\d+$/i.test(s)) return false;
+      if(typeof isAnonymousAccountName==='function' && isAnonymousAccountName(s)) return false;
+      return true;
+    }
     
     function computeRanks(){
       var active=posts.slice().filter(function(p){return p.expires>Date.now()});
