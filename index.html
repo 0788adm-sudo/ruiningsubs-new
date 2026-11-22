@@ -2386,7 +2386,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       
         <div id="panel-map" class="panel">
         <div class="page-head"><button class="back" type="button" onclick="showPanel('explore')">←</button><h2>Exposure map</h2></div>
-        <p class="map-hint">City/country only — never your exact address. One pin per account.</p>
+        <p class="map-hint">City/country only — never your exact address. One pin per account · every confirmed location (anonymous included) appears on the map.</p>
         <div class="map-flow">
           <div>
             <label for="map-city">Search city</label>
@@ -34501,8 +34501,47 @@ async function onIdFace(e){
     'thailand':'🇹🇭','vietnam':'🇻🇳','indonesia':'🇮🇩','malaysia':'🇲🇾','singapore':'🇸🇬','egypt':'🇪🇬',
     'south africa':'🇿🇦','nigeria':'🇳🇬','morocco':'🇲🇦','algeria':'🇩🇿','tunisia':'🇹🇳','israel':'🇮🇱'
   };
-  function normUser(u){return String(u||'guest').replace(/^@/,'').trim().toLowerCase()}
-  function pinUserKey(p){ return normUser(p&&p.user) }
+  function normUser(u){return String(u||'').replace(/^@/,'').trim().toLowerCase()}
+  // Stable per-account key. Never collapse distinct guests/anons into one "guest" pin.
+  function pinUserKey(p){
+    var u=normUser(p&&p.user);
+    if(u && u!=='guest' && u!=='anon') return u;
+    if(p && p.uid){
+      var uid=normUser(p.uid);
+      if(uid && uid!=='guest' && uid!=='anon') return uid;
+    }
+    // Last-resort uniqueness so a bare guest still keeps its own marker.
+    if(p && p.lat!=null && p.lng!=null && p.t) return 'pin:'+Number(p.lat)+','+Number(p.lng)+':'+Number(p.t);
+    return u||('pin:'+Date.now());
+  }
+  function resolveMapPinUser(){
+    try{
+      if(window.currentUser && currentUser.name){
+        var n=String(currentUser.name).replace(/^@/,'').trim();
+        if(n && n.toLowerCase()!=='guest' && n.toLowerCase()!=='anon') return n;
+      }
+    }catch(e){}
+    try{
+      if(typeof getStableAnonId==='function'){
+        var id=getStableAnonId();
+        if(id) return 'anon_'+id;
+      }
+    }catch(e){}
+    try{
+      var aid=localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'';
+      aid=String(aid).toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
+      if(aid.length>=6) return 'anon_'+aid;
+    }catch(e){}
+    var minted='anon_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+    try{localStorage.setItem('rs_anon_id', minted.replace(/^anon_/,''))}catch(e){}
+    return minted;
+  }
+  function isAnonMapUser(name){
+    var n=String(name||'').replace(/^@/,'').trim().toLowerCase();
+    if(!n || n==='guest' || n==='anon') return true;
+    try{if(typeof isAnonymousAccountName==='function') return isAnonymousAccountName(n)}catch(e){}
+    return n.indexOf('anon_')===0 || n.indexOf('anon:')===0 || /^anon\d*$/i.test(n);
+  }
   function countryFlag(name){
     var k=String(name||'').trim().toLowerCase();
     if(!k) return '';
@@ -34566,24 +34605,30 @@ async function onIdFace(e){
   }
   function loadPins(){try{pins=JSON.parse(localStorage.getItem('rs_map_pins')||'[]')||[]}catch(e){pins=[]}}
   function savePins(){try{localStorage.setItem('rs_map_pins',JSON.stringify((pins||[]).slice(-200)))}catch(e){}}
-  // ROOT FIX: one pin per user (latest wins). Never key by timestamp/city/coords.
+  // One pin per account (latest wins). Anonymous + registered both keep a marker.
+  // Never key by city alone — multiple people in the same city must each appear.
   function mergePins(extra){
     var byUser={};
     function consider(p){
-      if(!p||p.lat==null||p.lng==null)return;
+      if(!p)return;
+      var lat=Number(p.lat), lng=Number(p.lng);
+      if(!isFinite(lat)||!isFinite(lng))return;
       var u=pinUserKey(p);
       if(!u)return;
       var prev=byUser[u];
       var t=Number(p.t)||0;
       if(!prev || t>=(Number(prev.t)||0)){
-        var fuzz=fuzzCoords(p.lat,p.lng);
+        var fuzz=fuzzCoords(lat,lng);
+        var rawUser=String(p.user||u).replace(/^@/,'');
         byUser[u]={
-          user:String(p.user||u).replace(/^@/,''),
+          user:rawUser,
+          uid:u,
           city:sanitizePlaceText(p.city||'')||'City',
           country:sanitizePlaceText(p.country||p.countryName||''),
           note:String(p.note||'').slice(0,80),
           lat:fuzz.lat, lng:fuzz.lng,
-          t:t||Date.now()
+          t:t||Date.now(),
+          _geoHealed:!!p._geoHealed
         };
       }
     }
@@ -34595,7 +34640,8 @@ async function onIdFace(e){
   }
   async function pushPin(pin){
     try{
-      var r=await fetch(MAP_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:'__MAP_PINS__',from_username:pin.user||'guest',type:'pin',post_id:pinUserKey(pin),message:JSON.stringify(pin)})});
+      var key=pinUserKey(pin);
+      var r=await fetch(MAP_API+'/notifs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_username:'__MAP_PINS__',from_username:pin.user||key||'anon',type:'pin',post_id:key,message:JSON.stringify(pin)})});
       if(!r.ok) throw new Error('HTTP '+r.status);
       return true;
     }catch(e){
@@ -34603,14 +34649,122 @@ async function onIdFace(e){
       return false;
     }
   }
+  // Prefer country/city/town results over houses/stations (avoids "Venezuela" railway in AR, etc.).
+  function pickGeocodeFeature(features, city, country){
+    var list=(features||[]).slice();
+    if(!list.length) return null;
+    var ctry=String(country||'').trim().toLowerCase();
+    var cty=String(city||'').trim().toLowerCase();
+    function rank(f){
+      var p=(f&&f.properties)||{};
+      var typ=String(p.type||p.osm_value||'').toLowerCase();
+      var name=String(p.name||'').toLowerCase();
+      var pc=String(p.country||'').toLowerCase();
+      var score=0;
+      if(typ==='country') score+=80;
+      else if(typ==='state'||typ==='region') score+=55;
+      else if(typ==='city'||typ==='town'||typ==='municipality'||typ==='county') score+=70;
+      else if(typ==='village'||typ==='hamlet'||typ==='locality') score+=40;
+      else score+=5;
+      if(ctry && (pc===ctry || name===ctry)) score+=50;
+      if(cty && name===cty) score+=35;
+      if(cty && cty===ctry && typ==='country') score+=60;
+      if(typ==='house'||typ==='street'||String(p.osm_key||'')==='railway') score-=40;
+      return score;
+    }
+    list.sort(function(a,b){return rank(b)-rank(a)});
+    return list[0]||null;
+  }
+  async function geocodePlace(city, country){
+    city=String(city||'').trim();
+    country=String(country||'').trim();
+    if(!city || city.length<2) return null;
+    var q=city+(country?(', '+country):'');
+    var r=await fetch('https://photon.komoot.io/api/?limit=5&q='+encodeURIComponent(q));
+    var j=await r.json();
+    var f=pickGeocodeFeature((j&&j.features)||[], city, country);
+    if(!f||!f.geometry||!f.geometry.coordinates) return null;
+    var props=f.properties||{};
+    var fuzz=fuzzCoords(Number(f.geometry.coordinates[1]), Number(f.geometry.coordinates[0]));
+    return {
+      lat:fuzz.lat,
+      lng:fuzz.lng,
+      country:sanitizePlaceText(props.country||props.countrycode||country||''),
+      name:sanitizePlaceText(props.name||city||'')
+    };
+  }
+  // Rough country centroids — detect pins whose text says X but coords are elsewhere
+  // (classic bug: map-tap pending kept while city text was typed as a country).
+  var COUNTRY_ROUGH={
+    venezuela:{lat:8,lng:-66,r:14}, colombia:{lat:4,lng:-74,r:12}, brazil:{lat:-10,lng:-55,r:20}, brasil:{lat:-10,lng:-55,r:20},
+    mexico:{lat:23,lng:-102,r:16}, argentina:{lat:-34,lng:-64,r:18}, chile:{lat:-33,lng:-71,r:16}, peru:{lat:-10,lng:-75,r:14},
+    ecuador:{lat:-1,lng:-78,r:8}, 'united states':{lat:39,lng:-98,r:28}, usa:{lat:39,lng:-98,r:28}, us:{lat:39,lng:-98,r:28},
+    canada:{lat:56,lng:-96,r:28}, 'united kingdom':{lat:54,lng:-2,r:8}, uk:{lat:54,lng:-2,r:8}, england:{lat:52,lng:-1,r:6},
+    germany:{lat:51,lng:10,r:8}, deutschland:{lat:51,lng:10,r:8}, france:{lat:46,lng:2,r:8}, spain:{lat:40,lng:-4,r:8},
+    españa:{lat:40,lng:-4,r:8}, italy:{lat:42,lng:12,r:8}, netherlands:{lat:52,lng:5,r:4}, norway:{lat:62,lng:10,r:12},
+    norge:{lat:62,lng:10,r:12}, sweden:{lat:62,lng:15,r:10}, australia:{lat:-25,lng:134,r:22}, japan:{lat:36,lng:138,r:10},
+    india:{lat:22,lng:79,r:18}, china:{lat:35,lng:105,r:22}, russia:{lat:60,lng:100,r:35}
+  };
+  function pinLooksMisplaced(p){
+    if(!p||p.lat==null||p.lng==null) return false;
+    var keys=[String(p.country||'').trim().toLowerCase(), String(p.city||'').trim().toLowerCase()];
+    for(var i=0;i<keys.length;i++){
+      var rough=COUNTRY_ROUGH[keys[i]];
+      if(!rough) continue;
+      if(Math.abs(Number(p.lat)-rough.lat)>rough.r || Math.abs(Number(p.lng)-rough.lng)>rough.r*1.6) return true;
+    }
+    return false;
+  }
+  async function healMisplacedPins(list){
+    var out=list||[];
+    var changed=false;
+    for(var i=0;i<out.length;i++){
+      var p=out[i];
+      if(!p||p._geoHealed||!pinLooksMisplaced(p)) continue;
+      try{
+        var geo=await geocodePlace(p.city||p.country, p.country&&p.country!==p.city?p.country:'');
+        if(geo && isFinite(geo.lat) && isFinite(geo.lng)){
+          p.lat=geo.lat; p.lng=geo.lng; p._geoHealed=true;
+          if(geo.country && !p.country) p.country=geo.country;
+          changed=true;
+        }
+      }catch(e){}
+    }
+    return changed;
+  }
   async function pullPins(){
     try{
       var r=await fetch(MAP_API+'/notifs?to=__MAP_PINS__',{cache:'no-store'});
       var j=await r.json().catch(function(){return{}});
-      var remote=((j&&j.notifs)||[]).map(function(n){try{return JSON.parse(n.message||'{}')}catch(e){return null}}).filter(function(x){return x&&x.lat!=null&&x.lng!=null});
-      if(remote.length){ mergePins(remote); redrawMarkers(); redrawPreviewMarkers(); updateExploreMapMeta(); list(); }
+      var remote=((j&&j.notifs)||[]).map(function(n){
+        try{
+          var p=JSON.parse(n.message||'{}');
+          if(!p) return null;
+          // Preserve from_username / post_id when message omitted a stable user.
+          if(!p.user && n.from_username) p.user=n.from_username;
+          if(!p.uid && n.post_id) p.uid=n.post_id;
+          return p;
+        }catch(e){return null}
+      }).filter(function(x){return x && x.lat!=null && x.lng!=null && isFinite(Number(x.lat)) && isFinite(Number(x.lng))});
+      if(remote.length){
+        try{ await healMisplacedPins(remote); }catch(e){}
+        mergePins(remote);
+        redrawMarkers(); redrawPreviewMarkers(); updateExploreMapMeta(); list();
+      }
       return remote.length;
     }catch(e){return 0}
+  }
+  var pinPollTimer=null;
+  function startPinPolling(){
+    if(pinPollTimer) return;
+    pinPollTimer=setInterval(function(){
+      pullPins().catch(function(){});
+    }, 25000);
+  }
+  function stopPinPolling(){
+    if(!pinPollTimer) return;
+    clearInterval(pinPollTimer);
+    pinPollTimer=null;
   }
   function updateExploreMapMeta(){
     var el=document.getElementById('explore-map-meta');
@@ -34618,39 +34772,6 @@ async function onIdFace(e){
     var n=(pins||[]).length;
     if(!n){el.textContent='No locations yet · open map to drop your city';return}
     el.textContent=n+' location'+(n===1?'':'s')+' · tap map to open';
-  }
-  function redrawPreviewMarkers(){
-    if(!previewMap||!window.L)return;
-    if(!previewLayer){
-      if(L.markerClusterGroup){
-        previewCluster=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:40,spiderfyOnMaxZoom:false});
-        previewMap.addLayer(previewCluster);
-        previewLayer=previewCluster;
-      }else{
-        previewLayer=L.layerGroup().addTo(previewMap);
-      }
-    }
-    if(previewCluster) previewCluster.clearLayers();
-    else previewLayer.clearLayers();
-    (pins||[]).forEach(function(p){
-      if(!p||p.lat==null||p.lng==null)return;
-      var marker=L.circleMarker([p.lat,p.lng],{radius:7,color:'#ff6a00',fillColor:'#ff6a00',fillOpacity:.9,interactive:false});
-      (previewCluster||previewLayer).addLayer(marker);
-    });
-    try{
-      var layers=(previewCluster&&previewCluster.getLayers)?previewCluster.getLayers():(pins||[]);
-      if(layers&&layers.length>1 && previewCluster && previewCluster.getBounds){
-        var b=previewCluster.getBounds();
-        if(b&&b.isValid&&b.isValid()) previewMap.fitBounds(b.pad(0.2),{maxZoom:4,animate:false});
-        else previewMap.setView([20,0],1);
-      }else if((pins||[]).length===1){
-        previewMap.setView([pins[0].lat,pins[0].lng],3);
-      }else{
-        previewMap.setView([20,0],1);
-      }
-    }catch(e){
-      try{previewMap.setView([20,0],1)}catch(e2){}
-    }
   }
   function startPreview(){
     var el=document.getElementById('explore-map-preview');
@@ -34724,6 +34845,7 @@ async function onIdFace(e){
   }
   window.refreshExploreMapPreview=function(){
     loadPins(); mergePins([]); updateExploreMapMeta();
+    startPinPolling();
     ensureLeaflet(function(){
       startPreview();
       redrawPreviewMarkers();
@@ -34737,12 +34859,14 @@ async function onIdFace(e){
     });
   };
   function publicPinMeta(p){
-    var who=String(p.user||'anon').replace(/^@/,'');
+    var raw=String(p.user||p.uid||'anon').replace(/^@/,'');
+    var who=(typeof shortDisplayUser==='function')?shortDisplayUser(raw):raw;
+    var anon=isAnonMapUser(raw);
     var city=sanitizePlaceText(p.city||'');
     var country=sanitizePlaceText(p.country||'');
     var flag=countryFlag(country||city);
     var label=country?(flag+' '+country):(city?(flag+' '+city):(flag+' Location'));
-    return {who:who,city:city,country:country,flag:flag,label:label};
+    return {who:who,raw:raw,anon:anon,city:city,country:country,flag:flag,label:label,note:String(p.note||'').slice(0,80)};
   }
   function list(){
     var box=document.getElementById('map-pin-list');
@@ -34751,10 +34875,13 @@ async function onIdFace(e){
     box.innerHTML=pins.length?pins.slice().reverse().slice(0,60).map(function(p){
       var m=publicPinMeta(p);
       var when=p.t?(typeof ago==='function'?ago(p.t):''):'';
+      var nameHtml=m.anon
+        ?('<span style="color:#fff;font-weight:800">@'+m.who.replace(/</g,'')+'</span>')
+        :('<button type="button" onclick="openUser(\''+m.raw.replace(/'/g,'')+'\')" style="background:none;border:0;color:#fff;font-weight:800;padding:0">@'+m.who.replace(/</g,'')+'</button>');
       return '<div style="padding:8px 0;border-bottom:1px solid #1c1c22;font-size:13px">'
-        +'<button type="button" onclick="openUser(\''+m.who.replace(/'/g,'')+'\')" style="background:none;border:0;color:#fff;font-weight:800;padding:0">@'+m.who+'</button>'
+        +nameHtml
         +' · '+m.label
-        +(m.city&&m.country?(' · '+m.city):'')
+        +(m.city&&m.country && m.city.toLowerCase()!==m.country.toLowerCase()?(' · '+m.city):'')
         +(when?' <span style="color:#666;font-size:11px">· '+when+'</span>':'')
         +'</div>';
     }).join(''):'<div style="color:#9a9aa3;font-size:13px">No pins yet. Tap the map or type a city.</div>';
@@ -34762,6 +34889,7 @@ async function onIdFace(e){
   window.openExposureMap=async function(){
     if(typeof showPanel==='function') showPanel('map');
     loadPins(); mergePins([]); list();
+    startPinPolling();
     setTimeout(boot,30);
     try{ await pullPins(); list(); redrawMarkers(); redrawPreviewMarkers(); updateExploreMapMeta(); }catch(e){}
   };
@@ -34867,32 +34995,20 @@ async function onIdFace(e){
     var country=(document.getElementById('map-country')&&document.getElementById('map-country').value||'').trim();
     if(!city || city.length<2)return;
     try{
-      var q=city+(country?(', '+country):'');
-      var r=await fetch('https://photon.komoot.io/api/?limit=1&q='+encodeURIComponent(q));
-      var j=await r.json();
-      var f=j&&j.features&&j.features[0];
-      if(f&&f.geometry&&f.geometry.coordinates){
-        pending={lat:Number(f.geometry.coordinates[1]),lng:Number(f.geometry.coordinates[0])};
-        try{
-          var props=f.properties||{};
-          if(!country && (props.country||props.countrycode)){
-            var cEl=document.getElementById('map-country');
-            if(cEl && !cEl.value) cEl.value=String(props.country||props.countrycode||'');
-          }
-          if(props.name && city.toLowerCase()!==String(props.name).toLowerCase()){
-            /* keep user text; just center */
-          }
-        }catch(e){}
-        if(pending){
-          var fuzzG=fuzzCoords(pending.lat,pending.lng);
-          pending={lat:fuzzG.lat,lng:fuzzG.lng};
+      var geo=await geocodePlace(city, country);
+      if(!geo) return;
+      pending={lat:geo.lat,lng:geo.lng};
+      try{
+        if(!country && geo.country){
+          var cEl=document.getElementById('map-country');
+          if(cEl && !cEl.value) cEl.value=geo.country;
         }
-        if(map){
-          placePendingMarker(pending);
-          if(center) try{map.setView([pending.lat,pending.lng],Math.min(7,MAP_MAX_ZOOM))}catch(e){}
-        }
-        updateSelectedLabel();
+      }catch(e){}
+      if(map){
+        placePendingMarker(pending);
+        if(center) try{map.setView([pending.lat,pending.lng],Math.min(7,MAP_MAX_ZOOM))}catch(e){}
       }
+      updateSelectedLabel();
     }catch(e){}
   }
   window.focusMapSelection=function(){
@@ -34905,12 +35021,58 @@ async function onIdFace(e){
       geocodeCityToMap(true);
     }
   };
+  // Small deterministic offset so multiple accounts in the same city stay distinct on the map.
+  function markerLatLng(p){
+    var lat=Number(p.lat), lng=Number(p.lng);
+    if(!isFinite(lat)||!isFinite(lng)) return null;
+    var key=pinUserKey(p);
+    var h=0;
+    for(var i=0;i<key.length;i++){ h=((h<<5)-h)+key.charCodeAt(i); h|=0; }
+    var dlat=(((h%7)-3)*0.018);
+    var dlng=((((h>>4)%7)-3)*0.018);
+    return [lat+dlat, lng+dlng];
+  }
   function redrawMarkers(){
     if(!map||!window.L)return;
     if(!markerLayer) markerLayer=L.layerGroup().addTo(map);
     if(clusterGroup) clusterGroup.clearLayers();
     else markerLayer.clearLayers();
     (pins||[]).forEach(function(p){addMarker(p)});
+  }
+  function redrawPreviewMarkers(){
+    if(!previewMap||!window.L)return;
+    if(!previewLayer){
+      if(L.markerClusterGroup){
+        previewCluster=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:40,spiderfyOnMaxZoom:false});
+        previewMap.addLayer(previewCluster);
+        previewLayer=previewCluster;
+      }else{
+        previewLayer=L.layerGroup().addTo(previewMap);
+      }
+    }
+    if(previewCluster) previewCluster.clearLayers();
+    else previewLayer.clearLayers();
+    (pins||[]).forEach(function(p){
+      if(!p||p.lat==null||p.lng==null)return;
+      var ll=markerLatLng(p); if(!ll)return;
+      var marker=L.circleMarker(ll,{radius:7,color:'#ff6a00',fillColor:'#ff6a00',fillOpacity:.9,interactive:false});
+      (previewCluster||previewLayer).addLayer(marker);
+    });
+    try{
+      var layers=(previewCluster&&previewCluster.getLayers)?previewCluster.getLayers():(pins||[]);
+      if(layers&&layers.length>1 && previewCluster && previewCluster.getBounds){
+        var b=previewCluster.getBounds();
+        if(b&&b.isValid&&b.isValid()) previewMap.fitBounds(b.pad(0.2),{maxZoom:4,animate:false});
+        else previewMap.setView([20,0],1);
+      }else if((pins||[]).length===1){
+        var one=markerLatLng(pins[0])||[pins[0].lat,pins[0].lng];
+        previewMap.setView(one,3);
+      }else{
+        previewMap.setView([20,0],1);
+      }
+    }catch(e){
+      try{previewMap.setView([20,0],1)}catch(e2){}
+    }
   }
   async function enrichPopupStats(who){
     var xp=0, level=1, rank='Rookie';
@@ -34928,51 +35090,53 @@ async function onIdFace(e){
   }
   function addMarker(p){
     if(!map||!window.L||!p)return;
+    var ll=markerLatLng(p); if(!ll)return;
     var m=publicPinMeta(p);
-    var safe=m.who.replace(/'/g,'').replace(/"/g,'');
+    var safe=String(m.raw||m.who).replace(/'/g,'').replace(/"/g,'');
+    var placeLine=m.label+(m.city&&m.country&&m.city.toLowerCase()!==m.country.toLowerCase()?('<br>'+m.city):'');
     var html='<div style="min-width:160px">'
-      +'<div style="font-weight:900;font-size:14px">@'+m.who+'</div>'
-      +'<div style="margin:4px 0;color:#444">'+m.label+(m.city&&m.country?('<br>'+m.city):'')+'</div>'
-      +'<div class="rs-map-stats" data-user="'+safe+'" style="font-size:12px;color:#555;margin:4px 0">Level · Rank · XP</div>'
-      +'<button type="button" onclick="openUser(\''+safe+'\')" style="margin-top:6px;border:0;border-radius:999px;background:#7c3aed;color:#fff;padding:8px 12px;font-weight:800;width:100%">VIEW PROFILE</button>'
+      +'<div style="font-weight:900;font-size:14px">@'+String(m.who).replace(/</g,'')+(m.anon?' <span style="font-weight:700;color:#888;font-size:11px">anonymous</span>':'')+'</div>'
+      +'<div style="margin:4px 0;color:#444">'+placeLine+'</div>'
+      +(m.note?('<div style="font-size:12px;color:#555;margin:4px 0">'+String(m.note).replace(/</g,'')+'</div>'):'')
+      +(m.anon
+        ?'<div style="font-size:12px;color:#777;margin:4px 0">Public location only</div>'
+        :('<div class="rs-map-stats" data-user="'+safe+'" style="font-size:12px;color:#555;margin:4px 0">Level · Rank · XP</div>'
+          +'<button type="button" onclick="openUser(\''+safe+'\')" style="margin-top:6px;border:0;border-radius:999px;background:#7c3aed;color:#fff;padding:8px 12px;font-weight:800;width:100%">VIEW PROFILE</button>'))
       +'</div>';
-    var marker=L.circleMarker([p.lat,p.lng],{radius:9,color:'#ff6a00',fillColor:'#ff6a00',fillOpacity:.9});
+    var marker=L.circleMarker(ll,{radius:9,color:'#ff6a00',fillColor:'#ff6a00',fillOpacity:.9});
     marker.bindPopup(html);
-    marker.on('popupopen',function(){
-      enrichPopupStats(m.who).then(function(st){
-        var el=document.querySelector('.rs-map-stats[data-user="'+safe+'"]');
-        if(el) el.textContent='Level '+st.level+' · '+st.rank+' · '+Number(st.xp||0).toLocaleString()+' XP';
+    if(!m.anon){
+      marker.on('popupopen',function(){
+        enrichPopupStats(m.raw).then(function(st){
+          var el=document.querySelector('.rs-map-stats[data-user="'+safe+'"]');
+          if(el) el.textContent='Level '+st.level+' · '+st.rank+' · '+Number(st.xp||0).toLocaleString()+' XP';
+        });
       });
-    });
+    }
     (clusterGroup||markerLayer).addLayer(marker);
   }
   window.saveMapPin=async function(){
     var city=sanitizePlaceText((document.getElementById('map-city')&&document.getElementById('map-city').value||''));
     var country=sanitizePlaceText((document.getElementById('map-country')&&document.getElementById('map-country').value||''));
     var note=(document.getElementById('map-note')&&document.getElementById('map-note').value||'').trim().slice(0,80);
+    if(!city){if(typeof toast==='function')toast('Add a city name (no street address)');var c=document.getElementById('map-city'); if(c)c.focus(); return}
+    // ROOT FIX: typed city/country always wins over a stale map-tap pending.
+    // (Bug: Venezuela text + Netherlands tap → list said Venezuela, marker sat in Europe.)
     var geoCountry='';
-    if(pendingMarker){
+    var geo=null;
+    try{ geo=await geocodePlace(city, country); }catch(e){ geo=null; }
+    if(geo){
+      pending={lat:geo.lat,lng:geo.lng};
+      geoCountry=geo.country||'';
+      placePendingMarker(pending);
+    }else if(pendingMarker){
       try{pending=pendingMarker.getLatLng()}catch(e){}
     }
-    if(!pending && city){
-      try{
-        var q=city+(country?(', '+country):'');
-        var r=await fetch('https://photon.komoot.io/api/?limit=1&q='+encodeURIComponent(q));
-        var j=await r.json();
-        var f=j&&j.features&&j.features[0];
-        if(f&&f.geometry&&f.geometry.coordinates){
-          pending={lat:Number(f.geometry.coordinates[1]),lng:Number(f.geometry.coordinates[0])};
-          try{geoCountry=sanitizePlaceText((f.properties&& (f.properties.country||f.properties.countrycode))||'')}catch(e){}
-          placePendingMarker(pending);
-        }
-      }catch(e){}
-    }
     if(!pending){if(typeof toast==='function')toast('Search a city or tap the map first');return}
-    if(!city){if(typeof toast==='function')toast('Add a city name (no street address)');var c=document.getElementById('map-city'); if(c)c.focus(); return}
     var fuzz=fuzzCoords(pending.lat,pending.lng);
     loadPins();
-    var user=(window.currentUser&&currentUser.name)||'guest';
-    var pin={user:user,city:city||'City',country:country||geoCountry||'',note:note,lat:fuzz.lat,lng:fuzz.lng,t:Date.now()};
+    var user=resolveMapPinUser();
+    var pin={user:user,uid:pinUserKey({user:user}),city:city||'City',country:country||geoCountry||'',note:note,lat:fuzz.lat,lng:fuzz.lng,t:Date.now()};
     // Reflect sanitized city back into the form so users learn the rule.
     try{
       var cityEl=document.getElementById('map-city');
@@ -34984,6 +35148,7 @@ async function onIdFace(e){
     var ok=await pushPin(pin);
     redrawMarkers(); redrawPreviewMarkers(); updateExploreMapMeta(); list();
     updateSelectedLabel();
+    startPinPolling();
     if(map){try{map.setView([pin.lat,pin.lng],Math.min(6,MAP_MAX_ZOOM))}catch(e){}}
     // 10 XP only when a registered user successfully confirms a location pin (server-deduped forever).
     var mapXpGot=0;
