@@ -36,7 +36,7 @@ assert(html.indexOf("onclick=\"openDetail(") >= 0, 'Open / thumb openDetail wiri
 assert(html.indexOf('function adminPostLinkHtml') >= 0, 'admin post permalink helper');
 assert(html.indexOf('admin-post-link') >= 0, 'admin post link class');
 assert(html.indexOf('unpackAlbumTags') >= 0 && html.indexOf('adminFirstImageFromRow') >= 0, 'album tags feed admin thumbs');
-assert(/Anon_\d+|Anon_####|Anon_\$\{/.test(html) || html.indexOf("return 'Anon_'+num") >= 0, 'anon display uses Anon_#### numbers');
+assert(/Sub\d+|return 'Sub'\+num/.test(html) || html.indexOf("return 'Sub'+num") >= 0, 'anon display uses SubN numbers');
 
 // Extract + unit-test pure helpers in a sandbox.
 var start = html.indexOf('function normalizeAdminPostId');
