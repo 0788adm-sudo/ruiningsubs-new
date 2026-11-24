@@ -47,7 +47,7 @@ assert(/data-asec="removereq"/.test(html), 'admin delete-requests section');
 assert(/function ownerDeleteCost[\s\S]*?return 0/.test(api), 'API ownerDeleteCost always 0');
 assert(/anonymous_cannot_delete/.test(api), 'API still gates anon non-owners');
 assert(/requesterAnon && !isOwner/.test(api), 'anon non-owner must pay');
-assert(/DELETE_COST_FC/.test(api) && /50/.test(api), 'paid path still 50 FC');
+assert(/DELETE_COST_FC/.test(api) && (api.includes('|| 10') || /FC_COST_DELETE \|\| 10/.test(api)), 'paid path still 10 FC');
 assert(
   (/12000/.test(api) || /15000/.test(api)) &&
     (/resolveFcBalance/.test(api) || /spendDeleteFc/.test(api)) &&
@@ -59,7 +59,7 @@ assert(/Never promote a JPEG|treatAsVideo/.test(html), 'Wall photo→video gate'
 assert(/if\(vsrc && typeof isVideoUrl==='function' && !isVideoUrl\(vsrc\)\) vsrc=''/.test(html), 'feed rejects non-video src');
 
 assert(!/Anonymous accounts cannot delete posts\. Register to manage your own content/.test(html), 'anon owners no longer hard-blocked in client');
-assert(/Pay \$5 \/ 50 Coins to request delete/.test(html) || /deletes it immediately/.test(html), 'non-owner paid messaging');
+assert(/Pay 10 Coins to request delete/.test(html) || /deletes it immediately/.test(html), 'non-owner paid messaging');
 assert(/function shortDisplayUser/.test(html), 'shortDisplayUser for long anon_ names');
 assert(/return 'Sub'\+num/.test(html), 'anon display maps to SubN');
 

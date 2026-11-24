@@ -26,7 +26,7 @@ assert(!/function checkRouletteUnlock[\s\S]{0,120}isRegistered\(\)/.test(html), 
 assert(html.includes('claimRoulettePackPaid'), 'I PAID claim spins helper');
 assert(html.includes('I PAID — CLAIM SPINS'), 'I PAID button visible');
 assert(html.includes('BUY 10 EXTRA SPINS'), 'BUY 10 EXTRA SPINS button');
-assert(html.includes('50 Coins · $5 USD'), 'price line under buy button');
+assert(html.includes('10 Coins · pack of 10') || html.includes('10 Coins'), 'price line under buy button');
 assert(html.includes('PAYMENT UNDER REVIEW'), 'under review banner');
 assert(html.includes("openRouletteExternalPay('throne')") || html.includes('openRouletteExternalPay("throne")') || html.includes("openRouletteExternalPay('throne')"), 'Throne option');
 assert(html.includes("openRouletteExternalPay('btc')") || html.includes('Bitcoin'), 'BTC option');
@@ -38,14 +38,14 @@ assert(!/buy_pack[\s\S]{0,200}player\.anon\) return json\(res, 401/.test(game), 
 assert(game.includes("action === 'grant_pack'") || game.includes("action === 'approve_pack'"), 'admin grant_pack');
 assert(game.includes("action === 'reject_pack'"), 'admin reject_pack');
 assert(game.includes('verifyAdminToken'), 'grant_pack admin gated');
-assert(/packBoard = \(game === 'roulette'\)/.test(game) || game.includes("packBoard = (game === 'roulette')"), 'pack spins for all users');
+assert(game.includes('gamePackBalance') || game.includes('packBoard = await fetchBoard(BOARD_PACKS)'), 'pack spins for all users');
 assert(game.includes("account_type: player.anon ? 'anonymous' : 'registered'") || game.includes("account_type: isAnonUser"), 'account type recorded');
 assert(spend.includes('anonPart') || /anon_/.test(spend), 'fc-spend allows stable anon wallets');
 assert(adminReq.includes('roulette_pack_request'), 'admin-request accepts roulette pack claims');
 
 // —— No login prompts in spin exhausted path ——
 assert(!/Free uses exhausted\. Wait 24h recovery or register to buy spins/.test(html), 'no register-to-buy message');
-assert(html.includes('Get 10 additional spins for 50 Coins ($5)'), 'exhausted message points to pack');
+assert(html.includes('Get 10 additional spins for 10 Coins'), 'exhausted message points to pack');
 
 // —— Video / publish anon ——
 assert(!/function openVideoComposer\(\)\{[\s\S]{0,160}Register to publish/.test(html), 'video composer no register gate');

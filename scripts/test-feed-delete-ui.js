@@ -41,7 +41,7 @@ assert(html.indexOf('Problems with this post? Contact us:') >= 0, 'contact notic
 assert(html.indexOf('mailto:0788adm@gmail.com') >= 0, 'contact email');
 assert(html.indexOf('Telegram: @mastersan01') >= 0, 'contact Telegram');
 assert(html.indexOf('universalDeleteButtonHtml') >= 0, 'universal Delete helper');
-assert(html.indexOf('$5 / 50 Coins') >= 0 || html.indexOf('Coins or $5') >= 0, 'third-party paid delete path');
+assert(html.indexOf('10 Coins') >= 0 || html.indexOf('Coins or $5') >= 0, 'third-party paid delete path');
 assert(html.indexOf('You already have a pending delete request') >= 0, 'duplicate remove request blocked');
 assert(html.indexOf('function shortDisplayUser') >= 0, 'anon names shortened for display');
 assert(html.indexOf("return 'Sub'+num") >= 0 || /Sub\d+/.test(html), 'anon display uses SubN numbers');

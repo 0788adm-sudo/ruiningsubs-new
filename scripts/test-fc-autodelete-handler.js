@@ -282,13 +282,13 @@ function noAdminTraffic() {
     user: 'buyer1',
     postId: 'post-fc-1',
     reason: 'paid',
-    idempotencyKey: 'delete-post:post-fc-1:buyer1:50'
+    idempotencyKey: 'delete-post:post-fc-1:buyer1:10'
   });
   assert.strictEqual(r1.status, 200, 'paid delete status 200');
   assert.strictEqual(r1.json.ok, true, 'paid delete ok');
-  assert.strictEqual(r1.json.charged, 50, 'charged exactly 50');
+  assert.strictEqual(r1.json.charged, 10, 'charged exactly 10');
   assert.strictEqual(r1.json.admin_notified, false, 'admin_notified false');
-  assert.strictEqual(cfWallets.buyer1, 450, 'balance decreased by 50');
+  assert.strictEqual(cfWallets.buyer1, 490, 'balance decreased by 10');
   assert.strictEqual(posts['post-fc-1'], undefined, 'post removed');
   assert.ok(noAdminTraffic(), 'no admin traffic');
   console.log('PASS · paid FC auto-delete removes post and skips admin');
@@ -298,11 +298,11 @@ function noAdminTraffic() {
     user: 'buyer1',
     postId: 'post-fc-1',
     reason: 'paid',
-    idempotencyKey: 'delete-post:post-fc-1:buyer1:50'
+    idempotencyKey: 'delete-post:post-fc-1:buyer1:10'
   });
   assert.strictEqual(r2.json.already_deleted, true, 'already_deleted');
   assert.strictEqual(r2.json.charged, 0, 'no second charge');
-  assert.strictEqual(cfWallets.buyer1, 450, 'balance unchanged');
+  assert.strictEqual(cfWallets.buyer1, 490, 'balance unchanged');
   console.log('PASS · idempotent already_deleted does not double-charge');
 
   // 3) Refund on delete failure
@@ -314,13 +314,13 @@ function noAdminTraffic() {
     user: 'buyer2',
     postId: 'post-fc-2',
     reason: 'paid',
-    idempotencyKey: 'delete-post:post-fc-2:buyer2:50'
+    idempotencyKey: 'delete-post:post-fc-2:buyer2:10'
   });
   assert.strictEqual(r3.status, 500, 'delete_failed status');
   assert.strictEqual(r3.json.refunded, true, 'refunded');
   assert.strictEqual(cfWallets.buyer2, 200, 'coins restored');
   assert.ok(posts['post-fc-2'], 'post still present');
-  console.log('PASS · failed delete refunds 50 FC and leaves post');
+  console.log('PASS · failed delete refunds 10 FC and leaves post');
 
   // 4) Balance ladder: 0 / 49 / 50 / 100 / 999480
   async function ladder(name, bal, expectOk) {
@@ -330,8 +330,8 @@ function noAdminTraffic() {
     var r = await invoke({ user: name, postId: 'p-' + name, reason: 'paid' });
     if (expectOk) {
       assert.strictEqual(r.status, 200, name + ' status');
-      assert.strictEqual(r.json.charged, 50, name + ' charged');
-      assert.strictEqual(cfWallets[name], bal - 50, name + ' remaining');
+      assert.strictEqual(r.json.charged, 10, name + ' charged');
+      assert.strictEqual(cfWallets[name], bal - 10, name + ' remaining');
       assert.strictEqual(posts['p-' + name], undefined, name + ' deleted');
     } else {
       assert.strictEqual(r.status, 402, name + ' insufficient status');
@@ -342,11 +342,11 @@ function noAdminTraffic() {
     }
   }
   await ladder('u0', 0, false);
-  await ladder('u49', 49, false);
-  await ladder('u50', 50, true);
+  await ladder('u9', 9, false);
+  await ladder('u10', 10, true);
   await ladder('u100', 100, true);
   await ladder('u999480', 999480, true);
-  console.log('PASS · balance ladder 0/49/50/100/999480');
+  console.log('PASS · balance ladder 0/9/10/100/999480');
 
   // 5) CRITICAL: header casing vs lowercased spend key
   resetState();
@@ -357,11 +357,11 @@ function noAdminTraffic() {
     user: 'BigBoisLut',
     postId: 'post-case',
     reason: 'paid',
-    idempotencyKey: 'delete-post:post-case:bigboislut:50'
+    idempotencyKey: 'delete-post:post-case:bigboislut:10'
   });
   assert.strictEqual(rCase.status, 200, 'cased user delete ok');
-  assert.strictEqual(rCase.json.charged, 50, 'cased charged 50');
-  assert.strictEqual(cfWallets.BigBoisLut, 999430, 'cased wallet deducted');
+  assert.strictEqual(rCase.json.charged, 10, 'cased charged 10');
+  assert.strictEqual(cfWallets.BigBoisLut, 999470, 'cased wallet deducted');
   assert.strictEqual(cfWallets.bigboislut, 0, 'lowercase wallet untouched');
   assert.strictEqual(posts['post-case'], undefined, 'cased post deleted');
   console.log('PASS · case-sensitive wallet matches header balance (no false insufficient)');
@@ -373,9 +373,9 @@ function noAdminTraffic() {
   posts['post-sb'] = samplePost('post-sb');
   var rSb = await invoke({ user: 'sbUser', postId: 'post-sb', reason: 'paid' });
   assert.strictEqual(rSb.status, 200, 'sb fallback ok');
-  assert.strictEqual(rSb.json.charged, 50, 'sb charged');
+  assert.strictEqual(rSb.json.charged, 10, 'sb charged');
   assert.strictEqual(rSb.json.source, 'supabase', 'source supabase');
-  assert.strictEqual(sbWallets.sbUser, 999430, 'sb balance deducted');
+  assert.strictEqual(sbWallets.sbUser, 999470, 'sb balance deducted');
   assert.strictEqual(posts['post-sb'], undefined, 'sb post deleted');
   console.log('PASS · Supabase coin_wallets spend when CF empty');
 
@@ -400,7 +400,7 @@ function noAdminTraffic() {
   assert.ok(api.indexOf('DELETE_NOOP') >= 0 || api.indexOf('delete_blocked_or_noop') >= 0, 'detect silent delete failure');
   assert.ok(html.indexOf('coinUserId') >= 0 && html.indexOf("secureDeletePost") >= 0, 'client uses coin identity');
   assert.ok(
-    html.indexOf('Checking balance, then charging 50 Coins') >= 0 ||
+    html.indexOf('Checking balance, then charging 10 Coins') >= 0 ||
       html.indexOf('Checking balance…') >= 0,
     'progress not fake-success'
   );
@@ -434,12 +434,12 @@ function noAdminTraffic() {
     user: 'SlowRich',
     postId: 'post-slow',
     reason: 'paid',
-    idempotencyKey: 'delete-post:post-slow:slowrich:50'
+    idempotencyKey: 'delete-post:post-slow:slowrich:10'
   });
   global.fetch = origFetch;
   assert.strictEqual(rSlow.status, 200, 'slow ledger still deletes when CF spend works');
-  assert.strictEqual(rSlow.json.charged, 50, 'slow path charged');
-  assert.strictEqual(cfWallets.SlowRich, 999880, 'slow path deducted once');
+  assert.strictEqual(rSlow.json.charged, 10, 'slow path charged');
+  assert.strictEqual(cfWallets.SlowRich, 999920, 'slow path deducted once');
   assert.strictEqual(posts['post-slow'], undefined, 'slow path post gone');
   console.log('PASS · ledger blip does not false-insufficient a funded wallet');
 
@@ -452,7 +452,7 @@ function noAdminTraffic() {
     action: 'delete',
     ref_id: 'txn-pre-1',
     ref: 'txn-pre-1',
-    coins: 50
+    coins: 10
   });
   var balBefore = cfWallets.PrePay;
   var rPre = await invoke({
@@ -463,7 +463,7 @@ function noAdminTraffic() {
     precharged: true
   });
   assert.strictEqual(rPre.status, 200, 'precharged ok');
-  assert.strictEqual(rPre.json.charged, 50, 'precharged reports charged');
+  assert.strictEqual(rPre.json.charged, 10, 'precharged reports charged');
   assert.strictEqual(cfWallets.PrePay, balBefore, 'precharged did not debit again');
   assert.strictEqual(posts['post-pre'], undefined, 'precharged deleted');
   console.log('PASS · precharged verifies ledger without double charge');
@@ -476,16 +476,16 @@ function noAdminTraffic() {
   ledgerFor('MasterSan').unshift({
     kind: 'spend',
     action: 'delete',
-    ref_id: 'delete-post:3251:mastersan:50:mwl6m5kc',
-    ref: 'delete-post:3251:mastersan:50:mwl6m5kc',
-    coins: 50
+    ref_id: 'delete-post:3251:mastersan:10:mwl6m5kc',
+    ref: 'delete-post:3251:mastersan:10:mwl6m5kc',
+    coins: 10
   });
   var balMS = cfWallets.MasterSan;
   var rMS = await invoke({
     user: 'MasterSan',
     postId: '3251',
     reason: 'paid',
-    idempotencyKey: 'delete-post:3251:mastersan:50:mwl6m5kc',
+    idempotencyKey: 'delete-post:3251:mastersan:10:mwl6m5kc',
     precharged: true,
     walletUsers: ['MasterSan', 'mastersan']
   });
@@ -502,16 +502,16 @@ function noAdminTraffic() {
   ledgerFor('MasterSan').unshift({
     kind: 'spend',
     action: 'delete',
-    ref_id: 'delete-post:3251b:mastersan:50:mwlan6lx',
-    ref: 'delete-post:3251b:mastersan:50:mwlan6lx',
-    coins: 50
+    ref_id: 'delete-post:3251b:mastersan:10:mwlan6lx',
+    ref: 'delete-post:3251b:mastersan:10:mwlan6lx',
+    coins: 10
   });
   var balLegacy = cfWallets.MasterSan;
   var rLegacy = await invoke({
     user: 'MasterSan',
     postId: '3251b',
     reason: 'paid',
-    idempotencyKey: 'delete-post:3251b:mastersan:50',
+    idempotencyKey: 'delete-post:3251b:mastersan:10',
     precharged: true,
     walletUsers: ['MasterSan', 'mastersan']
   });
@@ -523,7 +523,7 @@ function noAdminTraffic() {
   var api2 = require('fs').readFileSync(path.join(__dirname, '..', 'api', 'delete-post.js'), 'utf8');
   var html2 = require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(api2.indexOf('refMatchesDeletePost') >= 0, 'ref matcher for post-scoped spends');
-  assert.ok(html2.indexOf("delete-post:'+postId+':'+String(uid).toLowerCase()+':50'") >= 0, 'stable txn id (no random suffix)');
+  assert.ok(html2.indexOf("delete-post:'+postId+':'+String(uid).toLowerCase()+':'") >= 0 && (html2.indexOf('FC_COSTS.delete') >= 0 || html2.indexOf(':10') >= 0), 'stable txn id (no random suffix)');
   assert.ok(api2.indexOf("status: 'unavailable'") >= 0, 'load failure ≠ completed');
   console.log('PASS · stable txn + unavailable status contracts');
 

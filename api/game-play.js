@@ -5,12 +5,17 @@
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 const FC_ROULETTE = Number(process.env.FC_COST_ROULETTE || 10);
-const FC_ROULETTE_PACK = Number(process.env.FC_COST_ROULETTE_PACK || 50);
+const FC_ROULETTE_PACK = Number(process.env.FC_COST_ROULETTE_PACK || 10);
 const ROULETTE_PACK_SPINS = Number(process.env.ROULETTE_PACK_SPINS || 10);
+const GAME_PACK_USES = Number(process.env.GAME_PACK_USES || ROULETTE_PACK_SPINS || 10);
 const FREE_USES_PER_GAME = Number(process.env.FREE_USES_PER_GAME || 3);
 const FREE_RECOVERY_MS = Number(process.env.FREE_RECOVERY_MS || (24 * 60 * 60 * 1000));
 const FC_DICE = Number(process.env.FC_COST_DICE || 10);
+const FC_DICE_PACK = Number(process.env.FC_COST_DICE_PACK || 10);
+const FC_TTT_PACK = Number(process.env.FC_COST_TTT_PACK || 10);
 const FC_CUSTOM = Number(process.env.FC_COST_CUSTOM_ROULETTE || 250);
+/** Prize slots (pin / +10d) are weighted higher so users win more often without guaranteeing wins. */
+const ROULETTE_PRIZE_WEIGHT = Math.max(1, Number(process.env.ROULETTE_PRIZE_WEIGHT || 4) || 4);
 const TRIKI_PIN_HOURS = Number(process.env.TRIKI_PIN_HOURS || 48);
 const ROULETTE_PIN_HOURS = Number(process.env.ROULETTE_PIN_HOURS || 48);
 const EXTEND_10D_MS = 10 * 24 * 60 * 60 * 1000;
@@ -95,6 +100,50 @@ function pickCoherentDiceRoll() {
     pose: DICE_POSE[poseIdx],
     proof: DICE_PROOF[proofIdx]
   };
+}
+
+/** Server-authoritative weighted roulette index. Prize indices get elevated weight. */
+function pickWeightedRouletteIdx(optionCount, prizeIndices) {
+  optionCount = Math.max(2, Math.min(60, Math.floor(Number(optionCount) || 30)));
+  var prizes = [];
+  var seen = {};
+  (Array.isArray(prizeIndices) ? prizeIndices : []).forEach(function (raw) {
+    var idx = Math.floor(Number(raw));
+    if (!isFinite(idx) || idx < 0 || idx >= optionCount || seen[idx]) return;
+    seen[idx] = 1;
+    prizes.push(idx);
+  });
+  if (!prizes.length) {
+    return Math.floor(Math.random() * optionCount);
+  }
+  var weights = [];
+  var total = 0;
+  for (var i = 0; i < optionCount; i++) {
+    var w = seen[i] ? ROULETTE_PRIZE_WEIGHT : 1;
+    weights.push(w);
+    total += w;
+  }
+  var roll = Math.random() * total;
+  var acc = 0;
+  for (var j = 0; j < optionCount; j++) {
+    acc += weights[j];
+    if (roll < acc) return j;
+  }
+  return optionCount - 1;
+}
+
+function packCostForGame(game) {
+  game = normalizeGame(game);
+  if (game === 'dice') return FC_DICE_PACK;
+  if (game === 'tic_tac_toe') return FC_TTT_PACK;
+  return FC_ROULETTE_PACK;
+}
+
+function packActionForGame(game) {
+  game = normalizeGame(game);
+  if (game === 'dice') return 'dice_pack';
+  if (game === 'tic_tac_toe') return 'tic_tac_toe_pack';
+  return 'roulette_pack';
 }
 
 var locks = new Map();
@@ -998,45 +1047,51 @@ async function verifyAdminToken(token) {
   return !!(res.ok && res.json && res.json.ok !== false);
 }
 
-/** Idempotent pack credit — returns { granted, reused, pack_spins }. */
-async function grantRoulettePack(user, playId, meta) {
+/** Idempotent pack credit — returns { granted, reused, pack_spins }. Supports roulette/dice/tic_tac_toe. */
+async function grantGamePack(user, game, playId, meta) {
   meta = meta || {};
+  game = normalizeGame(game) || 'roulette';
+  var uses = Number(meta.spins || meta.uses || GAME_PACK_USES) || GAME_PACK_USES;
   var packs = await fetchBoard(BOARD_PACKS);
   for (var i = 0; i < packs.length; i++) {
     var msg = parseMsg(packs[i] && packs[i].message);
     if (!msg) continue;
     if (normUser(msg.user || packs[i].from_username) !== normUser(user)) continue;
     if (msg.kind !== 'pack_purchase') continue;
+    if (normalizeGame(msg.game || 'roulette') !== game) continue;
     var pid = String(msg.play_id || msg.request_id || packs[i].post_id || '');
     if (pid && (pid === String(playId) || pid === String(meta.request_id || ''))) {
       return {
         ok: true,
         reused: true,
         spins_granted: 0,
-        pack_spins: roulettePackBalance(packs, user)
+        pack_spins: gamePackBalance(packs, user, game)
       };
     }
   }
-  await postBoard(BOARD_PACKS, user, 'roulette_pack', playId, {
+  var boardKind = packActionForGame(game);
+  await postBoard(BOARD_PACKS, user, boardKind, playId, {
     user: user,
-    game: 'roulette',
+    game: game,
     kind: 'pack_purchase',
-    spins: ROULETTE_PACK_SPINS,
+    spins: uses,
+    uses: uses,
     coins: Number(meta.coins || 0) || 0,
     play_id: playId,
     request_id: meta.request_id || playId,
     source: meta.source || 'purchase',
     provider: meta.provider || '',
     at: Date.now(),
-    usd: meta.usd != null ? meta.usd : 5,
+    usd: meta.usd != null ? meta.usd : 1,
     account_type: isAnonUser(user) ? 'anonymous' : 'registered'
   });
-  await postBoard(BOARD_PLAYS, user, 'roulette_pack', playId, {
+  await postBoard(BOARD_PLAYS, user, boardKind, playId, {
     id: playId,
     user: user,
-    game: 'roulette',
+    game: game,
     kind: 'pack_purchase',
-    spins: ROULETTE_PACK_SPINS,
+    spins: uses,
+    uses: uses,
     coins: Number(meta.coins || 0) || 0,
     source: meta.source || 'purchase',
     at: Date.now()
@@ -1045,9 +1100,14 @@ async function grantRoulettePack(user, playId, meta) {
   return {
     ok: true,
     reused: false,
-    spins_granted: ROULETTE_PACK_SPINS,
-    pack_spins: roulettePackBalance(after, user)
+    spins_granted: uses,
+    pack_spins: gamePackBalance(after, user, game)
   };
+}
+
+/** Backward-compatible alias used by admin grant_pack paths. */
+async function grantRoulettePack(user, playId, meta) {
+  return grantGamePack(user, 'roulette', playId, meta);
 }
 
 /** Collect unique free-use timestamps for a user+game (legacy daily board merged). */
@@ -1123,18 +1183,24 @@ function countFreeUses(notifs, user, game) {
   return collectFreeUseTimes(notifs, user, game).length;
 }
 
-function roulettePackBalance(notifs, user) {
+function gamePackBalance(notifs, user, game) {
+  game = normalizeGame(game) || 'roulette';
   var granted = 0;
   var used = 0;
+  var defaultUses = GAME_PACK_USES || ROULETTE_PACK_SPINS || 10;
   for (var i = 0; i < notifs.length; i++) {
     var msg = parseMsg(notifs[i] && notifs[i].message);
     if (!msg) continue;
     if (normUser(msg.user || notifs[i].from_username) !== user) continue;
-    if (String(msg.game || '') !== 'roulette') continue;
-    if (msg.kind === 'pack_purchase') granted += Number(msg.spins || ROULETTE_PACK_SPINS) || 0;
-    if (msg.kind === 'pack_spin') used += 1;
+    if (normalizeGame(msg.game || '') !== game) continue;
+    if (msg.kind === 'pack_purchase') granted += Number(msg.spins || msg.uses || defaultUses) || 0;
+    if (msg.kind === 'pack_spin' || msg.kind === 'pack_use') used += 1;
   }
   return Math.max(0, granted - used);
+}
+
+function roulettePackBalance(notifs, user) {
+  return gamePackBalance(notifs, user, 'roulette');
 }
 
 async function patchFeatured(postId, until, meta) {
@@ -1270,12 +1336,25 @@ module.exports = async function handler(req, res) {
           roulette: FC_ROULETTE,
           dice: FC_DICE,
           custom: FC_CUSTOM,
-          roulette_pack: FC_ROULETTE_PACK
+          roulette_pack: FC_ROULETTE_PACK,
+          dice_pack: FC_DICE_PACK,
+          tic_tac_toe_pack: FC_TTT_PACK,
+          pin: 10,
+          delete: 10,
+          print: 350
         },
+        packs: [
+          { usd: 5, coins: 60 },
+          { usd: 10, coins: 110 },
+          { usd: 25, coins: 300 },
+          { usd: 50, coins: 600 },
+          { usd: 99, coins: 1200 }
+        ],
         free_per_game: FREE_USES_PER_GAME,
         free_per_day: FREE_USES_PER_GAME, // legacy alias — 3 per recovery cycle
         free_recovery_ms: FREE_RECOVERY_MS,
         roulette_pack_spins: ROULETTE_PACK_SPINS,
+        game_pack_uses: GAME_PACK_USES,
         live_games: ['roulette', 'dice', 'tic_tac_toe'],
         triki_max_games: 3,
         triki_wins_for_pin: 3,
@@ -1289,6 +1368,11 @@ module.exports = async function handler(req, res) {
         out.account_type = player.anon ? 'anonymous' : 'registered';
         out.anonymous_user_id = player.anonId || null;
         out.pack_spins = roulettePackBalance(packs, player.user);
+        out.pack_spins_map = {
+          roulette: gamePackBalance(packs, player.user, 'roulette'),
+          dice: gamePackBalance(packs, player.user, 'dice'),
+          tic_tac_toe: gamePackBalance(packs, player.user, 'tic_tac_toe')
+        };
         out.plays = plays
           .map(function (n) { return parseMsg(n.message); })
           .filter(function (m) {
@@ -1460,44 +1544,54 @@ module.exports = async function handler(req, res) {
       return json(res, 200, outCustom);
     }
 
-    // —— Roulette pack: 50 FC → 10 prepaid spins (registered + stable anonymous) ——
-    if (game === 'roulette' && (action === 'buy_pack' || action === 'roulette_pack')) {
-      var packSpend = await spendViaWallet(user, FC_ROULETTE_PACK, 'roulette_pack', playId);
+    // —— Game packs: 10 Coins → 10 prepaid uses (roulette / dice / tic_tac_toe) ——
+    if (
+      (game === 'roulette' || game === 'dice' || game === 'tic_tac_toe') &&
+      (action === 'buy_pack' || action === 'roulette_pack' || action === 'dice_pack' || action === 'tic_tac_toe_pack' || action === 'triki_pack')
+    ) {
+      var packGame = game === 'tic_tac_toe' ? 'tic_tac_toe' : game;
+      if (action === 'dice_pack') packGame = 'dice';
+      if (action === 'tic_tac_toe_pack' || action === 'triki_pack') packGame = 'tic_tac_toe';
+      if (action === 'roulette_pack') packGame = 'roulette';
+      var packCost = packCostForGame(packGame);
+      var packSpendAction = packActionForGame(packGame);
+      var packSpend = await spendViaWallet(user, packCost, packSpendAction, playId);
       if (!packSpend.ok) {
         if (packSpend.error === 'insufficient') {
           return json(res, 402, {
             ok: false,
             error: 'insufficient',
             message: 'Insufficient Coins',
-            need: FC_ROULETTE_PACK,
+            need: packCost,
             balance: packSpend.balance || 0
           });
         }
         if (packSpend.error === 'login_required_for_paid') {
           return json(res, 401, { ok: false, error: 'session_required', message: 'Anonymous identity required' });
         }
-        return json(res, 502, { ok: false, error: packSpend.error || 'spend_failed', need: FC_ROULETTE_PACK });
+        return json(res, 502, { ok: false, error: packSpend.error || 'spend_failed', need: packCost });
       }
       var grantedPack = { ok: true, reused: true, spins_granted: 0, pack_spins: 0 };
       if (!packSpend.reused) {
-        grantedPack = await grantRoulettePack(user, playId, {
+        grantedPack = await grantGamePack(user, packGame, playId, {
           source: 'fc',
           provider: 'fc',
-          coins: FC_ROULETTE_PACK,
-          usd: 5,
+          coins: packCost,
+          usd: 1,
+          spins: GAME_PACK_USES,
           request_id: playId
         });
       } else {
-        grantedPack.pack_spins = roulettePackBalance(await fetchBoard(BOARD_PACKS), user);
+        grantedPack.pack_spins = gamePackBalance(await fetchBoard(BOARD_PACKS), user, packGame);
       }
       var outPack = {
         ok: true,
         reused: !!packSpend.reused || !!grantedPack.reused,
-        game: 'roulette',
+        game: packGame,
         action: 'buy_pack',
         play_id: playId,
-        coins: FC_ROULETTE_PACK,
-        spins_granted: packSpend.reused ? 0 : (grantedPack.spins_granted || ROULETTE_PACK_SPINS),
+        coins: packCost,
+        spins_granted: packSpend.reused ? 0 : (grantedPack.spins_granted || GAME_PACK_USES),
         pack_spins: grantedPack.pack_spins,
         balance: packSpend.balance,
         anon: !!player.anon,
@@ -1505,7 +1599,7 @@ module.exports = async function handler(req, res) {
         anonymous_user_id: player.anonId || null,
         label: packSpend.reused
           ? 'Already credited'
-          : ('-' + FC_ROULETTE_PACK + ' Coins — ' + ROULETTE_PACK_SPINS + ' roulette spins')
+          : ('-' + packCost + ' Coins — ' + GAME_PACK_USES + ' ' + packGame + ' uses')
       };
       recent.set(lockKey, { at: Date.now(), body: outPack });
       return json(res, 200, outPack);
@@ -1616,11 +1710,11 @@ module.exports = async function handler(req, res) {
       var snap = freeSnapshot(freeBoard, user);
       var freeLeftNow = snap.free_left[game] || 0;
       var recoveryEndsNow = (snap.recovery_ends_at && snap.recovery_ends_at[game]) || 0;
-      var packBoard = (game === 'roulette') ? await fetchBoard(BOARD_PACKS) : [];
-      var packLeft = (game === 'roulette') ? roulettePackBalance(packBoard, user) : 0;
+      var packBoard = await fetchBoard(BOARD_PACKS);
+      var packLeft = gamePackBalance(packBoard, user, game);
       var useFree = !forcePaid && freeLeftNow > 0;
-      var usePack = !useFree && game === 'roulette' && packLeft > 0;
-      var cost = game === 'roulette' ? FC_ROULETTE : FC_DICE;
+      var usePack = !useFree && packLeft > 0;
+      var packNeed = packCostForGame(game);
       var balance = null;
       var reused = false;
       var coinsCharged = 0;
@@ -1631,47 +1725,24 @@ module.exports = async function handler(req, res) {
       } else if (usePack) {
         paid = true;
         coinsCharged = 0;
-        await postBoard(BOARD_PACKS, user, 'roulette_pack_spin', playId, {
-          user: user, game: 'roulette', kind: 'pack_spin', play_id: playId, at: Date.now(),
+        await postBoard(BOARD_PACKS, user, packActionForGame(game) + '_spin', playId, {
+          user: user, game: game, kind: 'pack_spin', play_id: playId, at: Date.now(),
           account_type: player.anon ? 'anonymous' : 'registered'
         });
       } else {
-        // Prefer buying a 10-spin pack (50 FC) over single-spin charges when free+pack are empty.
-        // Single-spin FC path remains for dice; roulette directs clients to the pack purchase UI.
-        if (game === 'roulette') {
-          return json(res, 402, {
-            ok: false,
-            error: 'free_exhausted',
-            message: 'Free uses exhausted. Get 10 additional spins for ' + FC_ROULETTE_PACK + ' Coins ($5).',
-            free_left: 0,
-            recovery_ends_at: recoveryEndsNow || null,
-            recovery_ms: recoveryEndsNow ? Math.max(0, recoveryEndsNow - Date.now()) : 0,
-            pack_spins: packLeft,
-            need: FC_ROULETTE_PACK,
-            pack_available: true,
-            anon: !!player.anon
-          });
-        }
-        paid = true;
-        var spend = await spendViaWallet(user, cost, game, playId);
-        if (!spend.ok) {
-          if (spend.error === 'insufficient') {
-            return json(res, 402, {
-              ok: false,
-              error: 'insufficient',
-              message: 'Insufficient Coins',
-              need: cost,
-              balance: spend.balance || 0,
-              free_left: freeLeftNow,
-              recovery_ends_at: recoveryEndsNow || null,
-              pack_spins: packLeft
-            });
-          }
-          return json(res, 502, { ok: false, error: spend.error || 'spend_failed', need: cost });
-        }
-        balance = spend.balance;
-        reused = !!spend.reused;
-        coinsCharged = cost;
+        // Prefer buying a 10-use pack (10 Coins) — no per-play charges for roulette/dice.
+        return json(res, 402, {
+          ok: false,
+          error: 'free_exhausted',
+          message: 'Free uses exhausted. Get 10 additional uses for ' + packNeed + ' Coins.',
+          free_left: 0,
+          recovery_ends_at: recoveryEndsNow || null,
+          recovery_ms: recoveryEndsNow ? Math.max(0, recoveryEndsNow - Date.now()) : 0,
+          pack_spins: packLeft,
+          need: packNeed,
+          pack_available: true,
+          anon: !!player.anon
+        });
       }
 
       // Server-authoritative outcome (client animates to these indices)
@@ -1683,7 +1754,7 @@ module.exports = async function handler(req, res) {
         if (result && result.idx != null && Number(result.idx) >= 0 && Number(result.idx) < optionCount) {
           // Ignore client-suggested idx — always server pick
         }
-        resultIdx = Math.floor(Math.random() * optionCount);
+        resultIdx = pickWeightedRouletteIdx(optionCount, body.prize_indices || body.prizeIndices || []);
       } else if (game === 'dice') {
         diceRoll = pickCoherentDiceRoll();
       }
@@ -1706,9 +1777,7 @@ module.exports = async function handler(req, res) {
       };
       await postBoard(BOARD_PLAYS, user, game + '_play', playId, playPayload);
 
-      var packsLeftAfter = (game === 'roulette')
-        ? roulettePackBalance(await fetchBoard(BOARD_PACKS), user)
-        : 0;
+      var packsLeftAfter = gamePackBalance(await fetchBoard(BOARD_PACKS), user, game);
       var snapAfter = useFree ? freeSnapshot(await loadFreeBoards(), user) : snap;
       var freeLeftAfter = snapAfter.free_left[game] != null ? snapAfter.free_left[game] : (useFree ? Math.max(0, freeLeftNow - 1) : freeLeftNow);
       var recoveryAfter = (snapAfter.recovery_ends_at && snapAfter.recovery_ends_at[game]) || 0;
@@ -1752,26 +1821,32 @@ module.exports = async function handler(req, res) {
         var freeBoardT = await loadFreeBoards();
         var snapT = freeSnapshot(freeBoardT, user);
         var freeLeftT = snapT.free_left.tic_tac_toe;
+        var packBoardT = await fetchBoard(BOARD_PACKS);
+        var packLeftT = gamePackBalance(packBoardT, user, 'tic_tac_toe');
         var consumeFree = action === 'consume_free' || action === 'start' || (action === 'play' && !body.skip_free);
+        var usePackT = false;
 
         // First play of a challenge session consumes one free use (unless paid / already counted)
         var usedThisPlay = false;
         if (consumeFree && !forcePaid && !body.paid) {
-          if (freeLeftT <= 0 && action !== 'result') {
+          if (freeLeftT <= 0 && packLeftT <= 0 && action !== 'result') {
             var recT = (snapT.recovery_ends_at && snapT.recovery_ends_at.tic_tac_toe) || 0;
             return json(res, 402, {
               ok: false,
               error: 'free_exhausted',
-              message: 'Free Tic-Tac-Toe uses exhausted. Wait 24h recovery.',
+              message: 'Free Tic-Tac-Toe uses exhausted. Get 10 games for ' + FC_TTT_PACK + ' Coins.',
               free_left: 0,
               free_left_map: snapT.free_left,
               recovery_ends_at: recT || null,
               recovery_ms: recT ? Math.max(0, recT - Date.now()) : 0,
-              recovery_ends_at_map: snapT.recovery_ends_at || {}
+              recovery_ends_at_map: snapT.recovery_ends_at || {},
+              pack_spins: packLeftT,
+              need: FC_TTT_PACK,
+              pack_available: true
             });
           }
           if (action === 'consume_free' || action === 'start' || (action === 'play' && gamesPlayed <= 1)) {
-            // Deduplicate by session: only one free charge per challenge session
+            // Deduplicate by session: only one free/pack charge per challenge session
             var alreadySession = false;
             for (var fi = 0; fi < freeBoardT.length; fi++) {
               var fm = parseMsg(freeBoardT[fi] && freeBoardT[fi].message);
@@ -1789,6 +1864,15 @@ module.exports = async function handler(req, res) {
               var snapT2 = freeSnapshot(await loadFreeBoards(), user);
               freeLeftT = snapT2.free_left.tic_tac_toe;
               snapT = snapT2;
+            } else if (freeLeftT <= 0 && packLeftT > 0 && (action === 'consume_free' || action === 'start' || body.consume_pack)) {
+              // Pack grants individual games (partidas), not whole sessions.
+              usePackT = true;
+              await postBoard(BOARD_PACKS, user, 'tic_tac_toe_pack_spin', playId, {
+                user: user, game: 'tic_tac_toe', kind: 'pack_spin', play_id: playId,
+                session_id: sessionId, at: Date.now(),
+                account_type: player.anon ? 'anonymous' : 'registered'
+              });
+              packLeftT = Math.max(0, packLeftT - 1);
             }
           }
         }
@@ -1839,6 +1923,8 @@ module.exports = async function handler(req, res) {
           recovery_ends_at: (snapT.recovery_ends_at && snapT.recovery_ends_at.tic_tac_toe) || 0,
           recovery_ends_at_map: snapT.recovery_ends_at || {},
           free_consumed: usedThisPlay,
+          pack: !!usePackT,
+          pack_spins: packLeftT,
           anon: !!player.anon,
           xp_eligible: !player.anon,
           show_challenges: String(result) === 'loss',

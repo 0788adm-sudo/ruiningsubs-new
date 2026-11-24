@@ -12,9 +12,9 @@
  * }
  *
  * - deletable / free_deletion_enabled: verified owner deletes free (even with timer)
- * - locked / permanent: owner pays 50 FC (server-side price only)
- * - legacy timed (no explicit free flag): owner pays 50 FC
- * - non-owner / reason=paid: ALWAYS 50 FC then immediate delete (no admin request)
+ * - locked / permanent: owner pays 10 FC (server-side price only)
+ * - legacy timed (no explicit free flag): owner pays 10 FC
+ * - non-owner / reason=paid: ALWAYS 10 FC then immediate delete (no admin request)
  * - moderation / privacy: free for admins — Permanent never blocks these
  * - spend is idempotent via CF wallet ledger; if DB delete fails after a NEW charge, refund
  * - FC auto-delete never creates admin notifications or pending requests
@@ -36,7 +36,7 @@ const SB_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubHBkb2x6aHpjYmJkeXhxbG5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1NTg0OTYsImV4cCI6MjEwMjEzNDQ5Nn0.sWbn1sLgG6vi6wzKxpW5-1Td47awaxhwA-4ixKXZN-E';
-const DELETE_COST_FC = Number(process.env.FC_COST_DELETE || 50) || 50;
+const DELETE_COST_FC = Number(process.env.FC_COST_DELETE || 10) || 10;
 const ALLOWED_TIERS = new Set(['deletable', 'locked', 'permanent']);
 const FREE_REASONS = new Set(['moderation', 'privacy']);
 
@@ -578,7 +578,7 @@ async function spendSupabaseFc(user, cost, ref) {
 }
 
 /**
- * Charge 50 FC from the SAME wallet the header / Pin path uses.
+ * Charge DELETE_COST_FC from the SAME wallet the header / Pin path uses.
  *
  * Order:
  *  1) Reuse an existing spend for this transaction id (SB + short CF ledger).
@@ -784,7 +784,7 @@ async function verifyClientDeleteSpend(rawUser, postId, idemRef, extraUsers) {
   };
 }
 
-/** Refund 50 FC if DB delete fails after a NEW charge — idempotent. */
+/** Refund DELETE_COST_FC if DB delete fails after a NEW charge — idempotent. */
 async function refundDeleteFc(user, postId) {
   const ref = deleteRefundRef(user, postId);
   const existing =
@@ -1383,7 +1383,7 @@ async function handleDeletePost(req, res, ctx) {
     if (!(reason === 'paid' || reason === 'paid_remove' || reason === 'fc')) {
       return json(res, 403, {
         error: 'anonymous_cannot_delete',
-        detail: 'Anonymous accounts can only delete their own posts for free, or pay 50 Coins / $5 for others.'
+        detail: 'Anonymous accounts can only delete their own posts for free, or pay 10 Coins / $5 for others.'
       });
     }
   }
@@ -1399,7 +1399,7 @@ async function handleDeletePost(req, res, ctx) {
   const freeOverride = FREE_REASONS.has(reason) && adminCredOk;
   const paidForce = reason === 'paid' || reason === 'paid_remove' || reason === 'fc';
 
-  // Non-owners may delete ONLY by paying 50 FC (automatic — no admin queue).
+  // Non-owners may delete ONLY by paying DELETE_COST_FC (automatic — no admin queue).
   // Free owner deletes and admin moderation stay unchanged.
   if (!freeOverride && !isOwner && !paidForce) {
     // Distinguish expired admin sessions from plain ownership failures —
@@ -1425,7 +1425,7 @@ async function handleDeletePost(req, res, ctx) {
   if (!freeOverride) {
     let cost = 0;
     if (!isOwner || paidForce) {
-      // Paid automatic removal — always 50 FC (server price).
+      // Paid automatic removal — always DELETE_COST_FC (server price).
       cost = DELETE_COST_FC;
       deleteReason = 'paid';
     } else {
@@ -1454,7 +1454,7 @@ async function handleDeletePost(req, res, ctx) {
             error: 'spend_not_found',
             status: st.status || 'failed',
             detail:
-              'Could not confirm the 50 Coins charge for this transaction. Retry with the same id — you will not be charged twice if the first spend landed.',
+              'Could not confirm the 10 Coins charge for this transaction. Retry with the same id — you will not be charged twice if the first spend landed.',
             need: cost,
             have: st.have != null ? st.have : st.balance,
             balance: st.balance,
