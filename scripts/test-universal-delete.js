@@ -59,7 +59,7 @@ assert(/Never promote a JPEG|treatAsVideo/.test(html), 'Wall photo→video gate'
 assert(/if\(vsrc && typeof isVideoUrl==='function' && !isVideoUrl\(vsrc\)\) vsrc=''/.test(html), 'feed rejects non-video src');
 
 assert(!/Anonymous accounts cannot delete posts\. Register to manage your own content/.test(html), 'anon owners no longer hard-blocked in client');
-assert(/Pay \$5 \/ 50 FC to request delete/.test(html) || /deletes it immediately/.test(html), 'non-owner paid messaging');
+assert(/Pay \$5 \/ 50 Coins to request delete/.test(html) || /deletes it immediately/.test(html), 'non-owner paid messaging');
 assert(/function shortDisplayUser/.test(html), 'shortDisplayUser for long anon_ names');
 assert(/return 'Sub'\+num/.test(html), 'anon display maps to SubN');
 

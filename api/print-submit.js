@@ -237,13 +237,13 @@ module.exports = async function handler(req, res) {
           ok: false,
           error: spend.error === 'insufficient' ? 'insufficient_fc' : 'fc_payment_failed',
           message: spend.error === 'insufficient'
-            ? ('Not enough FC (need ' + PRINT_FC_COST + ')')
-            : 'Could not verify FC payment',
+            ? ('Not enough Coins (need ' + PRINT_FC_COST + ')')
+            : 'Could not verify Coins payment',
           balance: spend.balance
         });
       }
       paidVia = 'fc';
-      amountLabel = PRINT_FC_COST + ' FC';
+      amountLabel = PRINT_FC_COST + ' Coins';
       status = 'paid';
       fcMeta = { reused: !!spend.reused, ledger: spend.ledger || null, spend: spend.spend || null };
     } else if (paymentMethod === 'throne' || paymentMethod === 'throne_proof' || paymentMethod === 'manual') {
@@ -268,7 +268,7 @@ module.exports = async function handler(req, res) {
       return json(res, 402, {
         ok: false,
         error: 'payment_required',
-        message: 'Pay 350 FC or upload a Throne payment screenshot'
+        message: 'Pay 350 Coins or upload a Throne payment screenshot'
       });
     }
 
@@ -320,7 +320,7 @@ module.exports = async function handler(req, res) {
     await notifyMastersan({
       order_code: orderCode,
       user: user,
-      payment_label: paidVia === 'fc' ? (PRINT_FC_COST + ' FC') : 'Throne',
+      payment_label: paidVia === 'fc' ? (PRINT_FC_COST + ' Coins') : 'Throne',
       photo_count: photos.length,
       request_id: requestId
     });

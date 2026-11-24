@@ -15,17 +15,17 @@ assert(/roulette\s*:\s*10/.test(html) || html.includes('roulette:10'), 'Roulette
 assert(/dice\s*:\s*10/.test(html) || html.includes('dice:10'), 'Dice 10 FC');
 assert(html.includes('custom_roulette:250') || html.includes('custom_roulette:250'), 'Custom wheel 250 FC');
 assert(
-  html.includes('Delete post — 50 FC ($5)') ||
-    html.includes('Delete · $5 / 50 FC') ||
-    html.includes('$5 / 50 FC') ||
-    html.includes('Delete now — 50 FC') ||
-    html.includes('Delete · 50 FC') ||
-    html.includes('FC or $5') ||
-    html.includes('Confirm · 50 FC') ||
+  html.includes('Delete post — 50 Coins ($5)') ||
+    html.includes('Delete · $5 / 50 Coins') ||
+    html.includes('$5 / 50 Coins') ||
+    html.includes('Delete now — 50 Coins') ||
+    html.includes('Delete · 50 Coins') ||
+    html.includes('Coins or $5') ||
+    html.includes('Confirm · 50 Coins') ||
     /delete\s*:\s*50/.test(html),
   'Delete post UX copy'
 );
-assert(html.includes('Insufficient FC'), 'Insufficient FC UX');
+assert(html.includes('Insufficient Coins'), 'Insufficient Coins UX');
 
 // Backend
 assert(spend.includes('FC_COSTS') && spend.includes('delete'), 'fc-spend API costs');
@@ -50,7 +50,7 @@ assert(html.includes('postEngagementScore'), 'engagement ranking');
 
 // Games UX — 3 free uses + 50 FC pack
 assert(html.includes('ROULETTE_FREE_PER_DAY=3') || html.includes('GAME_FREE_USES=3') || html.includes('3 free spins'), 'roulette 3 free uses');
-assert(html.includes('GET 10 SPINS — 50 FC'), 'pack purchase CTA');
+assert(html.includes('BUY 10 EXTRA SPINS') || html.includes('Pay with Coins balance (50 Coins)'), 'pack purchase CTA');
 assert(html.includes('Free uses exhausted'), 'exhausted free spins copy');
 assert(html.includes('buyRoulettePack') && html.includes('ROULETTE_PACK_FC=50') && html.includes('ROULETTE_PACK_SPINS=10'), 'client pack purchase');
 assert(html.includes('Could not record spin on server'), 'spins require server record');
