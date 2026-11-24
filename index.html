@@ -310,6 +310,9 @@
       background:linear-gradient(135deg,#4c1d95,#5b21b6)!important;color:#000!important;
       border:none!important;font-weight:800!important;
     }
+    .btn-extend.is-arming,.gt-ext.is-arming,.gt-keep.is-arming,.dx-ext.btn-extend.is-arming{
+      filter:brightness(1.12);transform:scale(.98);opacity:.92;
+    }
     .btn-dl,.post-actions .btn-secondary{
       background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.1)!important;
       color:var(--text)!important;
@@ -339,7 +342,7 @@
     .del-tier-btn.sel{border-color:var(--orange);background:rgba(255,106,0,.12);box-shadow:inset 0 0 0 1px rgba(255,106,0,.35)}
     .del-tier-badge{display:inline-block;font-size:10px;font-weight:900;letter-spacing:.4px;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:middle}
     .empty{text-align:center;padding:50px 20px;color:var(--muted)}
-    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,10,.96);border-top:1px solid var(--border);z-index:400}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,10,.96);border-top:1px solid var(--border);z-index:5000}
     .stats-strip{display:none!important}
     .wa-row{display:flex;gap:10px;align-items:center;padding:10px 8px;border-bottom:1px solid #1a1a20;cursor:pointer;-webkit-tap-highlight-color:rgba(255,106,0,.2)}
     .wa-row *{pointer-events:none}
@@ -1812,7 +1815,7 @@ body.rc-on #hdr-fc{display:none!important}
 .gt-act.gt-print span.lab{font-size:10px;letter-spacing:.3px;text-transform:uppercase}
 .gt-keep{position:absolute;left:12px;right:78px;bottom:118px;z-index:6;border:0;border-radius:12px;padding:10px 12px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;font-weight:900;font-size:13px;font-family:inherit;text-align:left}
 .gt-timeleft{font-size:11px;font-weight:800;color:#ffd60a;margin-top:6px}
-body.gt-on .bottom-nav{z-index:200;overflow:visible}
+body.gt-on .bottom-nav{z-index:5000;overflow:visible}
 body.gt-on .nav-row{overflow:visible;padding-top:14px}
 .wall-stories{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .wall-stories::-webkit-scrollbar{display:none}
@@ -2170,6 +2173,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   opacity:.7!important;cursor:not-allowed;
 }
 .btn-extend .ext-cd{display:block;font-size:10px;font-weight:800;opacity:.9;margin-top:2px;letter-spacing:.2px}
+/* Chrome: skip layout/paint for offscreen feed cards without changing look */
+#posts-container > article.post,
+#extended-panel-posts > article.post,
+#explore-normal-posts > article.normal-feed-post,
+#normal-feed-posts > article.normal-feed-post{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 520px;
+}
 
 /* Admin panel — mobile-first compact ops */
 #panel-admin .panel-h{padding:8px 10px;gap:6px}
@@ -2359,7 +2370,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   padding:16px;text-align:center;font-size:13px;font-weight:700;color:#c8c8d0;background:#121218;
 }
 .explore-map-preview-hit{
-  position:absolute;inset:0;z-index:1200;background:transparent;cursor:pointer;
+  /* Stay inside the preview wrap — never above the fixed bottom nav (Chrome hit-testing). */
+  position:absolute;inset:0;z-index:2;background:transparent;cursor:pointer;
 }
 .explore-map-meta{font-size:12px;color:#9a9aa3;margin-top:8px;line-height:1.35}
 .explore-search-actions{display:flex;gap:8px;margin:0 0 12px}
@@ -14318,7 +14330,16 @@ function openRoulette(){
         b.onclick=function(){setSelectedDeletionTier(b.getAttribute('data-tier')||'deletable')};
       });
       try{setSelectedDeletionTier(selectedDeletionTier||'deletable')}catch(e){}
-      document.querySelectorAll('.modal-bg').forEach(function(m){m.onclick=function(e){if(e.target===m)closeModals()}});
+      document.querySelectorAll('.modal-bg').forEach(function(m){
+        m.onclick=function(e){
+          if(e.target!==m) return;
+          // Chrome synthesizes a click on the new overlay after Extend pointerup —
+          // never treat that ghost hit as an intentional backdrop dismiss.
+          if(window.__suppressModalClose && Date.now()<window.__suppressModalClose) return;
+          if(m.id==='extend-modal' && window.__suppressDetailOpen && Date.now()<window.__suppressDetailOpen) return;
+          closeModals();
+        };
+      });
     }
     
     function renderTrendingTags(){
@@ -17032,7 +17053,16 @@ function openRoulette(){
       }
       try{document.body.classList.toggle('gt-on',name==='goontok')}catch(e){}
       try{document.body.classList.toggle('rc-on',name==='randomcam')}catch(e){}
-      if(name!=='goontok'&&name!=='randomcam'){try{stopAllMedia()}catch(e){}}
+      if(name!=='goontok'&&name!=='randomcam'){
+        // Defer media teardown so Chrome paints the new panel first (nav feels instant).
+        try{
+          requestAnimationFrame(function(){
+            try{
+              if(!document.body.classList.contains('gt-on') && !document.body.classList.contains('rc-on')) stopAllMedia();
+            }catch(e){}
+          });
+        }catch(e){try{stopAllMedia()}catch(e2){}}
+      }
       // Clear ghost compress/upload modal when leaving sections if no user publish is active.
       // Background optimize used to leave "Compressing video… 12%" stuck on Map etc.
       if(name!=='video-composer' && !window.__publishingVideo){
@@ -17554,10 +17584,10 @@ function openRoulette(){
       var likes=Number(p.likes)||0;
       var comments=Number(p.commentCount||p.comments||0);
       var extBtn=timed
-        ?('<button class="gt-act gt-ext'+(alreadyExt?' is-cooling':'')+'" type="button" '+(alreadyExt?'disabled':'')+' onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">⏱</span><span class="lab">'+(alreadyExt?'WAIT':'EXTEND')+'</span></button>')
+        ?('<button class="gt-act gt-ext'+(alreadyExt?' is-cooling':'')+'" type="button" '+(alreadyExt?'disabled':'')+' onclick="event.stopPropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;window.__suppressModalClose=Date.now()+900;openExtend(\''+String(p.id).replace(/'/g,'')+'\')"><span class="ico">⏱</span><span class="lab">'+(alreadyExt?'WAIT':'EXTEND')+'</span></button>')
         :'';
       var keepBtn=timed
-        ?('<button class="gt-keep'+(alreadyExt?' is-cooling':'')+'" type="button" '+(alreadyExt?'disabled':'')+' onclick="event.stopPropagation();openExtend(\''+String(p.id).replace(/'/g,'')+'\')">'+(alreadyExt?('Extended · '+fmtExtendCountdown(alreadyCd)):('Extend +'+fmtMin(extAmt)+' · keep this clip live'))+'</button>')
+        ?('<button class="gt-keep'+(alreadyExt?' is-cooling':'')+'" type="button" '+(alreadyExt?'disabled':'')+' onclick="event.stopPropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;window.__suppressModalClose=Date.now()+900;openExtend(\''+String(p.id).replace(/'/g,'')+'\')">'+(alreadyExt?('Extended · '+fmtExtendCountdown(alreadyCd)):('Extend +'+fmtMin(extAmt)+' · keep this clip live'))+'</button>')
         :'';
       return '<div class="gt-slide" data-gid="'+String(p.id).replace(/"/g,'')+'">'+
         '<div class="gt-album">'+album+'</div>'+
@@ -18936,7 +18966,7 @@ function openRoulette(){
       // Permanent → Hot only. Timed → Extend. Timed videos → Extend + Hot (Hot never blocked by timer).
       var actionBtns='';
       if(hasTimer){
-        actionBtns+='<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'" onclick="event.preventDefault();event.stopPropagation()"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>';
+        actionBtns+='<button class="btn btn-extend" type="button" data-nf-act="extend" data-nf-id="'+pid+'" data-pid="'+pid+'" onclick="event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;window.__suppressModalClose=Date.now()+900;openExtend('+jsId(p.id)+')"><span class="nf-action-icon">⏱</span> Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(p):(Number(p.extendAmount)||360))+'</button>';
         if(isVid){
           actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
         }
@@ -20654,7 +20684,7 @@ function openRoulette(){
     }
     if(!window.__fastTapBound){
       window.__fastTapBound=true;
-      var sx=0,sy=0,st=0,pressCard=null;
+      var sx=0,sy=0,st=0,pressCard=null,armedExt=null;
       function tapPoint(e){
         if(e.changedTouches&&e.changedTouches[0]) return e.changedTouches[0];
         return e;
@@ -20662,21 +20692,86 @@ function openRoulette(){
       function clearPress(){
         try{if(pressCard){pressCard.classList.remove('is-pressing');pressCard=null}}catch(e){}
       }
+      function clearArming(){
+        try{if(armedExt){armedExt.classList.remove('is-arming');armedExt=null}}catch(e){}
+      }
+      function extendIdFromEl(ext){
+        if(!ext) return '';
+        var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
+        return ext.getAttribute('data-nf-id')||ext.getAttribute('data-pid')||(art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid')))||'';
+      }
+      function fireExtendFromEl(ext, e){
+        if(!ext) return false;
+        var cooling=!!(ext.disabled || ext.classList.contains('is-cooling') || ext.getAttribute('aria-disabled')==='true');
+        try{
+          if(e){
+            // Keep pointerdown passive for Chrome scroll — only cancel on pointerup/click.
+            var et=e.type||'';
+            if(et!=='pointerdown' && et!=='touchstart'){
+              e.preventDefault();
+              e.stopPropagation();
+              if(typeof e.stopImmediatePropagation==='function') e.stopImmediatePropagation();
+            }else{
+              e.stopPropagation();
+            }
+          }
+        }catch(err){}
+        clearPress();
+        window.__blockFeedTap=Date.now()+800;
+        window.__suppressDetailOpen=Date.now()+800;
+        window.__suppressModalClose=Date.now()+900;
+        if(cooling) return true;
+        try{ext.classList.add('is-arming');armedExt=ext}catch(err2){}
+        var id=extendIdFromEl(ext);
+        if(id && typeof openExtend==='function') openExtend(id);
+        // Clear arming after modal paint; keep class brief for visual feedback.
+        setTimeout(clearArming, 180);
+        return true;
+      }
       function openCardFromEvent(e){
         // Only a short debounce after a successful open / carousel swipe.
         // __suppressAutoOpenPost is for automatic hash reopening — never block real taps.
         if(window.__blockFeedTap && Date.now()<window.__blockFeedTap) return false;
-        // iOS long-press / slow lifts used to exceed 500ms and silently drop the open.
-        if(st && Date.now()-st>1100)return false;
         var t=tapPoint(e);
         if(!t)return false;
-        if(Math.abs((t.clientX||0)-sx)>40||Math.abs((t.clientY||0)-sy)>40)return false;
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
+        // Action buttons first — never lose Extend/Hot/Like to scroll jitter or chrome exclusions.
+        var ext=el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext,[data-nf-act="extend"]');
+        if(ext) return fireExtendFromEl(ext, e);
+        var like=el.closest('.btn-like,[data-nf-act="picker"],[data-nf-act="react"]');
+        if(like){
+          var artL=like.closest('[data-pid],[data-normal-post-id],[data-gid]');
+          var idL=artL&&(artL.getAttribute('data-pid')||artL.getAttribute('data-normal-post-id')||artL.getAttribute('data-gid'));
+          if(idL){
+            try{e.preventDefault();e.stopPropagation()}catch(err){}
+            clearPress();
+            var em=like.getAttribute('data-nf-emoji');
+            if(em && typeof setReaction==='function') setReaction(idL,em);
+            else quickLike(idL,e);
+            return true;
+          }
+        }
+        var hotHit=el.closest('.btn-hot,.gt-hot,[data-nf-act="hot"]');
+        if(hotHit){
+          var artH=hotHit.closest('[data-pid],[data-normal-post-id],[data-gid]');
+          var idH=hotHit.getAttribute('data-nf-id')||(artH&&(artH.getAttribute('data-pid')||artH.getAttribute('data-normal-post-id')||artH.getAttribute('data-gid')));
+          if(idH){
+            try{e.preventDefault();e.stopPropagation()}catch(err){}
+            clearPress();
+            if(hotHit.classList.contains('gt-hot')||hotHit.closest('.gt-slide')) hotBumpGoonTok(idH);
+            else hotBumpWall(idH,{allowAnon:true});
+            return true;
+          }
+        }
+        // iOS long-press / slow lifts used to exceed 500ms and silently drop the open.
+        if(st && Date.now()-st>1100)return false;
+        if(Math.abs((t.clientX||0)-sx)>40||Math.abs((t.clientY||0)-sy)>40)return false;
         // Video player shell owns the tap (Play) — do not steal it for openDetail.
         if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
         // Never treat GoonTok swipe / nav chrome as an accidental open.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-keep,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,.wall-head,#btn-create-normal-post-explore,.entry-ico,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        // Note: .gt-keep / .gt-ext / .dx-ext already handled above — not excluded here.
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,.wall-head,#btn-create-normal-post-explore,.entry-ico,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
         // Spotlight: open on tap, but ignore right after a horizontal swipe.
         if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
         // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).
@@ -20696,51 +20791,6 @@ function openRoulette(){
           var hid=homeStrip.getAttribute('data-pid')||(homeStrip.closest('[data-pid]')&&homeStrip.closest('[data-pid]').getAttribute('data-pid'));
           if(hid){try{e.preventDefault();e.stopPropagation()}catch(err){} clearPress(); openDetail(hid); return true;}
         }
-        var like=el.closest('.btn-like,[data-nf-act="picker"],[data-nf-act="react"]');
-        if(like){
-          var artL=like.closest('[data-pid],[data-normal-post-id],[data-gid]');
-          var idL=artL&&(artL.getAttribute('data-pid')||artL.getAttribute('data-normal-post-id')||artL.getAttribute('data-gid'));
-          if(idL){
-            e.preventDefault();e.stopPropagation();
-            clearPress();
-            var em=like.getAttribute('data-nf-emoji');
-            if(em && typeof setReaction==='function') setReaction(idL,em);
-            else quickLike(idL,e);
-            return true;
-          }
-        }
-        var hotHit=el.closest('.btn-hot,.gt-hot,[data-nf-act="hot"]');
-        if(hotHit){
-          var artH=hotHit.closest('[data-pid],[data-normal-post-id],[data-gid]');
-          var idH=hotHit.getAttribute('data-nf-id')||(artH&&(artH.getAttribute('data-pid')||artH.getAttribute('data-normal-post-id')||artH.getAttribute('data-gid')));
-          if(idH){
-            e.preventDefault();e.stopPropagation();
-            clearPress();
-            if(hotHit.classList.contains('gt-hot')||hotHit.closest('.gt-slide')) hotBumpGoonTok(idH);
-            else hotBumpWall(idH,{allowAnon:true});
-            return true;
-          }
-        }
-        // Extend must NEVER open the post. Stop the event fully — Safari synthesizes a
-        // delayed click that otherwise lands on the card and calls openDetail.
-        var ext=el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext,[data-nf-act="extend"]');
-        if(ext){
-          try{
-            e.preventDefault();
-            e.stopPropagation();
-            if(typeof e.stopImmediatePropagation==='function') e.stopImmediatePropagation();
-          }catch(err){}
-          clearPress();
-          window.__blockFeedTap=Date.now()+800;
-          window.__suppressDetailOpen=Date.now()+800;
-          var cooling=!!(ext.disabled || ext.classList.contains('is-cooling') || ext.getAttribute('aria-disabled')==='true');
-          if(!cooling){
-            var art=ext.closest('[data-pid],[data-normal-post-id],[data-gid]');
-            var id=ext.getAttribute('data-nf-id')||ext.getAttribute('data-pid')||(art&&(art.getAttribute('data-pid')||art.getAttribute('data-normal-post-id')||art.getAttribute('data-gid')));
-            if(id) openExtend(id);
-          }
-          return true;
-        }
         if(el.closest('.post-actions button,.normal-feed-post-actions button,.normal-feed-reacts,.react-bar,.cmt-in,.id-archive-actions'))return false;
         if(el.closest('button.btn-like,button.btn-extend,button.btn-secondary,button.btn-hot,button.btn-ghost,button.gt-act,[data-nf-act="extend"]'))return false;
         if(window.__suppressDetailOpen && Date.now()<window.__suppressDetailOpen) return false;
@@ -20759,7 +20809,14 @@ function openRoulette(){
         sx=e.clientX||0;sy=e.clientY||0;st=Date.now();
         try{
           clearPress();
+          clearArming();
           var el=e.target;
+          // Immediate visual feedback on Extend press (do not open yet — avoid scroll-false-opens).
+          var ext=el&&el.closest&&el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext,[data-nf-act="extend"]');
+          if(ext && !(ext.disabled || ext.classList.contains('is-cooling'))){
+            try{ext.classList.add('is-arming');armedExt=ext}catch(errA){}
+            return;
+          }
           pressCard=el&&el.closest&&el.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card');
           if(pressCard) pressCard.classList.add('is-pressing');
         }catch(err){}
@@ -20770,20 +20827,35 @@ function openRoulette(){
         sx=t.clientX;sy=t.clientY;st=Date.now();
       },{passive:true});
       document.addEventListener('pointerup',function(e){
-        if(e.pointerType==='mouse' && e.button!==0)return;
+        if(e.pointerType==='mouse' && e.button!==0){clearArming();return}
+        // Chrome: skip heavy card-open work when the lift is not on a feed surface.
+        try{
+          var t0=e.target;
+          if(t0&&t0.closest&&!t0.closest('article.post,article.normal-feed-post,article.id-archive-card,.home-strip-card,.btn-extend,.btn-like,.btn-hot,.gt-ext,.gt-keep,.dx-ext,[data-nf-act],#posts-container,#explore-normal-posts,#normal-feed-posts,#extended-panel-posts,#featured-slot,#home-random-strip,#home-post-strip')){
+            clearPress();
+            clearArming();
+            return;
+          }
+        }catch(err){}
         openCardFromEvent(e);
         clearPress();
       },{passive:false,capture:true});
-      document.addEventListener('pointercancel',function(){clearPress()},{passive:true});
+      document.addEventListener('pointercancel',function(){clearPress();clearArming()},{passive:true});
       document.addEventListener('click',function(e){
         var el=e.target;
         if(!el||!el.closest)return;
         // Extend owns its click — never treat it as a card open.
         if(el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext,[data-nf-act="extend"]')) return;
-        // Ghost click after Extend: only suppress card/content opens, not modal/UI buttons.
+        // Ghost click after Extend: suppress card opens AND modal-backdrop dismiss.
+        if(window.__suppressModalClose && Date.now()<window.__suppressModalClose){
+          if(el===document.getElementById('extend-modal') || (el.id==='extend-modal') || (el.classList&&el.classList.contains('modal-bg')&&el.id==='extend-modal')){
+            try{e.preventDefault();e.stopPropagation()}catch(err){}
+            return;
+          }
+        }
         if(window.__suppressDetailOpen && Date.now()<window.__suppressDetailOpen){
           var ghostCard=el.closest('article.post,article.normal-feed-post,article.id-archive-card,.post-h,.post-b,.post-media,[data-nf-act="open"]');
-          if(ghostCard && !el.closest('button,.btn,.react-bar,.post-actions,.normal-feed-post-actions,.dx-actions,input,textarea,a,.bottom-nav,.nav-row,.modal-bg,#extend-modal')){
+          if(ghostCard && !el.closest('button,.btn,.react-bar,.post-actions,.normal-feed-post-actions,.dx-actions,input,textarea,a,.bottom-nav,.nav-row,#extend-modal .modal,#btn-confirm-ext,#btn-cancel-ext')){
             try{e.preventDefault();e.stopPropagation()}catch(err){}
             return;
           }
@@ -20822,6 +20894,8 @@ function openRoulette(){
         if(act==='extend'){
           window.__blockFeedTap=Date.now()+800;
           window.__suppressDetailOpen=Date.now()+800;
+          window.__suppressModalClose=Date.now()+900;
+          try{hit.classList.add('is-arming');setTimeout(function(){try{hit.classList.remove('is-arming')}catch(e){}},180)}catch(eArm){}
           if(typeof openExtend==='function') openExtend(id);
           return;
         }
@@ -25367,7 +25441,7 @@ function profileStatsHtml(userPosts, extra){
       var extBtn = '<button class="btn btn-extend' + (already ? ' is-cooling' : '') +
         '" type="button" data-nf-act="extend" data-nf-id="' + String(p.id).replace(/"/g, '') + '" data-pid="' + String(p.id).replace(/"/g, '') + '" ' +
         (already ? 'disabled aria-disabled="true"' : '') +
-        ' onclick="event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;openExtend(' + jsId(p.id) + ')">' + label + '</button>';
+        ' onclick="event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;window.__suppressModalClose=Date.now()+900;openExtend(' + jsId(p.id) + ')">' + label + '</button>';
       if(isVid) return extBtn + hotBtn + cmtBtn(false);
       return extBtn + cmtBtn(true);
     }
@@ -26394,7 +26468,7 @@ function postCardHtml(p, compact){
       // Active timer → Extend. No timer / permanent / videos → Hot only.
       var showExtendBtn=!detailIsVideo && ((typeof postHasActiveTimer==='function')?postHasActiveTimer(post):(!!(timedLive && !timeless)));
       var hotLed='<button class="dx-ext btn-hot'+(alreadyHotDetail?' on':'')+'" type="button" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(alreadyHotDetail?'disabled':'')+' onclick="hotBumpWall('+jsId(post.id)+',{allowAnon:true,skipTimer:true})"><b>HOT'+(hotNDetail?' · '+hotNDetail:'')+'</b><i>boost wall interaction</i></button>';
-      var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-nf-act="extend" data-nf-id="'+String(post.id).replace(/"/g,'')+'" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="event.preventDefault();event.stopPropagation();openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
+      var extendLed='<button class="dx-ext btn-extend'+(already?' is-cooling':'')+'" type="button" data-nf-act="extend" data-nf-id="'+String(post.id).replace(/"/g,'')+'" data-pid="'+String(post.id).replace(/"/g,'')+'" '+(already?'disabled style="opacity:.5"':'')+' onclick="event.preventDefault();event.stopPropagation();window.__blockFeedTap=Date.now()+800;window.__suppressDetailOpen=Date.now()+800;window.__suppressModalClose=Date.now()+900;openExtend('+jsId(post.id)+')"><b>'+(already?'Extended':'Extend +'+fmtMin(typeof postExtendMinutes==='function'?postExtendMinutes(post):(post.extendAmount||360)))+'</b><i>'+(already?fmtExtendCountdown(alreadyCd):'keep him on the board')+'</i></button>';
       var extLed=showExtendBtn ? extendLed : hotLed;
       // Universal Delete on every detail view — owner free / others $5·50 FC.
       var tierBadgeDetail=typeof deletionTierBadgeHtml==='function'?deletionTierBadgeHtml(post):'';
@@ -28544,9 +28618,11 @@ async function onIdFace(e){
       id=String(id||'');
       if(!id)return;
       // Keep the user on the feed — block ghost card taps from opening detail.
+      // Chrome also retargets the synthetic click onto the new modal backdrop — suppress that dismiss.
       window.__blockFeedTap=Date.now()+800;
       window.__suppressDetailOpen=Date.now()+800;
-      // Safari fires pointerup + click + onclick — debounce so one open = one confirm modal.
+      window.__suppressModalClose=Date.now()+900;
+      // Safari/Chrome fire pointerup + click + onclick — debounce so one open = one confirm modal.
       var now=Date.now();
       if(window.__openExtTap && window.__openExtTap.id===id && (now-window.__openExtTap.t)<700) return;
       window.__openExtTap={id:id,t:now};
@@ -28556,13 +28632,14 @@ async function onIdFace(e){
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
       // No active timer → Hot (never Extend). Pinned timed posts stay on Extend.
+      // Do NOT await — Hot must not delay the first-tap response path for timed posts.
       try{
         if(post && typeof postHasActiveTimer==='function' && !postHasActiveTimer(post)){
-          try{await hotBumpWall(id)}catch(e){try{hotBumpWall(id)}catch(e2){}}
+          try{Promise.resolve(hotBumpWall(id)).catch(function(){try{hotBumpWall(id)}catch(e2){}})}catch(e){}
           return;
         }
       }catch(e){}
-      // Instant local cooldown check — never wait on network before reacting (Safari lag).
+      // Instant local cooldown check — never wait on network before reacting.
       var localRem=getLocalExtendCooldown(id);
       if(localRem>0){
         toast(fmtExtendCooldown(localRem)+' · '+fmtExtendCountdown(localRem));
@@ -28587,7 +28664,33 @@ async function onIdFace(e){
       // Ask first (like before). Do NOT paint Extending… until the user taps Yes.
       try{sessionStorage.removeItem('rs_ext_skip_confirm')}catch(e){}
       var modal=document.getElementById('extend-modal');
-      if(modal){modal.style.display='';modal.classList.add('show')}
+      if(modal){
+        modal.style.display='flex';
+        modal.classList.add('show');
+        // Block backdrop hit-testing until after Chrome's ghost click window,
+        // but keep the dialog itself clickable (Yes / No).
+        try{
+          modal.style.pointerEvents='auto';
+          var sheet=modal.querySelector('.modal');
+          if(sheet) sheet.style.pointerEvents='auto';
+          modal.setAttribute('data-ghost-guard','1');
+          // Temporary: ignore hits on the dimmed backdrop only.
+          var guard=function(ev){
+            if(ev.target===modal){
+              try{ev.preventDefault();ev.stopPropagation()}catch(eG){}
+            }
+          };
+          modal.addEventListener('click', guard, true);
+          modal.addEventListener('pointerup', guard, true);
+          setTimeout(function(){
+            try{
+              modal.removeEventListener('click', guard, true);
+              modal.removeEventListener('pointerup', guard, true);
+              modal.removeAttribute('data-ghost-guard');
+            }catch(ePe){}
+          }, 500);
+        }catch(ePe2){}
+      }
       // If in-memory post lacks tags/amount, refresh from Supabase so +24h is not shown as +6h.
       try{
         var needMeta=!post || !(resolveExtendAmountMinutes(post)>0) || (!post.tags||!post.tags.length);
@@ -30372,6 +30475,7 @@ async function onIdFace(e){
           if(!m)return;
           m.classList.remove('show');
           m.style.display='none';
+          try{m.removeAttribute('data-ghost-guard')}catch(e2){}
           setTimeout(function(){if(!m.classList.contains('show'))m.style.display='';},50);
         }catch(e){}
       });
@@ -34256,28 +34360,37 @@ async function onIdFace(e){
     function updateTimers(){
       var now=Date.now();
       var pinExpired=false;
+      // Chrome: avoid layout-forcing writes when the text has not changed.
       document.querySelectorAll('.timer[data-exp]').forEach(function(el){
         var exp=parseInt(el.getAttribute('data-exp'),10)||0;
         var left=exp-now;
-        var v=el.querySelector('.t-val');
         var txt=fmt(left);
-        if(v)v.textContent=txt;else el.textContent=txt;
+        var v=el.querySelector('.t-val');
+        if(v){
+          if(v.textContent!==txt) v.textContent=txt;
+        }else if(el.textContent!==txt){
+          el.textContent=txt;
+        }
         if(left<=0 && el.getAttribute('data-pin-timer')==='1') pinExpired=true;
       });
       // Keep Spotlight "Pinned · Xm left" labels ticking from the same pin until.
+      var featSlides=null;
       document.querySelectorAll('.featured-label[data-pin-exp]').forEach(function(lab){
         var fu=parseInt(lab.getAttribute('data-pin-exp'),10)||0;
         var left=fu-now;
         if(left<=0){ pinExpired=true; return; }
         var slide=lab.closest('.feat-slide');
         var fi=slide?slide.getAttribute('data-fi'):'';
-        var total=0;
-        try{total=document.querySelectorAll('#featured-slot .feat-slide').length}catch(e){total=0}
+        if(featSlides==null){
+          try{featSlides=document.querySelectorAll('#featured-slot .feat-slide').length}catch(e){featSlides=0}
+        }
+        var total=featSlides||0;
         var suffix=(total>1 && fi!=null)?(' · '+(Number(fi)+1)+'/'+total):'';
         var pid=slide&&slide.getAttribute('data-pid');
         var roulette=false;
         try{roulette=typeof isRouletteWonPin==='function'&&isRouletteWonPin({id:pid})}catch(e){}
-        lab.textContent=(roulette?'🏆 Fijada ganada en la ruleta · ':'Pinned · ')+fmt(left)+' left'+suffix;
+        var next=(roulette?'🏆 Fijada ganada en la ruleta · ':'Pinned · ')+fmt(left)+' left'+suffix;
+        if(lab.textContent!==next) lab.textContent=next;
       });
       // When a pin expires, drop Spotlight board rows (keep original post) and rebuild.
       if(pinExpired && !window.__pinExpiryRefreshing){
