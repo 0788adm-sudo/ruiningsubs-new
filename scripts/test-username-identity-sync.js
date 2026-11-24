@@ -21,8 +21,8 @@ ok(html.indexOf('function sameAccountPost(') >= 0, 'sameAccountPost ownership he
 ok(html.indexOf('function fetchSbPostsForAccount(') >= 0, 'Supabase account post fetch');
 ok(html.indexOf('function serverRenameUsername(') >= 0, 'server rename client');
 ok(html.indexOf('function displayAuthorName(') >= 0, 'dynamic display author');
-ok(html.indexOf('seedKnownUsernameAliases') >= 0, 'seeds UkPaki29 → UkPakiUmayr29 alias');
-ok(html.indexOf('anon_amwk2a8nj29r3kaxny6') >= 0, 'known permanent anon id for affected user');
+ok(html.indexOf('seedKnownUsernameAliases') >= 0, 'seedKnownUsernameAliases helper retained');
+ok(html.indexOf('PERMANENTLY_DELETED_USERNAMES') >= 0, 'purged accounts are blocklisted (no alias re-seed)');
 ok(html.indexOf("uid:'+perm") >= 0 || html.indexOf('uid:' + "'") >= 0 || /uid:/.test(html), 'publish stamps uid tag');
 ok(html.indexOf('refreshUsernameAliasMap') >= 0, 'alias map refresh');
 ok(html.indexOf('resolveCurrentUsername(requested)') >= 0 || html.indexOf('resolveCurrentUsername(requested)||requested') >= 0, 'openUser resolves old handles');
@@ -36,7 +36,10 @@ ok(gamePlay.indexOf('rename_username') >= 0, 'rename_username action');
 ok(gamePlay.indexOf('repair_username') >= 0, 'repair_username action');
 ok(gamePlay.indexOf('migrateUsernameRecords') >= 0, 'server migrateUsernameRecords');
 ok(gamePlay.indexOf('handleUsernameIdentity') >= 0, 'identity handler');
-ok(gamePlay.indexOf('UkPakiUmayr29') >= 0 && gamePlay.indexOf('UkPaki29') >= 0, 'built-in repair targets');
+ok(
+  gamePlay.indexOf("toName = toName || 'UkPakiUmayr29'") < 0,
+  'built-in UkPaki repair defaults removed after permanent purge'
+);
 
 ok(/username_aliases/.test(mig), 'migration creates username_aliases');
 ok(/ADD COLUMN IF NOT EXISTS user_id/.test(mig), 'migration adds user_id columns');
@@ -52,15 +55,15 @@ function normUserKey(u) {
     .slice(0, 64);
 }
 var aliases = {
-  ukpaki29: { current: 'UkPakiUmayr29', user_id: 'anon_amwk2a8nj29r3kaxny6' },
-  ukpakiumayr29: { current: 'UkPakiUmayr29', user_id: 'anon_amwk2a8nj29r3kaxny6' }
+  demoold: { current: 'DemoNew', user_id: 'anon_demo' },
+  demonew: { current: 'DemoNew', user_id: 'anon_demo' }
 };
 function resolve(name) {
   var row = aliases[normUserKey(name)];
   return (row && row.current) || name;
 }
-ok(resolve('ukpaki29') === 'UkPakiUmayr29', 'logic: old username resolves to current');
-ok(resolve('UKPAKIUMAYR29') === 'UkPakiUmayr29', 'logic: case variants resolve');
-ok(resolve('UkPakiUmayr29') === 'UkPakiUmayr29', 'logic: current username stable');
+ok(resolve('demoold') === 'DemoNew', 'logic: old username resolves to current');
+ok(resolve('DEMONEW') === 'DemoNew', 'logic: case variants resolve');
+ok(resolve('DemoNew') === 'DemoNew', 'logic: current username stable');
 
 console.log('\nAll username identity sync checks passed.');

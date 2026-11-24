@@ -5165,9 +5165,30 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     var currentExtendPostId=null,currentDetailId=null,currentFilter='new',viewingSaved=false,photos=[],avatarData=null,bannerData=null,selectedGender='man',feedGenderFilter='all';
     var notifs=[],profileCache={},chatWith=null,msgPhoto=null,viewingUser=null;
     var bannedUsers={}; // username(lowercase) -> true
-
+    /** Hard-deleted accounts — cannot register, log in, or publish again (admin permanent purge). */
+    var PERMANENTLY_DELETED_USERNAMES={
+      ukpakiumayr29:true,
+      ukpaki29:true
+    };
+    var PERMANENTLY_DELETED_AUTH_IDS={
+      '3941a783-0543-46df-96b8-6aa3d21bb6fa':true
+    };
+    function isPermanentlyDeletedAccount(username, authId){
+      var u=String(username||'').replace(/^@/,'').trim().toLowerCase();
+      if(u && PERMANENTLY_DELETED_USERNAMES[u]) return true;
+      var aid=String(authId||'').trim().toLowerCase();
+      if(aid && PERMANENTLY_DELETED_AUTH_IDS[aid]) return true;
+      try{
+        if(typeof resolveCurrentUsername==='function'){
+          var cur=String(resolveCurrentUsername(username)||'').replace(/^@/,'').trim().toLowerCase();
+          if(cur && PERMANENTLY_DELETED_USERNAMES[cur]) return true;
+        }
+      }catch(e){}
+      return false;
+    }
     function isUserBanned(username){
       if(!username)return false;
+      if(isPermanentlyDeletedAccount(username)) return true;
       return !!bannedUsers[String(username).toLowerCase()];
     }
     function sbQueryTimeout(promise, ms, fallback){
@@ -5196,7 +5217,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(!sb)return;
       try{
         var r=await sbQueryTimeout(
-          sb.from('profiles').select('username,status,banned,suspended').or('banned.eq.true,status.eq.banned,status.eq.suspended,suspended.eq.true').limit(500),
+          sb.from('profiles').select('username,status,banned,suspended').or('banned.eq.true,status.eq.banned,status.eq.suspended,status.eq.deleted,suspended.eq.true').limit(500),
           5000,
           {data:[]}
         );
@@ -5204,10 +5225,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         (r&&r.data||[]).forEach(function(u){
           if(!u||!u.username)return;
           var st=String(u.status||'').toLowerCase();
-          if(u.banned===true||u.suspended===true||st==='banned'||st==='suspended'){
+          if(u.banned===true||u.suspended===true||st==='banned'||st==='suspended'||st==='deleted'){
             map[String(u.username).toLowerCase()]=true;
           }
         });
+        Object.keys(PERMANENTLY_DELETED_USERNAMES).forEach(function(k){map[k]=true});
         bannedUsers=map;
       }catch(e){
         try{
@@ -7205,22 +7227,28 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       __usernameAliasMap[normUserKey(oldName)]=entry;
       __usernameAliasMap[normUserKey(newName)]=entry;
     }
-    var KNOWN_USERNAME_REPAIRS={
-      ukpaki29:'UkPakiUmayr29',
-      ukpakiumayr29:'UkPakiUmayr29'
-    };
-    var KNOWN_USERNAME_ACCOUNT_IDS={
-      ukpaki29:'anon_amwk2a8nj29r3kaxny6',
-      ukpakiumayr29:'anon_amwk2a8nj29r3kaxny6'
-    };
+    // Permanent admin purge (2026-11-24): do not re-seed UkPaki29 → UkPakiUmayr29 aliases.
+    var KNOWN_USERNAME_REPAIRS={};
+    var KNOWN_USERNAME_ACCOUNT_IDS={};
     function seedKnownUsernameAliases(){
-      // One-shot seed for the reported rename until the alias board/table is populated.
       Object.keys(KNOWN_USERNAME_REPAIRS).forEach(function(k){
         saveLocalUsernameAlias(k, KNOWN_USERNAME_REPAIRS[k], KNOWN_USERNAME_ACCOUNT_IDS[k]||null);
       });
-      saveLocalUsernameAlias('UkPaki29','UkPakiUmayr29','anon_amwk2a8nj29r3kaxny6');
-      saveLocalUsernameAlias('UKPAKIUMAYR29','UkPakiUmayr29','anon_amwk2a8nj29r3kaxny6');
-      saveLocalUsernameAlias('UkPakiUmayr29','UkPakiUmayr29','anon_amwk2a8nj29r3kaxny6');
+      // Drop stale local alias entries for permanently deleted accounts.
+      try{
+        var map=loadLocalUsernameAliases();
+        var changed=false;
+        Object.keys(map).forEach(function(k){
+          var row=map[k]||{};
+          var cur=String(row.current||k||'');
+          if(isPermanentlyDeletedAccount(k) || isPermanentlyDeletedAccount(cur)){
+            delete map[k];
+            changed=true;
+          }
+        });
+        if(changed) localStorage.setItem('rs_username_aliases', JSON.stringify(map));
+        __usernameAliasMap=map;
+      }catch(e){}
     }
     function aliasesForUsername(name){
       var key=normUserKey(name);
@@ -27625,6 +27653,16 @@ async function onIdFace(e){
     }
     async function createPost(){
       if(!requireConsent('consent-publish')) return;
+      try{
+        var pubName=(currentUser&&currentUser.name)||'';
+        var pubAuth='';
+        try{pubAuth=String((currentUser&&currentUser.auth_user_id)||getAuthUserId()||'')}catch(eA){}
+        if(isPermanentlyDeletedAccount(pubName, pubAuth) || isUserBanned(pubName)){
+          toast('This account was permanently deleted and cannot publish');
+          return;
+        }
+        if(typeof enforceCurrentAccount==='function' && (await enforceCurrentAccount())===false) return;
+      }catch(e){}
       try{if(typeof ensureAnonIdentity==='function') await ensureAnonIdentity(false)}catch(e){}
       // Game proofs: validate challenge linkage before upload — never auto-publish from "Publicar prueba".
       try{
@@ -31364,6 +31402,11 @@ async function onIdFace(e){
       var email=((document.getElementById('reg-email')||{}).value||'').trim();
       var pass=((document.getElementById('reg-password')||{}).value||'');
       if(!username||username.length<3){setAuthStatus('Username min 3','err');toast('Username min 3');return}
+      if(isPermanentlyDeletedAccount(username)){
+        setAuthStatus('This username is permanently closed','err');
+        toast('Username permanently deleted — choose another');
+        return;
+      }
       if(!email||email.indexOf('@')<0){setAuthStatus('Enter a valid email','err');toast('Valid email');return}
       if(!pass||pass.length<6){setAuthStatus('Password min 6','err');toast('Password min 6');return}
       if(!sb){setAuthStatus('Database offline','err');toast('DB offline');return}
@@ -31745,10 +31788,24 @@ async function onIdFace(e){
     async function enforceCurrentAccount(){
       if(!sb||!isRegistered())return true;
       try{
+        var authId='';
+        try{authId=String((currentUser&&currentUser.auth_user_id)||getAuthUserId()||'')}catch(e){}
+        if(isPermanentlyDeletedAccount(currentUser&&currentUser.name, authId)){
+          try{await sb.auth.signOut()}catch(e){}
+          var aid0='';
+          try{aid0=getAnonSessionId()}catch(e){aid0='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+          currentUser={name:'anon_'+aid0,role:'guest',account_type:'anonymous',anonymous_user_id:aid0};
+          localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest');localStorage.removeItem('rs_email');
+          try{ensureAnonIdentity(false)}catch(e){}
+          refreshProfileUI();updateProfilePanel();
+          toast('This account was permanently deleted');
+          return false;
+        }
         var r=await sb.from('profiles').select('status,banned,suspended,ip_banned,ip_address').eq('username',currentUser.name).maybeSingle();
         if(r.error||!r.data)return true;
         var u=r.data;
-        if(u.banned===true||u.suspended===true||String(u.status||'').toLowerCase()==='banned'||String(u.status||'').toLowerCase()==='suspended'){
+        var st=String(u.status||'').toLowerCase();
+        if(u.banned===true||u.suspended===true||st==='banned'||st==='suspended'||st==='deleted'){
           try{await sb.auth.signOut()}catch(e){}
           var aid='';
           try{aid=getAnonSessionId()}catch(e){aid='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
@@ -31756,7 +31813,7 @@ async function onIdFace(e){
           localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest');localStorage.removeItem('rs_email');
           try{ensureAnonIdentity(false)}catch(e){}
           refreshProfileUI();updateProfilePanel();
-          toast('This account is blocked by admin');
+          toast(st==='deleted'?'This account was permanently deleted':'This account is blocked by admin');
           return false;
         }
       }catch(e){console.warn('account status',e)}
