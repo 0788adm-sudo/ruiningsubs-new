@@ -600,6 +600,55 @@
     #modal-tg h3{margin:0 0 8px;font-size:1.25rem}
     #modal-tg p{color:var(--muted);font-size:14px;line-height:1.45;margin:0 0 16px}
     #modal-tg label{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);margin-top:12px;cursor:pointer}
+
+    /* Official RUINEXPOSE Telegram group invitation (independent from channel popup) */
+    #modal-tg-group{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:8010;align-items:center;justify-content:center;padding:20px;opacity:0}
+    #modal-tg-group.show{display:flex;animation:tgGroupIn .38s ease-out forwards}
+    #modal-tg-group.hiding{display:flex;animation:tgGroupOut .22s ease-in forwards}
+    #modal-tg-group .tg-group-card{
+      background:linear-gradient(165deg,#0a0a0a 0%,#050505 55%,#0c0c0e 100%);
+      border:1px solid rgba(192,192,200,.28);
+      border-radius:18px;padding:22px 18px 18px;max-width:320px;width:100%;text-align:center;position:relative;
+      box-shadow:0 0 0 1px rgba(255,106,0,.12),0 18px 48px rgba(0,0,0,.65),inset 0 1px 0 rgba(220,220,228,.08);
+    }
+    #modal-tg-group .tg-group-crown{
+      width:56px;height:56px;border-radius:50%;margin:0 auto 12px;
+      display:flex;align-items:center;justify-content:center;font-size:28px;line-height:1;
+      background:radial-gradient(circle at 35% 30%,#2a2a2e 0%,#0a0a0a 70%);
+      border:1px solid rgba(192,192,200,.45);
+      box-shadow:0 0 18px rgba(255,106,0,.22),inset 0 0 12px rgba(192,192,200,.08);
+    }
+    #modal-tg-group .tg-group-title{
+      margin:0 0 10px;font-size:15px;font-weight:900;letter-spacing:.04em;line-height:1.35;
+      color:#e8e8ec;
+      text-shadow:0 0 18px rgba(255,106,0,.25);
+    }
+    #modal-tg-group .tg-group-title span{color:#ff6a00}
+    #modal-tg-group .tg-group-copy{color:#a8a8b0;font-size:13px;line-height:1.5;margin:0 0 8px}
+    #modal-tg-group .tg-group-copy strong{color:#d4d4da;font-weight:700}
+    #modal-tg-group .tg-group-cta{
+      display:block;text-decoration:none;margin-top:14px;width:100%;
+      padding:12px 16px;border-radius:12px;font-weight:900;font-size:14px;letter-spacing:.06em;
+      color:#111;border:1px solid rgba(255,180,80,.65);
+      background:linear-gradient(180deg,#ff8a2a 0%,#ff6a00 55%,#e85f00 100%);
+      box-shadow:0 0 22px rgba(255,106,0,.45),0 0 6px rgba(255,106,0,.35),inset 0 1px 0 rgba(255,220,180,.45);
+      transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+    }
+    #modal-tg-group .tg-group-cta:hover{filter:brightness(1.06);box-shadow:0 0 28px rgba(255,106,0,.55),0 0 8px rgba(255,106,0,.4)}
+    #modal-tg-group .tg-group-cta:active{transform:scale(.98)}
+    #modal-tg-group .tg-group-close{
+      position:absolute;top:8px;right:10px;background:none;border:0;color:#8a8a92;
+      font-size:22px;line-height:1;cursor:pointer;padding:4px 8px;
+    }
+    #modal-tg-group .tg-group-close:hover{color:#c8c8d0}
+    @keyframes tgGroupIn{from{opacity:0}to{opacity:1}}
+    @keyframes tgGroupOut{from{opacity:1}to{opacity:0}}
+    @keyframes tgGroupCardIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+    #modal-tg-group.show .tg-group-card{animation:tgGroupCardIn .4s ease-out}
+    @media(max-width:380px){
+      #modal-tg-group .tg-group-card{padding:20px 14px 16px;max-width:100%}
+      #modal-tg-group .tg-group-title{font-size:14px}
+    }
     
     
 
@@ -3566,7 +3615,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       setTimeout(checkRecoveryHash, 300);
       setTimeout(checkRecoveryHash, 1000);
       // Telegram only once per page life — preference lives in localStorage across refreshes.
-      setTimeout(function(){try{maybeShowTelegram()}catch(e){}},1200);
+      // Group invite arms after channel closes (or immediately if channel does not show).
+      setTimeout(function(){
+        try{maybeShowTelegram()}catch(e){}
+        try{armTgGroupAfterChannelDecision()}catch(e){}
+      },1200);
     }
     // auto-enter if already verified (needed for recovery email links)
     try{
@@ -13396,6 +13449,8 @@ function openRoulette(){
         var forever=!!permanent || !!(dont&&dont.checked);
         tgRememberHide(forever);
         modal.classList.remove('show');
+        // Independent group invite starts after the channel invitation is closed.
+        try{onTelegramChannelClosed()}catch(e){}
       }
       var join=document.getElementById('tg-join');
       if(join)join.onclick=function(){tgRememberHide(true)};
@@ -13424,6 +13479,159 @@ function openRoulette(){
     window.maybeShowTelegram=maybeShowTelegram;
     window.setupTelegramPopup=setupTelegramPopup;
     window.tgPrefHidePermanent=tgPrefHidePermanent;
+
+    /* —— Official RUINEXPOSE Telegram GROUP invitation (separate from channel) —— */
+    var TG_GROUP_HIDE_KEY='rs_tg_group_hide_v1';
+    function tgGroupFirstMs(){return (window.__TG_GROUP_FIRST_MS>0)?Number(window.__TG_GROUP_FIRST_MS):60000}
+    function tgGroupRetryMs(){return (window.__TG_GROUP_RETRY_MS>0)?Number(window.__TG_GROUP_RETRY_MS):300000}
+    function tgGroupPrefHidePermanent(){
+      try{return localStorage.getItem(TG_GROUP_HIDE_KEY)==='1'}catch(e){return false}
+    }
+    function tgGroupRememberHidePermanent(){
+      try{localStorage.setItem(TG_GROUP_HIDE_KEY,'1')}catch(e){}
+    }
+    function tgGroupChannelVisible(){
+      var m=document.getElementById('modal-tg');
+      return !!(m&&m.classList.contains('show'));
+    }
+    function tgGroupVisible(){
+      var m=document.getElementById('modal-tg-group');
+      return !!(m&&(m.classList.contains('show')||m.classList.contains('hiding')));
+    }
+    function tgGroupPageActive(){
+      try{
+        if(document.hidden) return false;
+        if(typeof document.visibilityState==='string' && document.visibilityState==='hidden') return false;
+      }catch(e){}
+      return true;
+    }
+    function tgGroupNeededMs(){
+      var n=Number(window.__tgGroupDismissCount||0)||0;
+      return n<=0 ? tgGroupFirstMs() : tgGroupRetryMs();
+    }
+    function stopTgGroupWatch(){
+      if(window.__tgGroupTickTimer){
+        try{clearInterval(window.__tgGroupTickTimer)}catch(e){}
+        window.__tgGroupTickTimer=null;
+      }
+      window.__tgGroupLastTick=0;
+    }
+    function closeTgGroupModal(opts){
+      opts=opts||{};
+      var modal=document.getElementById('modal-tg-group');
+      if(!modal)return;
+      if(!modal.classList.contains('show')&&!modal.classList.contains('hiding'))return;
+      modal.setAttribute('aria-hidden','true');
+      modal.classList.remove('show');
+      modal.classList.add('hiding');
+      setTimeout(function(){
+        modal.classList.remove('hiding');
+      },240);
+      if(opts.permanent){
+        tgGroupRememberHidePermanent();
+        window.__tgGroupDismissCount=2;
+        stopTgGroupWatch();
+        window.__tgGroupWatchStarted=false;
+        return;
+      }
+      // Soft dismiss: session counter. One retry after 5 min active, then never again this page life.
+      window.__tgGroupDismissCount=(Number(window.__tgGroupDismissCount||0)||0)+1;
+      window.__tgGroupActiveMs=0;
+      window.__tgGroupLastTick=0;
+      if(window.__tgGroupDismissCount>=2){
+        stopTgGroupWatch();
+        window.__tgGroupWatchStarted=false;
+        return;
+      }
+      // Keep watching for the 5-minute active-browsing retry.
+      if(!window.__tgGroupTickTimer) startTgGroupActiveWatch(true);
+    }
+    function showTgGroupModal(){
+      if(tgGroupPrefHidePermanent()) return;
+      if((Number(window.__tgGroupDismissCount||0)||0)>=2) return;
+      if(tgGroupChannelVisible()) return; // never overlap channel invitation
+      if(tgGroupVisible()) return;
+      var modal=document.getElementById('modal-tg-group');
+      if(!modal)return;
+      modal.classList.remove('hiding');
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden','false');
+      window.__tgGroupActiveMs=0;
+      window.__tgGroupLastTick=0;
+    }
+    function tgGroupTick(){
+      if(tgGroupPrefHidePermanent()){stopTgGroupWatch();return}
+      if((Number(window.__tgGroupDismissCount||0)||0)>=2){stopTgGroupWatch();return}
+      var now=Date.now();
+      var last=Number(window.__tgGroupLastTick||0)||0;
+      // Pause while tab inactive, or while either invitation is on screen.
+      var counting=tgGroupPageActive() && !tgGroupChannelVisible() && !tgGroupVisible();
+      if(counting && last>0){
+        var delta=now-last;
+        if(delta>0 && delta<5000) window.__tgGroupActiveMs=(Number(window.__tgGroupActiveMs||0)||0)+delta;
+      }
+      window.__tgGroupLastTick=now;
+      if(!counting) return;
+      if((Number(window.__tgGroupActiveMs||0)||0)>=tgGroupNeededMs()){
+        showTgGroupModal();
+      }
+    }
+    function startTgGroupActiveWatch(resumeOnly){
+      if(tgGroupPrefHidePermanent()) return;
+      if((Number(window.__tgGroupDismissCount||0)||0)>=2) return;
+      if(!resumeOnly){
+        if(window.__tgGroupWatchStarted) return;
+        window.__tgGroupWatchStarted=true;
+        window.__tgGroupDismissCount=Number(window.__tgGroupDismissCount||0)||0;
+        window.__tgGroupActiveMs=0;
+      }else if(!window.__tgGroupWatchStarted){
+        window.__tgGroupWatchStarted=true;
+      }
+      window.__tgGroupLastTick=Date.now();
+      if(window.__tgGroupTickTimer) return;
+      window.__tgGroupTickTimer=setInterval(function(){try{tgGroupTick()}catch(e){}},250);
+    }
+    function onTelegramChannelClosed(){
+      // Channel closed → begin 1 minute active-browsing countdown for the group invite.
+      startTgGroupActiveWatch(false);
+    }
+    function armTgGroupAfterChannelDecision(){
+      // If channel never appeared (prefs / already shown), start the group timer now.
+      if(tgGroupChannelVisible()){
+        window.__tgGroupWaitChannelClose=true;
+        return;
+      }
+      startTgGroupActiveWatch(false);
+    }
+    function setupTgGroupPopup(){
+      var modal=document.getElementById('modal-tg-group');
+      if(!modal||modal._tgGroupBound) return;
+      modal._tgGroupBound=1;
+      var dx=document.getElementById('tg-group-close-x');
+      if(dx)dx.onclick=function(){closeTgGroupModal({permanent:false})};
+      var join=document.getElementById('tg-group-join');
+      if(join)join.addEventListener('click',function(){
+        closeTgGroupModal({permanent:true});
+      });
+      modal.addEventListener('click',function(ev){
+        if(ev.target===modal) closeTgGroupModal({permanent:false});
+      });
+      if(!window.__tgGroupVisBound){
+        window.__tgGroupVisBound=1;
+        document.addEventListener('visibilitychange',function(){
+          // Reset tick anchor so hidden time is never credited.
+          window.__tgGroupLastTick=Date.now();
+        });
+      }
+    }
+    window.setupTgGroupPopup=setupTgGroupPopup;
+    window.startTgGroupActiveWatch=startTgGroupActiveWatch;
+    window.armTgGroupAfterChannelDecision=armTgGroupAfterChannelDecision;
+    window.onTelegramChannelClosed=onTelegramChannelClosed;
+    window.tgGroupPrefHidePermanent=tgGroupPrefHidePermanent;
+    window.showTgGroupModal=showTgGroupModal;
+    window.closeTgGroupModal=closeTgGroupModal;
+    window.tgGroupTick=tgGroupTick;
 
 
     function getProfileShareUrl(username){
@@ -13526,6 +13734,7 @@ function openRoulette(){
       // Bind bottom nav first so a later setup error cannot leave the app unnavigable.
       try{bindBottomNav()}catch(e){console.warn('bindBottomNav',e)}
       try{setupTelegramPopup()}catch(e){}
+      try{setupTgGroupPopup()}catch(e){}
       try{setupTaskUI()}catch(e){console.warn(e)}
       var bshare=document.getElementById('btn-share-profile');if(bshare)bshare.onclick=shareProfile;
       var bp=document.getElementById('btn-open-premium');if(bp)bp.remove();
@@ -33993,6 +34202,17 @@ async function onIdFace(e){
       <a href="https://linktr.ee/ruiningsubs" target="_blank" rel="noopener" class="btn btn-secondary" id="x-join" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;margin-top:8px;background:#0e1a10;color:#39ff14;border:1px solid #39ff14;font-weight:800"><span style="width:22px;height:22px;border-radius:6px;background:#39ff14;color:#111;display:inline-flex;align-items:center;justify-content:center;font-weight:900">↗</span>All links</a>
       <label><input type="checkbox" id="tg-dont"/> Don’t show this again</label>
       <button type="button" class="btn btn-ghost btn-sm" id="tg-dismiss" style="margin-top:10px;width:100%">Maybe later</button>
+    </div>
+  </div>
+
+  <div id="modal-tg-group" aria-hidden="true">
+    <div class="tg-group-card" role="dialog" aria-labelledby="tg-group-title">
+      <button type="button" class="tg-group-close" id="tg-group-close-x" aria-label="Close">×</button>
+      <div class="tg-group-crown" aria-hidden="true">👑</div>
+      <h3 class="tg-group-title" id="tg-group-title">👑 THE OFFICIAL <span>RUINEXPOSE</span> GROUP</h3>
+      <p class="tg-group-copy">Join the community. Participate. Explore different themes.</p>
+      <p class="tg-group-copy"><strong>Stop lurking. Get involved. Know your place.</strong></p>
+      <a href="https://t.me/ruinexpose" target="_blank" rel="noopener" class="tg-group-cta" id="tg-group-join">JOIN NOW</a>
     </div>
   </div>
 
