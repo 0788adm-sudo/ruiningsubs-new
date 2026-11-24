@@ -17,6 +17,9 @@
   <meta name="robots" content="index,follow,max-image-preview:large"/>
   <meta name="googlebot" content="index,follow"/>
   <link rel="canonical" href="https://www.ruinexpose.com/"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='16' font-family='Impact,Arial Black,sans-serif' fill='%23ff6a00'%3ERS%3C/text%3E%3C/svg%3E"/>
   <meta property="og:site_name" content="Ruining Subs"/>
   <meta property="og:title" content="RuiningSubs — they're public. Open it."/>
@@ -1909,6 +1912,205 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   #posts-container{grid-template-columns:repeat(5,minmax(0,1fr))!important}
 }
 
+/* ——— Coins shop · luxury vault ——— */
+#panel-coins.coins-lux{
+  --lux-ink:#f6f0e4;
+  --lux-mute:#9a9184;
+  --lux-gold:#e0c37a;
+  --lux-gold-deep:#a8843a;
+  --lux-line:rgba(224,195,122,.28);
+  position:relative;
+  overflow:hidden;
+  padding:10px 14px 28px;
+  font-family:Manrope,system-ui,sans-serif;
+  color:var(--lux-ink);
+  isolation:isolate;
+}
+#panel-coins.coins-lux::before{
+  content:"";
+  position:absolute;inset:-20% -10% auto -10%;height:62%;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%,rgba(224,195,122,.18),transparent 70%),
+    radial-gradient(ellipse 45% 40% at 85% 30%,rgba(255,106,0,.08),transparent 65%),
+    linear-gradient(180deg,#12100c 0%,transparent 100%);
+  pointer-events:none;z-index:0;
+  animation:coinsLuxAura 7s ease-in-out infinite alternate;
+}
+#panel-coins.coins-lux::after{
+  content:"";
+  position:absolute;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  opacity:.55;pointer-events:none;z-index:0;mix-blend-mode:soft-light;
+}
+@keyframes coinsLuxAura{from{transform:translateY(0) scale(1);opacity:.9}to{transform:translateY(8px) scale(1.04);opacity:1}}
+#panel-coins .coins-lux-inner{position:relative;z-index:1;max-width:520px;margin:0 auto}
+#panel-coins .coins-lux-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+#panel-coins .coins-lux-back{
+  width:40px;height:40px;border-radius:12px;
+  background:rgba(255,255,255,.04);border:1px solid var(--lux-line);
+  color:var(--lux-ink);backdrop-filter:blur(8px);
+}
+#panel-coins .coins-lux-link{
+  border:1px solid var(--lux-line);background:rgba(255,255,255,.03);
+  color:var(--lux-mute);border-radius:999px;padding:9px 14px;
+  font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer;
+  font-family:inherit;transition:border-color .2s ease,color .2s ease,background .2s ease;
+}
+#panel-coins .coins-lux-link:hover{color:var(--lux-gold);border-color:rgba(224,195,122,.5);background:rgba(224,195,122,.06)}
+#panel-coins .coins-lux-hero{text-align:center;margin:4px 0 22px;animation:coinsLuxRise .55s ease both}
+#panel-coins .coins-lux-brand{
+  font-family:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  font-weight:600;font-size:clamp(3.1rem,12vw,4.4rem);line-height:.9;
+  letter-spacing:.02em;color:transparent;
+  background:linear-gradient(180deg,#fff6df 10%,#e0c37a 48%,#9a7328 100%);
+  -webkit-background-clip:text;background-clip:text;
+  text-shadow:0 0 40px rgba(224,195,122,.12);
+}
+#panel-coins .coins-lux-lede{
+  margin:12px auto 0;max-width:32ch;font-size:13.5px;line-height:1.5;color:var(--lux-mute);font-weight:500;
+}
+#panel-coins .coins-lux-vault{
+  position:relative;overflow:hidden;
+  border-radius:20px;padding:18px 18px 16px;margin:0 0 18px;
+  border:1px solid rgba(224,195,122,.35);
+  background:
+    linear-gradient(145deg,rgba(224,195,122,.12),rgba(255,255,255,.02) 42%,rgba(0,0,0,.35)),
+    rgba(18,15,10,.88);
+  box-shadow:0 18px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  animation:coinsLuxRise .65s ease .05s both;
+}
+#panel-coins .coins-lux-vault::before{
+  content:"";position:absolute;top:0;bottom:0;left:0;width:42%;
+  background:linear-gradient(90deg,transparent,rgba(255,245,210,.16),transparent);
+  transform:translateX(-120%) skewX(-18deg);
+  animation:coinsLuxShimmer 4.2s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes coinsLuxShimmer{
+  0%,12%{transform:translateX(-120%) skewX(-18deg);opacity:0}
+  28%{opacity:.9}
+  55%{transform:translateX(280%) skewX(-18deg);opacity:0}
+  100%{transform:translateX(280%) skewX(-18deg);opacity:0}
+}
+@keyframes coinsLuxRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+#panel-coins .coins-lux-vault-label{
+  display:block;font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--lux-gold);font-weight:700;margin-bottom:8px;
+}
+#panel-coins .coins-lux-vault-row{display:flex;align-items:baseline;gap:10px;position:relative;z-index:1}
+#panel-coins .coins-lux-vault-n{
+  font-family:"Cormorant Garamond",Georgia,serif;font-size:2.55rem;font-weight:700;
+  color:#fff6df;letter-spacing:.01em;line-height:1;
+}
+#panel-coins .coins-lux-vault-unit{font-size:12px;font-weight:700;color:var(--lux-gold);letter-spacing:.14em;text-transform:uppercase}
+#panel-coins .coins-lux-steps{
+  list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  margin:0 0 14px;padding:0;animation:coinsLuxRise .7s ease .1s both;
+}
+#panel-coins .coins-lux-steps li{
+  border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:10px 8px;
+  background:rgba(255,255,255,.025);text-align:center;min-width:0;
+}
+#panel-coins .coins-lux-steps b{
+  display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--lux-gold);margin-bottom:4px;font-weight:800;
+}
+#panel-coins .coins-lux-steps span{display:block;font-size:11px;line-height:1.35;color:var(--lux-mute);font-weight:600}
+#panel-coins .coins-lux-rates{
+  text-align:center;font-size:11px;color:var(--lux-mute);line-height:1.45;
+  margin:0 0 16px;letter-spacing:.02em;animation:coinsLuxRise .75s ease .12s both;
+}
+#panel-coins .coins-lux-rates strong{color:var(--lux-gold);font-weight:700}
+#panel-coins #coin-pending{margin:0 0 14px}
+#panel-coins .coins-lux-pending,
+#panel-coins .coins-lux-credited{
+  border-radius:16px;padding:14px;margin:0 0 10px;
+  backdrop-filter:blur(10px);
+}
+#panel-coins .coins-lux-pending{
+  border:1px solid rgba(224,195,122,.4);
+  background:linear-gradient(160deg,rgba(224,195,122,.12),rgba(20,16,10,.75));
+}
+#panel-coins .coins-lux-credited{
+  border:1px solid rgba(52,211,153,.3);
+  background:rgba(6,20,15,.72);
+}
+#panel-coins .coins-lux-section{
+  font-family:"Cormorant Garamond",Georgia,serif;font-size:1.55rem;font-weight:600;
+  color:#fff6df;margin:4px 0 6px;letter-spacing:.01em;
+}
+#panel-coins .coins-lux-section-sub{font-size:12px;color:var(--lux-mute);margin:0 0 14px;line-height:1.45}
+#panel-coins .coins-lux-hint{
+  border:1px solid var(--lux-line);border-radius:16px;padding:12px 14px;margin:0 0 16px;
+  background:rgba(255,255,255,.03);font-size:12px;color:var(--lux-mute);line-height:1.45;
+}
+#panel-coins .coins-lux-hint strong{color:var(--lux-ink);font-weight:700}
+#panel-coins .coins-lux-pack{
+  position:relative;border-radius:20px;padding:16px;margin:0 0 14px;
+  border:1px solid rgba(224,195,122,.22);
+  background:
+    linear-gradient(165deg,rgba(255,255,255,.04),rgba(255,255,255,.015) 40%,rgba(0,0,0,.25)),
+    #100e0b;
+  box-shadow:0 14px 32px rgba(0,0,0,.28);
+  transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+  animation:coinsLuxRise .7s ease both;
+}
+#panel-coins .coins-lux-pack:hover{
+  transform:translateY(-2px);
+  border-color:rgba(224,195,122,.45);
+  box-shadow:0 18px 36px rgba(0,0,0,.36),0 0 0 1px rgba(224,195,122,.08);
+}
+#panel-coins .coins-lux-pack.is-min{
+  border-color:rgba(255,106,0,.45);
+  background:
+    linear-gradient(165deg,rgba(255,106,0,.16),rgba(224,195,122,.05) 35%,rgba(0,0,0,.3)),
+    #14100c;
+  box-shadow:0 16px 36px rgba(255,106,0,.12),0 10px 28px rgba(0,0,0,.3);
+}
+#panel-coins .coins-lux-pack-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;flex-wrap:wrap;
+}
+#panel-coins .coins-lux-pack-price{
+  font-family:"Cormorant Garamond",Georgia,serif;font-size:1.7rem;font-weight:600;
+  color:#fff6df;letter-spacing:.01em;line-height:1;
+}
+#panel-coins .coins-lux-pack-price em{font-style:normal;color:var(--lux-gold);font-size:1.05rem;margin:0 6px}
+#panel-coins .coins-lux-badge{
+  font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:#1a1208;background:linear-gradient(135deg,#ffb35c,#ff6a00);
+  border-radius:999px;padding:5px 9px;
+}
+#panel-coins .coins-lux-pay{
+  display:block;width:100%;margin:0 0 8px;border-radius:12px;padding:12px 14px;
+  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--lux-ink);
+  transition:background .18s ease,border-color .18s ease,transform .15s ease;
+}
+#panel-coins .coins-lux-pay:active{transform:scale(.985)}
+#panel-coins .coins-lux-pay.throne{border-color:rgba(124,58,237,.35);background:rgba(76,29,149,.22)}
+#panel-coins .coins-lux-pay.throne .pay-row{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+#panel-coins .coins-lux-pay.throne .pay-logo{display:block;flex-shrink:0}
+#panel-coins .coins-lux-pay.paypal{background:#003087;border-color:#009cde;color:#fff}
+#panel-coins .coins-lux-pay.btc{background:#111;border-color:#f7931a;color:#fff}
+#panel-coins .coins-lux-pay.paid{
+  background:linear-gradient(135deg,#f0d78c,#c9a227);color:#1a1408;border:0;
+  font-weight:800;box-shadow:0 8px 20px rgba(201,162,39,.25);
+}
+#panel-coins .coins-lux-pack-note{font-size:11px;color:var(--lux-mute);text-align:center;margin:6px 0 0;line-height:1.4}
+#panel-coins .coins-lux-custom{
+  border-radius:18px;padding:16px;margin:6px 0 8px;
+  border:1px solid rgba(52,211,153,.28);
+  background:linear-gradient(160deg,rgba(52,211,153,.08),rgba(6,14,12,.8));
+}
+#panel-coins .coins-lux-custom .kicker{font-size:10px;letter-spacing:.18em;color:#34d399;font-weight:800}
+#panel-coins .coins-lux-custom h3{font-family:"Cormorant Garamond",Georgia,serif;font-size:1.35rem;font-weight:600;margin:6px 0;color:#eafff5}
+#panel-coins .coins-lux-custom p{font-size:12px;color:var(--lux-mute);line-height:1.45;margin:0 0 12px}
+@media(max-width:380px){
+  #panel-coins .coins-lux-steps{grid-template-columns:1fr;gap:6px}
+  #panel-coins .coins-lux-steps li{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px}
+  #panel-coins .coins-lux-steps b{margin:0}
+}
+
 </style>
 <style id="rs-v2-polish">
 /* Home strip + feed clickability */
@@ -2804,19 +3006,37 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
 
       
-      <div id="panel-coins" class="panel">
-        <div class="page-head">
-          <button class="back" type="button" onclick="showPanel('feed')">←</button>
-          <h2>Buy Fag Coins</h2>
-        </div>
-        <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin:0 0 10px" onclick="copySectionLink('coins','Coins')">Copy page link</button>
-        <p style="color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 12px">Pay Throne / PayPal / BTC on a pack below → tap <b style="color:#f5c518">I paid</b> → watch <b style="color:#f5c518">Pending credit</b> until Master adds your Coins.</p>
-        <p style="color:var(--muted);font-size:12px;line-height:1.4;margin:0 0 12px">Pin = 50 Coins for 48 hours. Delete · $5 / 50 Coins. Min recharge $5 → 60 Coins.</p>
-        <div id="coin-balance" style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.28);border-radius:12px;padding:12px;margin-bottom:12px;font-weight:800;color:#f5c518">Balance: — Coins</div>
-        <div id="coin-pending" style="display:none;margin:0 0 14px"></div>
-        <div id="coin-packs"></div>
-        <div style="margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5">
-          Pin 50 Coins · Delete · $5 / 50 Coins · Roulette/Dice 10 Coins · Print 350 Coins / $40
+      <div id="panel-coins" class="panel coins-lux">
+        <div class="coins-lux-inner">
+          <div class="coins-lux-top">
+            <button class="back coins-lux-back" type="button" onclick="showPanel('feed')" aria-label="Back">←</button>
+            <button class="coins-lux-link" type="button" onclick="copySectionLink('coins','Coins')">Copy page link</button>
+          </div>
+          <div class="coins-lux-hero">
+            <div class="coins-lux-brand">Coins</div>
+            <p class="coins-lux-lede">Pay outside. Credit lands here. Spend on pin, delete, print, and games.</p>
+          </div>
+          <div id="coin-balance" class="coins-lux-vault" aria-live="polite">
+            <span class="coins-lux-vault-label">Your balance</span>
+            <div class="coins-lux-vault-row">
+              <span id="coin-balance-n" class="coins-lux-vault-n">—</span>
+              <span class="coins-lux-vault-unit">Coins</span>
+            </div>
+          </div>
+          <ol class="coins-lux-steps" aria-label="How to recharge">
+            <li><b>01</b><span>Pay Throne, PayPal or BTC</span></li>
+            <li><b>02</b><span>Tap I paid on your pack</span></li>
+            <li><b>03</b><span>Watch Pending credit</span></li>
+          </ol>
+          <div class="coins-lux-rates">
+            <strong>Pin 50</strong> · 48h ·
+            <strong>Delete 50</strong> · $5 ·
+            <strong>Roulette 10</strong> ·
+            <strong>Print 350</strong>
+            <div style="margin-top:4px">Min recharge <strong>$5 → 60 Coins</strong></div>
+          </div>
+          <div id="coin-pending" style="display:none"></div>
+          <div id="coin-packs"></div>
         </div>
       </div>
       
@@ -10129,26 +10349,26 @@ async function claimPayPalPack(p){
       box.style.display='block';
       var html='';
       if(pending.length){
-        html+='<div style="border:1px solid rgba(245,197,24,.55);border-radius:14px;padding:12px;background:rgba(245,197,24,.1);margin:0 0 10px">'
+        html+='<div class="coins-lux-pending">'
           +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">'
-          +'<div style="font-size:11px;letter-spacing:1.2px;color:#f5c518;font-weight:900">PENDING CREDIT</div>'
-          +'<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px" onclick="refreshCoinPending()">Refresh</button></div>'
-          +'<div style="font-size:12px;color:#ddd;line-height:1.45;margin:0 0 10px">You tapped <b>I paid</b>. Master is crediting your Coins. Keep this page open or come back — balance updates when approved.</div>'
+          +'<div style="font-size:10px;letter-spacing:.18em;color:#e0c37a;font-weight:800">PENDING CREDIT</div>'
+          +'<button type="button" class="coins-lux-link" style="padding:5px 10px" onclick="refreshCoinPending()">Refresh</button></div>'
+          +'<div style="font-size:12px;color:#cbbfae;line-height:1.45;margin:0 0 10px">You tapped <b style="color:#fff6df">I paid</b>. Master is crediting your Coins. Keep this page open — balance updates when approved.</div>'
           +pending.map(function(p){
             var when=p.at?ago(p.at):'just now';
-            return '<div style="border-top:1px solid rgba(245,197,24,.22);padding:8px 0;display:flex;justify-content:space-between;gap:10px;align-items:flex-start">'
-              +'<div><div style="font-weight:800;color:#fff">+'+esc(String(p.coins||0))+' Coins · $'+esc(String(p.usd||''))+'</div>'
-              +'<div style="font-size:11px;color:var(--muted);margin-top:2px">@'+esc(String(p.user||uid||'you'))+' · '+esc(when)+'</div></div>'
-              +'<span style="flex-shrink:0;font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#f5c518;border-radius:999px;padding:4px 8px">PENDING</span></div>';
+            return '<div style="border-top:1px solid rgba(224,195,122,.2);padding:8px 0;display:flex;justify-content:space-between;gap:10px;align-items:flex-start">'
+              +'<div><div style="font-weight:800;color:#fff6df">+'+esc(String(p.coins||0))+' Coins · $'+esc(String(p.usd||''))+'</div>'
+              +'<div style="font-size:11px;color:#9a9184;margin-top:2px">@'+esc(String(p.user||uid||'you'))+' · '+esc(when)+'</div></div>'
+              +'<span style="flex-shrink:0;font-size:10px;font-weight:900;letter-spacing:.6px;color:#1a1408;background:linear-gradient(135deg,#f0d78c,#c9a227);border-radius:999px;padding:4px 8px">PENDING</span></div>';
           }).join('')
-          +'<a href="https://t.me/mastersan01" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:12px;color:#f5c518;font-weight:800;text-decoration:none">Telegram @mastersan01 if it takes long →</a>'
+          +'<a href="https://t.me/mastersan01" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:12px;color:#e0c37a;font-weight:800;text-decoration:none">Telegram @mastersan01 if it takes long →</a>'
           +'</div>';
       }
       if(recent.length){
-        html+='<div style="border:1px solid rgba(52,211,153,.35);border-radius:14px;padding:10px 12px;background:rgba(6,20,15,.65);margin:0 0 10px">'
-          +'<div style="font-size:11px;letter-spacing:1.2px;color:#34d399;font-weight:900;margin-bottom:6px">CREDITED</div>'
+        html+='<div class="coins-lux-credited">'
+          +'<div style="font-size:10px;letter-spacing:.18em;color:#34d399;font-weight:800;margin-bottom:6px">CREDITED</div>'
           +recent.map(function(p){
-            return '<div style="font-size:12px;color:#ddd;padding:3px 0">+'+esc(String(p.coins||0))+' Coins · $'+esc(String(p.usd||''))+' <span style="color:#34d399;font-weight:800">✓</span></div>';
+            return '<div style="font-size:12px;color:#d7ebe1;padding:3px 0">+'+esc(String(p.coins||0))+' Coins · $'+esc(String(p.usd||''))+' <span style="color:#34d399;font-weight:800">✓</span></div>';
           }).join('')
           +'</div>';
       }
@@ -10187,46 +10407,43 @@ async function claimPayPalPack(p){
       var box=document.getElementById('coin-packs');
       if(box){
         box.innerHTML='';
-        var tip=document.createElement('p');
-        tip.style.cssText='font-size:12px;color:var(--muted);line-height:1.45;margin:0 0 14px';
-        tip.innerHTML='<strong style="font-size:18px;color:#fff">Choose your Coins pack</strong><br><span style="display:inline-block;margin-top:5px"><b>1.</b> Pay Throne / PayPal / BTC → <b>2.</b> Tap <b>I paid</b> → <b>3.</b> Status shows in <b>Pending credit</b> until Master adds the Coins.</span>';
+        var tip=document.createElement('div');
+        tip.innerHTML='<div class="coins-lux-section">Choose your pack</div><p class="coins-lux-section-sub">Select an amount, pay outside, then confirm here.</p>';
         box.appendChild(tip);
         var paidBar=document.createElement('div');
-        paidBar.style.cssText='border:1px solid #f5c518;border-radius:14px;padding:12px;margin:0 0 14px;background:rgba(245,197,24,.08)';
-        paidBar.innerHTML='<div style="font-weight:900;margin-bottom:6px">How credit works</div><div style="font-size:12px;color:var(--muted);line-height:1.45">I paid creates your receipt. Pending = waiting for Master. Credited = Coins already in your balance. Typical wait: a few minutes while Master is online.</div>';
+        paidBar.className='coins-lux-hint';
+        paidBar.innerHTML='<strong>How credit works</strong><br>I paid creates your receipt. Pending = waiting for Master. Credited = Coins already in your balance. Typical wait: a few minutes while Master is online.';
         box.appendChild(paidBar);
-        FC_PACKS.forEach(function(p){
+        FC_PACKS.forEach(function(p, idx){
           var card=document.createElement('div');
           var hot=p.usd===5;
-          card.style.cssText=hot
-            ?'border:1px solid rgba(255,106,0,.55);border-radius:18px;padding:14px;margin:0 0 14px;background:linear-gradient(180deg,rgba(255,106,0,.16),rgba(255,255,255,.03));box-shadow:0 0 22px rgba(255,106,0,.22)'
-            :'border:1px solid rgba(124,58,237,.30);border-radius:18px;padding:14px;margin:0 0 14px;background:linear-gradient(180deg,rgba(124,58,237,.08),rgba(255,255,255,.025));box-shadow:0 10px 30px rgba(0,0,0,.16)';
+          card.className='coins-lux-pack'+(hot?' is-min':'');
+          card.style.animationDelay=(0.08+idx*0.04)+'s';
           var h=document.createElement('div');
-          h.style.cssText='font-weight:950;margin:0 0 12px;font-size:20px;letter-spacing:-.3px';
-          h.innerHTML='$'+p.usd+' → '+p.coins+' Coins'+(hot?' <span style="font-size:11px;background:#ff6a00;color:#111;border-radius:999px;padding:3px 8px;margin-left:6px">MIN · $5</span>':'');
+          h.className='coins-lux-pack-head';
+          h.innerHTML='<div class="coins-lux-pack-price">$'+p.usd+'<em>→</em>'+p.coins+' Coins</div>'+(hot?'<span class="coins-lux-badge">Min · $5</span>':'');
           card.appendChild(h);
-          function addBtn(html, style, fn){
+          function addBtn(html, cls, fn){
             var x=document.createElement('button');
             x.type='button';
-            x.className='btn btn-secondary';
-            x.style.cssText='display:block;width:100%;margin:0 0 8px;'+style;
+            x.className='coins-lux-pay'+(cls?' '+cls:'');
             x.innerHTML=html;
             x.onclick=fn;
             card.appendChild(x);
           }
-          addBtn('<span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Throne</span>','',function(){window.open(p.url||THRONE_HOME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins});});
-          addBtn('PayPal','background:#003087;color:#fff;border:1px solid #009cde;font-weight:800',function(){window.open(p.paypal||PAYPAL_ME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins,provider:'paypal'});});
-          addBtn('₿ Bitcoin — Copy Wallet','background:#111;color:#fff;border:1px solid #f7931a;font-weight:800',function(){try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)})}catch(e){toast('BTC wallet: '+BTC_WALLET)}});
-          addBtn('I paid — request '+p.coins+' Coins','background:#f5c518;color:#000;font-weight:900',function(){confirmCoinPackPaid(p);});
+          addBtn('<span class="pay-row"><svg class="pay-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l2.2 4.5 5 .7-3.6 3.5.9 5.1L12 14.8 7.5 16.8l.9-5.1L4.8 8.2l5-.7L12 3z" fill="#c4b5fd"/><circle cx="12" cy="12" r="9.2" stroke="rgba(196,181,253,.55)" stroke-width="1.2"/></svg> Throne</span>','throne',function(){window.open(p.url||THRONE_HOME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins});});
+          addBtn('PayPal','paypal',function(){window.open(p.paypal||PAYPAL_ME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins,provider:'paypal'});});
+          addBtn('₿ Bitcoin — Copy Wallet','btc',function(){try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)})}catch(e){toast('BTC wallet: '+BTC_WALLET)}});
+          addBtn('I paid — request '+p.coins+' Coins','paid',function(){confirmCoinPackPaid(p);});
           var note=document.createElement('p');
-          note.style.cssText='font-size:11px;color:var(--muted);line-height:1.4;margin:4px 0 0;text-align:center';
+          note.className='coins-lux-pack-note';
           note.textContent='Pay first. Then tap I paid — it appears under Pending credit.';
           card.appendChild(note);
           box.appendChild(card);
         });
         var page=document.createElement('div');
-        page.style.cssText='border:1px solid rgba(52,211,153,.4);border-radius:14px;padding:12px;margin:8px 0 14px;background:rgba(6,20,15,.7)';
-        page.innerHTML='<div style="font-size:11px;letter-spacing:1px;color:#34d399;font-weight:800">CUSTOM</div><div style="font-weight:800;margin:6px 0">Custom exposure videos</div><div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.45">Personalized exposure and humiliation videos. Men or women. Message on Telegram and I make the fantasy real.</div><a class="btn btn-primary" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="width:100%;text-align:center;text-decoration:none">Telegram · @mastersan01</a>';
+        page.className='coins-lux-custom';
+        page.innerHTML='<div class="kicker">CUSTOM</div><h3>Custom exposure videos</h3><p>Personalized exposure and humiliation videos. Men or women. Message on Telegram and I make the fantasy real.</p><a class="coins-lux-pay paid" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Telegram · @mastersan01</a>';
         box.appendChild(page);
       }
       loadFagBalance();
@@ -10249,10 +10466,10 @@ async function claimPayPalPack(p){
       if(!bar){
         bar=document.createElement('div');
         bar.id='coin-req-progress';
-        bar.style.cssText='margin:0 0 14px;padding:10px 12px;border-radius:12px;border:1px solid rgba(245,197,24,.45);background:rgba(245,197,24,.08)';
+        bar.className='coins-lux-pending';
         box.insertBefore(bar, box.firstChild);
       }
-      bar.innerHTML='<div style="font-size:12px;font-weight:800;margin-bottom:6px">'+(label||'Sending request…')+'</div><div style="height:8px;border-radius:99px;background:#222;overflow:hidden"><div style="height:8px;width:35%;background:#f5c518;animation:coinbar 1.1s ease-in-out infinite"></div></div>';
+      bar.innerHTML='<div style="font-size:12px;font-weight:800;margin-bottom:6px;color:#fff6df">'+(label||'Sending request…')+'</div><div style="height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden"><div style="height:8px;width:35%;background:linear-gradient(90deg,#f0d78c,#c9a227);animation:coinbar 1.1s ease-in-out infinite"></div></div>';
       if(!document.getElementById('coinbar-style')){
         var st=document.createElement('style');st.id='coinbar-style';st.textContent='@keyframes coinbar{0%{width:15%;margin-left:0}50%{width:55%;margin-left:20%}100%{width:15%;margin-left:0}}';
         document.head.appendChild(st);
@@ -10358,7 +10575,9 @@ async function claimPayPalPack(p){
       }catch(e){}
       window.__fcWalletUser=bestWallet||uid;
       try{
-        if(el) el.textContent='Balance: '+n+' Coins';
+        var nEl=document.getElementById('coin-balance-n');
+        if(nEl) nEl.textContent=String(n);
+        else if(el) el.textContent='Balance: '+n+' Coins';
         var h=document.getElementById('hdr-fc');
         var hn=document.getElementById('hdr-fc-n');
         if(hn)hn.textContent=n+' Coins';
@@ -10796,9 +11015,11 @@ async function claimPayPalPack(p){
         var nowBal=Number(cf.balance||coins);
         if(String(coinUserId())===user){
           var hn=document.getElementById('hdr-fc-n');
+          var nEl=document.getElementById('coin-balance-n');
           var el=document.getElementById('coin-balance');
           if(hn)hn.textContent=nowBal+' Coins';
-          if(el)el.textContent='Balance: '+nowBal+' Coins';
+          if(nEl) nEl.textContent=String(nowBal);
+          else if(el) el.textContent='Balance: '+nowBal+' Coins';
         }
         try{if(nid) await fetch(CF_API+'/notifs/'+encodeURIComponent(nid),{method:'DELETE'})}catch(e){}
         toast('+'+coins+' Coins sent to @'+user+' · now '+nowBal+' Coins');
