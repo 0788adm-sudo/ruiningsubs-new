@@ -893,12 +893,8 @@ async function handleUsernameIdentity(req, res, body, query) {
       adminOk = false;
     }
 
-    // Built-in repair for the reported account when admin or matching auth calls it.
-    if (action === 'repair_username' && (!fromName || !toName)) {
-      fromName = fromName || 'UkPaki29';
-      toName = toName || 'UkPakiUmayr29';
-      if (!userId) userId = 'anon_amwk2a8nj29r3kaxny6';
-    }
+    // Permanent admin purge (2026-11-24): UkPaki29 / UkPakiUmayr29 are closed —
+    // do not auto-repair those handles. Explicit from/to still required.
 
     if (!fromName || !toName) {
       return json(res, 400, { ok: false, error: 'need_from_and_to' });
