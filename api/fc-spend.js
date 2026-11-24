@@ -6,17 +6,20 @@ const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.de
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
 
 var FC_COSTS = {
-  delete: Number(process.env.FC_COST_DELETE || 50),
+  delete: Number(process.env.FC_COST_DELETE || 10),
   roulette: Number(process.env.FC_COST_ROULETTE || 10),
   roulette_spin: Number(process.env.FC_COST_ROULETTE || 10),
-  roulette_pack: Number(process.env.FC_COST_ROULETTE_PACK || 50),
+  roulette_pack: Number(process.env.FC_COST_ROULETTE_PACK || 10),
   dice: Number(process.env.FC_COST_DICE || 10),
   dice_roll: Number(process.env.FC_COST_DICE || 10),
+  dice_pack: Number(process.env.FC_COST_DICE_PACK || 10),
+  tic_tac_toe_pack: Number(process.env.FC_COST_TTT_PACK || 10),
+  triki_pack: Number(process.env.FC_COST_TTT_PACK || 10),
   custom_roulette: Number(process.env.FC_COST_CUSTOM_ROULETTE || 250),
   custom_dice: Number(process.env.FC_COST_CUSTOM_ROULETTE || 250),
-  pin: Number(process.env.FC_COST_PIN || 50),
-  pin7: 150,
-  pin30: 400,
+  pin: Number(process.env.FC_COST_PIN || 10),
+  pin7: Number(process.env.FC_COST_PIN || 10),
+  pin30: Number(process.env.FC_COST_PIN || 10),
   print: 350,
   vanish: 200,
   page: 1000
@@ -27,6 +30,9 @@ var ACTION_ALIASES = {
   buy_roulette_pack: 'roulette_pack',
   roulette_spins_pack: 'roulette_pack',
   dice_roll: 'dice',
+  buy_dice_pack: 'dice_pack',
+  buy_ttt_pack: 'tic_tac_toe_pack',
+  buy_triki_pack: 'triki_pack',
   remove: 'delete',
   custom_wheel: 'custom_roulette',
   custom_die: 'custom_dice'
@@ -156,8 +162,7 @@ module.exports = async function handler(req, res) {
       },
       packs: [
         { usd: 5, coins: 60 },
-        { usd: 10, coins: 120 },
-        { usd: 15, coins: 180 },
+        { usd: 10, coins: 110 },
         { usd: 25, coins: 300 },
         { usd: 50, coins: 600 },
         { usd: 99, coins: 1200 }

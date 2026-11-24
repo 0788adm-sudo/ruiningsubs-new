@@ -41,16 +41,16 @@ assert(
 })();
 assert(html.indexOf("spendFagCoins('pin'") >= 0, 'Premium Pin spend path still present');
 assert(
-  html.indexOf("Delete now — '+delCost+' Coins") >= 0 || html.indexOf('Delete now — 50 Coins') >= 0,
+  html.indexOf("Delete now — '+delCost+' Coins") >= 0 || html.indexOf('Delete now — 10 Coins') >= 0,
   'Delete now — N FC button copy'
 );
-assert(html.indexOf('Delete now — 50 Coins') >= 0, 'static modal button copy');
+assert(html.indexOf('Delete now — 10 Coins') >= 0, 'static modal button copy');
 assert(html.indexOf("fc.setAttribute('onclick','requestDeleteWithCoins()')") >= 0, 'non-owner FC button wires requestDeleteWithCoins');
 assert(html.indexOf('function pinWithCoins') >= 0, 'Premium Pin unchanged');
-assert(html.indexOf('Pin now — 50 Coins') >= 0, 'Premium Pin yellow button copy kept');
+assert(html.indexOf('Pin now — 10 Coins') >= 0, 'Premium Pin yellow button copy kept');
 assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal and Throne kept');
 assert(html.indexOf('I paid $5 — pending admin verify') >= 0, 'I paid kept for external payments');
-assert(/delete\s*:\s*50/.test(html), 'FC_COSTS.delete is 50');
+assert(/delete\s*:\s*10/.test(html), 'FC_COSTS.delete is 10');
 assert(html.indexOf("openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})") >= 0 || html.indexOf("why:'delete post'") >= 0, 'insufficient FC opens buy coins');
 
 // Auto-delete contract (no admin for FC)

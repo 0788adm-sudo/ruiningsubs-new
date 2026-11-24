@@ -23,7 +23,7 @@ assert(html.indexOf('openRemove(') >= 0, 'openRemove available for Delete');
 assert(/universalDeleteButtonHtml\(post,\s*\{\s*style:\s*'dx'\s*\}/.test(html), 'Delete remains in post detail only');
 assert(/id="btn-remove-led-label"/.test(html), 'Delete remains in post detail');
 assert(html.indexOf('Delete is detail-only') >= 0 || html.indexOf('Delete lives only inside the post detail') >= 0, 'feed cards hide Delete');
-assert(html.indexOf('universalDeleteButtonHtml') >= 0 || html.indexOf('$5 / 50 Coins') >= 0 || html.indexOf('Coins or $5') >= 0, 'paid third-party delete restored');
+assert(html.indexOf('universalDeleteButtonHtml') >= 0 || html.indexOf('10 Coins') >= 0 || html.indexOf('Coins or $5') >= 0, 'paid third-party delete restored');
 assert(html.indexOf('btn-remove-paypal') >= 0, 'PayPal $5 remove kept');
 assert(html.indexOf('btn-remove-throne') >= 0, 'Throne $5 remove kept');
 assert(html.indexOf('btn-remove-paid') >= 0, 'I paid remove kept');
