@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Headless Chrome: Extend opens on first pointerup and survives the ghost click
- * that Chrome retargets onto the modal backdrop.
+ * Headless Chrome: Extend runs immediately on first pointerup (no confirm modal)
+ * and does not open the post detail via ghost clicks.
  */
 var { spawn } = require('child_process');
 var http = require('http');
@@ -192,30 +192,27 @@ async function main() {
     fire('pointerdown', btn);
     await new Promise(function(r){setTimeout(r,30)});
     fire('pointerup', btn);
-    // Chrome ghost click retargeted onto modal backdrop
-    await new Promise(function(r){setTimeout(r,40)});
-    var modal=document.getElementById('extend-modal');
-    if(modal){
-      modal.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:x,clientY:y}));
-    }
     await new Promise(function(r){setTimeout(r,120)});
-    var stillOpen=!!(modal && modal.classList.contains('show') && getComputedStyle(modal).display!=='none');
-    var armed=btn.classList.contains('is-arming') || true;
+    var modal=document.getElementById('extend-modal');
+    var modalOpen=!!(modal && modal.classList.contains('show') && getComputedStyle(modal).display!=='none');
+    var cooling=!!(btn.disabled || btn.classList.contains('is-cooling'));
+    var rem=0;
+    try{rem=typeof getLocalExtendCooldown==='function'?Number(getLocalExtendCooldown('extchrome1')||0):0}catch(e){}
     return {
-      ok: stillOpen,
-      stillOpen: stillOpen,
+      ok: !modalOpen && (cooling || rem>0),
+      modalOpen: modalOpen,
+      cooling: cooling,
+      rem: rem,
       currentId: String(window.currentExtendPostId||''),
-      suppressModal: Number(window.__suppressModalClose||0)>Date.now(),
-      guard: modal && modal.getAttribute('data-ghost-guard'),
-      display: modal && modal.style.display,
-      classes: modal && modal.className
+      suppressDetail: Number(window.__suppressDetailOpen||0)>Date.now()
     };
   })()`);
 
   console.log('diag', result);
-  assert(result && result.ok, 'Extend modal stays open after first tap + Chrome ghost backdrop click');
+  assert(result && result.ok, 'Extend runs immediately without confirm modal and arms cooldown');
   assert(result.currentId === 'extchrome1', 'currentExtendPostId set on first tap');
-  assert(!!result.suppressModal || result.guard === '1' || result.stillOpen, 'ghost dismiss guard active or modal open');
+  assert(!result.modalOpen, 'confirm modal stays closed');
+  assert(!!result.suppressDetail || result.cooling || result.rem>0, 'detail ghost-open suppressed or cooldown active');
 
   try {
     ws.close();

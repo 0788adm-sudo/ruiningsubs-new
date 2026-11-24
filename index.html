@@ -28622,7 +28622,7 @@ async function onIdFace(e){
       window.__blockFeedTap=Date.now()+800;
       window.__suppressDetailOpen=Date.now()+800;
       window.__suppressModalClose=Date.now()+900;
-      // Safari/Chrome fire pointerup + click + onclick — debounce so one open = one confirm modal.
+      // Safari/Chrome fire pointerup + click + onclick — debounce so one tap = one extend.
       var now=Date.now();
       if(window.__openExtTap && window.__openExtTap.id===id && (now-window.__openExtTap.t)<700) return;
       window.__openExtTap={id:id,t:now};
@@ -28648,82 +28648,9 @@ async function onIdFace(e){
         return;
       }
       currentExtendPostId=id;
-      function paintExtendConfirmUi(p){
-        var minsHint=postExtendMinutes(p);
-        try{if(p && minsHint>0) p.extendAmount=minsHint}catch(eSync){}
-        var amtLab=fmtMin(minsHint);
-        var el=document.getElementById('extend-desc');
-        if(el)el.innerHTML='Do you want to add <strong style="color:var(--orange)">'+amtLab+'</strong> of visibility to this post?';
-        var confBtn=document.getElementById('btn-confirm-ext');
-        if(confBtn){confBtn.disabled=false;confBtn.textContent='Yes · +'+amtLab}
-        return minsHint;
-      }
-      paintExtendConfirmUi(post);
-      var cdEl=document.getElementById('extend-cooldown');
-      if(cdEl){cdEl.style.display='none';cdEl.textContent=''}
-      // Ask first (like before). Do NOT paint Extending… until the user taps Yes.
-      try{sessionStorage.removeItem('rs_ext_skip_confirm')}catch(e){}
-      var modal=document.getElementById('extend-modal');
-      if(modal){
-        modal.style.display='flex';
-        modal.classList.add('show');
-        // Block backdrop hit-testing until after Chrome's ghost click window,
-        // but keep the dialog itself clickable (Yes / No).
-        try{
-          modal.style.pointerEvents='auto';
-          var sheet=modal.querySelector('.modal');
-          if(sheet) sheet.style.pointerEvents='auto';
-          modal.setAttribute('data-ghost-guard','1');
-          // Temporary: ignore hits on the dimmed backdrop only.
-          var guard=function(ev){
-            if(ev.target===modal){
-              try{ev.preventDefault();ev.stopPropagation()}catch(eG){}
-            }
-          };
-          modal.addEventListener('click', guard, true);
-          modal.addEventListener('pointerup', guard, true);
-          setTimeout(function(){
-            try{
-              modal.removeEventListener('click', guard, true);
-              modal.removeEventListener('pointerup', guard, true);
-              modal.removeAttribute('data-ghost-guard');
-            }catch(ePe){}
-          }, 500);
-        }catch(ePe2){}
-      }
-      // If in-memory post lacks tags/amount, refresh from Supabase so +24h is not shown as +6h.
-      try{
-        var needMeta=!post || !(resolveExtendAmountMinutes(post)>0) || (!post.tags||!post.tags.length);
-        if(needMeta && sb){
-          sb.from('posts').select('id,tags,extend_amount,expires_at,extensions_count').eq('id', /^\d+$/.test(id)?Number(id):id).maybeSingle().then(function(res){
-            var d=res&&res.data;
-            if(!d)return;
-            if(!post){
-              post={id:d.id,tags:d.tags||[],extendAmount:0,expires:d.expires_at?new Date(d.expires_at).getTime():0,extensions:Number(d.extensions_count)||0};
-            }else{
-              if(d.tags) post.tags=d.tags;
-              if(d.extend_amount!=null) post.extend_amount=d.extend_amount;
-            }
-            try{
-              var resolved=resolveExtendAmountMinutes(post, d.tags||post.tags);
-              if(resolved>0) post.extendAmount=resolved;
-            }catch(eR){}
-            if(String(currentExtendPostId)===String(id)) paintExtendConfirmUi(post);
-          }).catch(function(){});
-        }
-      }catch(eMeta){}
-      // Soft background refresh of cooldown status (non-blocking)
-      try{
-        fetchExtendCooldownStatus(id).then(function(status){
-          if(status && status.remaining_ms>0){
-            paintPostExtend(id, (post&&post.expires)||0, (post&&post.extensions)||0, status.remaining_ms);
-            refreshExtendCooldownButtons();
-            if(cdEl){cdEl.style.display='block';cdEl.textContent=fmtExtendCooldown(status.remaining_ms)+' · '+fmtExtendCountdown(status.remaining_ms)}
-            var confBtn=document.getElementById('btn-confirm-ext');
-            if(confBtn){confBtn.disabled=true;confBtn.textContent=fmtExtendCountdown(status.remaining_ms)}
-          }
-        }).catch(function(){});
-      }catch(e){}
+      // No confirmation modal — extend runs immediately on tap.
+      // Debounce (__openExtTap) + __extLock already prevent double-fire.
+      try{confirmExtend()}catch(e){console.warn(e)}
     }
     function looksNumericPostId(id){
       return /^\d+$/.test(String(id||'').trim());
