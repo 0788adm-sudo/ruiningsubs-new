@@ -1436,7 +1436,7 @@ module.exports = async function handler(req, res) {
       var spendCustom = await spendViaWallet(user, FC_CUSTOM, game, playId);
       if (!spendCustom.ok) {
         if (spendCustom.error === 'insufficient') {
-          return json(res, 402, { ok: false, error: 'insufficient', message: 'Insufficient FC', need: FC_CUSTOM, balance: spendCustom.balance || 0 });
+          return json(res, 402, { ok: false, error: 'insufficient', message: 'Insufficient Coins', need: FC_CUSTOM, balance: spendCustom.balance || 0 });
         }
         return json(res, 502, { ok: false, error: spendCustom.error || 'spend_failed', need: FC_CUSTOM });
       }
@@ -1447,7 +1447,7 @@ module.exports = async function handler(req, res) {
       await postBoard('admin', user, game + '_request', playId, {
         id: playId, user: user, game: game, coins: FC_CUSTOM, usd: 25,
         options_count: cleanOpts.length, at: Date.now(),
-        message: 'CUSTOM ' + game.toUpperCase() + ' · @' + user + ' · 250 FC / $25 · ' + cleanOpts.length + ' options'
+        message: 'CUSTOM ' + game.toUpperCase() + ' · @' + user + ' · 250 Coins / $25 · ' + cleanOpts.length + ' options'
       });
       var outCustom = {
         ok: true,
@@ -1458,7 +1458,7 @@ module.exports = async function handler(req, res) {
         balance: spendCustom.balance,
         options: cleanOpts,
         private: true,
-        label: '-' + FC_CUSTOM + ' FC — custom ' + game
+        label: '-' + FC_CUSTOM + ' Coins — custom ' + game
       };
       recent.set(lockKey, { at: Date.now(), body: outCustom });
       return json(res, 200, outCustom);
@@ -1472,7 +1472,7 @@ module.exports = async function handler(req, res) {
           return json(res, 402, {
             ok: false,
             error: 'insufficient',
-            message: 'Insufficient FC',
+            message: 'Insufficient Coins',
             need: FC_ROULETTE_PACK,
             balance: packSpend.balance || 0
           });
@@ -1509,7 +1509,7 @@ module.exports = async function handler(req, res) {
         anonymous_user_id: player.anonId || null,
         label: packSpend.reused
           ? 'Already credited'
-          : ('-' + FC_ROULETTE_PACK + ' FC — ' + ROULETTE_PACK_SPINS + ' roulette spins')
+          : ('-' + FC_ROULETTE_PACK + ' Coins — ' + ROULETTE_PACK_SPINS + ' roulette spins')
       };
       recent.set(lockKey, { at: Date.now(), body: outPack });
       return json(res, 200, outPack);
@@ -1646,7 +1646,7 @@ module.exports = async function handler(req, res) {
           return json(res, 402, {
             ok: false,
             error: 'free_exhausted',
-            message: 'Free uses exhausted. Get 10 additional spins for ' + FC_ROULETTE_PACK + ' FC ($5).',
+            message: 'Free uses exhausted. Get 10 additional spins for ' + FC_ROULETTE_PACK + ' Coins ($5).',
             free_left: 0,
             recovery_ends_at: recoveryEndsNow || null,
             recovery_ms: recoveryEndsNow ? Math.max(0, recoveryEndsNow - Date.now()) : 0,
@@ -1663,7 +1663,7 @@ module.exports = async function handler(req, res) {
             return json(res, 402, {
               ok: false,
               error: 'insufficient',
-              message: 'Insufficient FC',
+              message: 'Insufficient Coins',
               need: cost,
               balance: spend.balance || 0,
               free_left: freeLeftNow,
@@ -1741,7 +1741,7 @@ module.exports = async function handler(req, res) {
           ? ('Free ' + game + ' · ' + freeLeftAfter + ' free left')
           : (usePack
             ? ('Pack spin · ' + packsLeftAfter + ' left')
-            : ('-' + coinsCharged + ' FC — ' + game))
+            : ('-' + coinsCharged + ' Coins — ' + game))
       };
       recent.set(lockKey, { at: Date.now(), body: outSpin });
       return json(res, 200, outSpin);

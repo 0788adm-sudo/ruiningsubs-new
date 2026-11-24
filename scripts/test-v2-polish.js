@@ -22,8 +22,8 @@ assert(html.includes('GT_TARGET=80') || html.includes('GT_PAGE=24'), 'goontok no
 assert(html.includes('loadMoreGoonTok'), 'goontok infinite scroll helper');
 assert(html.includes('btn-hot') && html.includes('hotBumpWall'), 'HOT controls present');
 assert(html.includes("id-archive-actions") && html.includes('HOT'), 'HOT on ID/PEA archive');
-assert(html.includes('Delete · $5 / 50 FC'), 'delete price $5/50 FC');
-assert(!/Remove — 100 FC/.test(html), 'no stale 100 FC remove price');
+assert(html.includes('Delete · $5 / 50 Coins'), 'delete price $5/50 Coins');
+assert(!/Remove — 100 (?:FC|Coins)/.test(html), 'no stale 100 Coins remove price');
 assert(html.includes('Promise.all(jobs)') || html.includes('Parallel network'), 'feed loads sources in parallel');
 assert(api.includes('EXTEND_MINUTES_DEFAULT') || api.includes('EXTEND_MINUTES = 360') || api.includes('EXTEND_MINUTES=360'), 'api extend minutes constant');
 assert(api.includes('lookupPostExtendMinutes') || api.includes('EXTEND_MINUTES_DEFAULT'), 'api uses publisher amount when available');

@@ -26,7 +26,7 @@ assert(!/function checkRouletteUnlock[\s\S]{0,120}isRegistered\(\)/.test(html), 
 assert(html.includes('claimRoulettePackPaid'), 'I PAID claim spins helper');
 assert(html.includes('I PAID — CLAIM SPINS'), 'I PAID button visible');
 assert(html.includes('BUY 10 EXTRA SPINS'), 'BUY 10 EXTRA SPINS button');
-assert(html.includes('50 FC · $5 USD'), 'price line under buy button');
+assert(html.includes('50 Coins · $5 USD'), 'price line under buy button');
 assert(html.includes('PAYMENT UNDER REVIEW'), 'under review banner');
 assert(html.includes("openRouletteExternalPay('throne')") || html.includes('openRouletteExternalPay("throne")') || html.includes("openRouletteExternalPay('throne')"), 'Throne option');
 assert(html.includes("openRouletteExternalPay('btc')") || html.includes('Bitcoin'), 'BTC option');
@@ -45,7 +45,7 @@ assert(adminReq.includes('roulette_pack_request'), 'admin-request accepts roulet
 
 // —— No login prompts in spin exhausted path ——
 assert(!/Free uses exhausted\. Wait 24h recovery or register to buy spins/.test(html), 'no register-to-buy message');
-assert(html.includes('Get 10 additional spins for 50 FC ($5)'), 'exhausted message points to pack');
+assert(html.includes('Get 10 additional spins for 50 Coins ($5)'), 'exhausted message points to pack');
 
 // —— Video / publish anon ——
 assert(!/function openVideoComposer\(\)\{[\s\S]{0,160}Register to publish/.test(html), 'video composer no register gate');

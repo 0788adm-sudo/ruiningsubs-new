@@ -41,13 +41,13 @@ assert(
 })();
 assert(html.indexOf("spendFagCoins('pin'") >= 0, 'Premium Pin spend path still present');
 assert(
-  html.indexOf("Delete now — '+delCost+' FC") >= 0 || html.indexOf('Delete now — 50 FC') >= 0,
+  html.indexOf("Delete now — '+delCost+' Coins") >= 0 || html.indexOf('Delete now — 50 Coins') >= 0,
   'Delete now — N FC button copy'
 );
-assert(html.indexOf('Delete now — 50 FC') >= 0, 'static modal button copy');
+assert(html.indexOf('Delete now — 50 Coins') >= 0, 'static modal button copy');
 assert(html.indexOf("fc.setAttribute('onclick','requestDeleteWithCoins()')") >= 0, 'non-owner FC button wires requestDeleteWithCoins');
 assert(html.indexOf('function pinWithCoins') >= 0, 'Premium Pin unchanged');
-assert(html.indexOf('Pin now — 50 FC') >= 0, 'Premium Pin yellow button copy kept');
+assert(html.indexOf('Pin now — 50 Coins') >= 0, 'Premium Pin yellow button copy kept');
 assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal and Throne kept');
 assert(html.indexOf('I paid $5 — pending admin verify') >= 0, 'I paid kept for external payments');
 assert(/delete\s*:\s*50/.test(html), 'FC_COSTS.delete is 50');
@@ -81,8 +81,8 @@ assert(html.indexOf('Checking balance…') >= 0, 'checking balance copy');
 assert(html.indexOf('Processing deletion…') >= 0, 'processing deletion copy');
 assert(html.indexOf('Verifying deletion…') >= 0, 'verifying deletion copy');
 assert(html.indexOf('Post successfully deleted.') >= 0 || html.indexOf('Post deleted successfully') >= 0, 'success copy');
-assert(html.indexOf('Failed — no FC charged') >= 0, 'failed no charge copy');
-assert(html.indexOf('Failed — FC refunded') >= 0 || html.indexOf('failed_refunded') >= 0, 'failed refunded copy');
+assert(html.indexOf('Failed — no Coins charged') >= 0, 'failed no charge copy');
+assert(html.indexOf('Failed — Coins refunded') >= 0 || html.indexOf('failed_refunded') >= 0, 'failed refunded copy');
 assert(html.indexOf('getOrCreateDeleteTxn') >= 0, 'delete transaction id helper');
 assert(html.indexOf('precharged') >= 0, 'client precharge flag for CF spend');
 assert(html.indexOf('Sending request to admin') < 0, 'no sending-to-admin progress for FC');
@@ -90,7 +90,7 @@ assert(html.indexOf('Your deletion request has been sent to the administrator') 
 assert(html.indexOf('admin will review (post stays up)') < 0, 'no admin-will-review FC toast');
 assert(html.indexOf('DELETE FC REQUEST') < 0, 'no FC admin request message');
 assert(html.indexOf('Post deleted successfully') >= 0, 'exact success toast');
-assert(html.indexOf('submitRemoveRequest blocked FC path') >= 0, 'submitRemoveRequest redirects FC to auto-delete');
+assert(html.indexOf('submitRemoveRequest blocked Coins path') >= 0 || html.indexOf('submitRemoveRequest blocked FC path') >= 0, 'submitRemoveRequest redirects Coins to auto-delete');
 assert(delApi.indexOf('sbRest') >= 0, 'delete-post REST fallback present');
 assert(delApi.indexOf('walletUserCandidates') >= 0, 'delete-post preserves wallet casing');
 assert(delApi.indexOf('resolveFcBalance') >= 0, 'delete-post resolves same balance as header');

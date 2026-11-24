@@ -37,8 +37,8 @@ assert(/Deletion Tier/.test(html), 'compose has Deletion Tier label');
 assert(/post-deletion-tier-group/.test(html), 'compose deletion tier group');
 assert(/data-tier="deletable"/.test(html) && /data-tier="locked"/.test(html) && /data-tier="permanent"/.test(html), 'three tier options');
 assert(/Deletable — Free deletion/.test(html), 'deletable copy');
-assert(/Locked — 50 FC to delete/.test(html), 'locked copy');
-assert(/Permanent — 50 FC to delete/.test(html), 'permanent copy');
+assert(/Locked — 50 Coins to delete/.test(html), 'locked copy');
+assert(/Permanent — 50 Coins to delete/.test(html), 'permanent copy');
 assert(/selectedDeletionTier='deletable'/.test(html) || /selectedDeletionTier=\"deletable\"/.test(html), 'default deletable');
 
 // Client helpers
@@ -47,7 +47,7 @@ assert(/function deletionRequiresFc/.test(html), 'deletionRequiresFc helper');
 assert(/function withDeletionTierTag/.test(html), 'withDeletionTierTag helper');
 assert(/del:/.test(html) && /withDeletionTierTag/.test(html), 'stores del: tag');
 assert(/\/api\/delete-post/.test(html), 'client calls secure delete API');
-assert(/Delete · 50 FC|Delete now — 50 FC|50 FC or \$5/.test(html), 'paid delete FC copy');
+assert(/Delete · 50 Coins|Delete now — 50 Coins|50 Coins or \$5/.test(html), 'paid delete Coins copy');
 assert(/secureDeletePost/.test(html), 'secureDeletePost client helper');
 assert(/deletionTierBadgeHtml/.test(html), 'tier badge on posts');
 assert(/Owner always free|Delete now — free|free · your post/.test(html), 'owner free override UI');

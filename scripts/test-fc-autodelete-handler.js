@@ -400,7 +400,7 @@ function noAdminTraffic() {
   assert.ok(api.indexOf('DELETE_NOOP') >= 0 || api.indexOf('delete_blocked_or_noop') >= 0, 'detect silent delete failure');
   assert.ok(html.indexOf('coinUserId') >= 0 && html.indexOf("secureDeletePost") >= 0, 'client uses coin identity');
   assert.ok(
-    html.indexOf('Checking balance, then charging 50 FC') >= 0 ||
+    html.indexOf('Checking balance, then charging 50 Coins') >= 0 ||
       html.indexOf('Checking balance…') >= 0,
     'progress not fake-success'
   );

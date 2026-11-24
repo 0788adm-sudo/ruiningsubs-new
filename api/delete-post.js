@@ -1161,7 +1161,7 @@ async function statusForDeleteTxn(rawUser, postId, spendIdem, walletExtras) {
       ok: true,
       status: 'charged',
       postId: canonicalId,
-      detail: 'FC spend found — post still present. Retry delete to finish without a second charge.',
+      detail: 'Coins spend found — post still present. Retry delete to finish without a second charge.',
       charged: DELETE_COST_FC,
       transactionId: String((hit && hit.ref) || spendIdem),
       wallet_user: hit.user,
@@ -1383,7 +1383,7 @@ async function handleDeletePost(req, res, ctx) {
     if (!(reason === 'paid' || reason === 'paid_remove' || reason === 'fc')) {
       return json(res, 403, {
         error: 'anonymous_cannot_delete',
-        detail: 'Anonymous accounts can only delete their own posts for free, or pay 50 FC / $5 for others.'
+        detail: 'Anonymous accounts can only delete their own posts for free, or pay 50 Coins / $5 for others.'
       });
     }
   }
@@ -1413,7 +1413,7 @@ async function handleDeletePost(req, res, ctx) {
     }
     return json(res, 403, {
       error: 'forbidden',
-      detail: 'Only the owner, a paid FC removal, or admin moderation/privacy can delete.',
+      detail: 'Only the owner, a paid Coins removal, or admin moderation/privacy can delete.',
       postId: canonicalId
     });
   }
@@ -1454,7 +1454,7 @@ async function handleDeletePost(req, res, ctx) {
             error: 'spend_not_found',
             status: st.status || 'failed',
             detail:
-              'Could not confirm the 50 FC charge for this transaction. Retry with the same id — you will not be charged twice if the first spend landed.',
+              'Could not confirm the 50 Coins charge for this transaction. Retry with the same id — you will not be charged twice if the first spend landed.',
             need: cost,
             have: st.have != null ? st.have : st.balance,
             balance: st.balance,

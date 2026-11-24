@@ -217,7 +217,7 @@ module.exports = async function handler(req, res) {
         return json(res, 402, {
           ok: false,
           error: 'insufficient',
-          message: 'Insufficient FC',
+          message: 'Insufficient Coins',
           need: cost,
           balance: result.balance || 0,
           action: action
@@ -233,7 +233,7 @@ module.exports = async function handler(req, res) {
       action: action,
       ref: ref,
       balance: result.balance,
-      label: '-' + cost + ' FC — ' + action
+      label: '-' + cost + ' Coins — ' + action
     };
     recentSpends.set(key, { at: Date.now(), balance: result.balance, body: bodyOut });
     // prune
