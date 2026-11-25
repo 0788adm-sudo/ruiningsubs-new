@@ -4027,15 +4027,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <div class="modal">
       <h3 style="margin-bottom:6px">Delete post</h3>
       <p style="font-size:14px;line-height:1.45;margin-bottom:10px">
-        Paid delete · <strong style="color:#f5c518">$5 USD</strong> · equivalent <strong style="color:#f5c518">10 Coins</strong>. PayPal / Throne do not auto-delete — admin verifies first.
+        Paid delete · <strong style="color:#f5c518">10 Coins</strong> from your balance. Buy Coins once ($5 → 60 Coins), then spend them here.
       </p>
       <p id="remove-post-id-label" style="display:none"></p>
-      <a class="btn btn-primary" id="btn-remove-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5',postId:window.__removePostId||currentDetailId||null})}catch(e){}">PayPal $5 · MartinJimenez205</a>
+      <!-- Legacy external $5 CTAs kept in DOM for admin tooling / older links; hidden — Coins economy uses balance only -->
+      <a class="btn btn-primary" id="btn-remove-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:none;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5',postId:window.__removePostId||currentDetailId||null})}catch(e){}">PayPal $5 · MartinJimenez205</a>
       <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete now — 10 Coins</button>
       <div id="remove-request-status" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.35);color:#f5c518;font-size:13px;font-weight:700;line-height:1.4"></div>
-      <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5',postId:window.__removePostId||currentDetailId||null})}catch(e){}">Pay $5 on Throne</a>
-      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verify</button>
-      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" id="btn-remove-buycoins" onclick="closeModals();openCoinShop()">Buy Coins</button>
+      <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:none;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5',postId:window.__removePostId||currentDetailId||null})}catch(e){}">Pay $5 on Throne</a>
+      <button class="btn btn-secondary" type="button" style="display:none;width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verify</button>
+      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" id="btn-remove-buycoins" onclick="closeModals();openNeedCoins({cost:10,why:'delete',action:'delete'})">Recharge Coins · $5 → 60</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-rm" type="button">Keep it public</button>
     </div>
   </div>
@@ -10705,17 +10706,31 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     window.__fcSpendLocks=window.__fcSpendLocks||{};
     function openNeedCoins(opts){
       opts=opts||{};
-      var cost=Number(opts.cost||0);
-      var why=opts.why||'this';
+      var cost=Number(opts.cost||0)||10;
+      var why=String(opts.why||'this');
+      var actionKey=String(opts.action||why||'').toLowerCase();
+      var isPinOrDelete=/pin|delete|remove/.test(actionKey);
       var isPrint=(String(why).toLowerCase()==='print' || cost>=350);
+      // Official economy: $5 USD = 60 Coins. Pin/Delete always offer that min recharge pack.
       var pack=null;
       try{
-        for(var i=0;i<(FC_PACKS||[]).length;i++){
-          if(Number(FC_PACKS[i].coins||0)>=cost){pack=FC_PACKS[i];break}
+        if(isPinOrDelete && FC_PACKS && FC_PACKS.length){
+          pack=FC_PACKS.find(function(p){return Number(p.usd)===5})||FC_PACKS[0];
+        }else{
+          for(var i=0;i<(FC_PACKS||[]).length;i++){
+            if(Number(FC_PACKS[i].coins||0)>=cost){pack=FC_PACKS[i];break}
+          }
+          if(!pack && FC_PACKS && FC_PACKS.length) pack=FC_PACKS[FC_PACKS.length-1];
         }
-        if(!pack && FC_PACKS && FC_PACKS.length) pack=FC_PACKS[FC_PACKS.length-1];
       }catch(e){}
-      if(!pack) pack={usd:50,coins:600,url:(typeof THRONE_PACK_50!=='undefined'?THRONE_PACK_50:'')};
+      if(!pack) pack={usd:5,coins:60,url:(typeof THRONE_PACK_5!=='undefined'?THRONE_PACK_5:''),paypal:(typeof PAYPAL_ME!=='undefined'?PAYPAL_ME+'/5':'')};
+      var packUsd=Number(pack.usd||5)||5;
+      var packCoins=Number(pack.coins||60)||60;
+      var actionCost=(typeof FC_COSTS!=='undefined' && (FC_COSTS.pin||FC_COSTS.delete))||10;
+      var actionsFromPack=Math.max(1,Math.floor(packCoins/actionCost));
+      var bal=Number(window.__fcLast||0)||0;
+      try{closeModals()}catch(e){}
+      try{var fm=document.getElementById('feature-modal');if(fm)fm.style.display='none'}catch(e){}
       var ov=document.getElementById('need-coins-modal');
       if(!ov){
         ov=document.createElement('div');
@@ -10723,25 +10738,43 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.86);z-index:9200;display:flex;align-items:flex-end;justify-content:center;padding:16px';
         document.body.appendChild(ov);
       }
-      var primary='';
+      var throneUrl=pack.url||(typeof THRONE_PACK_5!=='undefined'?THRONE_PACK_5:'https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899');
+      var paypalUrl=pack.paypal||((typeof PAYPAL_ME!=='undefined'?PAYPAL_ME:'https://www.paypal.me/MartinJimenez205')+'/'+packUsd);
+      var whyLabel=/^pin/i.test(actionKey)?'Pin':(/delete|remove/i.test(actionKey)?'Delete':why);
+      var bodyHtml='';
       if(isPrint){
-        primary='<a class="btn" href="'+(typeof THRONE_PRINT!=='undefined'?THRONE_PRINT:'https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E')+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;width:100%;margin-bottom:8px;background:#4c1d95;color:#fff;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins()">Pay $40 on Throne</a>'
+        bodyHtml='<p style="color:#bdbdbd;font-size:13px;line-height:1.4;margin:0 0 12px">Print needs 350 Coins — pay $40 cash or buy a pack with enough Coins.</p>'
+          +'<a class="btn" href="'+(typeof THRONE_PRINT!=='undefined'?THRONE_PRINT:'https://throne.com/mastersan/item/01F215C1-ABE2-4A81-A582-49A7AFCA9C9E')+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;width:100%;margin-bottom:8px;background:#4c1d95;color:#fff;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins()">Pay $40 on Throne</a>'
           +'<button type="button" class="btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins();openCoinShop()">Buy $50 pack · 600 Coins</button>';
       }else{
-        primary='<button type="button" class="btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins();openCoinShop()">Buy $'+pack.usd+' pack · '+pack.coins+' Coins</button>';
+        bodyHtml='<div style="background:#0c0c0e;border:1px solid rgba(255,106,0,.35);border-radius:14px;padding:14px 12px;margin-bottom:12px">'
+          +'<div style="font-size:13px;color:#ffb35c;font-weight:800;margin-bottom:4px">60 Coins — $5 USD</div>'
+          +'<div style="font-size:12px;color:#ddd;line-height:1.5">With those 60 Coins you can perform up to <strong style="color:#fff">'+actionsFromPack+' actions</strong> inside RuinExpose (Pin or Delete = '+actionCost+' Coins each).</div>'
+          +'</div>'
+          +'<div style="font-size:12px;color:#9a9aa3;margin:0 0 10px;text-align:center">Pay with an existing method · Coins credit after payment is confirmed</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+          +'<a class="btn" href="'+throneUrl+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;background:#4c1d95;color:#fff;border:0;font-weight:900;padding:13px;border-radius:12px" onclick="try{startPayTicket({kind:\'coins\',label:\''+packCoins+' Coins pack\',amount:\'$'+packUsd+'\',coins:'+packCoins+'})}catch(e){}">Throne $'+packUsd+'</a>'
+          +'<a class="btn" href="'+paypalUrl+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;background:#0070ba;color:#fff;border:0;font-weight:900;padding:13px;border-radius:12px" onclick="try{startPayTicket({kind:\'coins\',label:\''+packCoins+' Coins pack\',amount:\'$'+packUsd+'\',coins:'+packCoins+',provider:\'paypal\'})}catch(e){}">PayPal $'+packUsd+'</a>'
+          +'</div>'
+          +'<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:8px;font-weight:800" onclick="try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast(\'BTC wallet copied\')}).catch(function(){toast(\'BTC: \'+BTC_WALLET)})}catch(e){toast(\'BTC: \'+BTC_WALLET)}">₿ Copy Bitcoin wallet</button>'
+          +'<button type="button" class="btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins();confirmCoinPackPaid({usd:'+packUsd+',coins:'+packCoins+',url:\''+String(throneUrl).replace(/'/g,'')+'\',paypal:\''+String(paypalUrl).replace(/'/g,'')+'\'})">I paid — request '+packCoins+' Coins</button>';
       }
       ov.innerHTML='<div style="width:100%;max-width:400px;background:#121214;border:1px solid rgba(255,106,0,.4);border-radius:20px 20px 14px 14px;padding:18px 16px 16px">'
-        +'<div style="font-size:11px;letter-spacing:1.4px;color:#ffb35c;font-weight:800;margin-bottom:6px">INSUFFICIENT Coins</div>'
-        +'<div style="font-size:22px;font-weight:900;margin-bottom:6px">Need '+cost+' Coins for '+esc(why)+'</div>'
-        +'<p style="color:#bdbdbd;font-size:13px;line-height:1.4;margin:0 0 12px">'+(isPrint?'Print needs 350 Coins — pay $40 cash or buy a pack with enough Coins.':('Recharge from $5 → 60 Coins. Minimum top-up $5.'))+'</p>'
-        +'<div style="background:#0c0c0e;border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.55;margin-bottom:12px;color:#ddd">'
-        +'⭐ Pin 10 Coins · 🗑 Delete 10 Coins · 🎰 Roulette/Triki/Dice 10 Coins → 10 uses · 🖨 Print 350 Coins</div>'
-        +primary
+        +'<div style="font-size:11px;letter-spacing:1.4px;color:#ffb35c;font-weight:800;margin-bottom:6px">RECHARGE COINS</div>'
+        +'<div style="font-size:22px;font-weight:900;margin-bottom:6px">Recharge Coins</div>'
+        +'<p style="color:#bdbdbd;font-size:13px;line-height:1.45;margin:0 0 8px">You need <strong style="color:#f5c518">'+cost+' Coins</strong> to '+esc(whyLabel)+'. Balance: <strong style="color:#fff">'+bal+' Coins</strong>.</p>'
+        +'<p style="color:#9a9aa3;font-size:12px;line-height:1.4;margin:0 0 12px">Coins are account credit — buy once, then spend on Pin, Delete, and other actions. No $5 charge per action.</p>'
+        +bodyHtml
         +'<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeNeedCoins();openCoinShop()">See all packs</button>'
         +'<button type="button" class="btn btn-ghost" style="width:100%" onclick="closeNeedCoins()">Not now</button>'
         +'</div>';
       ov.style.display='flex';
       ov.onclick=function(e){if(e.target===ov)closeNeedCoins()};
+      try{loadFagBalance().then(function(n){
+        bal=Number(n)||0;
+        var tip=ov.querySelector('p');
+        if(tip) tip.innerHTML='You need <strong style="color:#f5c518">'+cost+' Coins</strong> to '+esc(whyLabel)+'. Balance: <strong style="color:#fff">'+bal+' Coins</strong>.';
+      })}catch(e){}
     }
     function closeNeedCoins(){
       var ov=document.getElementById('need-coins-modal');
@@ -11219,7 +11252,7 @@ async function claimPayPalPack(p){
           }
           if(apiJ&&apiJ.error==='insufficient'){
             toast('Insufficient Coins — need '+cost+' Coins');
-            try{openNeedCoins({cost:cost,why:action})}catch(e){}
+            try{openNeedCoins({cost:cost,why:action,action:action})}catch(e){}
             return false;
           }
         }catch(e){}
@@ -11233,7 +11266,7 @@ async function claimPayPalPack(p){
           }
           if(cf&&cf.error==='insufficient'){
             toast('Insufficient Coins — need '+cost+' Coins');
-            try{openNeedCoins({cost:cost,why:action})}catch(e){}
+            try{openNeedCoins({cost:cost,why:action,action:action})}catch(e){}
             return false;
           }
         }catch(e){}
@@ -27281,7 +27314,7 @@ function postCardHtml(p, compact){
         +'<button class="dx-row" type="button" onclick="downloadPost('+jsId(post.id)+')">Download</button>'
         +'<button class="dx-row dx-share" type="button" onclick="sharePost('+jsId(post.id)+')"><span class="share-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.3 10.8 7.4-4"/><path d="m8.3 13.2 7.4 4"/></svg></span>Share</button>'
         +'<button class="dx-row" type="button" onclick="toggleSave('+jsId(post.id)+')">'+(isSaved(post.id)?'Saved':'Save')+'</button>'
-        +'<button class="dx-pin" type="button" onclick="openFeature('+jsId(post.id)+')"><b>Request Feature</b><i>10 Coins · 48h</i></button>'
+        +'<button class="dx-pin" type="button" onclick="requestPinAction('+jsId(post.id)+')"><b>Pin</b><i>10 Coins · 48h</i></button>'
         +removeBtn
         +'</div>';
       var contactNotice=postDetailContactNoticeHtml();
@@ -30954,16 +30987,17 @@ async function onIdFace(e){
       try{
         var throne=document.getElementById('btn-remove-throne');
         var paypal=document.getElementById('btn-remove-paypal')||document.querySelector('#remove-modal a[href*="paypal"]');
-        var buy=document.getElementById('btn-remove-buycoins');
-        if(throne) throne.style.display=show?'block':'none';
-        if(paypal) paypal.style.display=show?'block':'none';
-        if(buy) buy.style.display=show?'block':'none';
+        // External $5-per-delete CTAs stay hidden under Coins economy.
+        // Recharge (btn-remove-buycoins) is controlled separately by openRemove.
+        if(throne) throne.style.display='none';
+        if(paypal) paypal.style.display='none';
       }catch(e){}
     }
     function openRemove(id){
       // Universal delete modal:
       // - Owner (any identity that owns the post) → free immediate delete
-      // - Anyone else → $5 PayPal/Throne (admin verify) or 50 FC (auto-delete)
+      // - Admin moderation → free immediate delete
+      // - Anyone else → 10 Coins from balance (recharge if insufficient). No $5-per-delete.
       window.__removePostId=id||currentDetailId;
       window.__removeRequestKind='paid';
       var post=null;
@@ -30986,40 +31020,56 @@ async function onIdFace(e){
       var fc=document.getElementById('btn-remove-fc');
       var paid=document.getElementById('btn-remove-paid');
       var cancel=document.getElementById('btn-cancel-rm');
+      var buy=document.getElementById('btn-remove-buycoins');
       if(cancel) cancel.textContent='Cancel';
       try{
         var stBox=document.getElementById('remove-request-status');
         if(stBox){stBox.style.display='none';stBox.textContent=''}
       }catch(e){}
       var delCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.delete)||10;
+      function showRemoveModal(){
+        var modal=document.getElementById('remove-modal');
+        if(modal){modal.style.display='';modal.classList.add('show');}
+      }
       if(owner){
         // Owner always free — no coins, no admin.
         if(title) title.textContent='Delete your post';
         if(pEl) pEl.innerHTML='You own this post. Delete it now for <strong style="color:#86efac">free</strong>? It disappears for everyone immediately.';
         if(fc){fc.style.display='block';fc.textContent='Delete now — free';fc.setAttribute('onclick','deleteWallFree()');}
         if(paid) paid.style.display='none';
+        if(buy) buy.style.display='none';
         setRemoveModalExternalPay(false);
+        showRemoveModal();
       }else if(admin && !(currentUser&&currentUser.name&&post&&typeof samePostOwner==='function'&&samePostOwner(post,currentUser.name))){
         if(title) title.textContent='Admin delete';
         if(pEl) pEl.innerHTML='Moderation delete for post <strong>#'+esc(String(window.__removePostId||''))+'</strong>. Removes it immediately.';
         if(fc){fc.style.display='block';fc.textContent='Admin delete now';fc.setAttribute('onclick','deleteWallFree()');}
         if(paid) paid.style.display='none';
+        if(buy) buy.style.display='none';
         setRemoveModalExternalPay(false);
+        showRemoveModal();
       }else{
-        // Non-owner: FC auto-delete OR external $5 → pending admin verify (never auto-delete on link tap).
-        if(title) title.textContent='Delete · '+delCost+' Coins or $5';
-        if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. <strong style="color:#f5c518">'+delCost+' Coins</strong> deletes it immediately. PayPal / Throne <strong style="color:#f5c518">$5</strong> needs admin verification after you tap <strong>I paid</strong>.';
-        if(fc){
-          fc.style.display='block';
-          fc.textContent='Delete now — '+delCost+' Coins';
-          fc.setAttribute('onclick','requestDeleteWithCoins()');
-        }
-        if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verify'}
-        setRemoveModalExternalPay(true);
-        try{showRemoveRequestStatus(id)}catch(e){}
+        // Non-owner: Coins balance only. Insufficient → Recharge Coins ($5 → 60). Never charge $5 per delete.
+        setRemoveModalExternalPay(false);
+        if(paid) paid.style.display='none';
+        if(buy) buy.style.display='block';
+        (async function(){
+          var bal=Number(window.__fcLast||0)||0;
+          try{bal=Number(await loadFagBalance())||0}catch(e){}
+          if(bal<delCost){
+            try{openNeedCoins({cost:delCost,why:'delete',action:'delete'})}catch(e){try{openCoinShop()}catch(err){}}
+            return;
+          }
+          if(title) title.textContent='Delete · '+delCost+' Coins';
+          if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. Costs <strong style="color:#f5c518">'+delCost+' Coins</strong> from your balance and deletes it immediately. No separate $5 charge.';
+          if(fc){
+            fc.style.display='block';
+            fc.textContent='Delete now — '+delCost+' Coins';
+            fc.setAttribute('onclick','requestDeleteWithCoins()');
+          }
+          showRemoveModal();
+        })();
       }
-      var modal=document.getElementById('remove-modal');
-      if(modal){modal.style.display='';modal.classList.add('show');}
     }
     /** Server-side delete: verifies owner (username or ownerToken), charges 50 FC when required, then deletes. */
     async function secureDeletePost(id, opts){
@@ -31174,8 +31224,8 @@ async function onIdFace(e){
           try{if(j.balance!=null) window.__fcLast=Number(j.balance)||0}catch(e){}
           try{await loadFagBalance()}catch(e){}
           var have=j.have!=null?j.have:(j.balance!=null?j.balance:window.__fcLast);
-          toast('Insufficient Coins — need '+(j.need||j.cost||50)+' Coins'+(have!=null?(' · have '+have):''));
-          try{openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})}catch(e){try{openCoinShop()}catch(err){}}
+          toast('Insufficient Coins — need '+(j.need||j.cost||((typeof FC_COSTS!=='undefined'&&FC_COSTS.delete)||10))+' Coins'+(have!=null?(' · have '+have):''));
+          try{openNeedCoins({cost:j.need||j.cost||((typeof FC_COSTS!=='undefined'&&FC_COSTS.delete)||10),why:'delete',action:'delete'})}catch(e){try{openCoinShop()}catch(err){}}
           return false;
         }
         if(j && (j.error==='spend_timeout' || j.error==='awaiting_spend_verify' || j.error==='spend_not_found' || j.error==='delete_in_progress' || r.status===409 || r.status===503)){
@@ -31259,7 +31309,8 @@ async function onIdFace(e){
             window.__lastDeleteStatus='insufficient';
             try{await loadFagBalance()}catch(e4){}
             var have2=retry.j.have!=null?retry.j.have:(retry.j.balance!=null?retry.j.balance:null);
-            toast('Insufficient Coins — need '+(retry.j.need||retry.j.cost||50)+' Coins'+(have2!=null?(' · have '+have2):''));
+            toast('Insufficient Coins — need '+(retry.j.need||retry.j.cost||((typeof FC_COSTS!=='undefined'&&FC_COSTS.delete)||10))+' Coins'+(have2!=null?(' · have '+have2):''));
+            try{openNeedCoins({cost:retry.j.need||retry.j.cost||((typeof FC_COSTS!=='undefined'&&FC_COSTS.delete)||10),why:'delete',action:'delete'})}catch(e){}
             return false;
           }
           if(retry.j && retry.j.refunded){
@@ -31600,7 +31651,7 @@ async function onIdFace(e){
         if(!charged && bal<cost){
           deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' Coins · have '+bal,txn:txnId});
           toast('Insufficient Coins — need '+cost+' Coins · have '+bal);
-          try{openNeedCoins({cost:cost,why:'delete post'})}catch(e){}
+          try{openNeedCoins({cost:cost,why:'delete',action:'delete'})}catch(e){}
           patchDeleteTxn(id,uid,{status:'failed_no_charge'});
           setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
           return false;
@@ -31994,7 +32045,7 @@ async function onIdFace(e){
     setTimeout(function(){try{stripHomePin()}catch(e){}},400);
     function openPremium(){
       try{stripHomePin()}catch(e){}
-      toast('Open a post → Premium Pin');
+      toast('Open a post → Pin (10 Coins)');
       return;
       var html='<div style="padding:8px 0 12px">'
         +'<div style="font-size:11px;letter-spacing:2px;color:var(--orange);font-weight:800;margin-bottom:6px">PIN</div>'
@@ -32067,11 +32118,39 @@ async function onIdFace(e){
         ov.onclick=function(e){if(e.target===ov)ov.style.display='none'};
       }catch(e){}
     }
+    async function requestPinAction(id){
+      id=id||(typeof currentDetailId!=='undefined'?currentDetailId:null);
+      if(!id){toast('Open the post first');return false}
+      var cost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
+      var uid=typeof coinUserId==='function'?coinUserId():((currentUser&&currentUser.name)||'');
+      uid=String(uid||'').replace(/^@/,'').trim();
+      if(!uid || uid==='anon' || uid==='guest'){
+        toast('Login required');
+        try{showAuth('login')}catch(e){}
+        return false;
+      }
+      var bal=Number(window.__fcLast||0)||0;
+      try{bal=Number(await loadFagBalance())||0}catch(e){}
+      if(bal<cost){
+        try{openNeedCoins({cost:cost,why:'pin',action:'pin'})}catch(e){try{openCoinShop()}catch(err){}}
+        return false;
+      }
+      return await pinWithCoins(id);
+    }
+    window.requestPinAction=requestPinAction;
     async function pinWithCoins(id){
-      payProgress(true,'Pin · 10 Coins','Charging coins…',25);
+      var cost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
+      // Pre-check balance so we never open a $5-per-pin window — recharge Coins instead.
+      var balPre=Number(window.__fcLast||0)||0;
+      try{balPre=Number(await loadFagBalance())||balPre}catch(e){}
+      if(balPre<cost){
+        try{openNeedCoins({cost:cost,why:'pin',action:'pin'})}catch(e){try{openCoinShop()}catch(err){}}
+        return false;
+      }
+      payProgress(true,'Pin · '+cost+' Coins','Charging coins…',25);
       var ok=await spendFagCoins('pin', String(id));
-      if(!ok){payProgress(false);try{openNeedCoins({cost:(FC_COSTS.pin||10),why:'pin'})}catch(e){try{openCoinShop()}catch(err){}}return}
-      payProgress(true,'Pin · 10 Coins','Pinning on the site…',70);
+      if(!ok){payProgress(false);try{openNeedCoins({cost:cost,why:'pin',action:'pin'})}catch(e){try{openCoinShop()}catch(err){}}return false}
+      payProgress(true,'Pin · '+cost+' Coins','Pinning on the site…',70);
       var pinDone=false;
       setTimeout(function(){if(!pinDone){payProgress(true,'Pinned','Closing…',100);setTimeout(function(){payProgress(false)},600)}},8000);
       try{document.getElementById('feature-modal').style.display='none'}catch(e){}
@@ -32094,6 +32173,8 @@ async function onIdFace(e){
       pinDone=true;
       payProgress(true,'Pinned 48h','Visible on top for everyone',100);
       setTimeout(function(){payProgress(false)},700);
+      toast('Pinned · −'+cost+' Coins');
+      return true;
     }
     window.pinWithCoins=pinWithCoins;
     var __pinRequestLocks = {};
@@ -32379,30 +32460,21 @@ async function onIdFace(e){
         if(post){posts=posts||[];posts.unshift(post)}
       }catch(e){}
       if(!post){toast('Post not loaded');return}
-      var html;
-      if(isFeatured(post)){
-        var left=postFeaturedUntil(post)-Date.now();
-        html='<div style="padding:8px 0 16px">'
-          +'<div style="font-size:18px;font-weight:800;margin-bottom:8px">Already on Spotlight</div>'
-          +'<p style="color:var(--text);font-size:14px;line-height:1.5;margin-bottom:10px">This post is pinned for <strong>'+fmt(left)+'</strong>.</p>'
-          +'<p style="margin-bottom:14px">Add another 48 hours: <strong style="color:#f5c518">10 Coins</strong></p>'
-          +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" onclick="pinWithCoins('+jsId(id)+')">Renew pin — 10 Coins</button>'
-          +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" onclick="document.getElementById(\'feature-modal\').style.display=\'none\';openCoinShop()">Buy Coins</button>'
-          +'<button class="btn btn-ghost" style="width:100%" type="button" id="btn-feature-cancel">Close</button>'
-          +'</div>';
-      } else html='<div style="padding:8px 0 16px">'
-        +'<div style="font-size:18px;font-weight:800;margin-bottom:8px">Premium Pin</div>'
-        +'<p style="color:var(--text);font-size:14px;line-height:1.5;margin-bottom:8px;font-weight:600">Pin this exposure at the <span style="color:var(--orange)">top of the feed</span> for 48 hours.</p>'
-        +'<p style="color:var(--muted);font-size:13px;line-height:1.45;margin-bottom:10px">Everyone sees you first. More views. More attention. More ruin.</p>'
-        +'<p style="margin-bottom:10px">Price: <strong style="color:#f5c518;font-size:16px">$5 USD</strong> <span style="color:var(--muted);font-size:12px">· or 10 Coins</span></p>'
-        +'<a class="btn btn-primary" href="'+PAYPAL_ME+'/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;width:100%;margin-bottom:8px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{remindPinPayment('+jsId(id)+')}catch(e){};try{startPayTicket({kind:\'pin\',label:\'Premium Pin\',amount:\'$5\',postId:'+jsId(id)+'})}catch(e){}">PayPal $5 · MartinJimenez205</a>'
-        +'<button class="btn btn-secondary" type="button" id="btn-feature-paid" style="width:100%;margin-bottom:8px;font-weight:800">I paid $5 — request pin</button>'
-        +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" onclick="pinWithCoins('+jsId(id)+')">Pin now — 10 Coins</button>'
-        +'<div id="pin-request-status" style="font-size:12px;color:var(--muted);text-align:center;margin:2px 0 10px">PayPal does not auto-pin. Admin verifies payment before Spotlight.</div>'
-        +'<button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin-bottom:8px" onclick="document.getElementById(\'feature-modal\').style.display=\'none\';openCoinShop()">Buy Coins</button>'
-        +'<button class="btn btn-ghost" style="width:100%" type="button" id="btn-feature-cancel">Cancel</button>'
+      // Not featured yet → spend 10 Coins immediately (or open Recharge Coins). No Premium Pin · $5 window.
+      if(!isFeatured(post)){
+        try{requestPinAction(id)}catch(e){try{pinWithCoins(id)}catch(err){}}
+        return;
+      }
+      var left=postFeaturedUntil(post)-Date.now();
+      var pinCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
+      var html='<div style="padding:8px 0 16px">'
+        +'<div style="font-size:18px;font-weight:800;margin-bottom:8px">Already on Spotlight</div>'
+        +'<p style="color:var(--text);font-size:14px;line-height:1.5;margin-bottom:10px">This post is pinned for <strong>'+fmt(left)+'</strong>.</p>'
+        +'<p style="margin-bottom:14px">Add another 48 hours: <strong style="color:#f5c518">'+pinCost+' Coins</strong> from your balance</p>'
+        +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" onclick="requestPinAction('+jsId(id)+')">Renew pin — '+pinCost+' Coins</button>'
+        +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" onclick="document.getElementById(\'feature-modal\').style.display=\'none\';openNeedCoins({cost:'+pinCost+',why:\'pin\',action:\'pin\'})">Recharge Coins · $5 → 60</button>'
+        +'<button class="btn btn-ghost" style="width:100%" type="button" id="btn-feature-cancel">Close</button>'
         +'</div>';
-      // reuse a simple modal via toast-like overlay
       var ov=document.getElementById('feature-modal');
       if(!ov){
         ov=document.createElement('div');
@@ -32415,28 +32487,8 @@ async function onIdFace(e){
       ov.onclick=function(e){if(e.target===ov)ov.style.display='none'};
       var cancel=document.getElementById('btn-feature-cancel');
       if(cancel)cancel.onclick=function(){ov.style.display='none'};
-      var paid=document.getElementById('btn-feature-paid');
-      if(paid)paid.onclick=async function(){
-        try{
-          var req=JSON.parse(localStorage.getItem('rs_feature_req')||'[]');
-          var th='';
-          try{var im=post.images&&post.images.length?post.images:parseImages(post.image);th=(im&&im[0])||post.image||''}catch(e){}
-          req.unshift({id:id,title:post.title,user:post.user,at:Date.now(),thumb:th,amount:'$5',pending:true});
-          localStorage.setItem('rs_feature_req',JSON.stringify(req.slice(0,30)));
-        }catch(e){}
-        try{startPayTicket({kind:'pin',label:'Premium Pin',amount:'$5',postId:id})}catch(e){}
-        await notifyAdminPayment({
-          kind:'feature_request',
-          postId:id,
-          user:(currentUser&&currentUser.name)||(post&&post.user)||'guest',
-          amount:'$5',
-          label:'PREMIUM PIN',
-          message:'⭐ PIN $5 — post #'+id+' by @'+((post&&post.user)||'user')+' · '+String((post&&post.title)||'').slice(0,40)+' · PayPal MartinJimenez205 · PENDING VERIFY'
-        });
-        ov.style.display='none';
-        toast('Pin pending — admin verifies $5 PayPal before Spotlight');
-      };
     }
+    window.openFeature=openFeature;
 
     function postShareUrl(id){
       return typeof postPermalink==='function'?postPermalink(id):(siteOrigin()+'/post/'+encodeURIComponent(String(id)));

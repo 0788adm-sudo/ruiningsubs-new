@@ -154,7 +154,15 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     return json(res, 200, {
       ok: true,
+      // Official economy: $5 = 60 Coins; Pin/Delete = 10 Coins each (6 actions per min pack).
+      economy: {
+        usd_per_pack: 5,
+        coins_per_pack: 60,
+        action_cost: 10,
+        actions_per_min_pack: 6
+      },
       costs: {
+        pin: FC_COSTS.pin,
         delete: FC_COSTS.delete,
         roulette: FC_COSTS.roulette,
         dice: FC_COSTS.dice,
