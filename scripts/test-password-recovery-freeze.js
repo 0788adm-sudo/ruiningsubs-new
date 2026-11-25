@@ -70,9 +70,7 @@ ok(html.indexOf('opts.fromRecovery') >= 0 || html.indexOf('fromRecovery:true') >
 ok(html.indexOf('!isRegistered()&&!window.__rs_recovery') >= 0,
   'showPanel does not force login over recovery form');
 
-ok(html.indexOf('Duplicate onAuthStateChange') >= 0 || html.indexOf('do not\n        // register a second handler') >= 0 ||
-  html.indexOf('do not register a second handler') >= 0 ||
-  html.indexOf('Recovery PASSWORD_RECOVERY listener is bound once') >= 0,
+ok(html.indexOf('__rs_recovery_auth_bound') >= 0,
   'duplicate PASSWORD_RECOVERY listener removed');
 
 var saveFn = sliceFn('doSaveNewPassword', 'openRecoveryUI');

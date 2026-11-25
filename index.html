@@ -1157,6 +1157,13 @@
     body.rs-recovery-mode #modal-tg-group{display:none!important}
     body.rs-recovery-mode #btn-scroll-top{display:none!important}
     body.rs-recovery-mode #rs-boot-rescue{display:none!important}
+    /* Keep profile auth/actions clear of the fixed bottom nav + iOS home indicator. */
+    #panel-profile{padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))}
+    #auth-wrap .auth-pane,
+    #logged-wrap{padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))}
+    #auth-login,#auth-register,#auth-forgot,#auth-newpass{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+    .bottom-nav{pointer-events:auto}
+    .bottom-nav .nav-row{isolation:isolate}
     .auth-tabs{display:flex;gap:8px;margin-bottom:12px}
     .auth-tabs .tab{flex:1;padding:12px 10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-weight:700;font-size:14px}
     .auth-tabs .tab.active{background:var(--orange);color:#000;border-color:var(--orange)}
@@ -3254,7 +3261,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-reset" type="button">Send reset link</button>
             <button class="btn btn-ghost" style="width:100%" id="btn-back-login" type="button">Back to Login</button>
           </div>
-          <div id="auth-newpass" class="auth-pane" style="display:none;padding-bottom:96px">
+          <div id="auth-newpass" class="auth-pane" style="display:none">
             <p class="auth-hint">Choose a new password for your account</p>
             <div id="recovery-session-status" style="display:none;font-size:12px;line-height:1.4;margin:0 0 10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border)"></div>
             <div class="form-group"><label for="new-password">New password</label><div class="pw-field"><input type="password" id="new-password" name="new-password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" minlength="6" placeholder="Min 6 characters"/><button type="button" class="pw-toggle" id="btn-toggle-new-pass" aria-label="Show password" tabindex="-1">Show</button></div></div>
@@ -5668,18 +5675,42 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});
         window.sb=sb;
       }
-      // Single recovery listener — duplicate onAuthStateChange handlers re-open the form,
-      // call forceTop/scrollTo, and freeze iOS/Telegram inputs after "Link verified".
+      // Single auth listener — recovery + session sync. Duplicate handlers re-open
+      // recovery UI (freeze) and fight login/logout shell visibility.
       if(!window.__rs_recovery_auth_bound){
         window.__rs_recovery_auth_bound=true;
         sb.auth.onAuthStateChange(function(event, session){
-          if(event==='PASSWORD_RECOVERY'){
-            window.__rs_recovery=true;
-            window.__rs_recovery_session_ok=!!(session&&session.user);
-            setTimeout(function(){
-              try{openRecoveryUI({sessionOk:!!(session&&session.user)})}catch(e){}
-            },120);
-          }
+          try{
+            if(event==='PASSWORD_RECOVERY'){
+              window.__rs_recovery=true;
+              window.__rs_recovery_session_ok=!!(session&&session.user);
+              setTimeout(function(){
+                try{openRecoveryUI({sessionOk:!!(session&&session.user)})}catch(e){}
+              },120);
+              return;
+            }
+            if(event==='SIGNED_OUT'){
+              if(window.__rs_recovery) return;
+              setTimeout(function(){
+                try{
+                  if(typeof applySignedOutLocal==='function') applySignedOutLocal({quiet:true});
+                  else if(typeof syncAuthShell==='function') syncAuthShell();
+                }catch(e){}
+              },0);
+              return;
+            }
+            if(event==='SIGNED_IN' || event==='TOKEN_REFRESHED' || event==='INITIAL_SESSION' || event==='USER_UPDATED'){
+              if(window.__rs_recovery) return;
+              if(session&&session.user){
+                setTimeout(function(){
+                  try{
+                    if(typeof applyAuthFromSession==='function') applyAuthFromSession(session,{quiet:true,skipHeavy:true});
+                    else if(typeof syncAuthShell==='function') syncAuthShell();
+                  }catch(e){}
+                },0);
+              }
+            }
+          }catch(err){console.error(err)}
         });
       }
     }}catch(e){console.error(e)}
@@ -7479,47 +7510,216 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
       currentUser={name:uid,role:role,email:email,account_type:(role==='user'&&!isAnonymousAccountName(uid))?'registered':'anonymous',anonymous_user_id:anonId||null};
       try{loadLocalAnonSubMap()}catch(e){}
+      // Optimistic shell from localStorage — hide Login immediately if last session was registered.
+      try{syncAuthShell()}catch(e){}
       refreshProfileUI();
       try{
         refreshAnonSubMap(false).then(function(){try{refreshProfileUI()}catch(e){}}).catch(function(){});
       }catch(e){}
       try{ensureAnonIdentity(false).then(function(){try{refreshProfileUI()}catch(e){}}).catch(function(){})}catch(e){}
       if(sb){
-        // Recovery PASSWORD_RECOVERY listener is bound once at client create — do not
-        // register a second handler here (duplicate openRecoveryUI freezes inputs).
         // Never block first paint on a hung getSession (mobile / Telegram WebViews).
         sbAuthTimeout(sb.auth.getSession(), 9000).then(function(res){
           if(res&&res.error&&res.error.name==='AuthTimeout'){
             console.warn('getSession timed out — continuing with local identity');
+            try{syncAuthShell()}catch(e){}
             refreshProfileUI();
             return;
           }
           var session=res&&res.data&&res.data.session;
           if(session&&session.user){
-            var meta=session.user.user_metadata||{};
-            var name=meta.username||localStorage.getItem('rs_uid')||(session.user.email||'').split('@')[0];
-            name=String(name).replace(/[^a-zA-Z0-9_]/g,'').slice(0,20)||'user';
-            try{name=resolveCurrentUsername(name)||name}catch(e){}
-            if(session.user.id) rememberAuthUserId(session.user.id);
-            currentUser={name:name,role:'user',email:session.user.email||email,auth_user_id:session.user.id||getAuthUserId()||null,account_type:'registered',anonymous_user_id:getStableAnonId()||null};
-            try{enforceCurrentAccount()}catch(e){}
-            localStorage.setItem('rs_uid',name);
-            localStorage.setItem('rs_role','user');
-            if(session.user.email)localStorage.setItem('rs_email',session.user.email);
-            try{refreshUsernameAliasMap(false)}catch(e){}
+            applyAuthFromSession(session,{quiet:true,skipHeavy:false});
+          } else if(role==='user' && uid && !isAnonymousAccountName(uid)){
+            // Local said registered but Supabase has no session — show Login.
+            applySignedOutLocal({quiet:true,force:true});
+          } else {
+            try{syncAuthShell()}catch(e){}
             refreshProfileUI();
-            try{updateProfilePanel()}catch(e){}
-          } else if(role==='user' && uid && uid.indexOf('Anon_')!==0){
-            // keep local registered state if supabase session expired
-            currentUser={name:uid,role:'user',email:email};
-            refreshProfileUI();
-            try{updateProfilePanel()}catch(e){}
           }
-        }).catch(function(){try{refreshProfileUI()}catch(e){}});
+        }).catch(function(){try{syncAuthShell();refreshProfileUI()}catch(e){}});
+      } else {
+        try{syncAuthShell()}catch(e){}
       }
     }
     function isRegistered(){
       return !!(currentUser&&currentUser.role==='user'&&currentUser.name&&!isAnonymousAccountName(currentUser.name));
+    }
+    /**
+     * Single source of truth for auth shell visibility.
+     * Call immediately whenever currentUser / __rs_recovery changes — never wait
+     * on profile fetches or XP loads (that left Login visible while "Registered").
+     */
+    function syncAuthShell(){
+      try{
+        var recovering=!!window.__rs_recovery;
+        var logged=isRegistered();
+        var showLogged=logged && !recovering;
+        var authWrap=document.getElementById('auth-wrap');
+        var loggedWrap=document.getElementById('logged-wrap');
+        if(authWrap) authWrap.style.display=showLogged?'none':'block';
+        if(loggedWrap) loggedWrap.style.display=showLogged?'block':'none';
+        try{
+          document.body.classList.toggle('rs-auth-logged', showLogged);
+          document.body.classList.toggle('rs-auth-guest', !showLogged && !recovering);
+          document.body.classList.toggle('rs-recovery-mode', recovering);
+        }catch(eCls){}
+        if(recovering){
+          try{
+            showAuth('newpass',{noScroll:true});
+            var np=document.getElementById('auth-newpass');
+            if(np) np.style.display='block';
+            if(typeof ensureRecoveryFormInteractive==='function') ensureRecoveryFormInteractive();
+          }catch(eRec){}
+        }
+        return showLogged;
+      }catch(e){return false}
+    }
+    function applyAuthFromSession(session, opts){
+      opts=opts||{};
+      if(!session||!session.user) return false;
+      if(window.__rs_recovery && !opts.allowDuringRecovery) return false;
+      var meta=session.user.user_metadata||{};
+      var email=session.user.email||(localStorage.getItem('rs_email')||'');
+      var name=meta.username||localStorage.getItem('rs_uid')||(email||'').split('@')[0];
+      name=String(name).replace(/[^a-zA-Z0-9_]/g,'').slice(0,20)||'user';
+      try{name=resolveCurrentUsername(name)||name}catch(e){}
+      if(session.user.id) rememberAuthUserId(session.user.id);
+      currentUser={
+        name:name,
+        role:'user',
+        email:email,
+        auth_user_id:session.user.id||getAuthUserId()||null,
+        account_type:'registered',
+        anonymous_user_id:getStableAnonId()||null
+      };
+      try{enforceCurrentAccount()}catch(e){}
+      try{
+        localStorage.setItem('rs_uid',name);
+        localStorage.setItem('rs_role','user');
+        if(email) localStorage.setItem('rs_email',email);
+      }catch(e){}
+      syncAuthShell();
+      try{refreshProfileUI()}catch(e){}
+      if(!opts.skipHeavy){
+        try{refreshUsernameAliasMap(!!opts.forceAlias)}catch(e){}
+        try{updateProfilePanel()}catch(e){}
+      }
+      return true;
+    }
+    function applySignedOutLocal(opts){
+      opts=opts||{};
+      if(window.__rs_recovery && !opts.force) return;
+      var aid='';
+      try{aid=getAnonSessionId()}catch(e){aid=''}
+      if(!aid){
+        try{aid=String(localStorage.getItem('rs_anon_id')||'')}catch(e){}
+      }
+      if(!aid || aid.length<6){
+        aid='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+        try{localStorage.setItem('rs_anon_id',aid);localStorage.setItem('rs_anon_session',aid)}catch(e){}
+      }
+      currentUser={name:'anon_'+aid,role:'guest',account_type:'anonymous',anonymous_user_id:aid};
+      try{
+        localStorage.setItem('rs_uid',currentUser.name);
+        localStorage.setItem('rs_role','guest');
+        localStorage.removeItem('rs_email');
+      }catch(e){}
+      try{clearAdminSession()}catch(e){}
+      syncAuthShell();
+      try{refreshProfileUI()}catch(e){}
+      try{updateProfilePanel()}catch(e){}
+      if(!opts.quiet) toast('Logged out');
+    }
+    async function doLogout(){
+      if(window.__rs_logout_busy) return;
+      window.__rs_logout_busy=true;
+      try{
+        clearRecoveryModeFlags();
+        applySignedOutLocal({quiet:true,force:true});
+        if(sb&&sb.auth){
+          try{await sbAuthTimeout(sb.auth.signOut(),8000)}catch(e){}
+        }
+        try{ensureAnonIdentity(false)}catch(e){}
+        showAuth('login',{noScroll:true});
+        syncAuthShell();
+        toast('Logged out');
+      }finally{
+        window.__rs_logout_busy=false;
+      }
+    }
+    window.syncAuthShell=syncAuthShell;
+    window.applyAuthFromSession=applyAuthFromSession;
+    window.applySignedOutLocal=applySignedOutLocal;
+    window.doLogout=doLogout;
+    async function revalidateAuthSession(opts){
+      opts=opts||{};
+      if(!sb||!sb.auth) return;
+      if(window.__rs_recovery) return;
+      if(window.__rs_revalidate_busy) return;
+      window.__rs_revalidate_busy=true;
+      try{
+        var res=await sbAuthTimeout(sb.auth.getSession(), opts.timeout||7000);
+        if(res&&res.error&&res.error.name==='AuthTimeout'){
+          // Keep optimistic local shell; do not force login on a hung mobile network.
+          syncAuthShell();
+          return;
+        }
+        var session=res&&res.data&&res.data.session;
+        if(session&&session.user){
+          applyAuthFromSession(session,{quiet:true,skipHeavy:!opts.heavy});
+        } else if(isRegistered() && !opts.keepLocalWithoutSession){
+          // Supabase has no session — clear optimistic registered state.
+          applySignedOutLocal({quiet:true,force:true});
+        } else {
+          syncAuthShell();
+        }
+      }catch(e){
+        try{syncAuthShell()}catch(e2){}
+      }finally{
+        window.__rs_revalidate_busy=false;
+      }
+    }
+    window.revalidateAuthSession=revalidateAuthSession;
+
+    /** Global scroll-gesture guard: a finger that moved cancels taps (iPhone scroll-clicks). */
+    if(!window.__rsGestureBound){
+      window.__rsGestureBound=true;
+      window.__rsGesture={x:0,y:0,moved:false,id:null,t:0};
+      var RS_TAP_MOVE_PX=12;
+      function rsGestureMark(x,y,id){
+        window.__rsGesture={x:x||0,y:y||0,moved:false,id:id==null?null:id,t:Date.now()};
+      }
+      function rsGestureMove(x,y){
+        var g=window.__rsGesture; if(!g) return;
+        if(Math.abs((x||0)-g.x)>RS_TAP_MOVE_PX || Math.abs((y||0)-g.y)>RS_TAP_MOVE_PX) g.moved=true;
+      }
+      window.rsTapWasScroll=function(){
+        try{return !!(window.__rsGesture&&window.__rsGesture.moved)}catch(e){return false}
+      };
+      document.addEventListener('touchstart',function(e){
+        var t=e.changedTouches&&e.changedTouches[0];
+        if(!t)return;
+        rsGestureMark(t.clientX,t.clientY,t.identifier);
+      },{passive:true,capture:true});
+      document.addEventListener('touchmove',function(e){
+        var g=window.__rsGesture; if(!g||g.moved) return;
+        var t=null;
+        var touches=e.touches||[];
+        for(var i=0;i<touches.length;i++){
+          if(g.id==null || touches[i].identifier===g.id){ t=touches[i]; break; }
+        }
+        if(!t && e.changedTouches&&e.changedTouches[0]) t=e.changedTouches[0];
+        if(t) rsGestureMove(t.clientX,t.clientY);
+      },{passive:true,capture:true});
+      document.addEventListener('pointerdown',function(e){
+        if(e.pointerType==='mouse' && e.button!==0) return;
+        rsGestureMark(e.clientX,e.clientY,e.pointerId);
+      },{passive:true,capture:true});
+      document.addEventListener('pointermove',function(e){
+        var g=window.__rsGesture; if(!g||g.moved) return;
+        if(g.id!=null && e.pointerId!==g.id) return;
+        rsGestureMove(e.clientX,e.clientY);
+      },{passive:true,capture:true});
     }
     
     async function loadFollowCounts(username, elId){
@@ -7587,6 +7787,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     async function updateProfilePanel(){
       var logged=isRegistered();
       var serverMine=[];
+      // Sync shell FIRST — never wait on network before hiding Login/Register.
+      try{syncAuthShell()}catch(eShell){}
 
       /* Profile statistics: Supabase by permanent account id / aliases first,
          then Cloudflare/D1. Username alone is not the ownership key. */
@@ -7668,22 +7870,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }catch(e){}
       }
 
-      // Password recovery session looks "logged in" to Supabase — never hide the
-      // new-password form under logged-wrap while __rs_recovery is active.
-      var recovering=!!window.__rs_recovery;
-      var authWrap=document.getElementById('auth-wrap');
-      if(authWrap)authWrap.style.display=(logged && !recovering)?'none':'block';
-      var loggedWrap=document.getElementById('logged-wrap');
-      if(loggedWrap)loggedWrap.style.display=(logged && !recovering)?'block':'none';
-      if(recovering){
-        try{
-          // Keep panes visible without re-entering openRecoveryUI (no scroll/focus steal).
-          showAuth('newpass',{noScroll:true});
-          var np=document.getElementById('auth-newpass');
-          if(np)np.style.display='block';
-          ensureRecoveryFormInteractive();
-        }catch(eRec){}
-      }
+      // Re-sync after awaits (recovery / logout may have changed mid-flight).
+      try{syncAuthShell()}catch(eShell2){}
+      logged=isRegistered();
 
       var stats=document.getElementById('my-stats');
       if(stats){
@@ -13856,8 +14045,23 @@ function pendingRouletteTasks(){
       function bindSpin(el){
         if(!el||el.dataset.spinBound)return;
         el.dataset.spinBound='1';
-        var lock=0;
-        function fire(ev){var n=Date.now();if(n-lock<600)return;lock=n;try{if(ev)ev.preventDefault()}catch(e){}try{spinRoulette()}catch(e){console.warn(e)}}
+        var lock=0, sx=0, sy=0, moved=false;
+        el.addEventListener('touchstart', function(ev){
+          var t=ev.changedTouches&&ev.changedTouches[0];
+          if(!t)return;
+          sx=t.clientX; sy=t.clientY; moved=false;
+        }, {passive:true});
+        el.addEventListener('touchmove', function(ev){
+          var t=ev.changedTouches&&ev.changedTouches[0];
+          if(!t)return;
+          if(Math.abs(t.clientX-sx)>12||Math.abs(t.clientY-sy)>12) moved=true;
+        }, {passive:true});
+        function fire(ev){
+          if(moved || (typeof rsTapWasScroll==='function' && rsTapWasScroll())) return;
+          var n=Date.now();if(n-lock<600)return;lock=n;
+          try{if(ev)ev.preventDefault()}catch(e){}
+          try{spinRoulette()}catch(e){console.warn(e)}
+        }
         el.addEventListener('touchend', fire, {passive:false});
         el.addEventListener('click', fire);
       }
@@ -14795,29 +14999,32 @@ function pendingRouletteTasks(){
       if(window.__bottomNavBound)return;
       window.__bottomNavBound=true;
       document.querySelectorAll('.nav-row [data-p]').forEach(function(btn){
+        var navSx=0,navSy=0,navMoved=false;
+        btn.addEventListener('pointerdown',function(e){
+          if(e.pointerType==='mouse' && e.button!==0)return;
+          navSx=e.clientX||0;navSy=e.clientY||0;navMoved=false;
+        },{passive:true});
+        btn.addEventListener('pointermove',function(e){
+          if(Math.abs((e.clientX||0)-navSx)>12||Math.abs((e.clientY||0)-navSy)>12) navMoved=true;
+        },{passive:true});
         btn.addEventListener('pointerup',function(e){
           if(e.pointerType==='mouse' && e.button!==0)return;
+          if(navMoved || (typeof rsTapWasScroll==='function' && rsTapWasScroll())) return;
           e.preventDefault();
           e.stopPropagation();
           applyNav(btn.getAttribute('data-p'));
         },true);
         btn.addEventListener('click',function(e){
+          if(navMoved || (typeof rsTapWasScroll==='function' && rsTapWasScroll())){
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
           e.preventDefault();
           applyNav(btn.getAttribute('data-p'));
         },true);
       });
-      if(!window.__fastNavBound){
-        window.__fastNavBound=true;
-        document.addEventListener('touchend',function(e){
-          var t=e.changedTouches&&e.changedTouches[0];
-          var el=(t&&document.elementFromPoint(t.clientX,t.clientY))||e.target;
-          if(!el||!el.closest)return;
-          var btn=el.closest('.nav-row [data-p]');
-          if(!btn)return;
-          e.preventDefault();
-          applyNav(btn.getAttribute('data-p'));
-        },true);
-      }
+      // No document-level touchend → nav. It converted scroll lifts into nav jumps.
     }
     window.bindBottomNav=bindBottomNav;
     function setupUI(){
@@ -14889,8 +15096,19 @@ function pendingRouletteTasks(){
       var _lg=document.getElementById('btn-home-logo');if(_lg)_lg.onclick=goHome;
       function tapOnce(el, fn){
         if(!el)return;
-        var lock=0;
+        var lock=0, sx=0, sy=0, moved=false;
+        el.addEventListener('touchstart', function(ev){
+          var t=ev.changedTouches&&ev.changedTouches[0];
+          if(!t)return;
+          sx=t.clientX; sy=t.clientY; moved=false;
+        }, {passive:true});
+        el.addEventListener('touchmove', function(ev){
+          var t=ev.changedTouches&&ev.changedTouches[0];
+          if(!t)return;
+          if(Math.abs(t.clientX-sx)>12||Math.abs(t.clientY-sy)>12) moved=true;
+        }, {passive:true});
         function fire(ev){
+          if(moved || (typeof rsTapWasScroll==='function' && rsTapWasScroll())) return;
           var now=Date.now();
           if(now-lock<350)return;
           lock=now;
@@ -14971,17 +15189,7 @@ function pendingRouletteTasks(){
       if(dmod)dmod.onclick=function(e){if(e.target===dmod)closeModals()};
       var brp=document.getElementById('btn-remove-paid');if(brp)brp.onclick=confirmRemovePaid;
       var lo=document.getElementById('btn-logout');
-      if(lo)lo.onclick=function(){
-        var aid='';
-        try{aid=getAnonSessionId()}catch(e){aid='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
-        currentUser={name:'anon_'+aid,role:'guest',account_type:'anonymous',anonymous_user_id:aid};
-        localStorage.setItem('rs_uid',currentUser.name);localStorage.setItem('rs_role','guest');
-        localStorage.removeItem('rs_email');
-        clearAdminSession();
-        if(sb)sb.auth.signOut().catch(function(){});
-        try{ensureAnonIdentity(false)}catch(e){}
-        refreshProfileUI();updateProfilePanel();toast('Logged out');
-      };
+      if(lo)lo.onclick=function(){ try{doLogout()}catch(e){console.warn(e)} };
       document.getElementById('btn-admin-back').onclick=function(){
         showPanel('feed');
       };
@@ -15043,12 +15251,14 @@ function pendingRouletteTasks(){
       var bcp=document.getElementById('btn-cancel-pass'); if(bcp)bcp.onclick=function(){
         clearRecoveryModeFlags();
         showAuth('login');
+        try{syncAuthShell()}catch(e){}
       };
       var brr=document.getElementById('btn-recovery-resend'); if(brr)brr.onclick=function(){
         clearRecoveryModeFlags();
         showAuth('forgot');
         setAuthStatus('Enter your email to receive a new reset link');
         setRecoverySessionStatus('','ok');
+        try{syncAuthShell()}catch(e){}
       };
       var bep=document.getElementById('btn-edit-profile'); if(bep) bep.onclick=function(){
         openEditProfileModal();
@@ -21575,9 +21785,17 @@ function pendingRouletteTasks(){
         if(window.__blockFeedTap && Date.now()<window.__blockFeedTap) return false;
         var t=tapPoint(e);
         if(!t)return false;
+        // Scroll/drag cancel — including Extend/Like/Hot. A vertical swipe must never
+        // fire actions just because the finger lifted over a button.
+        var movedFar=Math.abs((t.clientX||0)-sx)>14||Math.abs((t.clientY||0)-sy)>14;
+        if(movedFar || (typeof rsTapWasScroll==='function' && rsTapWasScroll())){
+          clearPress();
+          clearArming();
+          return false;
+        }
         var el=e.target||((typeof document.elementFromPoint==='function' && t.clientX!=null)?document.elementFromPoint(t.clientX,t.clientY):null);
         if(!el||!el.closest)return false;
-        // Action buttons first — never lose Extend/Hot/Like to scroll jitter or chrome exclusions.
+        // Action buttons first — intentional taps only (scroll already cancelled above).
         var ext=el.closest('.btn-extend,.gt-ext,.gt-keep,.dx-ext,[data-nf-act="extend"]');
         if(ext) return fireExtendFromEl(ext, e);
         var like=el.closest('.btn-like,[data-nf-act="picker"],[data-nf-act="react"]');
@@ -21720,6 +21938,11 @@ function pendingRouletteTasks(){
         if(!el||!el.closest)return;
         var hit=el.closest('[data-nf-act]');
         if(!hit)return;
+        // Ignore synthetic clicks that follow a scroll gesture on iPhone.
+        if(typeof rsTapWasScroll==='function' && rsTapWasScroll()){
+          try{ev.preventDefault();ev.stopPropagation()}catch(e){}
+          return;
+        }
         ev.preventDefault();
         ev.stopPropagation();
         if(typeof ev.stopImmediatePropagation==='function') ev.stopImmediatePropagation();
@@ -32643,56 +32866,57 @@ async function onIdFace(e){
     }
 
     async function doLogin(){
+      if(window.__rs_login_busy) return;
       var emailEl=document.getElementById('login-email');
       var passEl=document.getElementById('login-password');
       var btn=document.getElementById('btn-login');
       var email=(emailEl&&emailEl.value||'').trim();
       var pass=(passEl&&passEl.value||'');
-      if(!email||!pass){setAuthStatus('Enter email and password','err');toast('Email + password');return}
-      if(!sb){setAuthStatus('Database offline','err');toast('DB offline');return}
+      if(!email||!pass){setAuthStatus('Enter email and password','err');return}
+      if(!sb){setAuthStatus('Database offline','err');return}
+      window.__rs_login_busy=true;
       if(btn){btn.disabled=true;btn.textContent='Signing in…'}
-      setAuthStatus('Step 1/3 — Connecting to account…');
-      toast('Logging in…');
+      setAuthStatus('Signing in…');
       try{
         var res=await sbAuthTimeout(sb.auth.signInWithPassword({email:email,password:pass}),20000);
         if(res.error){
           var lm=res.error.message||'Login failed';
           if(/timed out/i.test(lm)) lm='Login timed out. Check connection and try again.';
-          setAuthStatus(lm+( /timed out/i.test(lm)?'':' — check email/password'),'err');
-          toast(lm);
+          else if(/invalid|credentials|password/i.test(lm)) lm='Wrong email or password.';
+          setAuthStatus(lm,'err');
           return;
         }
-        setAuthStatus('Step 2/3 — Loading profile…');
-        var meta=(res.data&&res.data.user&&res.data.user.user_metadata)||{};
-        var name=meta.username||email.split('@')[0].replace(/[^a-zA-Z0-9_]/g,'').slice(0,20)||'user';
-        name=String(name).replace(/[^a-zA-Z0-9_]/g,'').slice(0,20);
-        // Prefer current display username from alias map (handles prior renames).
-        try{name=resolveCurrentUsername(name)||name}catch(e){}
-        var authId=res.data&&res.data.user&&res.data.user.id?String(res.data.user.id):'';
-        if(authId) rememberAuthUserId(authId);
-        currentUser={name:name,role:'user',email:email,auth_user_id:authId||getAuthUserId()||null,account_type:'registered',anonymous_user_id:getStableAnonId()||null};
+        var session=(res.data&&res.data.session)||null;
+        if(!(session&&session.user)){
+          // Confirm real session — never trust signIn alone.
+          var confirm=await sbAuthTimeout(sb.auth.getSession(),8000);
+          session=confirm&&confirm.data&&confirm.data.session;
+        }
+        if(!(session&&session.user)){
+          setAuthStatus('Could not confirm session. Try again.','err');
+          return;
+        }
+        applyAuthFromSession(session,{quiet:true,skipHeavy:true});
         if(await enforceCurrentAccount()===false)return;
-        localStorage.setItem('rs_uid',name);
-        localStorage.setItem('rs_role','user');
-        localStorage.setItem('rs_email',email);
+        // Shell already shows logged-in — sync extras without keeping Login visible.
         try{await refreshUsernameAliasMap(true)}catch(e){}
         try{
           var aid=getPermanentAccountId();
-          if(aid) await sb.from('profiles').update({user_id:aid}).eq('username',name);
+          if(aid) await sb.from('profiles').update({user_id:aid}).eq('username',currentUser.name);
         }catch(e){}
-        setAuthStatus('Step 3/3 — Syncing XP & saved posts…');
         try{await loadXpFromProfile()}catch(e){}
         try{await loadUserSaves()}catch(e){}
         try{updateMsgBadge()}catch(e){}
         refreshProfileUI();
+        syncAuthShell();
         updateProfilePanel();
-        setAuthStatus('Signed in as @'+name+' ✓','ok');
-        toast('Logged in @'+name);
-        setTimeout(function(){setAuthStatus('')},2500);
+        var name=(currentUser&&currentUser.name)||'user';
+        setAuthStatus('');
+        toast('Signed in @'+name);
       }catch(e){
         setAuthStatus((e&&e.message)||'Login failed','err');
-        toast((e&&e.message)||'Login failed');
       }finally{
+        window.__rs_login_busy=false;
         if(btn){btn.disabled=false;btn.textContent='Login'}
       }
     }
@@ -32934,16 +33158,16 @@ async function onIdFace(e){
         }
         clearRecoveryModeFlags();
         try{document.getElementById('new-password').value='';document.getElementById('new-password2').value=''}catch(e){}
-        setAuthStatus('Step 2/2 — Done. Sign in with your new password.','ok');
+        setAuthStatus('Password updated. Sign in with your new password.','ok');
         setRecoverySessionStatus('Password updated. Sign in with the new password.','ok');
         toast('Password updated. Login with the new one.');
         try{await sbAuthTimeout(sb.auth.signOut(),8000)}catch(e){}
         try{clearRecoveryUrlArtifacts()}catch(e){}
         // Only leave the form after a confirmed updateUser success.
+        applySignedOutLocal({quiet:true,force:true});
         showAuth('login',{noScroll:true});
         showPanel('profile',{keepScroll:true});
-        var aw=document.getElementById('auth-wrap');if(aw)aw.style.display='block';
-        var lw=document.getElementById('logged-wrap');if(lw)lw.style.display='none';
+        syncAuthShell();
       }catch(e){
         var msg=(e&&e.message)||'Could not update password';
         if(/timed out/i.test(msg)) msg='Update timed out. Do not retry endlessly — request a new link if this keeps failing.';
@@ -35631,6 +35855,8 @@ async function onIdFace(e){
               }
             }
           }catch(e){}
+          // Returning from another app: re-confirm Supabase session without forcing Login flicker.
+          try{revalidateAuthSession({timeout:6000,keepLocalWithoutSession:true})}catch(eAuth){}
           // Returning to the tab: quiet refresh — never wipe visible cards with a full remount.
           try{
             window.__loadPostsAt=0;
@@ -35644,7 +35870,7 @@ async function onIdFace(e){
         }
       });
       window.addEventListener('pagehide',function(){try{stopAllMedia()}catch(e){}});
-      window.addEventListener('pageshow',function(){
+      window.addEventListener('pageshow',function(ev){
         try{
           if(document.body.classList.contains('gt-on')){
             var sc=document.getElementById('gt-scroller');
@@ -35656,6 +35882,11 @@ async function onIdFace(e){
             }
           }
         }catch(e){}
+        // bfcache restore (Safari/Telegram): re-sync auth shell from persisted session.
+        try{
+          if(ev&&ev.persisted) revalidateAuthSession({timeout:6000,keepLocalWithoutSession:true,heavy:false});
+          else syncAuthShell();
+        }catch(eAuth2){}
       });
     }
 
@@ -35673,6 +35904,9 @@ async function onIdFace(e){
       window.setupAdminSections=setupAdminSections;
       window.bindAdminClicks=bindAdminClicks;
       window.doSaveNewPassword=doSaveNewPassword;
+      window.doLogout=doLogout;
+      window.doLogin=doLogin;
+      window.syncAuthShell=syncAuthShell;
       window.openRecoveryUI=openRecoveryUI;
       window.showAuth=showAuth;
     }catch(e){}
