@@ -89,16 +89,32 @@ function goneResponse(id) {
   });
 }
 
-async function fetchJson(url, headers) {
+/** Edge lookup must never hang Telegram/Safari on /post/:id (no Abort → blank spinner). */
+const LOOKUP_TIMEOUT_MS = 3500;
+
+async function fetchJson(url, headers, ms) {
+  const timeoutMs = Number(ms) || LOOKUP_TIMEOUT_MS;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timer = null;
   try {
+    if (ctrl) {
+      timer = setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (e) {}
+      }, timeoutMs);
+    }
     const r = await fetch(url, {
       headers: headers || {},
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: ctrl ? ctrl.signal : undefined
     });
     if (!r.ok) return null;
     return await r.json();
   } catch (e) {
     return null;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -147,6 +163,15 @@ async function postExists(id) {
   // SB returned [] and CF had nothing → gone.
   // If SB fetch failed entirely and CF failed, return null to avoid false 410s.
   try {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timer = null;
+    if (ctrl) {
+      timer = setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (e) {}
+      }, LOOKUP_TIMEOUT_MS);
+    }
     const probe = await fetch(
       SUPABASE_URL +
         '/rest/v1/posts?id=eq.' +
@@ -158,9 +183,11 @@ async function postExists(id) {
           Authorization: 'Bearer ' + SUPABASE_ANON,
           Accept: 'application/json'
         },
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: ctrl ? ctrl.signal : undefined
       }
     );
+    if (timer) clearTimeout(timer);
     if (probe.ok) {
       const rows = await probe.json();
       if (Array.isArray(rows) && rows.length === 0) return false;

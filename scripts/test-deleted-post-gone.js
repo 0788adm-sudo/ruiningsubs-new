@@ -36,6 +36,9 @@ assert(mw.indexOf('status: 410') >= 0 || mw.indexOf('status:410') >= 0, 'middlew
 assert(mw.indexOf('This post is no longer available') >= 0, 'middleware gone HTML');
 assert(mw.indexOf('postExists') >= 0, 'middleware existence check');
 assert(mw.indexOf('async function middleware') >= 0 || mw.indexOf('export default async function middleware') >= 0, 'middleware is async');
+assert(mw.indexOf('AbortController') >= 0, 'middleware lookup uses AbortController');
+assert(mw.indexOf('LOOKUP_TIMEOUT_MS') >= 0, 'middleware lookup timeout constant');
+assert(/signal:\s*ctrl/.test(mw), 'middleware fetch passes abort signal');
 
 assert(del.indexOf('purgeDeletedPostCaches') >= 0, 'delete-post CDN purge helper');
 assert(del.indexOf('removalUrl') >= 0, 'delete-post returns GSC removal URL');

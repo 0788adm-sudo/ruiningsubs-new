@@ -3200,7 +3200,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-reset" type="button">Send reset link</button>
             <button class="btn btn-ghost" style="width:100%" id="btn-back-login" type="button">Back to Login</button>
           </div>
-          <div id="auth-newpass" class="auth-pane" style="display:none">
+          <div id="auth-newpass" class="auth-pane" style="display:none;padding-bottom:96px">
             <p class="auth-hint">Choose a new password for your account</p>
             <div id="recovery-session-status" style="display:none;font-size:12px;line-height:1.4;margin:0 0 10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border)"></div>
             <div class="form-group"><label>New password</label><input type="password" id="new-password" autocomplete="new-password" placeholder="Min 6 characters"/></div>
@@ -7568,10 +7568,20 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }catch(e){}
       }
 
+      // Password recovery session looks "logged in" to Supabase — never hide the
+      // new-password form under logged-wrap while __rs_recovery is active.
+      var recovering=!!window.__rs_recovery;
       var authWrap=document.getElementById('auth-wrap');
-      if(authWrap)authWrap.style.display=logged?'none':'block';
+      if(authWrap)authWrap.style.display=(logged && !recovering)?'none':'block';
       var loggedWrap=document.getElementById('logged-wrap');
-      if(loggedWrap)loggedWrap.style.display=logged?'block':'none';
+      if(loggedWrap)loggedWrap.style.display=(logged && !recovering)?'block':'none';
+      if(recovering){
+        try{
+          showAuth('newpass');
+          var np=document.getElementById('auth-newpass');
+          if(np)np.style.display='block';
+        }catch(eRec){}
+      }
 
       var stats=document.getElementById('my-stats');
       if(stats){
@@ -32709,16 +32719,17 @@ async function onIdFace(e){
         var btn=document.getElementById('btn-save-pass');
         if(opts.sessionOk===false){
           window.__rs_recovery_session_ok=false;
+          setAuthStatus('');
           setRecoverySessionStatus(opts.error||'This reset link is expired, invalid, or already used. Request a new one.','err');
           if(btn){btn.disabled=true}
-          setAuthStatus(opts.error||'Request a new password reset link','err');
         } else if(opts.sessionOk===true){
           window.__rs_recovery_session_ok=true;
+          setAuthStatus('');
           setRecoverySessionStatus('Link verified. Choose a new password and tap Save.','ok');
           if(btn){btn.disabled=false}
-          setAuthStatus('Set your new password','ok');
           toast('Set your new password now');
         } else {
+          setAuthStatus('');
           setRecoverySessionStatus('Checking recovery link…','warn');
           if(btn){btn.disabled=true}
           ensureRecoverySession({maxWait:10000}).then(function(out){
@@ -32737,6 +32748,12 @@ async function onIdFace(e){
             if(btn){btn.disabled=true}
           });
         }
+        try{
+          setTimeout(function(){
+            var target=document.getElementById('btn-recovery-resend')||document.getElementById('btn-save-pass')||box;
+            if(target&&target.scrollIntoView) target.scrollIntoView({block:'center',behavior:'smooth'});
+          },80);
+        }catch(eScroll){}
       }catch(e){console.error(e);toast('Open Profile to set new password')}
     }
     var adminUsersCache=[];
