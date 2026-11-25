@@ -759,31 +759,80 @@ async function migrateUsernameRecords(fromName, toName, userId) {
     note('follows', { ok: false, status: 0, error: String(e && e.message || e) });
   }
 
-  // Profiles: keep current row, stamp user_id, remove orphan old username row
+  // Profiles: rename in place by permanent user_id when possible, then free old handle.
   try {
-    if (userId) {
+    var renamedInPlace = false;
+    if (userId && String(userId).indexOf('name:') !== 0) {
+      var byUid = await sbRestIdentity(
+        '/rest/v1/profiles?user_id=eq.' + encodeURIComponent(userId),
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            username: toName,
+            user_id: userId,
+            updated_at: new Date().toISOString()
+          })
+        }
+      );
+      if (byUid.ok) {
+        renamedInPlace = true;
+        note('profile_rename_by_user_id', byUid);
+      } else if (/user_id/i.test(String(byUid.error || ''))) {
+        note('profile_rename_by_user_id', byUid);
+      } else {
+        note('profile_rename_by_user_id', byUid);
+      }
+    }
+    if (!renamedInPlace) {
       var pup = await sbRestIdentity('/rest/v1/profiles?username=eq.' + encodeURIComponent(toName), {
         method: 'PATCH',
-        body: JSON.stringify({ user_id: userId, updated_at: new Date().toISOString() })
+        body: JSON.stringify(
+          userId
+            ? { user_id: userId, updated_at: new Date().toISOString() }
+            : { updated_at: new Date().toISOString() }
+        )
       });
-      if (!pup.ok && /user_id/i.test(String(pup.error || ''))) {
+      if (!pup.ok && userId && /user_id/i.test(String(pup.error || ''))) {
         pup = await sbRestIdentity('/rest/v1/profiles?username=eq.' + encodeURIComponent(toName), {
           method: 'PATCH',
           body: JSON.stringify({ updated_at: new Date().toISOString() })
         });
       }
       note('profile_stamp', pup);
+      // Fallback: rename the old row's username column in place
+      if (normUser(fromName) !== normUser(toName)) {
+        var ren = await sbRestIdentity('/rest/v1/profiles?username=eq.' + encodeURIComponent(fromName), {
+          method: 'PATCH',
+          body: JSON.stringify(
+            userId
+              ? { username: toName, user_id: userId, updated_at: new Date().toISOString() }
+              : { username: toName, updated_at: new Date().toISOString() }
+          )
+        });
+        note('profile_rename_old_row', ren);
+      }
     }
     if (normUser(fromName) !== normUser(toName)) {
-      var del = await sbRestIdentity('/rest/v1/profiles?username=eq.' + encodeURIComponent(fromName), {
-        method: 'DELETE'
-      });
-      note('profile_delete_old', del);
-      // Also delete case variants of old handle
-      var del2 = await sbRestIdentity('/rest/v1/profiles?username=ilike.' + encodeURIComponent(fromName), {
-        method: 'DELETE'
-      });
-      note('profile_delete_old_ci', del2);
+      // Delete orphan old-username rows that are NOT this account (frees the handle).
+      var left = await sbRestIdentity(
+        '/rest/v1/profiles?username=ilike.' +
+          encodeURIComponent(fromName) +
+          '&select=username,user_id&limit=10',
+        { method: 'GET' }
+      );
+      if (left.ok && Array.isArray(left.data)) {
+        for (var pi = 0; pi < left.data.length; pi++) {
+          var prow = left.data[pi];
+          if (!prow || !prow.username) continue;
+          if (normUser(prow.username) === normUser(toName)) continue;
+          if (userId && prow.user_id && String(prow.user_id) === String(userId)) continue;
+          var delOne = await sbRestIdentity(
+            '/rest/v1/profiles?username=eq.' + encodeURIComponent(prow.username),
+            { method: 'DELETE' }
+          );
+          note('profile_delete_orphan_' + prow.username, delOne);
+        }
+      }
     }
   } catch (e) {
     note('profiles', { ok: false, status: 0, error: String(e && e.message || e) });
@@ -981,6 +1030,61 @@ async function handleUsernameIdentity(req, res, body, query) {
     }
 
     if (!userId) userId = authUser && authUser.id ? authUser.id : 'name:' + normUser(toName);
+
+    // Case-insensitive uniqueness after auth — blocks races on the same handle.
+    if (normUser(fromName) !== normUser(toName)) {
+      try {
+        var takenProbe = await sbRestIdentity(
+          '/rest/v1/profiles?username=ilike.' +
+            encodeURIComponent(toName) +
+            '&select=username,user_id&limit=5',
+          { method: 'GET' }
+        );
+        if (takenProbe.ok && Array.isArray(takenProbe.data)) {
+          for (var ti = 0; ti < takenProbe.data.length; ti++) {
+            var trow = takenProbe.data[ti];
+            if (!trow || !trow.username) continue;
+            if (normUser(trow.username) !== normUser(toName)) continue;
+            var sameAccount =
+              (userId && trow.user_id && String(trow.user_id) === String(userId)) ||
+              normUser(trow.username) === normUser(fromName);
+            if (!sameAccount) {
+              return json(res, 409, { ok: false, error: 'username_taken', username: trow.username });
+            }
+          }
+        }
+      } catch (eTaken) {}
+      try {
+        var aliasTaken = await sbRestIdentity(
+          '/rest/v1/username_aliases?or=(alias.ilike.' +
+            encodeURIComponent(toName) +
+            ',current_username.ilike.' +
+            encodeURIComponent(toName) +
+            ')&select=alias,user_id,current_username&limit=10',
+          { method: 'GET' }
+        );
+        if (aliasTaken.ok && Array.isArray(aliasTaken.data)) {
+          for (var ai = 0; ai < aliasTaken.data.length; ai++) {
+            var arow = aliasTaken.data[ai];
+            if (!arow) continue;
+            var pointsHere =
+              normUser(arow.current_username) === normUser(fromName) ||
+              (userId && arow.user_id && String(arow.user_id) === String(userId));
+            if (pointsHere) continue;
+            if (
+              normUser(arow.alias) === normUser(toName) ||
+              normUser(arow.current_username) === normUser(toName)
+            ) {
+              return json(res, 409, {
+                ok: false,
+                error: 'username_taken',
+                username: arow.current_username || arow.alias
+              });
+            }
+          }
+        }
+      } catch (eAlias) {}
+    }
 
     var report = await migrateUsernameRecords(fromName, toName, userId);
     var after = await resolveUsernameIdentity(toName);
