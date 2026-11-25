@@ -89,8 +89,13 @@ function goneResponse(id) {
   });
 }
 
-/** Edge lookup must never hang Telegram/Safari on /post/:id (no Abort → blank spinner). */
-const LOOKUP_TIMEOUT_MS = 3500;
+/**
+ * Edge lookup must never hang Telegram/Safari on /post/:id.
+ * CF worker /posts/:id can stall 10s+ — keep budgets short and skip CF for
+ * numeric Supabase ids when SB already returned a definitive empty set.
+ */
+const LOOKUP_TIMEOUT_MS = 2000;
+const LOOKUP_BUDGET_MS = 2800;
 
 async function fetchJson(url, headers, ms) {
   const timeoutMs = Number(ms) || LOOKUP_TIMEOUT_MS;
@@ -118,85 +123,107 @@ async function fetchJson(url, headers, ms) {
   }
 }
 
+function isNumericPostId(id) {
+  return /^\d+$/.test(String(id || '').trim());
+}
+
+function isUuidPostId(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    String(id || '').trim()
+  );
+}
+
+async function lookupSupabase(id) {
+  const sbUrl =
+    SUPABASE_URL +
+    '/rest/v1/posts?id=eq.' +
+    encodeURIComponent(id) +
+    '&select=id&limit=1';
+  const rows = await fetchJson(sbUrl, {
+    apikey: SUPABASE_ANON,
+    Authorization: 'Bearer ' + SUPABASE_ANON,
+    Accept: 'application/json'
+  });
+  if (!Array.isArray(rows)) return null; // request failed
+  if (rows.length > 0 && rows[0] && rows[0].id != null) return true;
+  return false; // confirmed empty
+}
+
+async function lookupCloudflare(id) {
+  const cf =
+    (await fetchJson(
+      CF_API + '/posts/' + encodeURIComponent(id),
+      {
+        Accept: 'application/json',
+        Origin: SITE,
+        'User-Agent': 'Mozilla/5.0 RuiningSubsEdge/1.0'
+      },
+      1500
+    )) ||
+    (await fetchJson(
+      CF_API + '/feed?id=' + encodeURIComponent(id) + '&limit=1',
+      {
+        Accept: 'application/json',
+        Origin: SITE,
+        'User-Agent': 'Mozilla/5.0 RuiningSubsEdge/1.0'
+      },
+      1500
+    ));
+  if (!cf) return null;
+  const row = cf.post || (cf.posts && cf.posts[0]) || (cf.id != null ? cf : null);
+  if (row && row.id != null) return true;
+  // CF answered but no row — not a hard miss for UUID (feed may be empty).
+  return false;
+}
+
 /** true = exists, false = confirmed missing, null = lookup failed (do not 410). */
 async function postExists(id) {
   id = String(id || '').trim();
   if (!id) return null;
 
-  try {
-    const sbUrl =
-      SUPABASE_URL +
-      '/rest/v1/posts?id=eq.' +
-      encodeURIComponent(id) +
-      '&select=id&limit=1';
-    const rows = await fetchJson(sbUrl, {
-      apikey: SUPABASE_ANON,
-      Authorization: 'Bearer ' + SUPABASE_ANON,
-      Accept: 'application/json'
-    });
-    if (Array.isArray(rows)) {
-      if (rows.length > 0 && rows[0] && rows[0].id != null) return true;
-      // Confirmed empty from SB — still check CF for UUID worker posts.
-    } else if (rows == null) {
-      // SB request failed; try CF before giving up.
-    }
-  } catch (e) {}
+  const numeric = isNumericPostId(id);
+  const uuid = isUuidPostId(id);
 
-  try {
-    const cf =
-      (await fetchJson(CF_API + '/posts/' + encodeURIComponent(id), {
-        Accept: 'application/json',
-        Origin: SITE,
-        'User-Agent': 'Mozilla/5.0 RuiningSubsEdge/1.0'
-      })) ||
-      (await fetchJson(CF_API + '/feed?id=' + encodeURIComponent(id) + '&limit=1', {
-        Accept: 'application/json',
-        Origin: SITE,
-        'User-Agent': 'Mozilla/5.0 RuiningSubsEdge/1.0'
-      }));
-    if (cf) {
-      const row = cf.post || (cf.posts && cf.posts[0]) || (cf.id != null ? cf : null);
-      if (row && row.id != null) return true;
-    }
-  } catch (e) {}
-
-  // SB returned [] and CF had nothing → gone.
-  // If SB fetch failed entirely and CF failed, return null to avoid false 410s.
-  try {
-    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    let timer = null;
-    if (ctrl) {
-      timer = setTimeout(function () {
-        try {
-          ctrl.abort();
-        } catch (e) {}
-      }, LOOKUP_TIMEOUT_MS);
-    }
-    const probe = await fetch(
-      SUPABASE_URL +
-        '/rest/v1/posts?id=eq.' +
-        encodeURIComponent(id) +
-        '&select=id&limit=1',
-      {
-        headers: {
-          apikey: SUPABASE_ANON,
-          Authorization: 'Bearer ' + SUPABASE_ANON,
-          Accept: 'application/json'
-        },
-        cache: 'no-store',
-        signal: ctrl ? ctrl.signal : undefined
+  const work = (async function () {
+    // 1) Supabase first — source of truth for numeric posts.
+    try {
+      const sb = await lookupSupabase(id);
+      if (sb === true) return true;
+      if (sb === false) {
+        // Numeric SB ids live only in Supabase. Do NOT wait on CF (often 10s+).
+        if (numeric) return false;
+        // UUID / other: check CF for worker-only posts.
       }
-    );
-    if (timer) clearTimeout(timer);
-    if (probe.ok) {
-      const rows = await probe.json();
-      if (Array.isArray(rows) && rows.length === 0) return false;
-      if (Array.isArray(rows) && rows.length > 0) return true;
+    } catch (e) {}
+
+    // 2) CF only when UUID (or SB failed / non-numeric).
+    if (uuid || !numeric) {
+      try {
+        const cf = await lookupCloudflare(id);
+        if (cf === true) return true;
+        if (cf === false && uuid) return false;
+      } catch (e) {}
     }
+
+    // 3) SB failed earlier — one last short SB probe before refusing to 410.
+    try {
+      const again = await lookupSupabase(id);
+      if (again === true) return true;
+      if (again === false && numeric) return false;
+    } catch (e) {}
+
     return null;
-  } catch (e) {
-    return null;
-  }
+  })();
+
+  // Hard budget so Telegram never sits on a white spinner waiting for Edge.
+  return await Promise.race([
+    work,
+    new Promise(function (resolve) {
+      setTimeout(function () {
+        resolve(null);
+      }, LOOKUP_BUDGET_MS);
+    })
+  ]);
 }
 
 export default async function middleware(request) {

@@ -120,10 +120,45 @@
     }catch(e){}
   })();
   </script>
-  <!-- Failsafe: never leave users on a blank white/black shell if boot stalls. -->
+  <!-- Failsafe: never leave users on a blank white/black shell if boot stalls.
+       Covers auto-enter (rs_age_ok) where #app.show hides the age gate but boot
+       never paints — the prior gap that left Telegram/Safari on a dead shell. -->
   <script>
   (function(){
     try{
+      function ensureBootRescueUI(){
+        var el=document.getElementById('rs-boot-rescue');
+        if(el) return el;
+        el=document.createElement('div');
+        el.id='rs-boot-rescue';
+        el.setAttribute('role','alert');
+        el.style.cssText='position:fixed;inset:0;z-index:10050;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;background:#050506;color:#ececef;font-family:system-ui,sans-serif';
+        el.innerHTML='<p style="color:#9a9aa3;font-size:12px;letter-spacing:.4px;margin:0 0 10px">RUINEXPOSE</p>'
+          +'<h1 style="font-size:1.25rem;margin:0 0 10px;font-weight:800">Still loading</h1>'
+          +'<p style="color:#9a9aa3;line-height:1.45;max-width:280px;margin:0 0 22px">Connection stalled. Reload to recover — your session stays saved.</p>'
+          +'<button type="button" id="rs-boot-rescue-btn" style="border:none;border-radius:999px;padding:14px 28px;font-weight:800;font-size:15px;background:#ff6a00;color:#111;cursor:pointer">Reload</button>';
+        document.body.appendChild(el);
+        var btn=document.getElementById('rs-boot-rescue-btn');
+        if(btn) btn.onclick=function(){ try{ location.reload(); }catch(e){} };
+        return el;
+      }
+      function shellLooksAlive(){
+        try{
+          if(window.__rsBootPainted) return true;
+          if(window.__rs_recovery) return true;
+          var feed=document.getElementById('posts-container');
+          if(feed && feed.querySelector('article.post')) return true;
+          var detail=document.getElementById('detail-content');
+          if(detail && detail.children && detail.children.length && !/Opening|Loading/i.test(detail.textContent||'')) return true;
+          var panel=document.querySelector('.panel.active');
+          if(panel && panel.id && panel.id!=='panel-feed'){
+            // Non-feed section visible (profile, wall, games…) counts as painted.
+            if(panel.offsetHeight>40) return true;
+          }
+          if(feed && feed.children && feed.children.length && !/^[\s]*Loading/i.test(String(feed.textContent||'').trim())) return true;
+        }catch(e){}
+        return false;
+      }
       function rescueBlankShell(){
         try{
           var gate=document.getElementById('age-gate');
@@ -131,11 +166,21 @@
           if(!gate && !app) return;
           var appShown=app && app.classList.contains('show');
           if(appShown){
+            if(shellLooksAlive()){
+              var rescueOk=document.getElementById('rs-boot-rescue');
+              if(rescueOk) try{ rescueOk.remove(); }catch(e){}
+              return;
+            }
             // App visible but main panels empty / frozen — surface a recoverable hint.
             var feed=document.getElementById('posts-container');
             if(feed && /Loading/i.test(String(feed.textContent||'')) && !window.__rsBootFeedNudge){
               window.__rsBootFeedNudge=1;
               feed.innerHTML='<div class="empty">Still loading… <button type="button" class="btn btn-ghost" style="margin-top:10px" onclick="try{loadPosts()}catch(e){location.reload()}">Retry feed</button></div>';
+            }
+            // Dead shell after auto-enter: no feed paint, no active section — full-screen reload.
+            if(!window.__rsBootRescueShown && !shellLooksAlive()){
+              window.__rsBootRescueShown=1;
+              ensureBootRescueUI();
             }
             return;
           }
@@ -156,7 +201,8 @@
         }catch(e){}
       }
       setTimeout(rescueBlankShell, 3500);
-      setTimeout(rescueBlankShell, 9000);
+      setTimeout(rescueBlankShell, 7000);
+      setTimeout(rescueBlankShell, 12000);
     }catch(e){}
   })();
   </script>
@@ -4851,9 +4897,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         else lim=100;
       }
       var u=CF_API+'/feed?limit='+lim+(type&&type!=='wall'?('&type='+encodeURIComponent(type)):'');
-      var r=await fetch(u,{cache:'default'});
-      var j=await r.json();
-      return (j&&j.posts||[]).map(mapCfPost).filter(Boolean);
+      // CF can stall 10s+ on some routes — never block Telegram/Safari paint on it.
+      try{
+        var r=await fetchWithTimeout(u,{cache:'default'},4500);
+        var j=await r.json().catch(function(){return {}});
+        return (j&&j.posts||[]).map(mapCfPost).filter(Boolean);
+      }catch(e){
+        return [];
+      }
     }
     function parseExtendMins(tags, fallback){
       // fallback may be 0 (caller wants "no tag → 0"). Do not coerce 0→360.
@@ -8008,7 +8059,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var headers={'Content-Type':'application/json'};
       try{
         if(sb){
-          var sess=await sb.auth.getSession();
+          var sess=await sbAuthTimeout(sb.auth.getSession(),8000);
           var token=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
           if(token) headers.Authorization='Bearer '+token;
         }
@@ -17443,7 +17494,7 @@ function pendingRouletteTasks(){
       async function tusUpload(bucket){
         if(!window.tus || !window.tus.Upload) throw new Error('Resumable uploader unavailable');
 
-        var sessRes=await sb.auth.getSession();
+        var sessRes=await sbAuthTimeout(sb.auth.getSession(),8000);
         var session=sessRes&&sessRes.data&&sessRes.data.session;
         if(!session||!session.access_token) throw new Error('Session expired. Log in again.');
 
@@ -26647,6 +26698,11 @@ function postCardHtml(p, compact){
     function renderPosts(opts){
       opts=opts||{};
       var forcePaint=!!opts.force;
+      try{window.__rsBootPainted=1}catch(e){}
+      try{
+        var rescueDone=document.getElementById('rs-boot-rescue');
+        if(rescueDone) rescueDone.remove();
+      }catch(e){}
       try{
         var now=Date.now();
         (posts||[]).forEach(function(p){
@@ -33242,7 +33298,7 @@ async function onIdFace(e){
         }
       }catch(e){console.warn('fetchAdminPostThumb sb',e)}
       try{
-        var pr=await fetch(CF_API+'/posts/'+encodeURIComponent(postId),{cache:'no-store'});
+        var pr=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(postId),{cache:'no-store'},2500);
         if(pr.ok){
           var pj=await pr.json().catch(function(){return{}});
           var post=pj.post||pj;
