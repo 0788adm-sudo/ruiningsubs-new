@@ -1149,6 +1149,14 @@
     
     
     .auth-box{background:var(--elev);border:1px solid var(--border);border-radius:16px;padding:16px;margin:0 0 16px}
+    .pw-field{position:relative}
+    .pw-field input{padding-right:72px!important;-webkit-user-select:text!important;user-select:text!important;pointer-events:auto!important}
+    .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:800;font-family:inherit;padding:8px 6px;cursor:pointer;z-index:2;-webkit-user-select:none;user-select:none}
+    #auth-newpass input{-webkit-user-select:text!important;user-select:text!important;pointer-events:auto!important}
+    body.rs-recovery-mode #modal-tg,
+    body.rs-recovery-mode #modal-tg-group{display:none!important}
+    body.rs-recovery-mode #btn-scroll-top{display:none!important}
+    body.rs-recovery-mode #rs-boot-rescue{display:none!important}
     .auth-tabs{display:flex;gap:8px;margin-bottom:12px}
     .auth-tabs .tab{flex:1;padding:12px 10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-weight:700;font-size:14px}
     .auth-tabs .tab.active{background:var(--orange);color:#000;border-color:var(--orange)}
@@ -3249,8 +3257,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <div id="auth-newpass" class="auth-pane" style="display:none;padding-bottom:96px">
             <p class="auth-hint">Choose a new password for your account</p>
             <div id="recovery-session-status" style="display:none;font-size:12px;line-height:1.4;margin:0 0 10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border)"></div>
-            <div class="form-group"><label>New password</label><input type="password" id="new-password" autocomplete="new-password" placeholder="Min 6 characters"/></div>
-            <div class="form-group"><label>Confirm password</label><input type="password" id="new-password2" autocomplete="new-password" placeholder="Repeat password"/></div>
+            <div class="form-group"><label for="new-password">New password</label><div class="pw-field"><input type="password" id="new-password" name="new-password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" minlength="6" placeholder="Min 6 characters"/><button type="button" class="pw-toggle" id="btn-toggle-new-pass" aria-label="Show password" tabindex="-1">Show</button></div></div>
+            <div class="form-group"><label for="new-password2">Confirm password</label><div class="pw-field"><input type="password" id="new-password2" name="new-password2" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" minlength="6" placeholder="Repeat password"/><button type="button" class="pw-toggle" id="btn-toggle-new-pass2" aria-label="Show password" tabindex="-1">Show</button></div></div>
             <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-save-pass" type="button">Save new password</button>
             <button class="btn btn-ghost" style="width:100%;margin-bottom:8px;display:none" id="btn-recovery-resend" type="button">Request a new reset link</button>
             <button class="btn btn-ghost" style="width:100%" id="btn-cancel-pass" type="button">Cancel</button>
@@ -4106,9 +4114,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       setTimeout(checkRecoveryHash, 1000);
       // Telegram only once per page life — preference lives in localStorage across refreshes.
       // Group invite arms after channel closes (or immediately if channel does not show).
+      // Never overlay recovery form (Gmail / Telegram / Safari in-app browsers).
       setTimeout(function(){
-        try{maybeShowTelegram()}catch(e){}
-        try{armTgGroupAfterChannelDecision()}catch(e){}
+        try{
+          if(window.__rs_recovery || (typeof isRecoveryUrl==='function' && isRecoveryUrl())) return;
+          maybeShowTelegram();
+        }catch(e){}
+        try{
+          if(window.__rs_recovery || (typeof isRecoveryUrl==='function' && isRecoveryUrl())) return;
+          armTgGroupAfterChannelDecision();
+        }catch(e){}
       },1200);
     }
     // auto-enter if already verified (needed for recovery email links)
@@ -5647,20 +5662,34 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
 
     var sb=null;
-    try{if(window.supabase&&window.supabase.createClient){sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});window.sb=sb;
-      // detect recovery ASAP
-      sb.auth.onAuthStateChange(function(event, session){
-        if(event==='PASSWORD_RECOVERY'){
-          window.__rs_recovery=true;
-          setTimeout(function(){try{openRecoveryUI()}catch(e){}},200);
-        }
-      });
+    try{if(window.supabase&&window.supabase.createClient){
+      if(window.sb&&window.sb.auth){sb=window.sb}
+      else{
+        sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});
+        window.sb=sb;
+      }
+      // Single recovery listener — duplicate onAuthStateChange handlers re-open the form,
+      // call forceTop/scrollTo, and freeze iOS/Telegram inputs after "Link verified".
+      if(!window.__rs_recovery_auth_bound){
+        window.__rs_recovery_auth_bound=true;
+        sb.auth.onAuthStateChange(function(event, session){
+          if(event==='PASSWORD_RECOVERY'){
+            window.__rs_recovery=true;
+            window.__rs_recovery_session_ok=!!(session&&session.user);
+            setTimeout(function(){
+              try{openRecoveryUI({sessionOk:!!(session&&session.user)})}catch(e){}
+            },120);
+          }
+        });
+      }
     }}catch(e){console.error(e)}
 
     
     function isRecoveryUrl(){
       try{
-        if(window.__rs_recovery===true)return true;
+        // Only inspect the URL — do NOT treat __rs_recovery as a URL signal.
+        // Otherwise checkRecoveryHash re-runs forever after tokens are cleared and
+        // keeps re-opening the form (keyboard steal / freeze on iPhone).
         var h=(location.hash||'')+(location.search||'');
         if(/type=recovery|type%3Drecovery/i.test(h))return true;
         if(/access_token=/i.test(h) && /type=recovery/i.test(h))return true;
@@ -7172,7 +7201,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     function isRecoveryUrl(){
       try{
-        if(window.__rs_recovery===true)return true;
         var h=(location.hash||'')+(location.search||'');
         if(/type=recovery|type%3Drecovery/i.test(h))return true;
         if(/access_token=/i.test(h) && /type=recovery/i.test(h))return true;
@@ -7183,11 +7211,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     function checkRecoveryHash(){
       try{
+        // Already verified / UI ready — never re-enter (prevents input freeze loops).
+        if(window.__rs_recovery_ui_ready || window.__rs_recovery_session_ok) return;
         if(window.__rs_recovery_check_busy) return;
         if(!isRecoveryUrl())return;
         window.__rs_recovery=true;
         window.__rs_recovery_check_busy=true;
+        try{window.__rsBootPainted=1}catch(ePaint){}
         function tryOpen(n){
+          if(window.__rs_recovery_ui_ready || window.__rs_recovery_session_ok){
+            window.__rs_recovery_check_busy=false;
+            return;
+          }
           if(n>20){
             openRecoveryUI({sessionOk:false,error:'Recovery link timed out. Request a new one.'});
             window.__rs_recovery_check_busy=false;
@@ -7195,6 +7230,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           }
           if(!sb){ setTimeout(function(){tryOpen(n+1)},150); return; }
           ensureRecoverySession({maxWait:10000}).then(function(out){
+            if(window.__rs_recovery_ui_ready){ window.__rs_recovery_check_busy=false; return; }
             if(out&&out.ok){
               openRecoveryUI({sessionOk:true});
               // Only clear URL tokens AFTER session is confirmed — clearing early
@@ -7205,7 +7241,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             }
             window.__rs_recovery_check_busy=false;
           }).catch(function(e){
-            openRecoveryUI({sessionOk:false,error:(e&&e.message)||'Could not verify recovery link'});
+            if(!window.__rs_recovery_ui_ready){
+              openRecoveryUI({sessionOk:false,error:(e&&e.message)||'Could not verify recovery link'});
+            }
             window.__rs_recovery_check_busy=false;
           });
         }
@@ -7214,28 +7252,43 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     function boot(){
       initUser();setupUI();
+      var recoveringBoot=false;
+      try{recoveringBoot=!!(window.__rs_recovery || isRecoveryUrl())}catch(eRecBoot){}
+      if(recoveringBoot){
+        try{window.__rs_recovery=true;window.__rsBootPainted=1;document.body.classList.add('rs-recovery-mode')}catch(eRB){}
+      }
       try{openHashPost()}catch(e){}
       // Restore section link immediately so refresh keeps the user on Wall/GoonTok/etc.
-      try{applyLocationRoute()}catch(e){}
+      try{if(!recoveringBoot) applyLocationRoute()}catch(e){}
       // Kick the feed immediately — never wait on banned-users / auth side quests.
-      try{
-        var slug0='';
-        try{slug0=currentRouteSlug()}catch(e){}
-        if(!slug0 || slug0==='feed' || slug0==='home' || slug0==='extend' || slug0==='spotlight' || slug0===''){
-          Promise.resolve(loadPosts()).catch(function(e){console.warn('boot loadPosts',e)});
-        }
-      }catch(e){try{loadPosts()}catch(e2){}}
+      // During password recovery, defer heavy feed work so the form stays responsive.
+      if(!recoveringBoot){
+        try{
+          var slug0='';
+          try{slug0=currentRouteSlug()}catch(e){}
+          if(!slug0 || slug0==='feed' || slug0==='home' || slug0==='extend' || slug0==='spotlight' || slug0===''){
+            Promise.resolve(loadPosts()).catch(function(e){console.warn('boot loadPosts',e)});
+          }
+        }catch(e){try{loadPosts()}catch(e2){}}
+      } else {
+        setTimeout(function(){
+          try{if(!window.__rs_recovery) Promise.resolve(loadPosts()).catch(function(){})}catch(e){}
+        },2500);
+      }
       loadBannedUsers().catch(function(e){console.warn('banned users bootstrap',e)});
       Promise.resolve().then(function(){
-        applyLocationRoute();
-        openHashPost({force:true});
-        setTimeout(function(){openHashPost({force:true})},700);
+        if(!recoveringBoot){
+          applyLocationRoute();
+          openHashPost({force:true});
+          setTimeout(function(){openHashPost({force:true})},700);
+        }
         checkRecoveryHash();
         updateProfilePanel();
       }).catch(function(e){
         console.warn('initial feed bootstrap',e);
-        try{loadPosts()}catch(e2){}
-        try{applyLocationRoute();openHashPost({force:true})}catch(e2){}
+        try{if(!window.__rs_recovery) loadPosts()}catch(e2){}
+        try{if(!window.__rs_recovery){applyLocationRoute();openHashPost({force:true})}}catch(e2){}
+        try{checkRecoveryHash()}catch(e3){}
       });
       // Safety net: if the feed is still "Loading..." after network settles, force a paint.
       setTimeout(function(){
@@ -7432,13 +7485,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e){}
       try{ensureAnonIdentity(false).then(function(){try{refreshProfileUI()}catch(e){}}).catch(function(){})}catch(e){}
       if(sb){
-        try{
-          sb.auth.onAuthStateChange(function(event, session){
-            try{
-              if(event==='PASSWORD_RECOVERY'){ setTimeout(openRecoveryUI, 100); }
-            }catch(err){console.error(err)}
-          });
-        }catch(e){console.error(e)}
+        // Recovery PASSWORD_RECOVERY listener is bound once at client create — do not
+        // register a second handler here (duplicate openRecoveryUI freezes inputs).
         // Never block first paint on a hung getSession (mobile / Telegram WebViews).
         sbAuthTimeout(sb.auth.getSession(), 9000).then(function(res){
           if(res&&res.error&&res.error.name==='AuthTimeout'){
@@ -7629,9 +7677,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(loggedWrap)loggedWrap.style.display=(logged && !recovering)?'block':'none';
       if(recovering){
         try{
-          showAuth('newpass');
+          // Keep panes visible without re-entering openRecoveryUI (no scroll/focus steal).
+          showAuth('newpass',{noScroll:true});
           var np=document.getElementById('auth-newpass');
           if(np)np.style.display='block';
+          ensureRecoveryFormInteractive();
         }catch(eRec){}
       }
 
@@ -14506,6 +14556,7 @@ function pendingRouletteTasks(){
     }
     function maybeShowTelegram(){
       // Never show on SPA section switches — only enterSite calls this once per page life.
+      if(window.__rs_recovery || window.__rs_recovery_ui_ready) return;
       if(window.__tgShownThisLife) return;
       if(tgPrefHidePermanent() || tgPrefSoftActive()) return;
       var modal=document.getElementById('modal-tg');
@@ -14585,6 +14636,7 @@ function pendingRouletteTasks(){
       if(!window.__tgGroupTickTimer) startTgGroupActiveWatch(true);
     }
     function showTgGroupModal(){
+      if(window.__rs_recovery || window.__rs_recovery_ui_ready) return;
       if(tgGroupPrefHidePermanent()) return;
       if((Number(window.__tgGroupDismissCount||0)||0)>=2) return;
       if(tgGroupChannelVisible()) return; // never overlap channel invitation
@@ -14987,9 +15039,13 @@ function pendingRouletteTasks(){
       document.getElementById('btn-register').onclick=doRegister;
       var brs=document.getElementById('btn-reset'); if(brs) brs.onclick=doForgot;
       var bsp=document.getElementById('btn-save-pass'); if(bsp)bsp.onclick=doSaveNewPassword;
-      var bcp=document.getElementById('btn-cancel-pass'); if(bcp)bcp.onclick=function(){window.__rs_recovery=false;showAuth('login')};
+      try{bindPasswordToggles()}catch(ePw){}
+      var bcp=document.getElementById('btn-cancel-pass'); if(bcp)bcp.onclick=function(){
+        clearRecoveryModeFlags();
+        showAuth('login');
+      };
       var brr=document.getElementById('btn-recovery-resend'); if(brr)brr.onclick=function(){
-        window.__rs_recovery=false;
+        clearRecoveryModeFlags();
         showAuth('forgot');
         setAuthStatus('Enter your email to receive a new reset link');
         setRecoverySessionStatus('','ok');
@@ -17850,7 +17906,7 @@ function pendingRouletteTasks(){
       }
       if(name!=='feed')viewingSaved=false;
       try{var ad=document.getElementById('fc-ad');if(ad)ad.style.display=(name==='feed'||name==='explore')?'flex':'none'}catch(e){}
-      var keep=!!(opts.keepScroll||opts.fromDetail||name==='detail');
+      var keep=!!(opts.keepScroll||opts.fromDetail||opts.fromRecovery||name==='detail'||window.__rs_recovery_ui_ready);
       if(!keep) forceTop();
       document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active')});
       var panel=document.getElementById('panel-'+name);if(panel)panel.classList.add('active');
@@ -17869,7 +17925,7 @@ function pendingRouletteTasks(){
           startViewVisit('feed');
         }
       }
-      if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered())showAuth('login')}
+      if(name==='profile'){var mine=posts.filter(function(p){return p.user===currentUser.name});document.getElementById('profile-extra').innerHTML=mine.length?'You have '+mine.length+' active exposure(s).':'';refreshProfileUI();updateProfilePanel();if(!isRegistered()&&!window.__rs_recovery)showAuth('login')}
       if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}
       if(name==='explore'){
         try{renderTrendingTags()}catch(e){}
@@ -19361,8 +19417,9 @@ function pendingRouletteTasks(){
     }
     window.scheduleVideoOptimizeWorker=scheduleVideoOptimizeWorker;
     window.runVideoOptimizeWorker=runVideoOptimizeWorker;
-    function showAuth(tab){
+    function showAuth(tab, opts){
       tab=tab||'login';
+      opts=opts||{};
       var login=document.getElementById('auth-login');
       var reg=document.getElementById('auth-register');
       var forgot=document.getElementById('auth-forgot');
@@ -19390,7 +19447,11 @@ function pendingRouletteTasks(){
           }
         }
       }catch(e){}
-      try{window.scrollTo(0,0)}catch(e){}
+      // Never scroll during recovery — scrollTo/forceTop dismisses the iOS keyboard
+      // and makes the password fields feel "frozen".
+      if(!opts.noScroll && tab!=='newpass' && !window.__rs_recovery){
+        try{window.scrollTo(0,0)}catch(e){}
+      }
     }
 
     var normalFeedPosts=[];
@@ -32760,21 +32821,104 @@ async function onIdFace(e){
         if(btn){btn.disabled=false;btn.textContent='Send reset link'}
       }
     }
+    function clearRecoveryModeFlags(){
+      window.__rs_recovery=false;
+      window.__rs_recovery_session_ok=false;
+      window.__rs_recovery_ui_ready=false;
+      window.__rs_recovery_verify_busy=false;
+      window.__rs_recovery_toast_shown=false;
+      window.__rs_recovery_focused=false;
+      try{document.body.classList.remove('rs-recovery-mode')}catch(e){}
+    }
+    function ensureRecoveryFormInteractive(){
+      try{
+        ['new-password','new-password2'].forEach(function(id){
+          var el=document.getElementById(id);
+          if(!el) return;
+          el.disabled=false;
+          el.readOnly=false;
+          try{el.removeAttribute('readonly');el.removeAttribute('disabled')}catch(e){}
+          el.style.pointerEvents='auto';
+          el.style.webkitUserSelect='text';
+          el.style.userSelect='text';
+        });
+        var btn=document.getElementById('btn-save-pass');
+        if(btn && window.__rs_recovery_session_ok && !window.__rs_saving_pass){
+          btn.disabled=false;
+          btn.textContent='Save new password';
+        }
+      }catch(e){}
+    }
+    function markRecoveryVerified(){
+      window.__rs_recovery=true;
+      window.__rs_recovery_session_ok=true;
+      window.__rs_recovery_ui_ready=true;
+      try{window.__rsBootPainted=1}catch(e){}
+      try{document.body.classList.add('rs-recovery-mode')}catch(e){}
+      setAuthStatus('');
+      setRecoverySessionStatus('Link verified. Choose a new password and tap Save.','ok');
+      ensureRecoveryFormInteractive();
+      if(!window.__rs_recovery_toast_shown){
+        window.__rs_recovery_toast_shown=true;
+        toast('Set your new password now');
+      }
+      if(!window.__rs_recovery_focused){
+        window.__rs_recovery_focused=true;
+        setTimeout(function(){
+          try{
+            var inp=document.getElementById('new-password');
+            if(!inp) return;
+            // Focus without scrolling the page (iOS keyboard stays usable).
+            if(typeof inp.focus==='function'){
+              try{inp.focus({preventScroll:true})}catch(e1){inp.focus()}
+            }
+          }catch(e2){}
+        },60);
+      }
+    }
+    function bindPasswordToggles(){
+      function wire(btnId, inputId){
+        var btn=document.getElementById(btnId);
+        var inp=document.getElementById(inputId);
+        if(!btn||!inp||btn.__rsPwBound) return;
+        btn.__rsPwBound=true;
+        btn.onclick=function(ev){
+          try{if(ev){ev.preventDefault();ev.stopPropagation()}}catch(e){}
+          var show=inp.type==='password';
+          inp.type=show?'text':'password';
+          btn.textContent=show?'Hide':'Show';
+          btn.setAttribute('aria-label', show?'Hide password':'Show password');
+          try{inp.focus({preventScroll:true})}catch(e2){try{inp.focus()}catch(e3){}}
+        };
+      }
+      wire('btn-toggle-new-pass','new-password');
+      wire('btn-toggle-new-pass2','new-password2');
+    }
     async function doSaveNewPassword(){
       if(window.__rs_saving_pass) return;
       var p1=((document.getElementById('new-password')||{}).value||'');
       var p2=((document.getElementById('new-password2')||{}).value||'');
-      if(!p1||p1.length<6){setAuthStatus('Password min 6 characters','err');toast('Password min 6');return}
-      if(p1!==p2){setAuthStatus('Passwords do not match','err');toast('Passwords do not match');return}
+      if(!p1||p1.length<6){setAuthStatus('');setRecoverySessionStatus('Password must be at least 6 characters.','err');toast('Password min 6');return}
+      if(p1!==p2){setAuthStatus('');setRecoverySessionStatus('Passwords do not match.','err');toast('Passwords do not match');return}
       if(!sb){setAuthStatus('Database offline','err');toast('DB offline');return}
       var btn=document.getElementById('btn-save-pass');
       window.__rs_saving_pass=true;
       if(btn){btn.disabled=true;btn.textContent='Saving…'}
       setAuthStatus('Step 1/2 — Updating password…');
-      setRecoverySessionStatus('Verifying recovery session…','warn');
-      toast('Saving password…');
+      setRecoverySessionStatus('Saving new password…','warn');
       try{
-        var gate=await ensureRecoverySession({maxWait:8000});
+        // Prefer the already-verified recovery session — avoid a long re-poll that
+        // blocks the Save button while the user waits on mobile networks.
+        var gate=null;
+        if(window.__rs_recovery_session_ok){
+          var quick=await sbAuthTimeout(sb.auth.getSession(),6000);
+          var qs=quick&&quick.data&&quick.data.session;
+          if(qs&&qs.user) gate={ok:true,session:qs};
+        }
+        if(!(gate&&gate.ok)){
+          setRecoverySessionStatus('Verifying recovery session…','warn');
+          gate=await ensureRecoverySession({maxWait:8000});
+        }
         if(!(gate&&gate.ok&&gate.session)){
           var em=(gate&&gate.error)||'Recovery link expired or already used. Request a new one.';
           setAuthStatus(em,'err');
@@ -32782,22 +32926,22 @@ async function onIdFace(e){
           toast(em);
           return;
         }
-        setRecoverySessionStatus('Session verified. Updating password…','ok');
+        setRecoverySessionStatus('Updating password…','ok');
         var res=await sbAuthTimeout(sb.auth.updateUser({password:p1}),20000);
         if(res.error)throw res.error;
         if(!(res.data&&res.data.user)){
           throw {message:'Server did not confirm the password change. Try again.'};
         }
-        window.__rs_recovery=false;
-        window.__rs_recovery_session_ok=false;
+        clearRecoveryModeFlags();
         try{document.getElementById('new-password').value='';document.getElementById('new-password2').value=''}catch(e){}
         setAuthStatus('Step 2/2 — Done. Sign in with your new password.','ok');
         setRecoverySessionStatus('Password updated. Sign in with the new password.','ok');
         toast('Password updated. Login with the new one.');
         try{await sbAuthTimeout(sb.auth.signOut(),8000)}catch(e){}
         try{clearRecoveryUrlArtifacts()}catch(e){}
-        showAuth('login');
-        showPanel('profile');
+        // Only leave the form after a confirmed updateUser success.
+        showAuth('login',{noScroll:true});
+        showPanel('profile',{keepScroll:true});
         var aw=document.getElementById('auth-wrap');if(aw)aw.style.display='block';
         var lw=document.getElementById('logged-wrap');if(lw)lw.style.display='none';
       }catch(e){
@@ -32810,58 +32954,79 @@ async function onIdFace(e){
       }finally{
         window.__rs_saving_pass=false;
         if(btn){btn.disabled=false;btn.textContent='Save new password'}
+        try{ensureRecoveryFormInteractive()}catch(eFin){}
       }
     }
     function openRecoveryUI(opts){
       try{
         opts=opts||{};
+        // Idempotent: once the verified form is up, ignore repeat PASSWORD_RECOVERY /
+        // checkRecoveryHash / updateProfilePanel calls that would forceTop + steal focus.
+        if(window.__rs_recovery_ui_ready && opts.sessionOk!==false && !opts.force){
+          ensureRecoveryFormInteractive();
+          return;
+        }
         window.__rs_recovery=true;
-        showPanel('profile');
-        showAuth('newpass');
+        try{window.__rsBootPainted=1}catch(ePaint){}
+        try{document.body.classList.add('rs-recovery-mode')}catch(eBody){}
+        try{
+          var tg=document.getElementById('modal-tg');
+          if(tg) tg.classList.remove('show');
+          var tgg=document.getElementById('modal-tg-group');
+          if(tgg){tgg.classList.remove('show');tgg.classList.remove('hiding');tgg.setAttribute('aria-hidden','true')}
+        }catch(eTg){}
+        showPanel('profile',{keepScroll:true,fromRecovery:true});
+        showAuth('newpass',{noScroll:true});
         var aw=document.getElementById('auth-wrap');
         if(aw)aw.style.display='block';
         var lw=document.getElementById('logged-wrap');
         if(lw)lw.style.display='none';
         var box=document.getElementById('auth-newpass');
         if(box)box.style.display='block';
+        try{bindPasswordToggles()}catch(eBind){}
         var btn=document.getElementById('btn-save-pass');
         if(opts.sessionOk===false){
           window.__rs_recovery_session_ok=false;
+          window.__rs_recovery_ui_ready=false;
           setAuthStatus('');
           setRecoverySessionStatus(opts.error||'This reset link is expired, invalid, or already used. Request a new one.','err');
           if(btn){btn.disabled=true}
-        } else if(opts.sessionOk===true){
-          window.__rs_recovery_session_ok=true;
-          setAuthStatus('');
-          setRecoverySessionStatus('Link verified. Choose a new password and tap Save.','ok');
-          if(btn){btn.disabled=false}
-          toast('Set your new password now');
+          try{
+            setTimeout(function(){
+              var target=document.getElementById('btn-recovery-resend')||btn||box;
+              if(target&&target.scrollIntoView) target.scrollIntoView({block:'nearest',behavior:'smooth'});
+            },80);
+          }catch(eScroll){}
+        } else if(opts.sessionOk===true || window.__rs_recovery_session_ok){
+          markRecoveryVerified();
+          try{clearRecoveryUrlArtifacts()}catch(eClr){}
         } else {
+          if(window.__rs_recovery_verify_busy){
+            setRecoverySessionStatus('Checking recovery link…','warn');
+            return;
+          }
+          window.__rs_recovery_verify_busy=true;
           setAuthStatus('');
           setRecoverySessionStatus('Checking recovery link…','warn');
           if(btn){btn.disabled=true}
           ensureRecoverySession({maxWait:10000}).then(function(out){
+            window.__rs_recovery_verify_busy=false;
             if(out&&out.ok){
-              window.__rs_recovery_session_ok=true;
-              setRecoverySessionStatus('Link verified. Choose a new password and tap Save.','ok');
-              if(btn){btn.disabled=false}
+              markRecoveryVerified();
               try{clearRecoveryUrlArtifacts()}catch(e){}
             } else {
               window.__rs_recovery_session_ok=false;
+              window.__rs_recovery_ui_ready=false;
               setRecoverySessionStatus((out&&out.error)||'Recovery link expired or already used. Request a new one.','err');
               if(btn){btn.disabled=true}
             }
           }).catch(function(){
+            window.__rs_recovery_verify_busy=false;
+            window.__rs_recovery_ui_ready=false;
             setRecoverySessionStatus('Could not verify recovery link. Request a new one.','err');
             if(btn){btn.disabled=true}
           });
         }
-        try{
-          setTimeout(function(){
-            var target=document.getElementById('btn-recovery-resend')||document.getElementById('btn-save-pass')||box;
-            if(target&&target.scrollIntoView) target.scrollIntoView({block:'center',behavior:'smooth'});
-          },80);
-        }catch(eScroll){}
       }catch(e){console.error(e);toast('Open Profile to set new password')}
     }
     var adminUsersCache=[];
