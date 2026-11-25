@@ -32,6 +32,56 @@
   <meta name="twitter:title" content="Ruining Subs (ruinexpose.com)"/>
   <meta name="twitter:description" content="Public exposure board at ruinexpose.com"/>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ruining Subs","url":"https://www.ruinexpose.com/","alternateName":["ruinexpose","ruinexpose.com","ruiningsubs","ruiningsubs.com","RuiningSubs"],"description":"Public exposure board. Post photos, ID cards, printed exposure, Ruin Roulette.","potentialAction":{"@type":"SearchAction","target":"https://www.ruinexpose.com/wall","query-input":"required name=search_term_string"}}</script>
+  <!-- Kill sticky Service Workers early: blank/black pages in normal browsers (Incognito OK). -->
+  <script>
+  (function(){
+    try{
+      if(!('serviceWorker' in navigator)) return;
+      function wipeCaches(){
+        try{
+          if(!window.caches || !caches.keys) return;
+          caches.keys().then(function(keys){
+            (keys||[]).forEach(function(k){ try{caches.delete(k)}catch(e){} });
+          }).catch(function(){});
+        }catch(e){}
+      }
+      wipeCaches();
+      try{
+        navigator.serviceWorker.addEventListener('message', function(ev){
+          try{
+            if(ev && ev.data && ev.data.type==='RS_SW_KILLED'){
+              wipeCaches();
+              if(!sessionStorage.getItem('rs_sw_reloaded')){
+                sessionStorage.setItem('rs_sw_reloaded','1');
+                location.reload();
+              }
+            }
+          }catch(e){}
+        });
+      }catch(e){}
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs=regs||[];
+        if(!regs.length){
+          // Clean session: do not install a new SW.
+          wipeCaches();
+          return;
+        }
+        // Replace any controlling SW with the kill-switch (same /sw.js URL updates too).
+        // Only register once per tab life to avoid activate↔reload loops.
+        if(!sessionStorage.getItem('rs_sw_kill_reg')){
+          try{sessionStorage.setItem('rs_sw_kill_reg','1')}catch(e){}
+          navigator.serviceWorker.register('/sw.js?v=kill-2026-11-25').catch(function(){});
+        }
+        regs.forEach(function(r){ try{r.unregister()}catch(e){} });
+        // If a controller was already active, one hard reload clears the blank state.
+        if(navigator.serviceWorker.controller && !sessionStorage.getItem('rs_sw_reloaded')){
+          sessionStorage.setItem('rs_sw_reloaded','1');
+          setTimeout(function(){ try{location.reload()}catch(e){} }, 200);
+        }
+      }).catch(function(){});
+    }catch(e){}
+  })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     try{
       window.approveFeature=approveFeature;window.adminPin=adminPin;window.approveRemoveReq=approveRemoveReq;window.dismissFeatureReq=dismissFeatureReq;window.dismissRemoveReq=dismissRemoveReq;window.confirmRemovePaid=confirmRemovePaid;window.remindRemovePayment=remindRemovePayment;window.remindPinPayment=remindPinPayment;window.remindRoulettePayment=remindRoulettePayment;window.remindPrintPayment=remindPrintPayment;window.toggleAdminUsers=toggleAdminUsers;window.adminSetUserStatus=adminSetUserStatus;window.likeTask=likeTask;window.openDeleteTask=openDeleteTask;window.confirmDeleteTaskPaid=confirmDeleteTaskPaid;window.openDeleteTaskResp=openDeleteTaskResp;window.confirmDeleteTaskRespPaid=confirmDeleteTaskRespPaid;window.openPrintDirty=openPrintDirty;window.approveRoulettePack=approveRoulettePack;window.dismissRoulettePack=dismissRoulettePack;window.requestRoulettePack=requestRoulettePack;window.checkRouletteUnlock=checkRouletteUnlock;window.dismissPublicExposureReq=dismissPublicExposureReq;window.approvePublicExposureReq=approvePublicExposureReq;window.renderAdminReqTab=renderAdminReqTab;window.replyPublicExposure=replyPublicExposure;window.commentPublicExposure=commentPublicExposure;window.reactPublicExposure=reactPublicExposure;window.reportPeComment=reportPeComment;window.compressOldPosts=compressOldPosts;window.doForgot=doForgot;
@@ -3956,9 +4006,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
     }catch(e){}
     function setupPwaInstall(){
+      // Do not keep a controlling SW — it caused blank pages outside Incognito.
       try{
         if('serviceWorker' in navigator){
-          navigator.serviceWorker.register('/sw.js').catch(function(){});
+          navigator.serviceWorker.getRegistrations().then(function(regs){
+            (regs||[]).forEach(function(r){ try{r.unregister()}catch(e){} });
+          }).catch(function(){});
+        }
+        if(window.caches && caches.keys){
+          caches.keys().then(function(keys){
+            (keys||[]).forEach(function(k){ try{caches.delete(k)}catch(e){} });
+          }).catch(function(){});
         }
       }catch(e){}
       var deferred=null;
