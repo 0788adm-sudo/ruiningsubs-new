@@ -7568,10 +7568,20 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }catch(e){}
       }
 
+      // Password recovery session looks "logged in" to Supabase — never hide the
+      // new-password form under logged-wrap while __rs_recovery is active.
+      var recovering=!!window.__rs_recovery;
       var authWrap=document.getElementById('auth-wrap');
-      if(authWrap)authWrap.style.display=logged?'none':'block';
+      if(authWrap)authWrap.style.display=(logged && !recovering)?'none':'block';
       var loggedWrap=document.getElementById('logged-wrap');
-      if(loggedWrap)loggedWrap.style.display=logged?'block':'none';
+      if(loggedWrap)loggedWrap.style.display=(logged && !recovering)?'block':'none';
+      if(recovering){
+        try{
+          showAuth('newpass');
+          var np=document.getElementById('auth-newpass');
+          if(np)np.style.display='block';
+        }catch(eRec){}
+      }
 
       var stats=document.getElementById('my-stats');
       if(stats){

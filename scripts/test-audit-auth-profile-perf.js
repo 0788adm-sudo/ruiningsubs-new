@@ -78,6 +78,10 @@ ok(html.indexOf('sbAuthTimeout(sb.auth.getSession()') >= 0, 'boot getSession has
 ok(html.indexOf('rescueBlankShell') >= 0, 'blank-shell failsafe strengthened');
 ok(html.indexOf('Retry feed') >= 0, 'stalled feed shows retry');
 ok(html.indexOf('Never block first paint on a hung getSession') >= 0, 'documented non-blocking session restore');
+ok(html.indexOf('logged && !recovering') >= 0, 'updateProfilePanel keeps recovery form visible');
+var mw = fs.readFileSync(path.join(root, 'middleware.js'), 'utf8');
+ok(mw.indexOf('LOOKUP_TIMEOUT_MS') >= 0, 'edge post lookup has timeout');
+ok(mw.indexOf('AbortController') >= 0, 'edge post lookup can abort');
 
 // --- Sanity: critical helpers still exported / wired ---
 ok(html.indexOf('bsp.onclick=doSaveNewPassword') >= 0 || html.indexOf('bsp.onclick=doSaveNewPassword') >= 0,
