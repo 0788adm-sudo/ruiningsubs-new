@@ -79,8 +79,13 @@ ok(html.indexOf('rescueBlankShell') >= 0, 'blank-shell failsafe strengthened');
 ok(html.indexOf('Retry feed') >= 0, 'stalled feed shows retry');
 ok(html.indexOf('Never block first paint on a hung getSession') >= 0, 'documented non-blocking session restore');
 ok(html.indexOf('logged && !recovering') >= 0, 'updateProfilePanel keeps recovery form visible');
+ok(html.indexOf('rs-boot-rescue') >= 0, 'dead-shell rescue UI after auto-enter');
+ok(html.indexOf('__rsBootPainted') >= 0, 'boot paint marks shell alive');
+ok(html.indexOf('sbAuthTimeout(sb.auth.getSession(),8000)') >= 0, 'rename/tus getSession has timeout');
 var mw = fs.readFileSync(path.join(root, 'middleware.js'), 'utf8');
 ok(mw.indexOf('LOOKUP_TIMEOUT_MS') >= 0, 'edge post lookup has timeout');
+ok(mw.indexOf('LOOKUP_BUDGET_MS') >= 0, 'edge post lookup has hard budget');
+ok(mw.indexOf('isNumericPostId') >= 0, 'edge skips CF for numeric ids');
 ok(mw.indexOf('AbortController') >= 0, 'edge post lookup can abort');
 
 // --- Sanity: critical helpers still exported / wired ---

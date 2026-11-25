@@ -38,7 +38,11 @@ assert(mw.indexOf('postExists') >= 0, 'middleware existence check');
 assert(mw.indexOf('async function middleware') >= 0 || mw.indexOf('export default async function middleware') >= 0, 'middleware is async');
 assert(mw.indexOf('AbortController') >= 0, 'middleware lookup uses AbortController');
 assert(mw.indexOf('LOOKUP_TIMEOUT_MS') >= 0, 'middleware lookup timeout constant');
+assert(mw.indexOf('LOOKUP_BUDGET_MS') >= 0, 'middleware has overall lookup budget');
+assert(mw.indexOf('isNumericPostId') >= 0, 'middleware skips CF hang for numeric SB ids');
 assert(/signal:\s*ctrl/.test(mw), 'middleware fetch passes abort signal');
+assert(mw.indexOf('Do NOT wait on CF') >= 0 || mw.indexOf('skip CF for') >= 0 || mw.indexOf('Numeric SB ids') >= 0,
+  'middleware documents numeric-id CF skip');
 
 assert(del.indexOf('purgeDeletedPostCaches') >= 0, 'delete-post CDN purge helper');
 assert(del.indexOf('removalUrl') >= 0, 'delete-post returns GSC removal URL');
