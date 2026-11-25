@@ -32,53 +32,119 @@
   <meta name="twitter:title" content="Ruining Subs (ruinexpose.com)"/>
   <meta name="twitter:description" content="Public exposure board at ruinexpose.com"/>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ruining Subs","url":"https://www.ruinexpose.com/","alternateName":["ruinexpose","ruinexpose.com","ruiningsubs","ruiningsubs.com","RuiningSubs"],"description":"Public exposure board. Post photos, ID cards, printed exposure, Ruin Roulette.","potentialAction":{"@type":"SearchAction","target":"https://www.ruinexpose.com/wall","query-input":"required name=search_term_string"}}</script>
-  <!-- Kill sticky Service Workers early: blank/black pages in normal browsers (Incognito OK). -->
+  <!-- Recover sticky/buggy Service Workers WITHOUT clearing user sessions.
+       Critical: update the SAME /sw.js URL in-place (never ?v=…). Unregistering
+       before update() leaves the old controller hanging navigations forever.
+       Reload only on controllerchange/message — never on every paint (Telegram
+       WebViews often lack durable sessionStorage and would infinite-loop). -->
   <script>
   (function(){
     try{
       if(!('serviceWorker' in navigator)) return;
+      var RECOVERED_KEY='rs_sw_recovered_v2';
+      var reloadArmed=false;
       function wipeCaches(){
         try{
-          if(!window.caches || !caches.keys) return;
-          caches.keys().then(function(keys){
-            (keys||[]).forEach(function(k){ try{caches.delete(k)}catch(e){} });
+          if(!window.caches || !caches.keys) return Promise.resolve();
+          return caches.keys().then(function(keys){
+            return Promise.all((keys||[]).map(function(k){ return caches.delete(k); }));
           }).catch(function(){});
-        }catch(e){}
+        }catch(e){ return Promise.resolve(); }
+      }
+      function alreadyRecovered(){
+        if(window.__rsSwRecovered) return true;
+        try{ if(sessionStorage.getItem(RECOVERED_KEY)) return true; }catch(e){}
+        return false;
+      }
+      function markRecovered(){
+        window.__rsSwRecovered=1;
+        try{ sessionStorage.setItem(RECOVERED_KEY,'1'); }catch(e){}
+      }
+      function oneReload(){
+        if(reloadArmed || alreadyRecovered()) return;
+        reloadArmed=true;
+        markRecovered();
+        setTimeout(function(){ try{ location.reload(); }catch(e){} }, 50);
       }
       wipeCaches();
       try{
         navigator.serviceWorker.addEventListener('message', function(ev){
           try{
-            if(ev && ev.data && ev.data.type==='RS_SW_KILLED'){
+            var t=ev && ev.data && ev.data.type;
+            if(t==='RS_SW_NOOP_READY' || t==='RS_SW_KILLED'){
               wipeCaches();
-              if(!sessionStorage.getItem('rs_sw_reloaded')){
-                sessionStorage.setItem('rs_sw_reloaded','1');
-                location.reload();
-              }
+              oneReload();
             }
           }catch(e){}
         });
+        navigator.serviceWorker.addEventListener('controllerchange', function(){
+          // New no-op claimed — one reload so a hung navigation is abandoned.
+          oneReload();
+        });
       }catch(e){}
+      if(alreadyRecovered()){
+        // Prior pass already reloaded this tab life / session — just sweep.
+        navigator.serviceWorker.getRegistrations().then(function(regs){
+          return Promise.all((regs||[]).map(function(r){ try{ return r.unregister(); }catch(e){ return null; } }));
+        }).then(wipeCaches).catch(function(){});
+        return;
+      }
       navigator.serviceWorker.getRegistrations().then(function(regs){
         regs=regs||[];
         if(!regs.length){
-          // Clean session: do not install a new SW.
           wipeCaches();
           return;
         }
-        // Replace any controlling SW with the kill-switch (same /sw.js URL updates too).
-        // Only register once per tab life to avoid activate↔reload loops.
-        if(!sessionStorage.getItem('rs_sw_kill_reg')){
-          try{sessionStorage.setItem('rs_sw_kill_reg','1')}catch(e){}
-          navigator.serviceWorker.register('/sw.js?v=kill-2026-11-25').catch(function(){});
-        }
-        regs.forEach(function(r){ try{r.unregister()}catch(e){} });
-        // If a controller was already active, one hard reload clears the blank state.
-        if(navigator.serviceWorker.controller && !sessionStorage.getItem('rs_sw_reloaded')){
-          sessionStorage.setItem('rs_sw_reloaded','1');
-          setTimeout(function(){ try{location.reload()}catch(e){} }, 200);
-        }
+        // 1) Force in-place update of every existing registration (same script URL).
+        //    register('/sw.js') without query string refreshes the canonical worker.
+        var updates=[];
+        regs.forEach(function(reg){
+          try{
+            if(reg && typeof reg.update==='function') updates.push(reg.update().catch(function(){}));
+          }catch(e){}
+        });
+        updates.push(navigator.serviceWorker.register('/sw.js').catch(function(){}));
+        Promise.all(updates).then(function(){
+          // 2) After update has been requested, wait briefly for activate+claim,
+          //    THEN unregister. Never unregister before update — that strands the
+          //    buggy controller with no replacement path.
+          return new Promise(function(resolve){ setTimeout(resolve, 900); });
+        }).then(function(){
+          return navigator.serviceWorker.getRegistrations();
+        }).then(function(regs2){
+          return Promise.all((regs2||[]).map(function(r){
+            try{ return r.unregister(); }catch(e){ return null; }
+          }));
+        }).then(function(){ return wipeCaches(); }).catch(function(){});
       }).catch(function(){});
+    }catch(e){}
+  })();
+  </script>
+  <!-- Failsafe: never leave users on a blank white/black shell if boot stalls. -->
+  <script>
+  (function(){
+    try{
+      setTimeout(function(){
+        try{
+          var gate=document.getElementById('age-gate');
+          var app=document.getElementById('app');
+          if(!gate && !app) return;
+          var appShown=app && app.classList.contains('show');
+          var gateHidden=gate && gate.classList.contains('hidden');
+          if(appShown) return;
+          // Still on age gate with visible CTA — fine.
+          if(gate && !gateHidden){
+            var btn=document.getElementById('btn-enter');
+            if(btn && (btn.offsetParent!==null || btn.getClientRects().length)) return;
+          }
+          // Blank / unusable: force age gate visible so the user can enter.
+          if(gate){
+            gate.classList.remove('hidden');
+            gate.style.display='flex';
+          }
+          if(app) app.classList.remove('show');
+        }catch(e){}
+      }, 4000);
     }catch(e){}
   })();
   </script>
@@ -4006,11 +4072,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
     }catch(e){}
     function setupPwaInstall(){
-      // Do not keep a controlling SW — it caused blank pages outside Incognito.
+      // Never keep a controlling SW. Update /sw.js in-place first, then unregister.
       try{
         if('serviceWorker' in navigator){
           navigator.serviceWorker.getRegistrations().then(function(regs){
-            (regs||[]).forEach(function(r){ try{r.unregister()}catch(e){} });
+            regs=regs||[];
+            var ops=regs.map(function(r){
+              return Promise.resolve(r && r.update ? r.update() : null).catch(function(){});
+            });
+            return Promise.all(ops).then(function(){
+              return Promise.all(regs.map(function(r){
+                try{ return r.unregister(); }catch(e){ return null; }
+              }));
+            });
           }).catch(function(){});
         }
         if(window.caches && caches.keys){

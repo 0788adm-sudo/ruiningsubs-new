@@ -1,13 +1,11 @@
-/* Ruinexpose service worker — kill-switch.
-   Previous builds intercepted every GET (including cross-origin CDNs and the
-   ~2MB index.html). That left normal browser sessions blank/black while
-   Incognito (no SW) still worked.
-
-   This script replaces any controlling SW (skipWaiting + clients.claim),
-   clears Cache Storage, notifies open tabs, then unregisters itself.
-   No fetch handler and no client.navigate() — claiming without a fetch
-   listener lets the next navigation hit the network; tabs that can hear
-   postMessage reload once via sessionStorage. */
+/* Ruinexpose service worker — permanent no-op (Chrome/Workbox recovery pattern).
+   DO NOT add a fetch handler. DO NOT unregister from inside the worker.
+   A prior SW intercepted every GET (including navigations). Hung fetch handlers
+   left normal browsers / Telegram WebViews on an infinite spinner while Incognito
+   worked. Replacing that worker in-place at the SAME script URL (/sw.js) with this
+   no-op lets clients.claim() take control without intercepting; the page then
+   unregisters safely. Query-string registrations must never be used — they leave
+   the buggy worker in control. */
 self.addEventListener('install', function (event) {
   self.skipWaiting();
 });
@@ -34,16 +32,13 @@ self.addEventListener('activate', function (event) {
         clients.forEach(function (client) {
           try {
             if (client && typeof client.postMessage === 'function') {
-              client.postMessage({ type: 'RS_SW_KILLED' });
+              client.postMessage({ type: 'RS_SW_NOOP_READY' });
             }
           } catch (e) {}
         });
-      } catch (e) {}
-      try {
-        await self.registration.unregister();
       } catch (e) {}
     })()
   );
 });
 
-/* Intentionally no fetch handler — do not intercept navigations or assets. */
+/* Intentionally no fetch handler — requests pass through to the network. */
