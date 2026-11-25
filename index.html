@@ -124,14 +124,22 @@
   <script>
   (function(){
     try{
-      setTimeout(function(){
+      function rescueBlankShell(){
         try{
           var gate=document.getElementById('age-gate');
           var app=document.getElementById('app');
           if(!gate && !app) return;
           var appShown=app && app.classList.contains('show');
+          if(appShown){
+            // App visible but main panels empty / frozen — surface a recoverable hint.
+            var feed=document.getElementById('posts-container');
+            if(feed && /Loading/i.test(String(feed.textContent||'')) && !window.__rsBootFeedNudge){
+              window.__rsBootFeedNudge=1;
+              feed.innerHTML='<div class="empty">Still loading… <button type="button" class="btn btn-ghost" style="margin-top:10px" onclick="try{loadPosts()}catch(e){location.reload()}">Retry feed</button></div>';
+            }
+            return;
+          }
           var gateHidden=gate && gate.classList.contains('hidden');
-          if(appShown) return;
           // Still on age gate with visible CTA — fine.
           if(gate && !gateHidden){
             var btn=document.getElementById('btn-enter');
@@ -141,10 +149,14 @@
           if(gate){
             gate.classList.remove('hidden');
             gate.style.display='flex';
+            gate.style.visibility='visible';
+            gate.style.opacity='1';
           }
           if(app) app.classList.remove('show');
         }catch(e){}
-      }, 4000);
+      }
+      setTimeout(rescueBlankShell, 3500);
+      setTimeout(rescueBlankShell, 9000);
     }catch(e){}
   })();
   </script>
@@ -484,6 +496,16 @@
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:none;align-items:flex-end;justify-content:center;padding:16px}
     .modal-bg.show{display:flex}
     .modal{background:var(--card);border:1px solid var(--border);border-radius:20px 20px 14px 14px;width:100%;max-width:400px;padding:22px;max-height:80vh;overflow-y:auto}
+    #edit-profile-modal{position:fixed;inset:0;z-index:8600;display:none;align-items:flex-end;justify-content:center;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.82);-webkit-overflow-scrolling:touch}
+    #edit-profile-modal.show{display:flex}
+    #edit-profile-modal .edit-profile-sheet{width:100%;max-width:440px;max-height:min(92vh,720px);overflow:auto;background:#0c0c10;border:1px solid #22222a;border-radius:18px 18px 14px 14px;padding:16px 16px 20px;box-shadow:0 -8px 40px rgba(0,0,0,.45)}
+    #edit-profile-modal .edit-profile-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    #edit-profile-modal .edit-profile-head h3{font-size:17px;font-weight:800;letter-spacing:.02em;margin:0}
+    #edit-profile-modal .edit-profile-x{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#fff;font-size:18px;line-height:1;cursor:pointer}
+    #edit-username-status{font-size:12px;margin-top:6px;min-height:16px;color:var(--muted)}
+    #edit-username-status.ok{color:#34c759}
+    #edit-username-status.err{color:#ff6b6b}
+    #edit-username-status.warn{color:#ffb35c}
     #extend-modal{align-items:flex-start;padding-top:18vh}
     #extend-modal .modal{border-radius:20px;position:relative;padding-top:28px}
     #extend-modal .modal-x{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:16px;line-height:1}
@@ -3151,25 +3173,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">Private — only you</p>
         </div>
         <div id="my-posts" style="margin:12px 0"></div><div id="profile-extra" style="color:var(--muted);font-size:13px;text-align:center;margin-bottom:14px"></div>
-        <div id="edit-profile-box" style="display:none;margin-bottom:16px">
-          <div class="form-group"><label>Username</label><input type="text" id="edit-username" maxlength="20" placeholder="username"/></div>
-          <div class="form-group"><label>Profile photo</label>
-            <div class="upload" id="avatar-upload" style="padding:12px">Change photo</div>
-            <input type="file" id="avatar-input" accept="image/*" style="display:none"/>
-          </div>
-          <div class="form-group"><label>Cover / portada</label>
-            <div class="upload" id="banner-upload" style="padding:12px">Change cover image</div>
-            <p style="font-size:11px;color:var(--muted);margin:6px 0 0">Shown behind your avatar. Square or wide photo works best.</p>
-          </div>
-          <div class="form-group"><label>Bio</label><textarea id="edit-bio" maxlength="280" placeholder="About you..."></textarea></div>
-          <div class="form-group"><label>Height</label><input type="text" id="edit-height" maxlength="20" placeholder="180cm"/></div>
-          <div class="form-group"><label>Country</label><input type="text" id="edit-country" maxlength="40" placeholder="Colombia"/></div>
-          <div class="form-group"><label>Into</label><input type="text" id="edit-into" maxlength="80" placeholder="humiliation, exposure, sissy"/></div>
-          <div class="form-group"><label>Looking for</label><input type="text" id="edit-looking" maxlength="80" placeholder="a dom who posts me"/></div>
-          <div class="form-group"><label>Twitter / X</label><input type="text" id="edit-twitter" placeholder="@username or link"/></div>
-          <div class="form-group"><label>Telegram</label><input type="text" id="edit-telegram" placeholder="@username or t.me/..."/></div>
-          <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-save-profile" type="button">Save profile</button>
-        </div>
         <div id="auth-wrap">
         <div class="auth-box">
           <div class="auth-tabs">
@@ -3199,9 +3202,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
           <div id="auth-newpass" class="auth-pane" style="display:none">
             <p class="auth-hint">Choose a new password for your account</p>
-            <div class="form-group"><label>New password</label><input type="password" id="new-password" placeholder="Min 6 characters"/></div>
-            <div class="form-group"><label>Confirm password</label><input type="password" id="new-password2" placeholder="Repeat password"/></div>
+            <div id="recovery-session-status" style="display:none;font-size:12px;line-height:1.4;margin:0 0 10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border)"></div>
+            <div class="form-group"><label>New password</label><input type="password" id="new-password" autocomplete="new-password" placeholder="Min 6 characters"/></div>
+            <div class="form-group"><label>Confirm password</label><input type="password" id="new-password2" autocomplete="new-password" placeholder="Repeat password"/></div>
             <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-save-pass" type="button">Save new password</button>
+            <button class="btn btn-ghost" style="width:100%;margin-bottom:8px;display:none" id="btn-recovery-resend" type="button">Request a new reset link</button>
             <button class="btn btn-ghost" style="width:100%" id="btn-cancel-pass" type="button">Cancel</button>
           </div>
         </div>
@@ -5607,6 +5612,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var h=(location.hash||'')+(location.search||'');
         if(/type=recovery|type%3Drecovery/i.test(h))return true;
         if(/access_token=/i.test(h) && /type=recovery/i.test(h))return true;
+        if(/[?&#]code=/i.test(h) && /recovery|type=recovery/i.test(h))return true;
+        if(typeof recoveryUrlError==='function' && recoveryUrlError()) return true;
         return false;
       }catch(e){return false}
     }
@@ -5665,6 +5672,129 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           resolve(fallback);
         });
       });
+    }
+    /** Auth calls must not hang forever (Telegram / Safari can stall fetch). */
+    function sbAuthTimeout(promise, ms){
+      ms=Number(ms)||18000;
+      return new Promise(function(resolve){
+        var settled=false;
+        var t=setTimeout(function(){
+          if(settled)return;
+          settled=true;
+          resolve({data:null,error:{message:'Request timed out. Check your connection and try again.',name:'AuthTimeout',status:408}});
+        }, ms);
+        Promise.resolve(promise).then(function(v){
+          if(settled)return;
+          settled=true;
+          clearTimeout(t);
+          resolve(v||{data:null,error:null});
+        }).catch(function(e){
+          if(settled)return;
+          settled=true;
+          clearTimeout(t);
+          resolve({data:null,error:e||{message:'Auth request failed'}});
+        });
+      });
+    }
+    function recoveryUrlError(){
+      try{
+        var q=new URLSearchParams(location.search||'');
+        var err=q.get('error')||q.get('error_code')||'';
+        var desc=q.get('error_description')||q.get('error_desc')||'';
+        if(!err && /error=/i.test(location.hash||'')){
+          var hp=new URLSearchParams(String(location.hash||'').replace(/^#/,''));
+          err=hp.get('error')||hp.get('error_code')||'';
+          desc=hp.get('error_description')||'';
+        }
+        if(!err) return null;
+        return {error:err,description:decodeURIComponent(String(desc||'').replace(/\+/g,' '))};
+      }catch(e){return null}
+    }
+    function clearRecoveryUrlArtifacts(){
+      try{
+        var path=location.pathname||'/';
+        var q=new URLSearchParams(location.search||'');
+        ['code','error','error_code','error_description','type','access_token','refresh_token','token_hash'].forEach(function(k){q.delete(k)});
+        var qs=q.toString();
+        history.replaceState(null,'',path+(qs?('?'+qs):''));
+      }catch(e){}
+    }
+    async function applyRecoveryTokensFromUrl(){
+      if(!sb||!sb.auth) return {session:null,applied:false};
+      try{
+        var hash=String(location.hash||'').replace(/^#/,'');
+        if(hash && /access_token=/i.test(hash)){
+          var hp=new URLSearchParams(hash);
+          var at=hp.get('access_token');
+          var rt=hp.get('refresh_token')||'';
+          var typ=hp.get('type')||'';
+          if(at && (/recovery/i.test(typ) || /type=recovery/i.test(hash))){
+            var setRes=await sbAuthTimeout(sb.auth.setSession({access_token:at,refresh_token:rt||at}),16000);
+            if(setRes&&setRes.data&&setRes.data.session) return {session:setRes.data.session,applied:true};
+            if(setRes&&setRes.error) return {session:null,applied:false,error:setRes.error};
+          }
+        }
+      }catch(e){}
+      try{
+        var q=new URLSearchParams(location.search||'');
+        var code=q.get('code');
+        if(code && typeof sb.auth.exchangeCodeForSession==='function'){
+          var ex=await sbAuthTimeout(sb.auth.exchangeCodeForSession(code),16000);
+          if(ex&&ex.data&&ex.data.session) return {session:ex.data.session,applied:true};
+          if(ex&&ex.error) return {session:null,applied:false,error:ex.error};
+        }
+      }catch(e2){}
+      return {session:null,applied:false};
+    }
+    async function ensureRecoverySession(opts){
+      opts=opts||{};
+      var maxWait=Number(opts.maxWait)||12000;
+      var urlErr=recoveryUrlError();
+      if(urlErr){
+        return {ok:false,expired:true,error:urlErr.description||urlErr.error||'Recovery link invalid or expired'};
+      }
+      if(!sb) return {ok:false,expired:false,error:'Database offline'};
+      var started=Date.now();
+      var lastErr=null;
+      // First pass: let detectSessionInUrl work; then manually apply tokens if still empty.
+      while(Date.now()-started<maxWait){
+        try{
+          var res=await sbAuthTimeout(sb.auth.getSession(),8000);
+          var sess=res&&res.data&&res.data.session;
+          if(sess&&sess.user){
+            window.__rs_recovery=true;
+            window.__rs_recovery_session_ok=true;
+            return {ok:true,session:sess};
+          }
+          if(res&&res.error) lastErr=res.error;
+        }catch(e){lastErr=e}
+        if(!window.__rs_recovery_tokens_tried){
+          window.__rs_recovery_tokens_tried=true;
+          var applied=await applyRecoveryTokensFromUrl();
+          if(applied&&applied.session){
+            window.__rs_recovery=true;
+            window.__rs_recovery_session_ok=true;
+            return {ok:true,session:applied.session};
+          }
+          if(applied&&applied.error) lastErr=applied.error;
+        }
+        await new Promise(function(r){setTimeout(r,350)});
+      }
+      window.__rs_recovery_session_ok=false;
+      var msg=(lastErr&&lastErr.message)||'Recovery link expired, already used, or could not be verified';
+      return {ok:false,expired:true,error:msg};
+    }
+    function setRecoverySessionStatus(msg, kind){
+      var el=document.getElementById('recovery-session-status');
+      var resend=document.getElementById('btn-recovery-resend');
+      if(!el) return;
+      if(!msg){el.style.display='none';el.textContent='';if(resend)resend.style.display='none';return}
+      el.style.display='block';
+      el.textContent=msg;
+      if(kind==='ok'){el.style.background='rgba(52,199,89,.12)';el.style.borderColor='rgba(52,199,89,.4)';el.style.color='#34c759'}
+      else if(kind==='err'){el.style.background='rgba(255,59,48,.12)';el.style.borderColor='rgba(255,59,48,.4)';el.style.color='#ff6b6b'}
+      else {el.style.background='rgba(255,106,0,.10)';el.style.borderColor='rgba(255,106,0,.35)';el.style.color='#ffb35c'}
+      if(resend) resend.style.display=(kind==='err')?'block':'none';
     }
     async function loadBannedUsers(){
       if(!sb)return;
@@ -6994,26 +7124,41 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var h=(location.hash||'')+(location.search||'');
         if(/type=recovery|type%3Drecovery/i.test(h))return true;
         if(/access_token=/i.test(h) && /type=recovery/i.test(h))return true;
+        if(/[?&#]code=/i.test(h) && /recovery|type=recovery/i.test(h))return true;
+        if(recoveryUrlError()) return true;
         return false;
       }catch(e){return false}
     }
     function checkRecoveryHash(){
       try{
+        if(window.__rs_recovery_check_busy) return;
         if(!isRecoveryUrl())return;
         window.__rs_recovery=true;
-        // wait for supabase to parse tokens from URL
+        window.__rs_recovery_check_busy=true;
         function tryOpen(n){
-          if(n>15){ openRecoveryUI(); return; }
+          if(n>20){
+            openRecoveryUI({sessionOk:false,error:'Recovery link timed out. Request a new one.'});
+            window.__rs_recovery_check_busy=false;
+            return;
+          }
           if(!sb){ setTimeout(function(){tryOpen(n+1)},150); return; }
-          sb.auth.getSession().then(function(res){
-            var sess=res&&res.data&&res.data.session;
-            openRecoveryUI();
-            // clear hash so refresh doesn't loop
-            try{ if(/type=recovery/i.test(location.hash||'')) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
-          }).catch(function(){ openRecoveryUI(); });
+          ensureRecoverySession({maxWait:10000}).then(function(out){
+            if(out&&out.ok){
+              openRecoveryUI({sessionOk:true});
+              // Only clear URL tokens AFTER session is confirmed — clearing early
+              // destroyed recovery tokens in Telegram/Safari and left updateUser hanging.
+              clearRecoveryUrlArtifacts();
+            } else {
+              openRecoveryUI({sessionOk:false,error:(out&&out.error)||'Recovery link expired or already used'});
+            }
+            window.__rs_recovery_check_busy=false;
+          }).catch(function(e){
+            openRecoveryUI({sessionOk:false,error:(e&&e.message)||'Could not verify recovery link'});
+            window.__rs_recovery_check_busy=false;
+          });
         }
         tryOpen(0);
-      }catch(e){console.error(e)}
+      }catch(e){console.error(e);window.__rs_recovery_check_busy=false}
     }
     function boot(){
       initUser();setupUI();
@@ -7242,7 +7387,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             }catch(err){console.error(err)}
           });
         }catch(e){console.error(e)}
-        sb.auth.getSession().then(function(res){
+        // Never block first paint on a hung getSession (mobile / Telegram WebViews).
+        sbAuthTimeout(sb.auth.getSession(), 9000).then(function(res){
+          if(res&&res.error&&res.error.name==='AuthTimeout'){
+            console.warn('getSession timed out — continuing with local identity');
+            refreshProfileUI();
+            return;
+          }
           var session=res&&res.data&&res.data.session;
           if(session&&session.user){
             var meta=session.user.user_metadata||{};
@@ -7264,7 +7415,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             refreshProfileUI();
             try{updateProfilePanel()}catch(e){}
           }
-        }).catch(function(){});
+        }).catch(function(){try{refreshProfileUI()}catch(e){}});
       }
     }
     function isRegistered(){
@@ -14742,28 +14893,20 @@ function pendingRouletteTasks(){
       document.getElementById('btn-register').onclick=doRegister;
       var brs=document.getElementById('btn-reset'); if(brs) brs.onclick=doForgot;
       var bsp=document.getElementById('btn-save-pass'); if(bsp)bsp.onclick=doSaveNewPassword;
-      var bcp=document.getElementById('btn-cancel-pass'); if(bcp)bcp.onclick=function(){showAuth('login')};
+      var bcp=document.getElementById('btn-cancel-pass'); if(bcp)bcp.onclick=function(){window.__rs_recovery=false;showAuth('login')};
+      var brr=document.getElementById('btn-recovery-resend'); if(brr)brr.onclick=function(){
+        window.__rs_recovery=false;
+        showAuth('forgot');
+        setAuthStatus('Enter your email to receive a new reset link');
+        setRecoverySessionStatus('','ok');
+      };
       var bep=document.getElementById('btn-edit-profile'); if(bep) bep.onclick=function(){
-        if(!isRegistered()){toast('Register to edit profile');return}
-        var box=document.getElementById('edit-profile-box');
-        var show=box.style.display==='none';
-        box.style.display=show?'block':'none';
-        if(show){
-          var eu=document.getElementById('edit-username');if(eu)eu.value=currentUser.name;
-          loadProfile(currentUser.name).then(function(p){if(!p)return;var px=parseProfileExtra(p.bio||'');document.getElementById('edit-bio').value=px.text||'';var eh=document.getElementById('edit-height');if(eh)eh.value=px.h||'';var ec=document.getElementById('edit-country');if(ec)ec.value=px.c||'';var ei=document.getElementById('edit-into');if(ei)ei.value=px.i||'';var elook=document.getElementById('edit-looking');if(elook)elook.value=px.l||'';document.getElementById('edit-twitter').value=p.twitter||'';document.getElementById('edit-telegram').value=p.telegram||'';
-          var el=document.getElementById('edit-link');if(el)el.value=p.link||'';
-          var bu=document.getElementById('banner-upload');
-          if(bu) bu.textContent=px.bn?'Cover set — tap to change':'Change cover image';
-          });
-        }
+        openEditProfileModal();
       };
       document.getElementById('avatar-upload').onclick=function(){document.getElementById('avatar-input').click()};
       function openBannerPicker(){
         if(!isRegistered()){toast('Login to change cover');try{showAuth('login')}catch(e){}return;}
-        var box=document.getElementById('edit-profile-box');
-        if(box)box.style.display='block';
-        var inp=document.getElementById('banner-input');
-        if(inp)inp.click();
+        openEditProfileModal({pick:'banner'});
       }
       var buEl=document.getElementById('banner-upload');
       if(buEl) buEl.onclick=openBannerPicker;
@@ -14772,11 +14915,22 @@ function pendingRouletteTasks(){
       var pen=document.getElementById('btn-av-pencil');
       if(pen)pen.onclick=function(){
         if(!isRegistered()){toast('Login to change photo');try{showAuth('login')}catch(e){}return;}
-        var box=document.getElementById('edit-profile-box');
-        if(box)box.style.display='block';
-        var inp=document.getElementById('avatar-input');
-        if(inp)inp.click();
+        openEditProfileModal({pick:'avatar'});
       };
+      var bCloseEdit=document.getElementById('btn-close-edit-profile');
+      if(bCloseEdit) bCloseEdit.onclick=function(){closeEditProfileModal()};
+      var editModalBg=document.getElementById('edit-profile-modal');
+      if(editModalBg) editModalBg.addEventListener('click',function(ev){
+        if(ev.target===editModalBg) closeEditProfileModal();
+      });
+      var euCheck=document.getElementById('edit-username');
+      if(euCheck){
+        var unTimer=null;
+        euCheck.addEventListener('input',function(){
+          clearTimeout(unTimer);
+          unTimer=setTimeout(function(){checkUsernameAvailabilityUI()},350);
+        });
+      }
       document.getElementById('avatar-input').onchange=function(e){
         var f=e.target.files[0];if(!f)return;
         if(f.size>3500000){toast('Max 3.5MB');return}
@@ -30101,10 +30255,112 @@ async function onIdFace(e){
         try{await sb.from('notifications').update({read:true}).eq('to_username',currentUser.name)}catch(e){}
       }
     }
+    function setUsernameStatus(msg, kind){
+      var el=document.getElementById('edit-username-status');
+      if(!el) return;
+      el.textContent=msg||'';
+      el.className='';
+      if(kind) el.classList.add(kind);
+    }
+    async function isUsernameTakenCI(name, exceptName, exceptUserId){
+      name=String(name||'').replace(/^@/,'').trim();
+      if(!name||!sb) return {taken:false};
+      try{
+        var r=await sbQueryTimeout(
+          sb.from('profiles').select('username,user_id').ilike('username', name).limit(5),
+          8000,
+          {data:[],error:null}
+        );
+        var rows=(r&&r.data)||[];
+        for(var i=0;i<rows.length;i++){
+          var row=rows[i];
+          if(!row||!row.username) continue;
+          if(exceptName && normUserKey(row.username)===normUserKey(exceptName)) continue;
+          if(exceptUserId && row.user_id && String(row.user_id)===String(exceptUserId)) continue;
+          if(normUserKey(row.username)===normUserKey(name)) return {taken:true,username:row.username};
+        }
+      }catch(e){}
+      // Also treat active aliases pointing elsewhere as taken
+      try{
+        await refreshUsernameAliasMap(false);
+        var key=normUserKey(name);
+        var hit=__usernameAliasMap[key]||loadLocalUsernameAliases()[key];
+        if(hit&&hit.current&&normUserKey(hit.current)!==normUserKey(exceptName||'')){
+          if(exceptUserId && hit.user_id && String(hit.user_id)===String(exceptUserId)) return {taken:false};
+          return {taken:true,username:hit.current};
+        }
+      }catch(e2){}
+      return {taken:false};
+    }
+    async function checkUsernameAvailabilityUI(){
+      var inp=document.getElementById('edit-username');
+      if(!inp||!isRegistered()) return;
+      var raw=(inp.value||'').trim().replace(/[^a-zA-Z0-9_]/g,'').slice(0,20);
+      if(raw!==inp.value) inp.value=raw;
+      if(!raw){setUsernameStatus('Enter a username','warn');return false}
+      if(raw.length<3){setUsernameStatus('Min 3 characters','warn');return false}
+      if(normUserKey(raw)===normUserKey(currentUser.name)){setUsernameStatus('Current username','ok');return true}
+      setUsernameStatus('Checking…','warn');
+      var chk=await isUsernameTakenCI(raw, currentUser.name, getPermanentAccountId());
+      if(chk.taken){setUsernameStatus('Username already taken','err');return false}
+      setUsernameStatus('Available','ok');
+      return true;
+    }
+    function openEditProfileModal(opts){
+      opts=opts||{};
+      if(!isRegistered()){toast('Register to edit profile');try{showAuth('login')}catch(e){}return}
+      var modal=document.getElementById('edit-profile-modal');
+      if(!modal) return;
+      var eu=document.getElementById('edit-username');if(eu)eu.value=currentUser.name;
+      setUsernameStatus('','ok');
+      loadProfile(currentUser.name).then(function(p){
+        if(!p)return;
+        var px=parseProfileExtra(p.bio||'');
+        var eb=document.getElementById('edit-bio');if(eb)eb.value=px.text||'';
+        var eh=document.getElementById('edit-height');if(eh)eh.value=px.h||'';
+        var ec=document.getElementById('edit-country');if(ec)ec.value=px.c||'';
+        var ei=document.getElementById('edit-into');if(ei)ei.value=px.i||'';
+        var elook=document.getElementById('edit-looking');if(elook)elook.value=px.l||'';
+        var et=document.getElementById('edit-twitter');if(et)et.value=p.twitter||'';
+        var eg=document.getElementById('edit-telegram');if(eg)eg.value=p.telegram||'';
+        var el=document.getElementById('edit-link');if(el)el.value=p.link||'';
+        var bu=document.getElementById('banner-upload');
+        if(bu) bu.textContent=px.bn?'Cover set — tap to change':'Change cover image';
+      }).catch(function(){});
+      modal.classList.add('show');
+      try{document.body.style.overflow='hidden'}catch(e){}
+      if(opts.pick==='avatar'){
+        setTimeout(function(){var inp=document.getElementById('avatar-input');if(inp)inp.click()},120);
+      } else if(opts.pick==='banner'){
+        setTimeout(function(){var inp=document.getElementById('banner-input');if(inp)inp.click()},120);
+      }
+    }
+    function closeEditProfileModal(){
+      var modal=document.getElementById('edit-profile-modal');
+      if(modal) modal.classList.remove('show');
+      try{document.body.style.overflow=''}catch(e){}
+    }
+    window.openEditProfileModal=openEditProfileModal;
+    window.closeEditProfileModal=closeEditProfileModal;
+    window.checkUsernameAvailabilityUI=checkUsernameAvailabilityUI;
     async function saveProfile(){
+      if(window.__rs_saving_profile) return;
       if(!sb||!isRegistered()){toast('Register first');return}
       var oldName=currentUser.name;
       var newName=(document.getElementById('edit-username')&&document.getElementById('edit-username').value||'').trim().replace(/[^a-zA-Z0-9_]/g,'').slice(0,20);
+      var saveBtn=document.getElementById('btn-save-profile');
+      if(!newName||newName.length<3){toast('Username min 3');setUsernameStatus('Min 3 characters','err');return}
+      var nameChanging=normUserKey(oldName)!==normUserKey(newName) || oldName!==newName;
+      if(nameChanging){
+        var avail=await isUsernameTakenCI(newName, oldName, getPermanentAccountId());
+        if(avail.taken){
+          toast('Username already taken. Choose another.');
+          setUsernameStatus('Username already taken','err');
+          return;
+        }
+      }
+      window.__rs_saving_profile=true;
+      if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving…'}
       var oldPx=null;
       try{
         var oldBioPeek=await loadProfile(oldName);
@@ -30131,28 +30387,26 @@ async function onIdFace(e){
       var tw=document.getElementById('edit-twitter').value.trim();
       var tg=document.getElementById('edit-telegram').value.trim();
       var linkEl=document.getElementById('edit-link');var link=linkEl?linkEl.value.trim():'';
-      if(!newName||newName.length<3){toast('Username min 3');return}
       toast('Saving...');
       try{
-        // Username taken? (allow keeping same name)
-        if(oldName!==newName){
-          var taken=await sb.from('profiles').select('username').eq('username',newName).maybeSingle();
-          if(taken.data&&taken.data.username){
-            toast('Username already taken. Choose another.');
-            return;
-          }
-        }
+        var accountId=getPermanentAccountId();
         try{
-          var ur=await sb.auth.updateUser({data:{username:newName}});
+          var ur=await sbAuthTimeout(sb.auth.updateUser({data:{username:newName}}),12000);
           if(ur.error)console.warn(ur.error);
         }catch(e){console.warn(e)}
 
-        // Load old profile data before any delete
+        // Load old profile data before any rewrite (by current username OR permanent id)
         var oldP=null;
         try{
-          var op=await sb.from('profiles').select('*').eq('username',oldName).maybeSingle();
+          var op=await sbQueryTimeout(sb.from('profiles').select('*').eq('username',oldName).maybeSingle(),8000,{data:null});
           oldP=op.data||null;
         }catch(e){}
+        if(!oldP && accountId){
+          try{
+            var op2=await sbQueryTimeout(sb.from('profiles').select('*').eq('user_id',accountId).maybeSingle(),8000,{data:null});
+            oldP=op2.data||null;
+          }catch(e2){}
+        }
 
         var row={
           username:newName,
@@ -30162,6 +30416,7 @@ async function onIdFace(e){
           link:link||(oldP&&oldP.link)||'',
           updated_at:new Date().toISOString()
         };
+        if(accountId) row.user_id=accountId;
         if(avatarData){
           try{
             var avBlob=dataUrlToBlob(avatarData);
@@ -30177,28 +30432,43 @@ async function onIdFace(e){
         else row.xp=getUserXp();
         try{if(row.avatar_url)fetch(CF_API+'/avatars',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:newName,url:row.avatar_url})})}catch(e){}
 
-        var r=await sb.from('profiles').upsert(row);
-        if(r.error)throw r.error;
-
-        if(oldName&&oldName!==newName){
-          toast('Migrating data to @'+newName+'…');
-          var accountId=getPermanentAccountId();
+        // Prefer in-place update by permanent user_id so we never spawn a clone account.
+        var saved=false;
+        if(accountId){
           try{
-            if(accountId){
-              var stamped=await sb.from('profiles').update({user_id:accountId}).eq('username',newName);
-              if(stamped&&stamped.error&&/user_id/i.test(String(stamped.error.message||''))){
-                /* column not migrated yet — ignore */
-              }
-            }
+            var byId=await sb.from('profiles').update(row).eq('user_id',accountId);
+            if(!(byId&&byId.error)) saved=true;
+            else if(/user_id/i.test(String(byId.error.message||''))){ /* column missing */ }
           }catch(e){}
+        }
+        if(!saved && oldName){
+          try{
+            var byOld=await sb.from('profiles').update(row).eq('username',oldName);
+            if(!(byOld&&byOld.error)) saved=true;
+          }catch(e){}
+        }
+        if(!saved){
+          var r=await sb.from('profiles').upsert(row);
+          if(r.error)throw r.error;
+          saved=true;
+        }
+
+        if(oldName && nameChanging){
+          toast('Migrating data to @'+newName+'…');
           // Server-side permanent rename: rewrite content by account id, keep rows, record aliases.
           try{
             var srv=await serverRenameUsername(oldName,newName,accountId);
+            if(srv&&srv.ok===false && /username_taken|taken/i.test(String(srv.error||''))){
+              throw {message:'Username already taken. Choose another.'};
+            }
             if(!(srv&&srv.ok)) console.warn('server rename',srv);
-          }catch(e){console.warn('server rename',e)}
+          }catch(e){
+            if(e&&/taken/i.test(String(e.message||''))) throw e;
+            console.warn('server rename',e);
+          }
           saveLocalUsernameAlias(oldName,newName,accountId);
           // Client fallbacks (RLS may no-op; server path is authoritative when service role is set)
-          try{await sb.from('posts').update({username:newName}).eq('username',oldName)}catch(e){console.warn(e)}
+          try{await sb.from('posts').update(accountId?{username:newName,user_id:accountId}:{username:newName}).eq('username',oldName)}catch(e){console.warn(e)}
           try{await sb.from('posts').update(accountId?{username:newName,user_id:accountId}:{username:newName}).ilike('username',oldName)}catch(e){}
           try{await sb.from('comments').update({username:newName}).eq('username',oldName)}catch(e){}
           try{await sb.from('comments').update({user:newName}).eq('user',oldName)}catch(e){}
@@ -30224,16 +30494,22 @@ async function onIdFace(e){
           try{await sb.from('notifications').update({to_username:newName}).eq('to_username',oldName)}catch(e){}
           try{await sb.from('notifications').update({from_username:newName}).eq('from_username',oldName)}catch(e){}
           try{await migrateCoinsOnRename(oldName,newName)}catch(e){console.warn('coin migrate',e)}
-          // DELETE old profile so Explore does not show clones
+          // Free the previous username: delete any leftover profile row that is NOT this account.
           try{
-            var del=await sb.from('profiles').delete().eq('username',oldName);
-            if(del.error)console.warn('old profile delete',del.error);
+            var leftovers=await sb.from('profiles').select('username,user_id').ilike('username',oldName).limit(10);
+            var leftRows=(leftovers&&leftovers.data)||[];
+            for(var li=0;li<leftRows.length;li++){
+              var lr=leftRows[li];
+              if(!lr) continue;
+              if(accountId && lr.user_id && String(lr.user_id)===String(accountId)) continue;
+              if(normUserKey(lr.username)===normUserKey(newName)) continue;
+              try{await sb.from('profiles').delete().eq('username',lr.username)}catch(eDel){}
+            }
           }catch(e){console.warn(e)}
           try{
             var m=JSON.parse(localStorage.getItem('rs_xp')||'{}')||{};
             if(m[oldName]!=null){m[newName]=Math.max(Number(m[newName]||0),Number(m[oldName]||0));delete m[oldName];localStorage.setItem('rs_xp',JSON.stringify(m))}
           }catch(e){}
-          // Rewrite in-memory feed authors to the new display name (no duplicate posts).
           try{
             (posts||[]).forEach(function(p){
               if(sameAccountPost(p, oldName) || sameAccountPost(p, newName) || accountNamesMatch(p.user, oldName)){
@@ -30246,10 +30522,8 @@ async function onIdFace(e){
           delete profileCache[oldName];
           delete avatarUrlCache[oldName];
         } else {
-          // Same username: still stamp permanent user_id when column exists.
           try{
-            var aid2=getPermanentAccountId();
-            if(aid2) await sb.from('profiles').update({user_id:aid2}).eq('username',newName);
+            if(accountId) await sb.from('profiles').update({user_id:accountId}).eq('username',newName);
           }catch(e){}
         }
         currentUser.name=newName;
@@ -30262,10 +30536,14 @@ async function onIdFace(e){
         try{await loadFagBalance()}catch(e){}
         refreshProfileUI();
         updateProfilePanel();
-        var box=document.getElementById('edit-profile-box');
-        if(box)box.style.display='none';
+        closeEditProfileModal();
+        showPanel('profile');
         loadPosts();
       }catch(e){console.error(e);toast((e&&e.message)||'Error saving')}
+      finally{
+        window.__rs_saving_profile=false;
+        if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save profile'}
+      }
     }
     function paidProof(id){
       var msg='I paid $5 to delete post ID: '+id;
@@ -32197,10 +32475,12 @@ async function onIdFace(e){
       setAuthStatus('Step 1/3 — Connecting to account…');
       toast('Logging in…');
       try{
-        var res=await sb.auth.signInWithPassword({email:email,password:pass});
+        var res=await sbAuthTimeout(sb.auth.signInWithPassword({email:email,password:pass}),20000);
         if(res.error){
-          setAuthStatus((res.error.message||'Login failed')+' — check email/password','err');
-          toast(res.error.message||'Login failed');
+          var lm=res.error.message||'Login failed';
+          if(/timed out/i.test(lm)) lm='Login timed out. Check connection and try again.';
+          setAuthStatus(lm+( /timed out/i.test(lm)?'':' — check email/password'),'err');
+          toast(lm);
           return;
         }
         setAuthStatus('Step 2/3 — Loading profile…');
@@ -32255,7 +32535,15 @@ async function onIdFace(e){
       setAuthStatus('Step 1/3 — Creating account…');
       toast('Creating account…');
       try{
-        var res=await sb.auth.signUp({email:email,password:pass,options:{data:{username:username}}});
+        try{
+          var takenReg=await isUsernameTakenCI(username, null, null);
+          if(takenReg&&takenReg.taken){
+            setAuthStatus('Username already taken','err');
+            toast('Username already taken');
+            return;
+          }
+        }catch(eTaken){}
+        var res=await sbAuthTimeout(sb.auth.signUp({email:email,password:pass,options:{data:{username:username}}}),20000);
         if(res.error){
           var em=res.error.message||'Register failed';
           if(/already|registered|exists/i.test(em)){
@@ -32323,6 +32611,7 @@ async function onIdFace(e){
     }
     
     async function doForgot(){
+      if(window.__rs_forgot_busy) return;
       var email=((document.getElementById('forgot-email')||{}).value||'').trim();
       if(!email){
         var le=document.getElementById('login-email');
@@ -32331,12 +32620,13 @@ async function onIdFace(e){
       if(!email||email.indexOf('@')<0){setAuthStatus('Enter your email','err');toast('Enter email');return}
       if(!sb){setAuthStatus('Database offline','err');toast('DB offline');return}
       var btn=document.getElementById('btn-reset');
+      window.__rs_forgot_busy=true;
       if(btn){btn.disabled=true;btn.textContent='Sending…'}
       setAuthStatus('Step 1/2 — Sending recovery email…');
       try{
         var hn=String(location.hostname||'');
         var redirect=(/ruinexpose\.com|ruiningsubs\.com/i.test(hn))?(location.origin+'/'):(SITE_CANONICAL+'/');
-        var res=await sb.auth.resetPasswordForEmail(email,{redirectTo:redirect});
+        var res=await sbAuthTimeout(sb.auth.resetPasswordForEmail(email,{redirectTo:redirect}),20000);
         if(res.error)throw res.error;
         setAuthStatus('Step 2/2 — Email sent. Open the link on this phone, then set a new password.','ok');
         toast('Check your email for the reset link');
@@ -32344,43 +32634,69 @@ async function onIdFace(e){
       }catch(e){
         var msg=(e&&e.message)||'Error';
         if(/rate limit|email rate/i.test(msg))msg='Too many emails. Wait a few minutes.';
+        if(/timed out/i.test(msg))msg='Request timed out. Try again on a stable connection.';
         setAuthStatus(msg,'err');
         toast(msg);
       }finally{
+        window.__rs_forgot_busy=false;
         if(btn){btn.disabled=false;btn.textContent='Send reset link'}
       }
     }
     async function doSaveNewPassword(){
+      if(window.__rs_saving_pass) return;
       var p1=((document.getElementById('new-password')||{}).value||'');
       var p2=((document.getElementById('new-password2')||{}).value||'');
       if(!p1||p1.length<6){setAuthStatus('Password min 6 characters','err');toast('Password min 6');return}
       if(p1!==p2){setAuthStatus('Passwords do not match','err');toast('Passwords do not match');return}
       if(!sb){setAuthStatus('Database offline','err');toast('DB offline');return}
       var btn=document.getElementById('btn-save-pass');
+      window.__rs_saving_pass=true;
       if(btn){btn.disabled=true;btn.textContent='Saving…'}
       setAuthStatus('Step 1/2 — Updating password…');
+      setRecoverySessionStatus('Verifying recovery session…','warn');
       toast('Saving password…');
       try{
-        var res=await sb.auth.updateUser({password:p1});
+        var gate=await ensureRecoverySession({maxWait:8000});
+        if(!(gate&&gate.ok&&gate.session)){
+          var em=(gate&&gate.error)||'Recovery link expired or already used. Request a new one.';
+          setAuthStatus(em,'err');
+          setRecoverySessionStatus(em,'err');
+          toast(em);
+          return;
+        }
+        setRecoverySessionStatus('Session verified. Updating password…','ok');
+        var res=await sbAuthTimeout(sb.auth.updateUser({password:p1}),20000);
         if(res.error)throw res.error;
+        if(!(res.data&&res.data.user)){
+          throw {message:'Server did not confirm the password change. Try again.'};
+        }
         window.__rs_recovery=false;
+        window.__rs_recovery_session_ok=false;
         try{document.getElementById('new-password').value='';document.getElementById('new-password2').value=''}catch(e){}
         setAuthStatus('Step 2/2 — Done. Sign in with your new password.','ok');
+        setRecoverySessionStatus('Password updated. Sign in with the new password.','ok');
         toast('Password updated. Login with the new one.');
-        try{await sb.auth.signOut()}catch(e){}
+        try{await sbAuthTimeout(sb.auth.signOut(),8000)}catch(e){}
+        try{clearRecoveryUrlArtifacts()}catch(e){}
         showAuth('login');
         showPanel('profile');
         var aw=document.getElementById('auth-wrap');if(aw)aw.style.display='block';
         var lw=document.getElementById('logged-wrap');if(lw)lw.style.display='none';
       }catch(e){
-        setAuthStatus((e&&e.message)||'Could not update password','err');
-        toast((e&&e.message)||'Could not update password');
+        var msg=(e&&e.message)||'Could not update password';
+        if(/timed out/i.test(msg)) msg='Update timed out. Do not retry endlessly — request a new link if this keeps failing.';
+        if(/session|jwt|expired|invalid|Auth session/i.test(msg)) msg='Recovery session expired. Request a new reset link.';
+        setAuthStatus(msg,'err');
+        setRecoverySessionStatus(msg,'err');
+        toast(msg);
       }finally{
+        window.__rs_saving_pass=false;
         if(btn){btn.disabled=false;btn.textContent='Save new password'}
       }
     }
-    function openRecoveryUI(){
+    function openRecoveryUI(opts){
       try{
+        opts=opts||{};
         window.__rs_recovery=true;
         showPanel('profile');
         showAuth('newpass');
@@ -32388,10 +32704,39 @@ async function onIdFace(e){
         if(aw)aw.style.display='block';
         var lw=document.getElementById('logged-wrap');
         if(lw)lw.style.display='none';
-        // keep form visible even if session was partial
         var box=document.getElementById('auth-newpass');
         if(box)box.style.display='block';
-        toast('Set your new password now');
+        var btn=document.getElementById('btn-save-pass');
+        if(opts.sessionOk===false){
+          window.__rs_recovery_session_ok=false;
+          setRecoverySessionStatus(opts.error||'This reset link is expired, invalid, or already used. Request a new one.','err');
+          if(btn){btn.disabled=true}
+          setAuthStatus(opts.error||'Request a new password reset link','err');
+        } else if(opts.sessionOk===true){
+          window.__rs_recovery_session_ok=true;
+          setRecoverySessionStatus('Link verified. Choose a new password and tap Save.','ok');
+          if(btn){btn.disabled=false}
+          setAuthStatus('Set your new password','ok');
+          toast('Set your new password now');
+        } else {
+          setRecoverySessionStatus('Checking recovery link…','warn');
+          if(btn){btn.disabled=true}
+          ensureRecoverySession({maxWait:10000}).then(function(out){
+            if(out&&out.ok){
+              window.__rs_recovery_session_ok=true;
+              setRecoverySessionStatus('Link verified. Choose a new password and tap Save.','ok');
+              if(btn){btn.disabled=false}
+              try{clearRecoveryUrlArtifacts()}catch(e){}
+            } else {
+              window.__rs_recovery_session_ok=false;
+              setRecoverySessionStatus((out&&out.error)||'Recovery link expired or already used. Request a new one.','err');
+              if(btn){btn.disabled=true}
+            }
+          }).catch(function(){
+            setRecoverySessionStatus('Could not verify recovery link. Request a new one.','err');
+            if(btn){btn.disabled=true}
+          });
+        }
       }catch(e){console.error(e);toast('Open Profile to set new password')}
     }
     var adminUsersCache=[];
@@ -35042,6 +35387,40 @@ async function onIdFace(e){
       window.showAuth=showAuth;
     }catch(e){}
   </script>
+
+  <div id="edit-profile-modal" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title" onclick="if(event.target===this)closeEditProfileModal()">
+    <div class="edit-profile-sheet" onclick="event.stopPropagation()">
+      <div class="edit-profile-head">
+        <h3 id="edit-profile-title">Edit profile</h3>
+        <button class="edit-profile-x" id="btn-close-edit-profile" type="button" aria-label="Close">×</button>
+      </div>
+      <div id="edit-profile-box">
+        <div class="form-group"><label>Username</label><input type="text" id="edit-username" maxlength="20" autocomplete="username" placeholder="username"/><div id="edit-username-status"></div></div>
+        <div class="form-group"><label>Profile photo</label>
+          <div class="upload" id="avatar-upload" style="padding:12px">Change photo</div>
+          <input type="file" id="avatar-input" accept="image/*" style="display:none"/>
+        </div>
+        <div class="form-group"><label>Cover / portada</label>
+          <div class="upload" id="banner-upload" style="padding:12px">Change cover image</div>
+          <p style="font-size:11px;color:var(--muted);margin:6px 0 0">Shown behind your avatar. Square or wide photo works best.</p>
+        </div>
+        <div class="form-group"><label>Bio</label><textarea id="edit-bio" maxlength="280" placeholder="About you..."></textarea></div>
+        <div class="form-group"><label>Personal details</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input type="text" id="edit-height" maxlength="20" placeholder="Height"/>
+            <input type="text" id="edit-country" maxlength="40" placeholder="Country"/>
+          </div>
+        </div>
+        <div class="form-group"><label>Into</label><input type="text" id="edit-into" maxlength="80" placeholder="humiliation, exposure, sissy"/></div>
+        <div class="form-group"><label>Looking for</label><input type="text" id="edit-looking" maxlength="80" placeholder="a dom who posts me"/></div>
+        <div class="form-group"><label>Twitter / X</label><input type="text" id="edit-twitter" placeholder="@username or link"/></div>
+        <div class="form-group"><label>Telegram</label><input type="text" id="edit-telegram" placeholder="@username or t.me/..."/></div>
+        <input type="hidden" id="edit-link" value=""/>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-save-profile" type="button">Save profile</button>
+        <button class="btn btn-ghost" style="width:100%" id="btn-cancel-edit-profile" type="button" onclick="closeEditProfileModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <div id="modal-task-req" style="display:none!important;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:5000;align-items:center;justify-content:center;padding:16px" hidden aria-hidden="true">
     <div style="max-width:360px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px">
