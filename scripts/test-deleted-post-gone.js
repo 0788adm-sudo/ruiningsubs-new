@@ -49,10 +49,13 @@ assert(html.indexOf('rs_deleted_broadcast') >= 0, 'cross-tab delete broadcast');
 assert(html.indexOf('BroadcastChannel') >= 0, 'BroadcastChannel delete bus');
 
 assert(sm.indexOf('s-maxage=120') >= 0, 'sitemap short CDN TTL');
-assert(sw.indexOf('unregister') >= 0, 'SW kill-switch unregisters itself');
+assert(sw.indexOf('clients.claim') >= 0, 'SW no-op claims clients');
 assert(sw.indexOf('caches.delete') >= 0 || sw.indexOf('caches.delete(k)') >= 0, 'SW clears Cache Storage');
 assert(!/addEventListener\(\s*['"]fetch['"]/.test(sw), 'SW must not intercept fetch (blank-page bug)');
-assert(html.indexOf('RS_SW_KILLED') >= 0 || html.indexOf('getRegistrations') >= 0, 'client purges sticky SWs');
+assert(!/registration\.unregister/.test(sw), 'SW does not self-unregister (in-place replace)');
+assert(html.indexOf('getRegistrations') >= 0, 'client finds sticky SWs');
+assert(html.indexOf("register('/sw.js?v=") < 0, 'client must not register query-string SW');
+assert(/reg\.update|r\.update/.test(html), 'client calls registration.update()');
 
 var postHdr = (vercel.headers || []).find(function (h) {
   return h.source === '/post/:id';
@@ -72,7 +75,7 @@ assert(
   (swHdr.headers || []).some(function (x) {
     return /no-store|no-cache/i.test(x.value || '');
   }),
-  '/sw.js Cache-Control no-cache so kill-switch propagates'
+  '/sw.js Cache-Control no-cache so no-op propagates'
 );
 
 // Must not mass-delete or touch unrelated systems in these files.
