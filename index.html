@@ -1915,225 +1915,270 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   #posts-container{grid-template-columns:repeat(5,minmax(0,1fr))!important}
 }
 
-/* ——— Coins shop · RUINEXPOSE underground vault ——— */
+/* ——— Coins shop · RUINEXPOSE underground membership ——— */
 #panel-coins.coins-lux{
-  --lux-ink:#f2f2f4;
-  --lux-mute:#8b8793;
-  --lux-gold:#ff6a00;
-  --lux-gold-deep:#c2410c;
-  --lux-line:rgba(255,106,0,.28);
-  --lux-steel:#b8bcc8;
-  --lux-blood:#9f1239;
+  --lux-ink:#f0f0f2;
+  --lux-mute:#8a8690;
+  --lux-gold:#e85d04;
+  --lux-burn:#c2410c;
+  --lux-steel:#a8adb8;
+  --lux-graph:#3a3a42;
+  --lux-carbon:#0c0c0e;
+  --lux-blood:#7f1d1d;
   position:relative;
-  overflow:hidden;
-  padding:10px 14px 28px;
+  overflow-x:hidden;
+  overflow-y:visible;
+  padding:8px 12px 36px;
   font-family:Barlow,system-ui,sans-serif;
   color:var(--lux-ink);
   isolation:isolate;
   background:
-    radial-gradient(ellipse 90% 50% at 50% -10%,rgba(159,18,57,.22),transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 20%,rgba(255,106,0,.1),transparent 50%),
-    #050506;
+    repeating-linear-gradient(90deg,transparent 0 47px,rgba(255,255,255,.012) 47px 48px),
+    repeating-linear-gradient(0deg,transparent 0 47px,rgba(255,255,255,.01) 47px 48px),
+    #070708;
 }
 #panel-coins.coins-lux::before{
   content:"";
   position:absolute;inset:0;
   background:
-    linear-gradient(180deg,rgba(255,106,0,.06) 0%,transparent 28%),
-    repeating-linear-gradient(-12deg,transparent 0 11px,rgba(255,255,255,.015) 11px 12px);
+    linear-gradient(180deg,rgba(232,93,4,.05) 0%,transparent 22%),
+    radial-gradient(ellipse 70% 28% at 50% 0%,rgba(127,29,29,.18),transparent 60%);
   pointer-events:none;z-index:0;
 }
 #panel-coins.coins-lux::after{
   content:"";
-  position:absolute;left:0;right:0;top:0;height:3px;
-  background:linear-gradient(90deg,#9f1239 0%,#ff6a00 45%,#b8bcc8 100%);
+  position:absolute;left:0;right:0;top:0;height:2px;
+  background:linear-gradient(90deg,#7f1d1d 0%,#e85d04 55%,#5c5c66 100%);
   pointer-events:none;z-index:2;
 }
-@keyframes coinsLuxRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@keyframes coinsLuxPulse{
-  0%,100%{box-shadow:0 0 0 1px rgba(255,106,0,.35),0 12px 28px rgba(0,0,0,.45)}
-  50%{box-shadow:0 0 0 1px rgba(255,106,0,.55),0 14px 32px rgba(159,18,57,.2)}
-}
-#panel-coins .coins-lux-inner{position:relative;z-index:1;max-width:520px;margin:0 auto}
-#panel-coins .coins-lux-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+@keyframes coinsLuxRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#panel-coins .coins-lux-inner{position:relative;z-index:1;max-width:480px;margin:0 auto;width:100%;box-sizing:border-box}
+#panel-coins .coins-lux-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 #panel-coins .coins-lux-back{
-  width:40px;height:40px;border-radius:8px;
-  background:#0c0c10;border:1px solid #2a2a32;
+  width:36px;height:36px;border-radius:6px;
+  background:var(--lux-carbon);border:1px solid var(--lux-graph);
   color:var(--lux-ink);
 }
 #panel-coins .coins-lux-link{
-  border:1px solid #2a2a32;background:#0c0c10;
-  color:var(--lux-mute);border-radius:8px;padding:9px 12px;
-  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
-  font-family:inherit;transition:border-color .18s ease,color .18s ease,background .18s ease;
+  border:1px solid var(--lux-graph);background:var(--lux-carbon);
+  color:var(--lux-mute);border-radius:6px;padding:7px 10px;
+  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+  font-family:inherit;transition:border-color .15s ease,color .15s ease;
 }
-#panel-coins .coins-lux-link:hover{color:#fff;border-color:rgba(255,106,0,.55);background:rgba(255,106,0,.08)}
-#panel-coins .coins-lux-hero{text-align:center;margin:2px 0 20px;animation:coinsLuxRise .45s ease both}
+#panel-coins .coins-lux-link:hover{color:#fff;border-color:rgba(232,93,4,.55)}
+#panel-coins .coins-lux-hero{text-align:center;margin:0 0 12px;animation:coinsLuxRise .4s ease both}
 #panel-coins .coins-lux-kicker{
   display:inline-block;font-family:Oswald,Impact,sans-serif;font-weight:700;
-  font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#ff6a00;
-  margin:0 0 8px;padding-bottom:3px;border-bottom:2px solid #ff6a00;
+  font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--lux-gold);
+  margin:0 0 4px;padding-bottom:2px;border-bottom:2px solid var(--lux-gold);
 }
 #panel-coins .coins-lux-brand{
   font-family:Oswald,Impact,"Arial Narrow",sans-serif;
-  font-weight:700;font-size:clamp(3.2rem,14vw,4.6rem);line-height:.88;
-  letter-spacing:.04em;text-transform:uppercase;color:#fff;
-  text-shadow:2px 3px 0 rgba(159,18,57,.55);
+  font-weight:700;font-size:clamp(2.6rem,12vw,3.6rem);line-height:.9;
+  letter-spacing:.05em;text-transform:uppercase;color:#fff;
 }
 #panel-coins .coins-lux-lede{
-  margin:12px auto 0;max-width:34ch;font-size:13px;line-height:1.45;color:var(--lux-mute);font-weight:600;
+  margin:8px auto 0;max-width:34ch;font-size:12px;line-height:1.4;color:var(--lux-mute);font-weight:600;
 }
 #panel-coins .coins-lux-vault{
   position:relative;overflow:hidden;
-  border-radius:10px;padding:16px 16px 14px;margin:0 0 16px;
-  border:1px solid rgba(255,106,0,.4);
-  background:
-    linear-gradient(135deg,rgba(255,106,0,.12) 0%,transparent 42%),
-    linear-gradient(180deg,#12080c 0%,#080808 100%);
-  box-shadow:inset 3px 0 0 #ff6a00,0 14px 30px rgba(0,0,0,.4);
-  animation:coinsLuxRise .5s ease .04s both, coinsLuxPulse 4.5s ease-in-out infinite;
+  border-radius:6px;padding:10px 12px;margin:0 0 10px;
+  border:1px solid var(--lux-graph);
+  background:var(--lux-carbon);
+  box-shadow:inset 2px 0 0 var(--lux-gold),0 8px 18px rgba(0,0,0,.4);
+  animation:coinsLuxRise .45s ease .03s both;
+}
+#panel-coins .coins-lux-vault::before{
+  content:"";position:absolute;right:0;top:0;bottom:0;width:28%;
+  background:repeating-linear-gradient(-18deg,transparent 0 6px,rgba(232,93,4,.06) 6px 7px);
+  pointer-events:none;
 }
 #panel-coins .coins-lux-vault-label{
-  display:block;font-size:10px;letter-spacing:.22em;text-transform:uppercase;
-  color:#ff6a00;font-weight:800;margin-bottom:8px;font-family:Oswald,sans-serif;
+  display:block;font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--lux-gold);font-weight:800;margin-bottom:4px;font-family:Oswald,sans-serif;
 }
-#panel-coins .coins-lux-vault-row{display:flex;align-items:baseline;gap:10px;position:relative;z-index:1}
+#panel-coins .coins-lux-vault-row{display:flex;align-items:baseline;gap:8px;position:relative;z-index:1}
 #panel-coins .coins-lux-vault-n{
-  font-family:Oswald,Impact,sans-serif;font-size:2.7rem;font-weight:700;
+  font-family:Oswald,Impact,sans-serif;font-size:2.1rem;font-weight:700;
   color:#fff;letter-spacing:.02em;line-height:1;
 }
-#panel-coins .coins-lux-vault-unit{font-size:11px;font-weight:800;color:var(--lux-steel);letter-spacing:.16em;text-transform:uppercase}
+#panel-coins .coins-lux-vault-unit{font-size:10px;font-weight:800;color:var(--lux-steel);letter-spacing:.14em;text-transform:uppercase}
 #panel-coins .coins-lux-steps{
-  list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
-  margin:0 0 14px;padding:0;animation:coinsLuxRise .55s ease .08s both;
+  list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+  margin:0 0 10px;padding:0;animation:coinsLuxRise .5s ease .05s both;
 }
 #panel-coins .coins-lux-steps li{
-  border:1px solid #26262e;border-radius:8px;padding:10px 8px;
+  border:1px solid #2a2a32;border-radius:5px;padding:8px 6px;
   background:#0a0a0c;text-align:center;min-width:0;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
 }
 #panel-coins .coins-lux-steps b{
-  display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
-  color:#ff6a00;margin-bottom:4px;font-weight:800;font-family:Oswald,sans-serif;
+  display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--lux-gold);margin-bottom:2px;font-weight:800;font-family:Oswald,sans-serif;
 }
-#panel-coins .coins-lux-steps span{display:block;font-size:11px;line-height:1.35;color:var(--lux-mute);font-weight:600}
+#panel-coins .coins-lux-steps span{display:block;font-size:10px;line-height:1.3;color:var(--lux-mute);font-weight:600}
 #panel-coins .coins-lux-rates{
-  text-align:center;font-size:11px;color:var(--lux-mute);line-height:1.55;
-  margin:0 0 16px;letter-spacing:.01em;animation:coinsLuxRise .6s ease .1s both;
-  padding:12px 10px;border:1px solid #222228;border-radius:8px;background:rgba(255,255,255,.02);
+  text-align:center;font-size:10px;color:var(--lux-mute);line-height:1.45;
+  margin:0 0 12px;letter-spacing:.01em;animation:coinsLuxRise .5s ease .07s both;
+  padding:8px 8px;border:1px solid #26262e;border-radius:5px;background:#0a0a0c;
 }
-#panel-coins .coins-lux-rates strong{color:#ff6a00;font-weight:800}
-#panel-coins .coins-lux-rates .coins-lux-fx{color:var(--lux-steel);font-weight:800;margin-top:6px}
-#panel-coins #coin-pending{margin:0 0 14px}
+#panel-coins .coins-lux-rates strong{color:var(--lux-gold);font-weight:800}
+#panel-coins .coins-lux-rates .coins-lux-fx{color:var(--lux-steel);font-weight:800;margin-top:4px}
+#panel-coins #coin-pending{margin:0 0 10px}
 #panel-coins .coins-lux-pending,
 #panel-coins .coins-lux-credited{
-  border-radius:10px;padding:14px;margin:0 0 10px;
+  border-radius:6px;padding:10px 12px;margin:0 0 8px;
 }
 #panel-coins .coins-lux-pending{
-  border:1px solid rgba(255,106,0,.4);
-  background:linear-gradient(160deg,rgba(255,106,0,.1),rgba(12,8,10,.9));
+  border:1px solid rgba(232,93,4,.4);
+  background:#120c0a;
+  box-shadow:inset 2px 0 0 var(--lux-gold);
 }
 #panel-coins .coins-lux-credited{
-  border:1px solid rgba(52,211,153,.3);
-  background:rgba(6,20,15,.72);
+  border:1px solid rgba(52,211,153,.28);
+  background:#07140f;
 }
 #panel-coins .coins-lux-section{
-  font-family:Oswald,Impact,sans-serif;font-size:1.45rem;font-weight:700;
-  color:#fff;margin:4px 0 6px;letter-spacing:.06em;text-transform:uppercase;
+  font-family:Oswald,Impact,sans-serif;font-size:1.15rem;font-weight:700;
+  color:#fff;margin:2px 0 4px;letter-spacing:.06em;text-transform:uppercase;
 }
-#panel-coins .coins-lux-section-sub{font-size:12px;color:var(--lux-mute);margin:0 0 14px;line-height:1.45;font-weight:600}
+#panel-coins .coins-lux-section-sub{font-size:11px;color:var(--lux-mute);margin:0 0 8px;line-height:1.35;font-weight:600}
 #panel-coins .coins-lux-hint{
-  border:1px solid #2a2a32;border-radius:8px;padding:12px 14px;margin:0 0 16px;
-  background:#0a0a0c;font-size:12px;color:var(--lux-mute);line-height:1.45;
-  border-left:3px solid var(--lux-blood);
+  border:1px solid #2a2a32;border-radius:5px;padding:8px 10px;margin:0 0 10px;
+  background:#0a0a0c;font-size:11px;color:var(--lux-mute);line-height:1.4;
+  border-left:2px solid var(--lux-blood);
 }
 #panel-coins .coins-lux-hint strong{color:var(--lux-ink);font-weight:800}
+/* Membership pack cards */
 #panel-coins .coins-lux-pack{
-  position:relative;border-radius:10px;padding:16px;margin:0 0 14px;
-  border:1px solid #2a2a32;
-  background:#0a0a0c;
-  box-shadow:0 10px 24px rgba(0,0,0,.35);
-  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
-  animation:coinsLuxRise .55s ease both;
+  position:relative;border-radius:6px;padding:10px 10px 8px;margin:0 0 9px;
+  border:1px solid var(--lux-graph);
+  background:#0b0b0d;
+  box-shadow:0 6px 16px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.03);
+  transition:border-color .15s ease, box-shadow .15s ease;
+  animation:coinsLuxRise .45s ease both;
+  overflow:hidden;
+}
+#panel-coins .coins-lux-pack::before{
+  content:"";position:absolute;left:10px;right:10px;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(232,93,4,.45),transparent);
+  pointer-events:none;
+}
+#panel-coins .coins-lux-pack::after{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:#2e2e36;pointer-events:none;
 }
 #panel-coins .coins-lux-pack:hover{
-  transform:translateY(-2px);
-  border-color:rgba(255,106,0,.45);
-  box-shadow:0 14px 28px rgba(0,0,0,.42),0 0 0 1px rgba(255,106,0,.08);
+  border-color:#4a4a54;
+  box-shadow:0 8px 18px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
 }
 #panel-coins .coins-lux-pack.is-min{
-  border-color:rgba(255,106,0,.55);
-  background:
-    linear-gradient(165deg,rgba(255,106,0,.14),rgba(159,18,57,.08) 40%,#0a0a0c 100%);
-  box-shadow:0 12px 28px rgba(255,106,0,.12), inset 0 0 0 1px rgba(255,106,0,.08);
+  border-color:rgba(232,93,4,.5);
 }
+#panel-coins .coins-lux-pack.is-min::after{background:var(--lux-gold)}
+#panel-coins .coins-lux-pack.is-premium{
+  border-color:#4a4038;
+}
+#panel-coins .coins-lux-pack.is-premium::after{background:var(--lux-burn)}
 #panel-coins .coins-lux-pack-head{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;flex-wrap:wrap;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;
+  min-width:0;
 }
-#panel-coins .coins-lux-pack-price{
-  font-family:Oswald,Impact,sans-serif;font-size:1.65rem;font-weight:700;
-  color:#fff;letter-spacing:.03em;line-height:1;text-transform:uppercase;
+#panel-coins .coins-lux-pack-deal{
+  display:flex;align-items:baseline;gap:7px;flex-wrap:nowrap;min-width:0;
 }
-#panel-coins .coins-lux-pack-price em{font-style:normal;color:#ff6a00;font-size:1.05rem;margin:0 6px}
+#panel-coins .coins-lux-pack-usd{
+  font-family:Oswald,Impact,sans-serif;font-size:clamp(1.55rem,7vw,1.95rem);font-weight:700;
+  color:#fff;letter-spacing:.02em;line-height:1;flex-shrink:0;
+}
+#panel-coins .coins-lux-pack-arrow{
+  font-family:Oswald,Impact,sans-serif;font-size:1.05rem;font-weight:700;
+  color:var(--lux-gold);line-height:1;flex-shrink:0;
+}
+#panel-coins .coins-lux-pack-coins{
+  font-family:Oswald,Impact,sans-serif;font-size:clamp(1.05rem,4.8vw,1.35rem);font-weight:700;
+  color:var(--lux-steel);letter-spacing:.06em;line-height:1;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#panel-coins .coins-lux-pack-coins b{color:#fff;font-weight:700;margin-right:.18em}
 #panel-coins .coins-lux-badge{
-  font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-  color:#000;background:#ff6a00;
-  border-radius:4px;padding:5px 9px;font-family:Oswald,sans-serif;
+  flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:#000;background:var(--lux-gold);
+  border-radius:3px;padding:3px 6px;font-family:Oswald,sans-serif;line-height:1.2;
+}
+#panel-coins .coins-lux-badge.is-min{background:#fff;color:#111}
+#panel-coins .coins-lux-pay-row{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:0 0 6px;
 }
 #panel-coins .coins-lux-pay{
-  display:block;width:100%;margin:0 0 8px;border-radius:8px;padding:13px 14px;
-  font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;
+  display:block;width:100%;margin:0;border-radius:5px;padding:7px 6px;
+  font-family:inherit;font-size:11px;font-weight:800;cursor:pointer;
   border:1px solid #2a2a32;background:#121218;color:var(--lux-ink);
-  transition:background .15s ease,border-color .15s ease,transform .12s ease;
-  letter-spacing:.02em;
+  transition:background .12s ease,border-color .12s ease,transform .1s ease;
+  letter-spacing:.02em;line-height:1.15;text-align:center;
+  box-sizing:border-box;min-width:0;
 }
 #panel-coins .coins-lux-pay:active{transform:scale(.985)}
-#panel-coins .coins-lux-pay.throne{border-color:rgba(124,58,237,.35);background:rgba(76,29,149,.22)}
-#panel-coins .coins-lux-pay.throne .pay-row{display:inline-flex;align-items:center;justify-content:center;gap:8px}
-#panel-coins .coins-lux-pay.throne .pay-logo{display:block;flex-shrink:0}
+#panel-coins .coins-lux-pay.throne{border-color:#5b21b6;background:#3b0764;color:#e9d5ff}
+#panel-coins .coins-lux-pay.throne .pay-row{display:inline-flex;align-items:center;justify-content:center;gap:4px;max-width:100%}
+#panel-coins .coins-lux-pay.throne .pay-logo{display:block;flex-shrink:0;width:12px;height:12px}
 #panel-coins .coins-lux-pay.paypal{background:#003087;border-color:#009cde;color:#fff}
-#panel-coins .coins-lux-pay.btc{background:#111;border-color:#f7931a;color:#fff}
+#panel-coins .coins-lux-pay.btc{background:#0a0a0a;border-color:#f7931a;color:#fff;font-size:10px;padding:7px 4px}
 #panel-coins .coins-lux-pay.paid{
-  background:#ff6a00;color:#000;border:1px solid #ff6a00;
-  font-weight:900;box-shadow:0 8px 18px rgba(255,106,0,.28);
+  margin-top:0;padding:9px 10px;border-radius:6px;
+  background:#ff5500;color:#000;border:1px solid #ff5500;
+  font-size:12px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;
+  box-shadow:0 4px 12px rgba(255,85,0,.28);
 }
-#panel-coins .coins-lux-pack-note{font-size:11px;color:var(--lux-mute);text-align:center;margin:6px 0 0;line-height:1.4;font-weight:600}
+#panel-coins .coins-lux-pay.paid:hover{background:#ff661a;box-shadow:0 5px 14px rgba(255,85,0,.34)}
+#panel-coins .coins-lux-pack-note{
+  font-size:10px;color:var(--lux-mute);text-align:center;margin:5px 0 0;line-height:1.35;font-weight:600;
+}
 #panel-coins .coins-lux-print-btn{
-  display:block;width:100%;margin:8px 0 14px;padding:18px 14px;
-  border-radius:8px;border:2px solid #ff6a00;
-  background:#ff6a00;
-  color:#000;font-family:Oswald,Impact,sans-serif;font-size:1.45rem;font-weight:700;
-  letter-spacing:.32em;text-transform:uppercase;cursor:pointer;
-  box-shadow:0 10px 26px rgba(255,106,0,.35), 0 0 0 1px rgba(159,18,57,.35);
-  transition:transform .15s ease, background .15s ease, box-shadow .15s ease, color .15s ease;
+  display:block;width:100%;margin:6px 0 10px;padding:12px 12px;
+  border-radius:6px;border:1px solid var(--lux-gold);
+  background:var(--lux-gold);
+  color:#000;font-family:Oswald,Impact,sans-serif;font-size:1.15rem;font-weight:700;
+  letter-spacing:.28em;text-transform:uppercase;cursor:pointer;
+  box-shadow:0 6px 16px rgba(232,93,4,.28);
+  transition:transform .12s ease, background .12s ease, box-shadow .12s ease;
 }
 #panel-coins .coins-lux-print-btn:hover{
-  transform:translateY(-2px);
-  background:#ff7a1a;
-  box-shadow:0 14px 32px rgba(255,106,0,.45), 0 0 0 1px #9f1239;
+  transform:translateY(-1px);
+  background:#f06a14;
+  box-shadow:0 8px 18px rgba(232,93,4,.36);
 }
 #panel-coins .coins-lux-print-btn:active{transform:scale(.985)}
 #panel-coins .coins-lux-custom{
-  border-radius:10px;padding:16px;margin:0 0 8px;
-  border:1px solid rgba(255,106,0,.28);
-  background:linear-gradient(160deg,rgba(159,18,57,.12),rgba(10,10,12,.92));
-  box-shadow:inset 3px 0 0 #9f1239;
+  border-radius:6px;padding:12px 12px 10px;margin:0 0 8px;
+  border:1px solid #3a3030;
+  background:#0c0a0b;
+  box-shadow:inset 2px 0 0 var(--lux-blood);
 }
-#panel-coins .coins-lux-custom .kicker{font-size:10px;letter-spacing:.18em;color:#ff6a00;font-weight:800;font-family:Oswald,sans-serif}
-#panel-coins .coins-lux-custom h3{font-family:Oswald,Impact,sans-serif;font-size:1.25rem;font-weight:700;margin:6px 0;color:#fff;letter-spacing:.04em;text-transform:uppercase}
-#panel-coins .coins-lux-custom p{font-size:12px;color:var(--lux-mute);line-height:1.45;margin:0 0 12px;font-weight:600}
+#panel-coins .coins-lux-custom .kicker{font-size:9px;letter-spacing:.16em;color:var(--lux-gold);font-weight:800;font-family:Oswald,sans-serif}
+#panel-coins .coins-lux-custom h3{font-family:Oswald,Impact,sans-serif;font-size:1.1rem;font-weight:700;margin:4px 0;color:#fff;letter-spacing:.04em;text-transform:uppercase}
+#panel-coins .coins-lux-custom p{font-size:11px;color:var(--lux-mute);line-height:1.4;margin:0 0 8px;font-weight:600}
+#panel-coins .coins-lux-custom .coins-lux-pay.paid{padding:8px 10px;font-size:11px}
 @media(prefers-reduced-motion:reduce){
-  #panel-coins .coins-lux-vault{animation:none}
+  #panel-coins .coins-lux-vault,
   #panel-coins .coins-lux-hero,
   #panel-coins .coins-lux-steps,
   #panel-coins .coins-lux-rates,
   #panel-coins .coins-lux-pack{animation:none}
 }
-@media(max-width:380px){
-  #panel-coins .coins-lux-steps{grid-template-columns:1fr;gap:6px}
-  #panel-coins .coins-lux-steps li{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px}
+@media(max-width:420px){
+  #panel-coins.coins-lux{padding:6px 10px 40px}
+  #panel-coins .coins-lux-pack{padding:9px 8px 7px}
+  #panel-coins .coins-lux-pay.btc{letter-spacing:0;font-size:9px}
+  #panel-coins .coins-lux-pay.paid{font-size:11px;padding:8px 8px;letter-spacing:.02em}
+  #panel-coins .coins-lux-print-btn{letter-spacing:.18em;font-size:1.05rem;padding:11px 10px}
+}
+@media(max-width:360px){
+  #panel-coins .coins-lux-steps{grid-template-columns:1fr;gap:5px}
+  #panel-coins .coins-lux-steps li{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px}
   #panel-coins .coins-lux-steps b{margin:0}
-  #panel-coins .coins-lux-print-btn{letter-spacing:.2em;font-size:1.2rem}
+  #panel-coins .coins-lux-pay-row{gap:4px}
+  #panel-coins .coins-lux-pack-usd{font-size:1.4rem}
+  #panel-coins .coins-lux-pack-coins{font-size:.95rem}
 }
 
 </style>
@@ -10482,24 +10527,32 @@ async function claimPayPalPack(p){
         FC_PACKS.forEach(function(p, idx){
           var card=document.createElement('div');
           var hot=p.usd===5;
-          card.className='coins-lux-pack'+(hot?' is-min':'');
-          card.style.animationDelay=(0.08+idx*0.04)+'s';
+          var premium=p.usd>=50;
+          card.className='coins-lux-pack'+(hot?' is-min':'')+(premium?' is-premium':'');
+          card.style.animationDelay=(0.06+idx*0.03)+'s';
           var h=document.createElement('div');
           h.className='coins-lux-pack-head';
-          h.innerHTML='<div class="coins-lux-pack-price">$'+p.usd+'<em>→</em>'+p.coins+' Coins</div>'+(hot?'<span class="coins-lux-badge">Min · $5</span>':'');
+          var badge='';
+          if(hot) badge='<span class="coins-lux-badge is-min">Min · $5</span>';
+          else if(premium) badge='<span class="coins-lux-badge">Premium</span>';
+          h.innerHTML='<div class="coins-lux-pack-deal"><span class="coins-lux-pack-usd">$'+p.usd+'</span><span class="coins-lux-pack-arrow" aria-hidden="true">→</span><span class="coins-lux-pack-coins"><b>'+p.coins+'</b> Coins</span></div>'+badge;
           card.appendChild(h);
-          function addBtn(html, cls, fn){
+          var pays=document.createElement('div');
+          pays.className='coins-lux-pay-row';
+          function addBtn(parent, html, cls, fn){
             var x=document.createElement('button');
             x.type='button';
             x.className='coins-lux-pay'+(cls?' '+cls:'');
             x.innerHTML=html;
             x.onclick=fn;
-            card.appendChild(x);
+            parent.appendChild(x);
+            return x;
           }
-          addBtn('<span class="pay-row"><svg class="pay-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l2.2 4.5 5 .7-3.6 3.5.9 5.1L12 14.8 7.5 16.8l.9-5.1L4.8 8.2l5-.7L12 3z" fill="#c4b5fd"/><circle cx="12" cy="12" r="9.2" stroke="rgba(196,181,253,.55)" stroke-width="1.2"/></svg> Throne</span>','throne',function(){window.open(p.url||THRONE_HOME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins});});
-          addBtn('PayPal','paypal',function(){window.open(p.paypal||PAYPAL_ME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins,provider:'paypal'});});
-          addBtn('₿ Bitcoin — Copy Wallet','btc',function(){try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)})}catch(e){toast('BTC wallet: '+BTC_WALLET)}});
-          addBtn('I paid — request '+p.coins+' Coins','paid',function(){confirmCoinPackPaid(p);});
+          addBtn(pays,'<span class="pay-row"><svg class="pay-logo" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l2.2 4.5 5 .7-3.6 3.5.9 5.1L12 14.8 7.5 16.8l.9-5.1L4.8 8.2l5-.7L12 3z" fill="#c4b5fd"/><circle cx="12" cy="12" r="9.2" stroke="rgba(196,181,253,.55)" stroke-width="1.2"/></svg> Throne</span>','throne',function(){window.open(p.url||THRONE_HOME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins});});
+          addBtn(pays,'PayPal','paypal',function(){window.open(p.paypal||PAYPAL_ME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins,provider:'paypal'});});
+          addBtn(pays,'₿ Bitcoin','btc',function(){try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)})}catch(e){toast('BTC wallet: '+BTC_WALLET)}}).title='Copy Bitcoin wallet';
+          card.appendChild(pays);
+          addBtn(card,'I paid — request '+p.coins+' Coins','paid',function(){confirmCoinPackPaid(p);});
           var note=document.createElement('p');
           note.className='coins-lux-pack-note';
           note.textContent='Pay first. Then tap I paid — it appears under Pending credit.';
