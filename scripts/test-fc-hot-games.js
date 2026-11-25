@@ -63,11 +63,11 @@ assert(
 assert(html.includes('grantTrikiPinReward') || html.includes('grantRoulettePinReward') || html.includes('triki'), 'pin reward path');
 assert(html.includes('🏆 Fijada ganada en la ruleta'), 'roulette-won pin badge');
 
-// PayPal Jimenez for pin / delete / roulette
+// PayPal Jimenez for Coins recharge (not $5-per-pin)
 assert(html.includes('https://www.paypal.me/MartinJimenez205'), 'official PayPal Jimenez link');
-assert(html.includes('PayPal $5 · MartinJimenez205'), 'PayPal visible on payment CTAs');
-assert(html.includes('Price: <strong style="color:#f5c518;font-size:16px">$5 USD</strong>') || html.includes('$5 USD'), 'Pin $5 price');
-assert(html.includes('PayPal does not auto-pin') || html.includes('admin verifies'), 'no auto-credit from PayPal click');
+assert(html.includes('PayPal $5 · MartinJimenez205') || html.includes('PayPal $5'), 'PayPal visible on Coins recharge CTAs');
+assert(html.includes('60 Coins — $5 USD') || html.includes('$5 → 60 Coins') || html.includes('$5 USD'), 'min recharge $5 → 60 Coins');
+assert(html.includes('Recharge Coins') || html.includes('admin verifies') || html.includes('Coins credit after payment'), 'Coins credit after confirmed payment');
 
 // Video limits + daily fixed hero strip
 assert(html.includes('limitMediaVideos') && html.includes('maxVideos'), 'max 2 videos helper');

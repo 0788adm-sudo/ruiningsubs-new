@@ -39,19 +39,20 @@ assert(
   assert(m[0].indexOf('precharged') >= 0, 'requestDeleteWithCoins passes precharged');
   assert(m[0].indexOf('transactionId') >= 0 || m[0].indexOf('idempotencyKey') >= 0, 'requestDeleteWithCoins passes txn id');
 })();
-assert(html.indexOf("spendFagCoins('pin'") >= 0, 'Premium Pin spend path still present');
+assert(html.indexOf("spendFagCoins('pin'") >= 0, 'Pin spend path still present');
 assert(
   html.indexOf("Delete now — '+delCost+' Coins") >= 0 || html.indexOf('Delete now — 10 Coins') >= 0,
   'Delete now — N FC button copy'
 );
 assert(html.indexOf('Delete now — 10 Coins') >= 0, 'static modal button copy');
 assert(html.indexOf("fc.setAttribute('onclick','requestDeleteWithCoins()')") >= 0, 'non-owner FC button wires requestDeleteWithCoins');
-assert(html.indexOf('function pinWithCoins') >= 0, 'Premium Pin unchanged');
-assert(html.indexOf('Pin now — 10 Coins') >= 0, 'Premium Pin yellow button copy kept');
-assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal and Throne kept');
-assert(html.indexOf('I paid $5 — pending admin verify') >= 0, 'I paid kept for external payments');
+assert(html.indexOf('function pinWithCoins') >= 0, 'pinWithCoins present');
+assert(html.indexOf('function requestPinAction') >= 0, 'requestPinAction gates pin vs recharge');
+assert(html.indexOf('Recharge Coins') >= 0, 'insufficient balance opens Recharge Coins');
+assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal and Throne elements remain in DOM (hidden)');
+assert(html.indexOf('I paid $5 — pending admin verify') >= 0, 'legacy I paid label remains in DOM (hidden)');
 assert(/delete\s*:\s*10/.test(html), 'FC_COSTS.delete is 10');
-assert(html.indexOf("openNeedCoins({cost:j.need||j.cost||50,why:'delete post'})") >= 0 || html.indexOf("why:'delete post'") >= 0, 'insufficient FC opens buy coins');
+assert(html.indexOf("why:'delete'") >= 0 || html.indexOf("action:'delete'") >= 0, 'insufficient FC opens recharge coins');
 
 // Auto-delete contract (no admin for FC)
 assert(html.indexOf('deletes it immediately') >= 0 || html.indexOf('automatic') >= 0 || html.indexOf('Never creates an admin request') >= 0, 'UI says FC deletes immediately');

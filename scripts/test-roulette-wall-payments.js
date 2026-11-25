@@ -30,9 +30,10 @@ assert(html.includes("setWallFilter('roulette')"), 'after publish jump to Roulet
 assert(html.includes('roulette-wall-badge') && (html.includes('🎲 Roulette') || html.includes('🎡 Ruin Roulette') || html.includes("label:'🎡 Ruin Roulette'")), 'Roulette badge on cards');
 assert(html.includes('wallSortMode') && html.includes('rs_wall_sort_'), 'independent per-category sort memory');
 assert(html.includes('(Number(b.created)||0)-(Number(a.created)||0)'), 'Most Recent = created DESC');
-assert(html.includes('PayPal $5 · MartinJimenez205'), 'visible PayPal Jimenez CTAs');
-assert(html.includes("amount:'$5'") && html.includes('PREMIUM PIN'), 'Pin request is $5');
-assert(html.includes('Paid delete ·') && html.includes('paypal.me/MartinJimenez205/5'), 'Delete PayPal $5');
+assert(html.includes('PayPal $5 · MartinJimenez205') || html.includes('paypal.me/MartinJimenez205/5'), 'PayPal Jimenez CTAs remain for Coins recharge');
+assert(html.includes('function requestPinAction') && html.includes('10 Coins'), 'Pin spends 10 Coins (not $5 per pin)');
+assert(html.includes('Paid delete ·') && html.includes('10 Coins'), 'Delete uses Coins balance');
+assert(html.includes('Recharge Coins') && html.includes('60 Coins — $5 USD'), 'Recharge pack $5 → 60 Coins');
 assert(html.includes('requestRoulettePackPayPal') && html.includes('roulette_pack_request'), 'Roulette PayPal pending approval');
 assert(html.includes('claimRoulettePackPaid') && html.includes('I PAID — CLAIM SPINS'), 'I PAID claim spins');
 assert(html.includes('BUY 10 EXTRA SPINS'), 'buy extra spins CTA');
