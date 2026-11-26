@@ -542,6 +542,9 @@
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:none;align-items:flex-end;justify-content:center;padding:16px}
     .modal-bg.show{display:flex}
     .modal{background:var(--card);border:1px solid var(--border);border-radius:20px 20px 14px 14px;width:100%;max-width:400px;padding:22px;max-height:80vh;overflow-y:auto}
+    /* Delete modal must sit above bottom-nav (z=5000) so Cancel / $5 CTAs stay tappable on mobile + Telegram WebView */
+    #remove-modal.modal-bg{z-index:6000;align-items:center;padding:12px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+    #remove-modal .modal{max-height:min(88vh,760px);padding-bottom:26px;-webkit-overflow-scrolling:touch}
     #edit-profile-modal{position:fixed;inset:0;z-index:8600;display:none;align-items:flex-end;justify-content:center;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.82);-webkit-overflow-scrolling:touch}
     #edit-profile-modal.show{display:flex}
     #edit-profile-modal .edit-profile-sheet{width:100%;max-width:440px;max-height:min(92vh,720px);overflow:auto;background:#0c0c10;border:1px solid #22222a;border-radius:18px 18px 14px 14px;padding:16px 16px 20px;box-shadow:0 -8px 40px rgba(0,0,0,.45)}
