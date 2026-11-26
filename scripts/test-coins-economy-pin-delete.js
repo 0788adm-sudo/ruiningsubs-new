@@ -35,22 +35,24 @@ assert(html.indexOf('Recharge Coins') >= 0, 'Recharge Coins modal copy');
 assert(html.indexOf('60 Coins — $5 USD') >= 0, 'recharge pack headline');
 assert(html.indexOf('up to') >= 0 && html.indexOf('actions') >= 0, 'explains 6 actions from 60 Coins');
 
-// Insufficient → recharge, not $5-per-action
+// Pin insufficient → recharge (purchase stays separate from spend)
 assert(html.indexOf("openNeedCoins({cost:cost,why:'pin',action:'pin'})") >= 0 || html.indexOf("why:'pin',action:'pin'") >= 0, 'pin insufficient opens recharge');
-assert(html.indexOf("openNeedCoins({cost:delCost,why:'delete',action:'delete'})") >= 0 || html.indexOf("why:'delete',action:'delete'") >= 0, 'delete insufficient opens recharge');
-assert(html.indexOf('No $5 charge per action') >= 0 || html.indexOf('No separate $5 charge') >= 0, 'copy forbids $5 per action');
+assert(html.indexOf('Recharge Coins') >= 0, 'Recharge Coins modal still available');
+assert(html.indexOf('btn-remove-buycoins') >= 0 && html.indexOf("why:'delete',action:'delete'") >= 0, 'delete can open Recharge Coins separately');
 
-// Enough balance → spend path (no payment window)
+// Enough balance → spend path
 assert(html.indexOf("spendFagCoins('pin'") >= 0, 'pin spends via spendFagCoins');
 assert(html.indexOf("spendFagCoins('delete'") >= 0, 'delete spends via spendFagCoins');
 assert(html.indexOf('/api/fc-spend') >= 0, 'atomic server spend');
 assert(html.indexOf('__fcSpendLocks') >= 0, 'client double-click spend lock');
 assert(spend.indexOf('locks.set(key') >= 0 && spend.indexOf('idemKey') >= 0, 'server idempotency + lock');
 
-// Delete modal is coins-first
+// Delete modal: Coins spend OR independent $5 direct pay (not mixed with recharge I paid)
 assert(html.indexOf('Paid delete ·') >= 0 && html.indexOf('10 Coins') >= 0, 'delete modal coins copy');
-assert(html.indexOf('Delete · \'+delCost+\' Coins or $5\'') < 0, 'no Delete · N Coins or $5 title');
-assert(html.indexOf("setRemoveModalExternalPay(true)") < 0, 'external $5 pay not enabled for non-owner');
+assert(html.indexOf("Delete · '+delCost+' Coins or $5'") >= 0 || html.indexOf('Delete · 10 Coins or $5') >= 0, 'Delete · N Coins or $5 title restored');
+assert(html.indexOf("setRemoveModalExternalPay(true)") >= 0, 'external $5 pay enabled for non-owner');
+assert(html.indexOf("kind:'remove_request'") >= 0, 'I paid $5 creates remove_request');
+assert(html.indexOf('btn-remove-btc') >= 0 || html.indexOf('Bitcoin payment') >= 0, 'Bitcoin delete payment option');
 
 // Credit only after confirmed payment (existing I paid → pending → admin credit)
 assert(html.indexOf('confirmCoinPackPaid') >= 0, 'I paid creates pending credit request');

@@ -38,7 +38,7 @@ assert(/universalDeleteButtonHtml\(post,\s*\{\s*style:\s*'dx'\s*\}/.test(html), 
 
 assert(/Owner always free|Delete now — free|free · your post/.test(html), 'owner free UI copy');
 assert(/requestDeleteWithCoins/.test(html), 'non-owner FC auto-delete');
-assert(/I paid \$5 — pending admin verify/.test(html), 'external pay awaits admin');
+assert(/I paid \$5 — pending admin verif/.test(html), 'external pay awaits admin');
 assert(/btn-remove-paypal/.test(html) && /btn-remove-throne/.test(html), 'PayPal + Throne kept');
 assert(/You already have a pending delete request/.test(html), 'duplicate request blocked');
 assert(/APPROVE &amp; DELETE|APPROVE & DELETE/.test(html), 'admin approve & delete');

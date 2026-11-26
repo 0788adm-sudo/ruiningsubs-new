@@ -293,8 +293,14 @@ module.exports = async function handler(req, res) {
     }
 
     var user = normUser(body.user_id || body.user || body.from_username || body.from);
+    // Bare guest/anon blocked. Stable anon_<session> is allowed for remove_request ($5 delete claims).
     if (!user || user === 'guest' || user === 'anon') {
       return json(res, 401, { ok: false, error: 'login_required' });
+    }
+    var isAnonSession = /^anon[_:]/i.test(user) || /^anon_tmp/i.test(user);
+    // Never credit Coins to anonymous session identities.
+    if (kind === 'coins' && isAnonSession) {
+      return json(res, 401, { ok: false, error: 'register_required_for_coins' });
     }
 
     var postId = canonicalPostId(body.post_id == null && body.postId == null ? '' : (body.post_id || body.postId || ''));
@@ -303,7 +309,7 @@ module.exports = async function handler(req, res) {
       return json(res, 400, {
         ok: false,
         error: 'missing_post_id',
-        detail: 'PayPal/Throne delete requests require the post id.'
+        detail: 'PayPal/Throne/Bitcoin delete requests require the post id.'
       });
     }
 
