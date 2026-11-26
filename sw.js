@@ -1,11 +1,9 @@
-/* Ruinexpose service worker — permanent no-op (Chrome/Workbox recovery pattern).
+/* Ruinexpose service worker — permanent no-op + forced client recovery.
    DO NOT add a fetch handler. DO NOT unregister from inside the worker.
-   A prior SW intercepted every GET (including navigations). Hung fetch handlers
-   left normal browsers / Telegram WebViews on an infinite spinner while Incognito
-   worked. Replacing that worker in-place at the SAME script URL (/sw.js) with this
-   no-op lets clients.claim() take control without intercepting; the page then
-   unregisters safely. Query-string registrations must never be used — they leave
-   the buggy worker in control. */
+   A prior SW intercepted every GET (including navigations). Hung/blank
+   fetch handlers left normal Safari/Chrome on white/black screens while
+   Incognito worked. This worker replaces that script URL in-place, claims
+   clients, then navigates them so a blank synthetic document is abandoned. */
 self.addEventListener('install', function (event) {
   self.skipWaiting();
 });
@@ -32,9 +30,16 @@ self.addEventListener('activate', function (event) {
         clients.forEach(function (client) {
           try {
             if (client && typeof client.postMessage === 'function') {
-              client.postMessage({ type: 'RS_SW_NOOP_READY' });
+              client.postMessage({ type: 'RS_SW_NOOP_READY', v: 3 });
             }
           } catch (e) {}
+          // Force a real network navigation so a blank SW document is replaced.
+          // Safe: we have no fetch handler, so navigate hits the network.
+          try {
+            if (client && typeof client.navigate === 'function' && client.url) {
+              client.navigate(client.url);
+            }
+          } catch (e2) {}
         });
       } catch (e) {}
     })()

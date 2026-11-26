@@ -27,7 +27,7 @@ assert(/no-op|noop|NOOP/i.test(sw) || sw.indexOf('clients.claim') >= 0, 'sw.js i
 assert(sw.indexOf('skipWaiting') >= 0, 'sw.js skipWaiting for fast replace');
 assert(sw.indexOf('clients.claim') >= 0, 'sw.js claims clients so buggy fetch handler is replaced');
 assert(!/addEventListener\(\s*['"]fetch['"]/.test(sw), 'no fetch handler (must not intercept)');
-assert(!/respondWith/.test(sw), 'no respondWith');
+assert(!/respondWith\s*\(/.test(sw), 'no respondWith()');
 assert(!/registration\.unregister/.test(sw), 'SW must not self-unregister (page unregisters after update)');
 assert(!/shouldBypass/.test(sw), 'old intercepting SW logic removed');
 
@@ -36,7 +36,7 @@ assert(html.indexOf("register('/sw.js')") >= 0 || html.indexOf('register("/sw.js
 assert(/reg\.update|r\.update/.test(html), 'calls registration.update() on existing SWs');
 assert(html.indexOf('RS_SW_NOOP_READY') >= 0, 'listens for no-op ready message');
 assert(html.indexOf('controllerchange') >= 0, 'reloads once on controllerchange');
-assert(html.indexOf('rs_sw_recovered_v2') >= 0, 'one-shot reload key prevents infinite loops');
+assert(html.indexOf('rs_sw_recovered_v3') >= 0, 'one-shot reload key prevents infinite loops');
 assert(html.indexOf('__rsSwRecovered') >= 0, 'in-memory reload guard for Telegram (no sessionStorage)');
 assert(html.indexOf('reloadArmed') >= 0, 'reloadArmed prevents multi-fire reload');
 assert(!/if\s*\(\s*navigator\.serviceWorker\.controller\s*&&\s*!sessionStorage/.test(html), 'must not reload on every paint just because a controller exists');
