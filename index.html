@@ -689,6 +689,22 @@
     .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
     .wall-filter-chip[data-wall-filter="roulette"].on{background:linear-gradient(90deg,#ff8a00,#ff3b1f);box-shadow:0 0 14px rgba(255,106,0,.4)}
+    .wall-filter-chip[data-wall-filter="dominants"].on{background:linear-gradient(90deg,#7c3aed,#ec4899);box-shadow:0 0 14px rgba(236,72,153,.35)}
+    .wall-dominants-soon{display:none;margin:8px 4px 24px;padding:48px 22px;border-radius:20px;text-align:center;position:relative;overflow:hidden;background:
+      radial-gradient(ellipse at 30% 20%,rgba(124,58,237,.28),transparent 55%),
+      radial-gradient(ellipse at 70% 80%,rgba(236,72,153,.18),transparent 50%),
+      linear-gradient(165deg,#0c0c12 0%,#08080c 55%,#0a0610 100%);
+      border:1px solid rgba(167,139,250,.28);box-shadow:0 0 40px rgba(124,58,237,.12),inset 0 1px 0 rgba(255,255,255,.04)}
+    .wall-dominants-soon.is-on{display:block}
+    .wall-dominants-soon::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,58,237,.06),transparent 40%,rgba(236,72,153,.05));pointer-events:none}
+    .wall-dominants-soon-inner{position:relative;z-index:1;max-width:420px;margin:0 auto}
+    .wall-dominants-soon-label{display:inline-block;font-size:10px;font-weight:900;letter-spacing:.28em;text-transform:uppercase;color:#e9d5ff;margin:0 0 18px;padding:6px 14px;border-radius:999px;border:1px solid rgba(192,132,252,.35);background:rgba(124,58,237,.15);box-shadow:0 0 18px rgba(236,72,153,.15)}
+    .wall-dominants-soon-msg{margin:0;font-size:clamp(18px,4.5vw,26px);font-weight:900;line-height:1.35;letter-spacing:-.02em;background:linear-gradient(115deg,#f5e8ff 10%,#e879f9 45%,#c4b5fd 70%,#fce7f3 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .wall-dominants-soon-sub{margin:14px 0 0;font-size:12px;color:#8b8b96;letter-spacing:.04em;font-weight:600}
+    #explore-normal-wrap.wall-dominants-mode .wall-quick-actions,
+    #explore-normal-wrap.wall-dominants-mode .wall-sort-bar,
+    #explore-normal-wrap.wall-dominants-mode #wall-roulette-cta,
+    #explore-normal-wrap.wall-dominants-mode #explore-normal-posts{display:none!important}
     .wall-sort-bar{display:flex;gap:6px;padding:0 4px 8px;margin:0 0 6px}
     .wall-sort-chip{flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;cursor:pointer;touch-action:manipulation;min-height:36px}
     .wall-sort-chip.on{border-color:rgba(124,58,237,.55);color:#fff;background:rgba(124,58,237,.18)}
@@ -3167,9 +3183,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
               <button type="button" class="wall-filter-chip on" data-wall-filter="normal" role="tab" aria-selected="true">Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">Extend Post</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="dominants" role="tab" aria-selected="false">Dominants</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="roulette" role="tab" aria-selected="false">Roulette</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
+            </div>
+            <div id="wall-dominants-soon" class="wall-dominants-soon" role="status" aria-live="polite" hidden>
+              <div class="wall-dominants-soon-inner">
+                <div class="wall-dominants-soon-label">COMING SOON</div>
+                <p class="wall-dominants-soon-msg">Coming soon… Masters ready to dominate you.</p>
+                <p class="wall-dominants-soon-sub">Exclusive · Invite only</p>
+              </div>
             </div>
             <div id="wall-roulette-cta" style="display:none;margin:0 8px 8px">
               <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="width:100%;padding:12px 16px;font-weight:900;font-size:14px;border-radius:14px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);border:0;box-shadow:0 0 18px rgba(255,106,0,.4)" onclick="openRoulette()">SPIN ROULETTE</button>
@@ -20200,7 +20224,7 @@ function pendingRouletteTasks(){
         if(f==='extend'||f==='extend_post') f='timed';
         // Drop retired Wall tabs (Moment / Trending / Following / New / For You).
         if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
-        if(['normal','timed','generated','roulette','text'].indexOf(f)<0) f='normal';
+        if(['normal','timed','dominants','generated','roulette','text'].indexOf(f)<0) f='normal';
         localStorage.setItem('rs_wall_filter',f);
         return f;
       }catch(e){return'normal'}
@@ -20234,8 +20258,8 @@ function pendingRouletteTasks(){
     }
     function setWallFilter(f){
       f=String(f||'normal');
-      // Five Wall sections: Post / Extend / IDs·PEA / Roulette / Text
-      var allowed=['normal','timed','generated','roulette','text'];
+      // Wall sections: Post / Extend / Dominants / IDs·PEA / Roulette / Text
+      var allowed=['normal','timed','dominants','generated','roulette','text'];
       if(f==='post') f='normal';
       if(f==='extend' || f==='extend_post') f='timed';
       if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
@@ -20262,6 +20286,10 @@ function pendingRouletteTasks(){
       window.__wallPaintSig='';
       window.__wallPaintIds='';
       try{cancelFeedScrollRestore()}catch(e){}
+      if(f==='dominants'){
+        window.__lastWallListLen=0;
+        return;
+      }
       renderNormalFeed({force:true});
       // Soft top-up in background if this slice looks thin
       try{
@@ -20270,6 +20298,17 @@ function pendingRouletteTasks(){
       }catch(e){}
     }
     window.setWallFilter=setWallFilter;
+    function syncWallDominantsMode(){
+      var on=wallFilter==='dominants';
+      var wrap=document.getElementById('explore-normal-wrap');
+      if(wrap) wrap.classList.toggle('wall-dominants-mode', on);
+      var soon=document.getElementById('wall-dominants-soon');
+      if(soon){
+        soon.classList.toggle('is-on', on);
+        if(on) soon.removeAttribute('hidden');
+        else soon.setAttribute('hidden','');
+      }
+    }
     function syncWallFilterChips(){
       document.querySelectorAll('#wall-filter-bar .wall-filter-chip').forEach(function(b){
         var on=b.getAttribute('data-wall-filter')===wallFilter;
@@ -20285,6 +20324,7 @@ function pendingRouletteTasks(){
         }
         var cta=document.getElementById('wall-roulette-cta');
         if(cta) cta.style.display=wallFilter==='roulette'?'block':'none';
+        syncWallDominantsMode();
       }catch(e){}
     }
     function setupWallFilters(){
@@ -20421,6 +20461,8 @@ function pendingRouletteTasks(){
     }
     function matchesWallFilter(p, filter){
       filter=filter||wallFilter||'normal';
+      // Dominants is a coming-soon section — no feed posts yet.
+      if(filter==='dominants') return false;
       // Timed exposures belong in Timed (and Extend) — never duplicate into other Wall tabs.
       if(filter==='timed') return isWallTimedPost(p);
       if(isWallTimedPost(p)) return false;
@@ -20610,6 +20652,12 @@ function pendingRouletteTasks(){
       opts=opts||{};
       var forcePaint=!!opts.force;
       try{setupWallFilters()}catch(e){}
+      if(wallFilter==='dominants'){
+        try{syncWallDominantsMode()}catch(e){}
+        window.__lastWallListLen=0;
+        window.__wallRest=[];
+        return;
+      }
       var list=buildWallFilteredList();
       window.__wallRest=list;
       window.__lastWallListLen=list.length;

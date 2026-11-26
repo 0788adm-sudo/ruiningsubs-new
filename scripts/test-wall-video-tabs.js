@@ -24,10 +24,11 @@ assert(html.includes('Videos are permanent on GoonTok — never show Extend'), '
 assert(/function postHasActiveTimer\(p\)\{[\s\S]{0,400}isVideoPost/.test(html), 'postHasActiveTimer excludes videos');
 assert(html.includes('Permanent on GoonTok — no timer'), 'composer copy says permanent');
 
-// 3) Exactly five Wall tabs — Post / Extend / IDs·PEA / Roulette / Text
-var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1200);
+// 3) Wall tabs — Post / Extend / Dominants / IDs·PEA / Roulette / Text
+var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1600);
 assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>Post<'), 'Post tab');
 assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('Extend Post'), 'Extend Post tab');
+assert(wallBar.includes('data-wall-filter="dominants"') && wallBar.includes('>Dominants<'), 'Dominants tab');
 assert(wallBar.includes('data-wall-filter="generated"') && wallBar.includes('IDs / PEA'), 'IDs/PEA tab');
 assert(wallBar.includes('data-wall-filter="roulette"') && wallBar.includes('>Roulette<'), 'Roulette tab');
 assert(wallBar.includes('data-wall-filter="text"'), 'Text tab');
@@ -36,14 +37,16 @@ assert(!wallBar.includes('data-wall-filter="trending"'), 'no Trending tab');
 assert(!wallBar.includes('data-wall-filter="following"'), 'no Following tab');
 assert(!wallBar.includes('data-wall-filter="foryou"'), 'no For You tab');
 assert(!wallBar.includes('data-wall-filter="new"'), 'no New tab');
-assert((wallBar.match(/data-wall-filter="/g) || []).length === 5, 'exactly 5 wall filter chips');
-assert(html.includes("allowed=['normal','timed','generated','roulette','text']"), 'setWallFilter allowlist is five');
+assert((wallBar.match(/data-wall-filter="/g) || []).length === 6, 'exactly 6 wall filter chips');
+assert(html.includes("allowed=['normal','timed','dominants','generated','roulette','text']"), 'setWallFilter allowlist includes Dominants');
+assert(html.includes('id="wall-dominants-soon"') && html.includes('Coming soon… Masters ready to dominate you.'), 'Dominants coming-soon screen');
+assert(html.includes('COMING SOON') && html.includes('wall-dominants-soon-label'), 'COMING SOON label on Dominants');
 
-// Category order: Post → Extend → IDs → Roulette → Text
-var orderIdx = ['normal', 'timed', 'generated', 'roulette', 'text'].map(function (f) {
+// Category order: Post → Extend → Dominants → IDs → Roulette → Text
+var orderIdx = ['normal', 'timed', 'dominants', 'generated', 'roulette', 'text'].map(function (f) {
   return wallBar.indexOf('data-wall-filter="' + f + '"');
 });
-assert(orderIdx.every(function (n) { return n >= 0; }) && orderIdx.join(',') === orderIdx.slice().sort(function (a, b) { return a - b; }).join(','), 'Wall category order Post→Extend→IDs→Roulette→Text');
+assert(orderIdx.every(function (n) { return n >= 0; }) && orderIdx.join(',') === orderIdx.slice().sort(function (a, b) { return a - b; }).join(','), 'Wall category order Post→Extend→Dominants→IDs→Roulette→Text');
 
 // Sort controls + Roulette CTA
 assert(html.includes('id="wall-sort-bar"') && html.includes('data-wall-sort="recent"') && html.includes('data-wall-sort="interaction"'), 'per-category Most Recent / Most Interaction');
