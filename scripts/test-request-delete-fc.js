@@ -41,11 +41,21 @@ assert(
 })();
 assert(html.indexOf("spendFagCoins('pin'") >= 0, 'Pin spend path still present');
 assert(
-  html.indexOf("Delete now — '+delCost+' Coins") >= 0 || html.indexOf('Delete now — 10 Coins') >= 0,
-  'Delete now — N FC button copy'
+  html.indexOf('Pay 10 Coins') >= 0 ||
+    html.indexOf("Pay '+cost+' Coins") >= 0 ||
+    html.indexOf("Pay '+delCost+' Coins") >= 0 ||
+    html.indexOf("Delete now — '+delCost+' Coins") >= 0 ||
+    html.indexOf('Delete now — 10 Coins') >= 0,
+  'Pay 10 Coins / Delete now button copy'
 );
-assert(html.indexOf('Delete now — 10 Coins') >= 0, 'static modal button copy');
-assert(html.indexOf("fc.setAttribute('onclick','requestDeleteWithCoins()')") >= 0, 'non-owner FC button wires requestDeleteWithCoins');
+assert(html.indexOf('Pay 10 Coins') >= 0 && html.indexOf('Delete immediately') >= 0, 'static modal Pay 10 Coins button');
+assert(
+  html.indexOf("fc.setAttribute('onclick','requestDeleteWithCoins()')") >= 0 ||
+    html.indexOf("btn.setAttribute('onclick','requestDeleteWithCoins()')") >= 0 ||
+    html.indexOf("setAttribute('onclick','requestDeleteWithCoins()')") >= 0,
+  'non-owner FC button wires requestDeleteWithCoins'
+);
+assert(html.indexOf('Coins require a registered account') >= 0, 'guest cannot pay with Coins');
 assert(html.indexOf('function pinWithCoins') >= 0, 'pinWithCoins present');
 assert(html.indexOf('function requestPinAction') >= 0, 'requestPinAction gates pin vs recharge');
 assert(html.indexOf('Recharge Coins') >= 0, 'insufficient balance opens Recharge Coins');

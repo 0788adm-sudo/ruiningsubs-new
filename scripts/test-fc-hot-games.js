@@ -15,7 +15,8 @@ assert(/roulette\s*:\s*10/.test(html) || html.includes('roulette:10'), 'Roulette
 assert(/dice\s*:\s*10/.test(html) || html.includes('dice:10'), 'Dice 10 FC');
 assert(html.includes('custom_roulette:250') || html.includes('custom_roulette:250'), 'Custom wheel 250 FC');
 assert(
-  html.includes('Delete now — 10 Coins') ||
+  html.includes('Pay 10 Coins') ||
+    html.includes('Delete now — 10 Coins') ||
     html.includes('Delete · 10 Coins') ||
     html.includes('Coins or $5') ||
     html.includes('Confirm · 10 Coins') ||

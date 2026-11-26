@@ -47,7 +47,7 @@ assert(/function deletionRequiresFc/.test(html), 'deletionRequiresFc helper');
 assert(/function withDeletionTierTag/.test(html), 'withDeletionTierTag helper');
 assert(/del:/.test(html) && /withDeletionTierTag/.test(html), 'stores del: tag');
 assert(/\/api\/delete-post/.test(html), 'client calls secure delete API');
-assert(/Delete · 10 Coins|Delete now — 10 Coins|10 Coins or \$5|Coins or \$5/.test(html), 'paid delete Coins copy');
+assert(/Delete · 10 Coins|Pay 10 Coins|Delete now — 10 Coins|10 Coins or \$5|Coins or \$5/.test(html), 'paid delete Coins copy');
 assert(/secureDeletePost/.test(html), 'secureDeletePost client helper');
 assert(/deletionTierBadgeHtml/.test(html), 'tier badge on posts');
 assert(/Owner always free|Delete now — free|free · your post/.test(html), 'owner free override UI');
