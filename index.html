@@ -818,9 +818,12 @@
     #modal-tg label{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);margin-top:12px;cursor:pointer}
 
     /* Official RUINEXPOSE Telegram group invitation (independent from channel popup) */
-    #modal-tg-group{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:8010;align-items:center;justify-content:center;padding:20px;opacity:0}
-    #modal-tg-group.show{display:flex;animation:tgGroupIn .38s ease-out forwards}
-    #modal-tg-group.hiding{display:flex;animation:tgGroupOut .22s ease-in forwards}
+    /* CRITICAL: never leave an opacity:0 fullscreen layer with pointer-events:auto.
+       Telegram / Safari often disable or skip CSS animations — if .show only fades in via
+       animation, the modal stays invisible while blocking every tap (bottom nav, Edit profile). */
+    #modal-tg-group{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:8010;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none}
+    #modal-tg-group.show{display:flex;opacity:1;pointer-events:auto;animation:tgGroupIn .38s ease-out forwards}
+    #modal-tg-group.hiding{display:flex;opacity:0;pointer-events:none;animation:tgGroupOut .22s ease-in forwards}
     #modal-tg-group .tg-group-card{
       background:linear-gradient(165deg,#0a0a0a 0%,#050505 55%,#0c0c0e 100%);
       border:1px solid rgba(192,192,200,.28);
@@ -984,8 +987,8 @@
     /* Hamburger + side menu */
     .icon-btn.menu-btn{border-color:rgba(124,58,237,.45);box-shadow:0 0 12px rgba(124,58,237,.25)}
     .icon-btn.menu-btn .hdr-ico{color:var(--orange);filter:drop-shadow(0 0 6px rgba(124,58,237,.6))}
-    #side-menu-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9000;display:none;opacity:0;transition:opacity .22s}
-    #side-menu-bg.show{display:block;opacity:1}
+    #side-menu-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9000;display:none;opacity:0;pointer-events:none;transition:opacity .22s}
+    #side-menu-bg.show{display:block;opacity:1;pointer-events:auto}
     #side-menu{
       position:fixed;top:0;right:0;bottom:0;width:min(86vw,340px);z-index:9001;
       background:linear-gradient(180deg,#121212 0%,#0a0a0a 100%);
@@ -5712,6 +5715,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }
       // Single auth listener — recovery + session sync. Duplicate handlers re-open
       // recovery UI (freeze) and fight login/logout shell visibility.
+      // IMPORTANT: keep this callback synchronous. Never await Supabase/DB here
+      // (deadlocks the auth lock and freezes getSession / navigation). Defer work
+      // with setTimeout so auth state updates first; load profile data afterwards.
       if(!window.__rs_recovery_auth_bound){
         window.__rs_recovery_auth_bound=true;
         sb.auth.onAuthStateChange(function(event, session){
@@ -5730,6 +5736,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 try{
                   if(typeof applySignedOutLocal==='function') applySignedOutLocal({quiet:true});
                   else if(typeof syncAuthShell==='function') syncAuthShell();
+                  if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
                 }catch(e){}
               },0);
               return;
@@ -5739,8 +5746,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               if(session&&session.user){
                 setTimeout(function(){
                   try{
+                    // Update local auth shell first; heavy profile fetches stay outside.
                     if(typeof applyAuthFromSession==='function') applyAuthFromSession(session,{quiet:true,skipHeavy:true});
                     else if(typeof syncAuthShell==='function') syncAuthShell();
+                    if(event==='SIGNED_IN' && typeof releaseInteractionBlockers==='function'){
+                      releaseInteractionBlockers({});
+                    }
+                  }catch(e){}
+                },0);
+              } else if(event==='SIGNED_IN' || event==='INITIAL_SESSION'){
+                setTimeout(function(){
+                  try{
+                    if(typeof syncAuthShell==='function') syncAuthShell();
+                    if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
                   }catch(e){}
                 },0);
               }
@@ -5863,9 +5881,95 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var q=new URLSearchParams(location.search||'');
         ['code','error','error_code','error_description','type','access_token','refresh_token','token_hash'].forEach(function(k){q.delete(k)});
         var qs=q.toString();
-        history.replaceState(null,'',path+(qs?('?'+qs):''));
+        // Explicitly drop hash fragments (#access_token…&type=recovery) — replaceState
+        // without a hash clears it, but keep the intent obvious for mobile WebViews.
+        history.replaceState(null,'',path+(qs?('?'+qs):'')+(location.hash&&!/access_token=|type=recovery/i.test(location.hash)?location.hash:''));
       }catch(e){}
     }
+    /**
+     * Tear down leftover fullscreen layers that can sit at opacity:0 while still
+     * capturing pointer events (post-login / post-recovery "frozen site").
+     * By default only removes GHOST blockers (invisible but hit-testable). Pass
+     * force:true after auth transitions to also close invite overlays.
+     * Never touches user data / accounts.
+     */
+    function releaseInteractionBlockers(opts){
+      opts=opts||{};
+      function isGhostOverlay(el){
+        if(!el) return false;
+        try{
+          var st=window.getComputedStyle(el);
+          if(st.display==='none' || st.visibility==='hidden') return false;
+          var op=parseFloat(st.opacity);
+          if(isNaN(op)) op=1;
+          // Invisible (or nearly) but still receiving hits → freeze the whole site.
+          if(op>0.05 && st.pointerEvents!=='none') return false;
+          var r=el.getBoundingClientRect();
+          if(r.width<40 || r.height<40) return false;
+          return st.pointerEvents!=='none' || el.classList.contains('show') || el.classList.contains('hiding') || (el.style && el.style.display==='block');
+        }catch(e){return false}
+      }
+      try{
+        var tg=document.getElementById('modal-tg');
+        if(tg && (opts.force || isGhostOverlay(tg))){
+          tg.classList.remove('show');
+        }
+      }catch(e){}
+      try{
+        var tgg=document.getElementById('modal-tg-group');
+        if(tgg && (opts.force || isGhostOverlay(tgg) || tgg.classList.contains('hiding'))){
+          tgg.classList.remove('show');
+          tgg.classList.remove('hiding');
+          tgg.setAttribute('aria-hidden','true');
+          try{tgg.style.pointerEvents='none'}catch(ePe){}
+        }
+      }catch(e2){}
+      try{
+        var bg=document.getElementById('side-menu-bg');
+        var sm=document.getElementById('side-menu');
+        var menuOpen=!!(sm && sm.classList.contains('open'));
+        if(!menuOpen && bg && (opts.force || isGhostOverlay(bg) || (bg.style.display==='block' && !bg.classList.contains('show')))){
+          bg.classList.remove('show');
+          bg.style.display='none';
+          try{bg.style.pointerEvents='none'}catch(eBg){}
+        }
+        if(opts.force && sm){
+          sm.classList.remove('open');
+          sm.setAttribute('aria-hidden','true');
+          if(bg){bg.classList.remove('show');bg.style.display='none'}
+        }
+      }catch(e3){}
+      try{
+        var lu=document.getElementById('rs-levelup');
+        if(lu && (opts.force || isGhostOverlay(lu))) lu.classList.remove('show');
+      }catch(e4){}
+      try{
+        var rescue=document.getElementById('rs-boot-rescue');
+        if(rescue && (opts.force || window.__rsBootPainted)) rescue.remove();
+      }catch(e5){}
+      try{
+        var vup=document.getElementById('video-upload-progress');
+        if(vup && !window.__publishingVideo && (opts.force || isGhostOverlay(vup) || vup.classList.contains('show'))){
+          // Only strip a stuck progress layer when not publishing.
+          if(opts.force || isGhostOverlay(vup)){
+            vup.classList.remove('show');
+            vup.setAttribute('aria-hidden','true');
+          }
+        }
+      }catch(e6){}
+      try{
+        var ep=document.getElementById('edit-profile-modal');
+        if(ep && opts.closeEdit) ep.classList.remove('show');
+      }catch(e7){}
+      try{
+        if(opts.unlockBody) document.body.style.overflow='';
+      }catch(e8){}
+      try{
+        // Reset stuck scroll-gesture latch so the next tap is not treated as a drag.
+        if(window.__rsGesture) window.__rsGesture.moved=false;
+      }catch(e9){}
+    }
+    window.releaseInteractionBlockers=releaseInteractionBlockers;
     async function applyRecoveryTokensFromUrl(){
       if(!sb||!sb.auth) return {session:null,applied:false};
       try{
@@ -7605,6 +7709,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             if(np) np.style.display='block';
             if(typeof ensureRecoveryFormInteractive==='function') ensureRecoveryFormInteractive();
           }catch(eRec){}
+        } else if(showLogged){
+          // Registered shell is up — make sure no ghost overlay is eating taps.
+          try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel){}
         }
         return showLogged;
       }catch(e){return false}
@@ -13744,14 +13851,20 @@ function pendingRouletteTasks(){
     function openSideMenu(){
       var bg=document.getElementById('side-menu-bg');
       var m=document.getElementById('side-menu');
-      if(bg){bg.classList.add('show');bg.style.display='block'}
+      if(bg){bg.classList.add('show');bg.style.display='block';try{bg.style.pointerEvents='auto'}catch(e){}}
       if(m){m.classList.add('open');m.setAttribute('aria-hidden','false')}
     }
     function closeSideMenu(){
       var bg=document.getElementById('side-menu-bg');
       var m=document.getElementById('side-menu');
       if(m){m.classList.remove('open');m.setAttribute('aria-hidden','true')}
-      if(bg){bg.classList.remove('show');setTimeout(function(){if(bg&&!bg.classList.contains('show'))bg.style.display='none'},220)}
+      if(bg){
+        bg.classList.remove('show');
+        // Drop hit-testing immediately — do not wait for the opacity transition
+        // (an opacity:0 + display:block layer freezes the whole site).
+        try{bg.style.pointerEvents='none'}catch(e){}
+        setTimeout(function(){if(bg&&!bg.classList.contains('show')){bg.style.display='none'}},220);
+      }
     }
 
     var feedSearchQuery = '';
@@ -14859,8 +14972,11 @@ function pendingRouletteTasks(){
       modal.setAttribute('aria-hidden','true');
       modal.classList.remove('show');
       modal.classList.add('hiding');
+      // Never let the fade-out layer keep eating taps (esp. if animation is skipped).
+      try{modal.style.pointerEvents='none'}catch(ePe){}
       setTimeout(function(){
         modal.classList.remove('hiding');
+        try{modal.style.pointerEvents=''}catch(e2){}
       },240);
       if(opts.permanent){
         tgGroupRememberHidePermanent();
@@ -14892,6 +15008,8 @@ function pendingRouletteTasks(){
       modal.classList.remove('hiding');
       modal.classList.add('show');
       modal.setAttribute('aria-hidden','false');
+      // opacity:1 + pointer-events come from CSS .show — reset any inline none from close.
+      try{modal.style.pointerEvents='';modal.style.opacity=''}catch(ePe){}
       window.__tgGroupActiveMs=0;
       window.__tgGroupLastTick=0;
     }
@@ -33204,7 +33322,9 @@ async function onIdFace(e){
           setAuthStatus('Could not confirm session. Try again.','err');
           return;
         }
+        // Auth state first — never await DB inside onAuthStateChange; profile loads below.
         applyAuthFromSession(session,{quiet:true,skipHeavy:true});
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel){}
         if(await enforceCurrentAccount()===false)return;
         // Shell already shows logged-in — sync extras without keeping Login visible.
         try{await refreshUsernameAliasMap(true)}catch(e){}
@@ -33218,6 +33338,7 @@ async function onIdFace(e){
         refreshProfileUI();
         syncAuthShell();
         updateProfilePanel();
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel2){}
         var name=(currentUser&&currentUser.name)||'user';
         setAuthStatus('');
         toast('Signed in @'+name);
@@ -33226,6 +33347,8 @@ async function onIdFace(e){
       }finally{
         window.__rs_login_busy=false;
         if(btn){btn.disabled=false;btn.textContent='Login'}
+        // Failed or cancelled login must never leave a busy / overlay lock behind.
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eFin){}
       }
     }
     async function doRegister(){
@@ -33361,6 +33484,8 @@ async function onIdFace(e){
       window.__rs_recovery_toast_shown=false;
       window.__rs_recovery_focused=false;
       try{document.body.classList.remove('rs-recovery-mode')}catch(e){}
+      // Leaving recovery must never leave an invisible TG / menu layer over the nav.
+      try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({all:false})}catch(eRel){}
     }
     function ensureRecoveryFormInteractive(){
       try{
@@ -33476,6 +33601,7 @@ async function onIdFace(e){
         showAuth('login',{noScroll:true});
         showPanel('profile',{keepScroll:true});
         syncAuthShell();
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({force:true,unlockBody:true})}catch(eRel){}
       }catch(e){
         var msg=(e&&e.message)||'Could not update password';
         if(/timed out/i.test(msg)) msg='Update timed out. Do not retry endlessly — request a new link if this keeps failing.';
@@ -33487,6 +33613,7 @@ async function onIdFace(e){
         window.__rs_saving_pass=false;
         if(btn){btn.disabled=false;btn.textContent='Save new password'}
         try{ensureRecoveryFormInteractive()}catch(eFin){}
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel2){}
       }
     }
     function openRecoveryUI(opts){
