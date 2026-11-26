@@ -43,7 +43,8 @@ assert(wall.indexOf('id="wall-stories"') < wall.indexOf('id="wall-hot-slot"'), '
 assert(wall.indexOf('id="wall-hot-slot"') < wall.indexOf('It’s the community'), 'day photos above community tagline');
 assert(wall.indexOf('It’s the community') < wall.indexOf('id="wall-filter-bar"'), 'tagline above filter nav');
 assert(wall.indexOf('data-wall-filter="normal"') < wall.indexOf('data-wall-filter="timed"'), 'Post before Extend');
-assert(wall.indexOf('data-wall-filter="timed"') < wall.indexOf('data-wall-filter="generated"'), 'Extend before IDs/PEA');
+assert(wall.indexOf('data-wall-filter="timed"') < wall.indexOf('data-wall-filter="dominants"'), 'Extend before Dominants');
+assert(wall.indexOf('data-wall-filter="dominants"') < wall.indexOf('data-wall-filter="generated"'), 'Dominants before IDs/PEA');
 assert(wall.indexOf('data-wall-filter="generated"') < wall.indexOf('data-wall-filter="roulette"'), 'IDs/PEA before Roulette');
 assert(wall.indexOf('id="wall-sort-bar"') > wall.indexOf('id="wall-hot-slot"'), 'sort bar is below day photos');
 assert(wall.indexOf('id="wall-sort-bar"') < wall.indexOf('id="explore-normal-posts"'), 'sort bar is above publications');
