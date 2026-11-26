@@ -1,0 +1,5 @@
+{
+  "build": "202611262259",
+  "app": "ruinexpose",
+  "note": "Lightweight freshness probe — must stay Cache-Control: no-store so clients detect new deploys without re-downloading index.html"
+}
