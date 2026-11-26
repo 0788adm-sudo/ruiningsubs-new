@@ -49,10 +49,13 @@ assert(html.indexOf("fc.setAttribute('onclick','requestDeleteWithCoins()')") >= 
 assert(html.indexOf('function pinWithCoins') >= 0, 'pinWithCoins present');
 assert(html.indexOf('function requestPinAction') >= 0, 'requestPinAction gates pin vs recharge');
 assert(html.indexOf('Recharge Coins') >= 0, 'insufficient balance opens Recharge Coins');
-assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal and Throne elements remain in DOM (hidden)');
-assert(html.indexOf('I paid $5 — pending admin verify') >= 0, 'legacy I paid label remains in DOM (hidden)');
+assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal and Throne delete payment elements present');
+assert(html.indexOf('I paid $5 — pending admin verification') >= 0 || html.indexOf('I paid $5 — pending admin verify') >= 0, 'I paid $5 label present');
+assert(html.indexOf('Bitcoin payment') >= 0 || html.indexOf('btn-remove-btc') >= 0, 'Bitcoin delete payment present');
 assert(/delete\s*:\s*10/.test(html), 'FC_COSTS.delete is 10');
-assert(html.indexOf("why:'delete'") >= 0 || html.indexOf("action:'delete'") >= 0, 'insufficient FC opens recharge coins');
+assert(html.indexOf("why:'delete'") >= 0 || html.indexOf("action:'delete'") >= 0, 'Recharge Coins still reachable from delete modal');
+assert(html.indexOf('resolveRemoveRequesterId') >= 0, 'anon/session requester id for $5 claims');
+assert(html.indexOf('PAYMENT CLAIMED / PENDING') >= 0, 'I paid stores PAYMENT CLAIMED / PENDING status');
 
 // Auto-delete contract (no admin for FC)
 assert(html.indexOf('deletes it immediately') >= 0 || html.indexOf('automatic') >= 0 || html.indexOf('Never creates an admin request') >= 0, 'UI says FC deletes immediately');

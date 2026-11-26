@@ -542,6 +542,9 @@
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:none;align-items:flex-end;justify-content:center;padding:16px}
     .modal-bg.show{display:flex}
     .modal{background:var(--card);border:1px solid var(--border);border-radius:20px 20px 14px 14px;width:100%;max-width:400px;padding:22px;max-height:80vh;overflow-y:auto}
+    /* Delete modal must sit above bottom-nav (z=5000) so Cancel / $5 CTAs stay tappable on mobile + Telegram WebView */
+    #remove-modal.modal-bg{z-index:6000;align-items:center;padding:12px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+    #remove-modal .modal{max-height:min(88vh,760px);padding-bottom:26px;-webkit-overflow-scrolling:touch}
     #edit-profile-modal{position:fixed;inset:0;z-index:8600;display:none;align-items:flex-end;justify-content:center;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.82);-webkit-overflow-scrolling:touch}
     #edit-profile-modal.show{display:flex}
     #edit-profile-modal .edit-profile-sheet{width:100%;max-width:440px;max-height:min(92vh,720px);overflow:auto;background:#0c0c10;border:1px solid #22222a;border-radius:18px 18px 14px 14px;padding:16px 16px 20px;box-shadow:0 -8px 40px rgba(0,0,0,.45)}
@@ -4064,19 +4067,20 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   </div>
   <div class="modal-bg" id="remove-modal">
     <div class="modal">
-      <h3 style="margin-bottom:6px">Delete post</h3>
+      <h3 style="margin-bottom:6px">Delete · 10 Coins or $5</h3>
       <p style="font-size:14px;line-height:1.45;margin-bottom:10px">
-        Paid delete · <strong style="color:#f5c518">10 Coins</strong> from your balance. Buy Coins once ($5 → 60 Coins), then spend them here.
+        Paid delete · <strong style="color:#f5c518">10 Coins</strong> or <strong style="color:#f5c518">$5 USD</strong>. Coins delete immediately. PayPal / Throne / Bitcoin do not auto-delete — tap <strong>I paid</strong> for admin verification.
       </p>
+      <p id="remove-balance-label" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.35);color:#f5c518;font-size:13px;font-weight:700;line-height:1.4"></p>
       <p id="remove-post-id-label" style="display:none"></p>
-      <!-- Legacy external $5 CTAs kept in DOM for admin tooling / older links; hidden — Coins economy uses balance only -->
-      <a class="btn btn-primary" id="btn-remove-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:none;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5',postId:window.__removePostId||currentDetailId||null})}catch(e){}">PayPal $5 · MartinJimenez205</a>
       <button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" id="btn-remove-fc" onclick="removeWithCoins()">Delete now — 10 Coins</button>
       <div id="remove-request-status" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.35);color:#f5c518;font-size:13px;font-weight:700;line-height:1.4"></div>
-      <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:none;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95" onclick="try{startPayTicket({kind:'remove',label:'Delete post',amount:'$5',postId:window.__removePostId||currentDetailId||null})}catch(e){}">Pay $5 on Throne</a>
-      <button class="btn btn-secondary" type="button" style="display:none;width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verify</button>
-      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" id="btn-remove-buycoins" onclick="closeModals();openNeedCoins({cost:10,why:'delete',action:'delete'})">Recharge Coins · $5 → 60</button>
-      <button class="btn btn-ghost" style="width:100%" id="btn-cancel-rm" type="button">Keep it public</button>
+      <a class="btn btn-primary" id="btn-remove-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{window.__removePayProvider='paypal';startPayTicket({kind:'remove',label:'Delete post',amount:'$5',provider:'paypal',postId:window.__removePostId||currentDetailId||null})}catch(e){}">PayPal $5</a>
+      <a class="btn btn-secondary" id="btn-remove-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95" onclick="try{window.__removePayProvider='throne';startPayTicket({kind:'remove',label:'Delete post',amount:'$5',provider:'throne',postId:window.__removePostId||currentDetailId||null})}catch(e){}">Pay $5 on Throne</a>
+      <button class="btn btn-secondary" type="button" id="btn-remove-btc" style="display:block;width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#111;color:#fff;border:1px solid #f7931a" onclick="try{window.__removePayProvider='bitcoin';navigator.clipboard.writeText(typeof BTC_WALLET!=='undefined'?BTC_WALLET:'135nMgiNWpSniDT7X9bhrJYGEA71N245V9').then(function(){toast('Bitcoin address copied')}).catch(function(){toast('BTC: '+(typeof BTC_WALLET!=='undefined'?BTC_WALLET:'135nMgiNWpSniDT7X9bhrJYGEA71N245V9'))});startPayTicket({kind:'remove',label:'Delete post',amount:'$5',provider:'bitcoin',postId:window.__removePostId||currentDetailId||null})}catch(e){toast('BTC wallet ready')}">₿ Bitcoin payment</button>
+      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verification</button>
+      <button class="btn btn-secondary" type="button" style="display:none;width:100%;margin-bottom:10px" id="btn-remove-buycoins" onclick="closeModals();openNeedCoins({cost:10,why:'delete',action:'delete'})">Recharge Coins · $5 → 60</button>
+      <button class="btn btn-ghost" style="width:100%" id="btn-cancel-rm" type="button">Cancel</button>
     </div>
   </div>
   <button type="button" id="btn-scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;right:14px;bottom:100px;z-index:95;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--elev);color:var(--orange);font-size:20px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.4)">↑</button>
@@ -11330,6 +11334,14 @@ async function claimPayPalPack(p){
       var usd=Number(p.usd||10), coins=Number(p.coins||110);
       var user=coinUserId()||((currentUser&&currentUser.name)||'anon');
       user=String(user).replace(/^@/,'');
+      // Anonymous sessions cannot receive Coins credit — register first.
+      try{
+        if((typeof isAnonymousAccount==='function'&&isAnonymousAccount()) || !user || user==='anon' || user==='guest' || /^anon[_:]/i.test(user)){
+          toast('Register to recharge Coins. Guests can still pay $5 to delete a post.');
+          try{showAuth('register')}catch(e){}
+          return false;
+        }
+      }catch(e){}
       var localId='cp_'+Date.now().toString(36)+Math.floor(Math.random()*1e5).toString(36);
       var balBefore=Number(window.__fcLast||0);
       coinReqProgress(true,'Sending I paid · '+coins+' Coins for @'+user);
@@ -31009,18 +31021,28 @@ async function onIdFace(e){
     }
     function startPayTicket(opts){
       opts=opts||{};
-      var user=(currentUser&&currentUser.name)||'guest';
+      var isRemove=/remove/i.test(String(opts.kind||'')+' '+String(opts.label||''));
+      try{
+        if(isRemove && typeof ensureAnonIdentity==='function' && (!currentUser||!currentUser.name||(typeof isAnonymousAccount==='function'&&isAnonymousAccount()))){
+          ensureAnonIdentity(false);
+        }
+      }catch(e){}
+      var user=isRemove
+        ? (typeof resolveRemoveRequesterId==='function'?resolveRemoveRequesterId():((currentUser&&currentUser.name)||'anon'))
+        : ((currentUser&&currentUser.name)||'guest');
       var code=payTicketCode();
       // CRITICAL: delete tickets must carry the canonical post id (never blank).
       var ticketPostId=opts.postId||opts.id||opts.post_id||null;
-      if(!ticketPostId && /remove/i.test(String(opts.kind||'')+' '+String(opts.label||''))){
+      if(!ticketPostId && isRemove){
         ticketPostId=window.__removePostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
       }
       if(ticketPostId!=null) ticketPostId=String(ticketPostId).trim()||null;
-      if(/remove/i.test(String(opts.kind||'')+' '+String(opts.label||'')) && !ticketPostId){
+      if(isRemove && !ticketPostId){
         toast('Open the post first — delete payment needs a post ID');
         return;
       }
+      var provider=String(opts.provider||window.__removePayProvider||'').toLowerCase().trim();
+      if(isRemove && provider) window.__removePayProvider=provider;
       var t={
         code:code,
         kind:opts.kind||'payment',
@@ -31030,6 +31052,7 @@ async function onIdFace(e){
         user:user,
         note:opts.note||'',
         coins:opts.coins||0,
+        provider:provider||'',
         status:'open',
         at:Date.now()
       };
@@ -31126,6 +31149,7 @@ async function onIdFace(e){
         try{
           var reqR=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
           reqR=reqR.filter(function(x){return !(String(x.id)===String(t.postId) && !x.paidWithFc)});
+          var ticketProvider=String(t.provider||window.__removePayProvider||'throne/paypal').toLowerCase().trim()||'throne/paypal';
           reqR.unshift({
             id:String(t.postId),
             title:t.label||'DELETE',
@@ -31134,23 +31158,25 @@ async function onIdFace(e){
             at:Date.now(),
             kind:'paid',
             amount:t.amount||'$5',
-            status:'pending',
+            status:'PAYMENT CLAIMED / PENDING',
             paidWithFc:false,
             coins:0,
-            provider:'PayPal/Throne',
+            provider:ticketProvider,
             thumb:''
           });
           localStorage.setItem('rs_remove_req',JSON.stringify(reqR.slice(0,40)));
         }catch(e){}
         // Official CF admin queue (same as "I paid $5") so APPROVE & DELETE has the post id.
+        // MUST stay kind:remove_request — never coins recharge.
         try{
+          var ticketProvider2=String(t.provider||window.__removePayProvider||'throne/paypal').toLowerCase().trim()||'throne/paypal';
           var ticketReq=await cfCreateRequest({
             kind:'remove_request',
             postId:String(t.postId),
             user:t.user||'',
             amount:t.amount||'$5',
             coins:0,
-            provider:'throne/paypal',
+            provider:ticketProvider2,
             label:'DELETE',
             payload:{
               message:'TICKET '+(t.code||'')+' paid · post #'+t.postId,
@@ -31159,18 +31185,21 @@ async function onIdFace(e){
               reason:'paid',
               requester:t.user||'',
               payment:t.amount||'$5',
+              provider:ticketProvider2,
+              status:'PAYMENT CLAIMED / PENDING',
               paidWithFc:false,
               auto_delete:false,
               ticket:t.code||''
             },
-            message:'🚨 DELETE PAYMENT REQUEST · ticket '+(t.code||'')+' · requester @'+(t.user||'')+' · post #'+t.postId+' · $5 · method PayPal/Throne · PAID · pending admin verify'
+            message:'🚨 DELETE PAYMENT REQUEST · ticket '+(t.code||'')+' · requester @'+(t.user||'')+' · post #'+t.postId+' · $5 · method '+ticketProvider2+' · PAYMENT CLAIMED / PENDING'
           });
           try{
             var reqR2=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
             reqR2=reqR2.map(function(x){
               if(String(x.id)===String(t.postId)){
                 if(ticketReq&&(ticketReq.id||ticketReq.request_id)) x.requestId=String(ticketReq.id||ticketReq.request_id);
-                x.status='pending';
+                x.status='PAYMENT CLAIMED / PENDING';
+                x.provider=ticketProvider2;
               }
               return x;
             });
@@ -31319,23 +31348,45 @@ async function onIdFace(e){
       try{
         var throne=document.getElementById('btn-remove-throne');
         var paypal=document.getElementById('btn-remove-paypal')||document.querySelector('#remove-modal a[href*="paypal"]');
-        // External $5-per-delete CTAs stay hidden under Coins economy.
-        // Recharge (btn-remove-buycoins) is controlled separately by openRemove.
-        if(throne) throne.style.display='none';
-        if(paypal) paypal.style.display='none';
+        var btc=document.getElementById('btn-remove-btc');
+        var paid=document.getElementById('btn-remove-paid');
+        var disp=show?'block':'none';
+        if(throne) throne.style.display=disp;
+        if(paypal) paypal.style.display=disp;
+        if(btc) btc.style.display=disp;
+        if(paid) paid.style.display=disp;
+        // Recharge is shown only for registered users with insufficient Coins (openRemove).
       }catch(e){}
+    }
+    function resolveRemoveRequesterId(){
+      var name=String((currentUser&&currentUser.name)||'').replace(/^@/,'').trim();
+      if(name && name!=='guest' && name!=='anon' && !/^anon\d*$/i.test(name)) return name;
+      try{
+        var aid=String(localStorage.getItem('rs_anon_id')||localStorage.getItem('rs_anon_session')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,48);
+        if(!aid || aid.length<6){
+          aid='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
+          try{
+            localStorage.setItem('rs_anon_id',aid);
+            localStorage.setItem('rs_anon_session',aid);
+          }catch(e2){}
+        }
+        if(aid && aid.length>=6) return 'anon_'+aid;
+      }catch(e){}
+      return (name && name!=='guest' && name!=='anon')?name:('anon_tmp'+Date.now().toString(36));
     }
     function openRemove(id){
       // Universal delete modal:
       // - Owner (any identity that owns the post) → free immediate delete
       // - Admin moderation → free immediate delete
-      // - Anyone else → 10 Coins from balance (recharge if insufficient). No $5-per-delete.
+      // - Anyone else → 10 Coins (immediate) OR $5 PayPal/Throne/Bitcoin (admin verify via DELETE REQUESTS)
+      // Coins recharge stays on its own modal — never mixed into "I paid $5".
       window.__removePostId=id||currentDetailId;
       window.__removeRequestKind='paid';
+      window.__removePayProvider=window.__removePayProvider||'';
       var post=null;
       try{post=typeof findPostAnywhere==='function'?findPostAnywhere(window.__removePostId):null}catch(e){}
       try{
-        if(!currentUser||!currentUser.name){
+        if(!currentUser||!currentUser.name||(typeof isAnonymousAccount==='function'&&isAnonymousAccount())){
           try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e2){}
         }
       }catch(e){}
@@ -31349,6 +31400,7 @@ async function onIdFace(e){
       if(lab) lab.textContent=String(window.__removePostId||'—');
       var title=document.querySelector('#remove-modal h3');
       var pEl=document.querySelector('#remove-modal p');
+      var balLab=document.getElementById('remove-balance-label');
       var fc=document.getElementById('btn-remove-fc');
       var paid=document.getElementById('btn-remove-paid');
       var cancel=document.getElementById('btn-cancel-rm');
@@ -31358,6 +31410,7 @@ async function onIdFace(e){
         var stBox=document.getElementById('remove-request-status');
         if(stBox){stBox.style.display='none';stBox.textContent=''}
       }catch(e){}
+      if(balLab){balLab.style.display='none';balLab.textContent=''}
       var delCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.delete)||10;
       function showRemoveModal(){
         var modal=document.getElementById('remove-modal');
@@ -31381,25 +31434,52 @@ async function onIdFace(e){
         setRemoveModalExternalPay(false);
         showRemoveModal();
       }else{
-        // Non-owner: Coins balance only. Insufficient → Recharge Coins ($5 → 60). Never charge $5 per delete.
-        setRemoveModalExternalPay(false);
-        if(paid) paid.style.display='none';
-        if(buy) buy.style.display='block';
+        // Non-owner: Coins auto-delete OR external $5 → pending admin verify (never auto-delete on I paid).
+        if(title) title.textContent='Delete · '+delCost+' Coins or $5';
+        if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. <strong style="color:#f5c518">'+delCost+' Coins</strong> deletes it immediately. PayPal / Throne / Bitcoin <strong style="color:#f5c518">$5</strong> needs admin verification after you tap <strong>I paid</strong>.';
+        if(paid){paid.style.display='block';paid.textContent='I paid $5 — pending admin verification'}
+        setRemoveModalExternalPay(true);
+        showRemoveModal();
+        try{showRemoveRequestStatus(id)}catch(e){}
         (async function(){
+          var isAnon=false;
+          try{isAnon=typeof isAnonymousAccount==='function'&&isAnonymousAccount()}catch(e){isAnon=false}
           var bal=Number(window.__fcLast||0)||0;
-          try{bal=Number(await loadFagBalance())||0}catch(e){}
-          if(bal<delCost){
-            try{openNeedCoins({cost:delCost,why:'delete',action:'delete'})}catch(e){try{openCoinShop()}catch(err){}}
-            return;
+          if(!isAnon){
+            try{bal=Number(await loadFagBalance())||0}catch(e){}
+          }else{
+            bal=0;
           }
-          if(title) title.textContent='Delete · '+delCost+' Coins';
-          if(pEl) pEl.innerHTML='This post belongs to <strong>@'+esc(String((post&&(post.user||post.username))||'publisher'))+'</strong>. Costs <strong style="color:#f5c518">'+delCost+' Coins</strong> from your balance and deletes it immediately. No separate $5 charge.';
-          if(fc){
-            fc.style.display='block';
-            fc.textContent='Delete now — '+delCost+' Coins';
-            fc.setAttribute('onclick','requestDeleteWithCoins()');
+          if(balLab){
+            if(isAnon){
+              balLab.style.display='block';
+              balLab.textContent='Guest session · pay $5 directly (no account required). Coins require a registered account.';
+            }else{
+              balLab.style.display='block';
+              balLab.innerHTML='Your balance: <strong style="color:#fff">'+bal+' Coins</strong>'+(bal>=delCost?' · enough to delete now.':' · need '+delCost+' Coins, or pay $5 below.');
+            }
           }
-          showRemoveModal();
+          if(isAnon){
+            if(fc) fc.style.display='none';
+            if(buy) buy.style.display='none';
+          }else if(bal>=delCost){
+            if(fc){
+              fc.style.display='block';
+              fc.disabled=false;
+              fc.textContent='Delete now — '+delCost+' Coins';
+              fc.setAttribute('onclick','requestDeleteWithCoins()');
+            }
+            if(buy) buy.style.display='none';
+          }else{
+            if(fc){
+              fc.style.display='block';
+              fc.disabled=false;
+              fc.textContent='Delete now — '+delCost+' Coins';
+              fc.setAttribute('onclick','requestDeleteWithCoins()');
+            }
+            // Registered, low balance: keep $5 delete pay AND separate Recharge Coins modal.
+            if(buy) buy.style.display='block';
+          }
         })();
       }
     }
@@ -31982,8 +32062,14 @@ async function onIdFace(e){
 
         if(!charged && bal<cost){
           deleteRequestProgress(true,'failed_no_charge',{detail:'Need '+cost+' Coins · have '+bal,txn:txnId});
-          toast('Insufficient Coins — need '+cost+' Coins · have '+bal);
-          try{openNeedCoins({cost:cost,why:'delete',action:'delete'})}catch(e){}
+          toast('Insufficient Coins — need '+cost+' Coins · have '+bal+'. Pay $5 below or Recharge Coins.');
+          try{
+            setRemoveModalExternalPay(true);
+            var buyBtn=document.getElementById('btn-remove-buycoins');
+            if(buyBtn) buyBtn.style.display='block';
+            var paidBtn=document.getElementById('btn-remove-paid');
+            if(paidBtn){paidBtn.style.display='block';paidBtn.textContent='I paid $5 — pending admin verification'}
+          }catch(e){}
           patchDeleteTxn(id,uid,{status:'failed_no_charge'});
           setTimeout(function(){try{deleteRequestProgress(false)}catch(e){}},1600);
           return false;
@@ -32198,9 +32284,10 @@ async function onIdFace(e){
     var __removeRequestLocks={};
     async function submitRemoveRequest(opts){
       opts=opts||{};
-      // HARD SEPARATION: FC never creates admin delete requests.
+      // HARD SEPARATION: FC/Coins spend never creates admin delete requests.
       // Any legacy caller with paidWithFc must use atomic auto-delete instead.
-      if(opts.paidWithFc || String(opts.provider||'').toLowerCase()==='fc' || /(?:FC|Coins)/i.test(String(opts.amount||''))){
+      // Direct $5 PayPal/Throne/Bitcoin MUST create remove_request — never kind:'coins'.
+      if(opts.paidWithFc || String(opts.provider||'').toLowerCase()==='fc' || String(opts.provider||'').toLowerCase()==='coins' || /(?:FC|Coins)/i.test(String(opts.amount||''))){
         console.warn('submitRemoveRequest blocked Coins path → requestDeleteWithCoins');
         return requestDeleteWithCoins();
       }
@@ -32209,8 +32296,16 @@ async function onIdFace(e){
       var lockKey=String(id)+':'+(opts.kind||'paid');
       if(__removeRequestLocks[lockKey]){toast('Your delete request is already being sent. Please wait.');return false}
       var kind=String(opts.kind||'paid');
-      var userName=(currentUser&&currentUser.name)||'anon';
+      try{
+        if(typeof ensureAnonIdentity==='function' && (!currentUser||!currentUser.name||(typeof isAnonymousAccount==='function'&&isAnonymousAccount()))){
+          try{await ensureAnonIdentity(false)}catch(e){}
+        }
+      }catch(e){}
+      var userName=typeof resolveRemoveRequesterId==='function'?resolveRemoveRequesterId():((currentUser&&currentUser.name)||'anon');
       userName=String(userName||'anon').replace(/^@/,'')||'anon';
+      var payProvider=String(opts.provider||window.__removePayProvider||'throne/paypal').toLowerCase().trim()||'throne/paypal';
+      if(/coin/i.test(payProvider)) payProvider='throne/paypal';
+      window.__removePayProvider=payProvider;
       // Block duplicate pending requests for the same post + requester (prevents double charges / spam).
       try{
         var existing=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
@@ -32218,7 +32313,7 @@ async function onIdFace(e){
           return String(x.id)===String(id)
             && String(x.kind||'paid')===kind
             && String(x.user||x.requester||'').toLowerCase()===String(userName).toLowerCase()
-            && String(x.status||'pending').toLowerCase()==='pending'
+            && /pending|claimed/i.test(String(x.status||'pending'))
             && !x.paidWithFc;
         });
         if(dup){
@@ -32238,15 +32333,16 @@ async function onIdFace(e){
       var isRights=kind==='rights';
       var amount=isRights?'$0 · rights':'$5';
       var label=isRights?'DELETE RIGHTS':'DELETE';
+      var statusLabel=isRights?'pending':'PAYMENT CLAIMED / PENDING';
       try{
         var req=JSON.parse(localStorage.getItem('rs_remove_req')||'[]')||[];
         req=req.filter(function(x){return !(String(x.id)===String(id) && String(x.kind||'paid')===kind && String(x.user||x.requester||'').toLowerCase()===String(userName).toLowerCase())});
-        req.unshift({id:id,title:title,user:userName,publisher:ownerName,at:Date.now(),kind:kind,amount:amount,status:'pending',paidWithFc:false,coins:0,provider:'PayPal/Throne',thumb:thumbUrl||''});
+        req.unshift({id:id,title:title,user:userName,requester:userName,publisher:ownerName,at:Date.now(),kind:kind,amount:amount,status:statusLabel,paidWithFc:false,coins:0,provider:isRights?'rights':payProvider,thumb:thumbUrl||''});
         localStorage.setItem('rs_remove_req',JSON.stringify(req.slice(0,60)));
       }catch(e){}
       var removeMsg=isRights
         ?('🛡 RIGHTS / NON-CONSENSUAL REMOVE REQUEST · requester @'+userName+' · publisher @'+(ownerName||'?')+' · post #'+id+' · FREE REVIEW · no payment'+(title?' · '+String(title).slice(0,40):''))
-        :('🚨 DELETE PAYMENT REQUEST · requester @'+userName+' · publisher @'+(ownerName||'?')+' · post #'+id+' · $5 · method PayPal/Throne · user pressed I PAID'+(title?' · '+String(title).slice(0,40):''));
+        :('🚨 DELETE PAYMENT REQUEST · requester @'+userName+' · publisher @'+(ownerName||'?')+' · post #'+id+' · $5 · method '+payProvider+' · PAYMENT CLAIMED / PENDING'+(title?' · '+String(title).slice(0,40):''));
       var removeSent=false;
       var lastErr='';
       var savedRequestId='';
@@ -32260,9 +32356,9 @@ async function onIdFace(e){
             user:userName,
             amount:amount,
             coins:0,
-            provider:isRights?'rights':'throne/paypal',
+            provider:isRights?'rights':payProvider,
             label:label,
-            payload:{message:removeMsg,post_id:String(id),product:isRights?'Rights remove':'Delete post',reason:kind,publisher:ownerName,requester:userName,payment:isRights?'none':'$5',paidWithFc:false,auto_delete:false,thumb_url:thumbUrl||''},
+            payload:{message:removeMsg,post_id:String(id),product:isRights?'Rights remove':'Delete post',reason:kind,publisher:ownerName,requester:userName,payment:isRights?'none':'$5',provider:isRights?'rights':payProvider,status:statusLabel,paidWithFc:false,auto_delete:false,thumb_url:thumbUrl||'',account_type:(typeof isAnonymousAccount==='function'&&isAnonymousAccount())?'anonymous':'registered'},
             message:removeMsg
           });
           if(rr){
@@ -32293,7 +32389,8 @@ async function onIdFace(e){
             req2=req2.map(function(x){
               if(String(x.id)===String(id) && String(x.user||x.requester||'').toLowerCase()===String(userName).toLowerCase()){
                 if(savedRequestId) x.requestId=savedRequestId;
-                x.status='pending';
+                x.status=statusLabel;
+                x.provider=isRights?'rights':payProvider;
               }
               return x;
             });
@@ -32305,7 +32402,7 @@ async function onIdFace(e){
             localStorage.setItem('rs_remove_dismissed',JSON.stringify(dd.slice(-200)));
           }catch(e){}
           closeModals();
-          toast(isRights?'Rights request sent ✓ Admin will review (no payment).':'Remove request sent ✓ Admin has received it.');
+          toast(isRights?'Rights request sent ✓ Admin will review (no payment).':'Remove request sent ✓ Admin will verify payment. Post stays public until approved.');
           return true;
         }
         toast('Could not send the remove request. Please try again.');
@@ -32316,7 +32413,11 @@ async function onIdFace(e){
       }
     }
     async function confirmRemovePaid(){
-      return submitRemoveRequest({kind:'paid',postId:window.__removePostId||currentDetailId});
+      return submitRemoveRequest({
+        kind:'paid',
+        postId:window.__removePostId||currentDetailId,
+        provider:window.__removePayProvider||'throne/paypal'
+      });
     }
     async function confirmRemoveRights(){
       return submitRemoveRequest({kind:'rights',postId:window.__removePostId||currentDetailId});
@@ -34575,7 +34676,7 @@ async function onIdFace(e){
         if(isFinite(ia)&&isFinite(ib)&&ia!==ib) return ib-ia;
         return String(b.requestId||b.sbRequestId||'').localeCompare(String(a.requestId||a.sbRequestId||''));
       });
-      if(!rreq.length){box.innerHTML='<div class="empty">No DELETE REQUESTS<br><span style="font-size:12px">PayPal/Throne “I paid” claims appear here. Coins deletes are automatic and never queue.</span></div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
+      if(!rreq.length){box.innerHTML='<div class="empty">No DELETE REQUESTS<br><span style="font-size:12px">PayPal / Throne / Bitcoin “I paid $5” claims appear here. Coins deletes are automatic and never queue.</span></div>';try{renderAdminRemoveHistory()}catch(e){}try{refreshAdminBadges()}catch(e){}return}
       var thumbMap=await batchFetchAdminThumbs(rreq.map(function(r){return r.id}));
       // Mark rows whose post is already gone so APPROVE still clears the request.
       try{

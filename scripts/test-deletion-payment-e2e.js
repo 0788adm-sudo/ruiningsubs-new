@@ -402,23 +402,23 @@ function samplePost(id, owner) {
   resetState();
   sbWallets.buyerA = 200;
   posts['p-a'] = samplePost('p-a', 'ownerA');
-  var a = await invoke(deletePost, { user: 'buyerA', postId: 'p-a', reason: 'paid', idempotencyKey: 'delete-post:p-a:buyera:50' });
+  var a = await invoke(deletePost, { user: 'buyerA', postId: 'p-a', reason: 'paid', idempotencyKey: 'delete-post:p-a:buyera:10' });
   assert.strictEqual(a.status, 200, 'A status');
-  assert.strictEqual(a.json.charged, 50, 'A charged 50');
-  assert.strictEqual(sbWallets.buyerA, 150, 'A balance -50');
+  assert.strictEqual(a.json.charged, 10, 'A charged 10');
+  assert.strictEqual(sbWallets.buyerA, 190, 'A balance -10');
   assert.strictEqual(posts['p-a'], undefined, 'A post gone');
-  console.log('PASS · TEST A sufficient FC deletes + charges 50');
+  console.log('PASS · TEST A sufficient Coins deletes + charges 10');
 
   // ---- TEST B ----
   resetState();
-  sbWallets.buyerB = 10;
+  sbWallets.buyerB = 5;
   posts['p-b'] = samplePost('p-b', 'ownerB');
   var b = await invoke(deletePost, { user: 'buyerB', postId: 'p-b', reason: 'paid' });
   assert.strictEqual(b.status, 402, 'B 402');
   assert.strictEqual(b.json.error, 'insufficient', 'B insufficient');
-  assert.strictEqual(sbWallets.buyerB, 10, 'B no charge');
+  assert.strictEqual(sbWallets.buyerB, 5, 'B no charge');
   assert.ok(posts['p-b'], 'B post remains');
-  console.log('PASS · TEST B insufficient FC no charge / post remains');
+  console.log('PASS · TEST B insufficient Coins no charge / post remains');
 
   // ---- TEST C ----
   resetState();
@@ -532,10 +532,10 @@ function samplePost(id, owner) {
   resetState();
   sbWallets.buyerK = 200;
   posts['p-k'] = samplePost('p-k', 'ownerK');
-  var k1 = await invoke(deletePost, { user: 'buyerK', postId: 'p-k', reason: 'paid', idempotencyKey: 'delete-post:p-k:buyerk:50' });
+  var k1 = await invoke(deletePost, { user: 'buyerK', postId: 'p-k', reason: 'paid', idempotencyKey: 'delete-post:p-k:buyerk:10' });
   var balAfter = sbWallets.buyerK;
-  var k2 = await invoke(deletePost, { user: 'buyerK', postId: 'p-k', reason: 'paid', idempotencyKey: 'delete-post:p-k:buyerk:50' });
-  assert.strictEqual(k1.json.charged, 50, 'K1 charged');
+  var k2 = await invoke(deletePost, { user: 'buyerK', postId: 'p-k', reason: 'paid', idempotencyKey: 'delete-post:p-k:buyerk:10' });
+  assert.strictEqual(k1.json.charged, 10, 'K1 charged');
   assert.strictEqual(k2.json.already_deleted || k2.json.ok, true, 'K2 ok');
   assert.strictEqual(k2.json.charged, 0, 'K2 no second charge');
   assert.strictEqual(sbWallets.buyerK, balAfter, 'K balance unchanged on replay');
@@ -543,15 +543,42 @@ function samplePost(id, owner) {
   resetState();
   sbWallets.buyerK2 = 200;
   posts['p-k2'] = samplePost('p-k2', 'ownerK2');
-  var p1 = invoke(deletePost, { user: 'buyerK2', postId: 'p-k2', reason: 'paid', idempotencyKey: 'delete-post:p-k2:buyerk2:50' });
-  var p2 = invoke(deletePost, { user: 'buyerK2', postId: 'p-k2', reason: 'paid', idempotencyKey: 'delete-post:p-k2:buyerk2:50' });
+  var p1 = invoke(deletePost, { user: 'buyerK2', postId: 'p-k2', reason: 'paid', idempotencyKey: 'delete-post:p-k2:buyerk2:10' });
+  var p2 = invoke(deletePost, { user: 'buyerK2', postId: 'p-k2', reason: 'paid', idempotencyKey: 'delete-post:p-k2:buyerk2:10' });
   var both = await Promise.all([p1, p2]);
   var chargedSum = (both[0].json.charged || 0) + (both[1].json.charged || 0);
   var oneConflict = both.some(function (x) { return x.status === 409 || x.json.error === 'delete_in_progress'; });
-  var oneOk = both.some(function (x) { return x.json.ok && x.json.charged === 50; });
-  assert.ok(oneOk || chargedSum <= 50, 'K concurrent at most one charge');
-  assert.ok(chargedSum <= 50 || oneConflict, 'K no double charge');
+  var oneOk = both.some(function (x) { return x.json.ok && x.json.charged === 10; });
+  assert.ok(oneOk || chargedSum <= 10, 'K concurrent at most one charge');
+  assert.ok(chargedSum <= 10 || oneConflict, 'K no double charge');
   console.log('PASS · TEST K idempotent / no double charge');
+
+  // ---- TEST BTC anon remove_request (no coins credit) ----
+  resetState();
+  var btc = await invoke(adminRequest, {
+    kind: 'remove_request',
+    user: 'anon_sessionbtc1',
+    post_id: '4099',
+    amount: '$5',
+    provider: 'bitcoin',
+    label: 'DELETE',
+    payload: { publisher: 'ownerX', requester: 'anon_sessionbtc1', payment: '$5', status: 'PAYMENT CLAIMED / PENDING' },
+    message: 'DELETE PAYMENT REQUEST bitcoin post #4099'
+  });
+  assert.strictEqual(btc.status, 200, 'BTC status');
+  assert.ok(btc.json.ok, 'BTC ok');
+  assert.ok(deletionReqs.some(function (r) { return r.post_id === '4099' && /bitcoin/i.test(r.provider); }), 'BTC SB row');
+  var btcCoins = await invoke(adminRequest, {
+    kind: 'coins',
+    user: 'anon_sessionbtc1',
+    amount: '$5',
+    coins: 60,
+    provider: 'bitcoin',
+    label: '60 Coins recharge'
+  });
+  assert.strictEqual(btcCoins.status, 401, 'anon cannot credit Coins');
+  assert.strictEqual(btcCoins.json.error, 'register_required_for_coins', 'anon coins blocked');
+  console.log('PASS · TEST BTC anon $5 delete request allowed / Coins blocked');
 
   // CF timeout retry still persists
   resetState();

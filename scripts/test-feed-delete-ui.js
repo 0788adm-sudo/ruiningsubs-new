@@ -34,7 +34,7 @@ assert(/nf-feed-comment/.test(html), 'normal feed Comment marked for balanced la
 assert(/id="btn-remove-led-label"/.test(html), 'detail Delete button id present');
 assert(/universalDeleteButtonHtml\(post,\s*\{\s*style:\s*'dx'\s*\}/.test(html), 'Delete remains inside post detail');
 assert(html.indexOf('btn-remove-paypal') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'PayPal + Throne kept');
-assert(html.indexOf('I paid $5 — pending admin verify') >= 0, 'I paid kept');
+assert(html.indexOf('I paid $5 — pending admin verification') >= 0 || html.indexOf('I paid $5 — pending admin verify') >= 0, 'I paid kept');
 assert(html.indexOf('id="btn-remove-rights"') < 0, 'rights button element removed');
 assert(html.indexOf('onclick="confirmRemoveRights()"') < 0, 'no rights onclick in UI');
 assert(html.indexOf('Problems with this post? Contact us:') >= 0, 'contact notice copy');

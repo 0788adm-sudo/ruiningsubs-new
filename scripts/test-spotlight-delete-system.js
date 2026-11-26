@@ -24,11 +24,13 @@ assert(/universalDeleteButtonHtml\(post,\s*\{\s*style:\s*'dx'\s*\}/.test(html), 
 assert(/id="btn-remove-led-label"/.test(html), 'Delete remains in post detail');
 assert(html.indexOf('Delete is detail-only') >= 0 || html.indexOf('Delete lives only inside the post detail') >= 0, 'feed cards hide Delete');
 assert(html.indexOf('universalDeleteButtonHtml') >= 0 || html.indexOf('10 Coins') >= 0, 'paid third-party delete restored');
-assert(html.indexOf('btn-remove-paypal') >= 0, 'PayPal element kept in DOM (hidden under Coins economy)');
-assert(html.indexOf('btn-remove-throne') >= 0, 'Throne element kept in DOM (hidden under Coins economy)');
-assert(html.indexOf('btn-remove-paid') >= 0, 'I paid element kept in DOM (hidden under Coins economy)');
-assert(html.indexOf('Recharge Coins') >= 0, 'insufficient balance opens Recharge Coins');
-assert(html.indexOf("setRemoveModalExternalPay(true)") < 0, 'external $5-per-delete path disabled');
+assert(html.indexOf('btn-remove-paypal') >= 0, 'PayPal delete payment element present');
+assert(html.indexOf('btn-remove-throne') >= 0, 'Throne delete payment element present');
+assert(html.indexOf('btn-remove-paid') >= 0, 'I paid $5 element present');
+assert(html.indexOf('btn-remove-btc') >= 0 || html.indexOf('Bitcoin payment') >= 0, 'Bitcoin delete payment element present');
+assert(html.indexOf('Recharge Coins') >= 0, 'Recharge Coins remains available separately');
+assert(html.indexOf("setRemoveModalExternalPay(true)") >= 0, 'external $5 delete path restored for non-owner');
+assert(html.indexOf("kind:'remove_request'") >= 0, 'I paid creates DELETE REQUEST not coin recharge');
 assert(html.indexOf('APPROVE &amp; DELETE') >= 0 || html.indexOf('APPROVE & DELETE') >= 0 || html.indexOf('Approve & delete post') >= 0, 'admin approve label');
 assert(html.indexOf('RIGHTS REVIEW') >= 0, 'admin rights badge for legacy requests');
 assert(/retirePinBoardNotifs\(id,\s*\{\s*skipDb:\s*true\s*\}\)/.test(html), 'unpin clears pin board');

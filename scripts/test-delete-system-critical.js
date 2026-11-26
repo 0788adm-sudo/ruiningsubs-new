@@ -48,7 +48,7 @@ ok(html.indexOf('Rejected — request cleared, post kept') >= 0 || html.indexOf(
 ok(html.indexOf('Request cleared — post #') >= 0, 'clear confirmation');
 ok(html.indexOf("status:'cleared'") >= 0 || html.indexOf("status:'cleared'") >= 0, 'cleared status');
 ok(html.indexOf('Permanently clear ') >= 0 || html.indexOf('posts stay online') >= 0, 'bulk clear protects posts');
-ok(html.indexOf('No FC charge or refund') >= 0, 'bulk clear no FC side effects');
+ok(html.indexOf('No Coins charge or refund') >= 0 || html.indexOf('No FC charge or refund') >= 0, 'bulk clear no Coins side effects');
 
 // --- APPROVE reliability ---
 ok(html.indexOf('Only mark completed after the publication is actually gone') >= 0, 'approve verifies before complete');
