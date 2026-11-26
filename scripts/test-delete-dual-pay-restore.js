@@ -23,7 +23,8 @@ function assert(cond, msg) {
 
 assert(html.indexOf('id="remove-modal"') >= 0, 'remove modal present');
 assert(html.indexOf('Delete · 10 Coins or $5') >= 0 || html.indexOf("Delete · '+delCost+' Coins or $5'") >= 0, 'title Delete · Coins or $5');
-assert(html.indexOf('Delete now — 10 Coins') >= 0, 'Delete now — 10 Coins');
+assert(html.indexOf('Pay 10 Coins') >= 0 && html.indexOf('Delete immediately') >= 0, 'Pay 10 Coins / Delete immediately');
+assert(html.indexOf('btn-remove-fc-pay') >= 0 || html.indexOf('paintRemoveCoinsPayButton') >= 0, 'prominent Coins pay button styling');
 assert(html.indexOf('PayPal $5') >= 0 && html.indexOf('btn-remove-paypal') >= 0, 'PayPal $5');
 assert(html.indexOf('Pay $5 on Throne') >= 0 && html.indexOf('btn-remove-throne') >= 0, 'Throne $5');
 assert(html.indexOf('Bitcoin payment') >= 0 && html.indexOf('btn-remove-btc') >= 0, 'Bitcoin payment');
@@ -55,6 +56,8 @@ assert(html.indexOf('btn-remove-buycoins') >= 0, 'optional Recharge entry from d
 })();
 
 assert(html.indexOf('function requestDeleteWithCoins') >= 0, 'Coins delete helper');
+assert(html.indexOf('Coins require a registered account') >= 0, 'guests blocked from Coins pay');
+assert(html.indexOf("openNeedCoins({cost:cost,why:'delete',action:'delete'})") >= 0 || html.indexOf("why:'delete',action:'delete'") >= 0, 'insufficient opens recharge');
 assert(html.indexOf("spendFagCoins('delete'") >= 0, 'debits Coins via spendFagCoins');
 assert(html.indexOf('function approveRemoveReq') >= 0, 'admin approve deletes post');
 assert(html.indexOf('function dismissRemoveReq') >= 0, 'admin reject keeps post');

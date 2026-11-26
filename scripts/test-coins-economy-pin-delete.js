@@ -50,9 +50,11 @@ assert(spend.indexOf('locks.set(key') >= 0 && spend.indexOf('idemKey') >= 0, 'se
 // Delete modal: Coins spend OR independent $5 direct pay (not mixed with recharge I paid)
 assert(html.indexOf('Paid delete ·') >= 0 && html.indexOf('10 Coins') >= 0, 'delete modal coins copy');
 assert(html.indexOf("Delete · '+delCost+' Coins or $5'") >= 0 || html.indexOf('Delete · 10 Coins or $5') >= 0, 'Delete · N Coins or $5 title restored');
+assert(html.indexOf('Pay 10 Coins') >= 0 && html.indexOf('Delete immediately') >= 0, 'Pay 10 Coins immediate delete CTA');
 assert(html.indexOf("setRemoveModalExternalPay(true)") >= 0, 'external $5 pay enabled for non-owner');
 assert(html.indexOf("kind:'remove_request'") >= 0, 'I paid $5 creates remove_request');
 assert(html.indexOf('btn-remove-btc') >= 0 || html.indexOf('Bitcoin payment') >= 0, 'Bitcoin delete payment option');
+assert(html.indexOf('Coins require a registered account') >= 0, 'guest cannot spend Coins on delete');
 
 // Credit only after confirmed payment (existing I paid → pending → admin credit)
 assert(html.indexOf('confirmCoinPackPaid') >= 0, 'I paid creates pending credit request');
