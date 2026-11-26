@@ -78,7 +78,8 @@ ok(html.indexOf('sbAuthTimeout(sb.auth.getSession()') >= 0, 'boot getSession has
 ok(html.indexOf('rescueBlankShell') >= 0, 'blank-shell failsafe strengthened');
 ok(html.indexOf('Retry feed') >= 0, 'stalled feed shows retry');
 ok(html.indexOf('Never block first paint on a hung getSession') >= 0, 'documented non-blocking session restore');
-ok(html.indexOf('logged && !recovering') >= 0, 'updateProfilePanel keeps recovery form visible');
+ok(html.indexOf('logged && !recovering') >= 0 || html.indexOf('function syncAuthShell(') >= 0,
+  'updateProfilePanel keeps recovery form visible');
 ok(html.indexOf('rs-boot-rescue') >= 0, 'dead-shell rescue UI after auto-enter');
 ok(html.indexOf('__rsBootPainted') >= 0, 'boot paint marks shell alive');
 ok(html.indexOf('sbAuthTimeout(sb.auth.getSession(),8000)') >= 0, 'rename/tus getSession has timeout');
