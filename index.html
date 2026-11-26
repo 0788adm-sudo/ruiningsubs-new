@@ -11,6 +11,8 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Build id for soft update detection (paired with /build.json, Cache-Control: no-store). -->
+  <meta name="rs-app-build" content="202611262259"/>
   <title>Ruining Subs (ruinexpose.com) | Public exposure board</title>
   <meta name="description" content="They're public. Timer running. Share before they pay to hide. Photos, videos, ID cards — ruinexpose.com"/>
   <meta name="keywords" content="Ruining Subs, ruinexpose.com, ruiningsubs.com, ruiningsubs, public exposure board, exposure feed, MasterSan, Ruin Roulette"/>
@@ -206,15 +208,8 @@
     }catch(e){}
   })();
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-    try{
-      window.approveFeature=approveFeature;window.adminPin=adminPin;window.approveRemoveReq=approveRemoveReq;window.dismissFeatureReq=dismissFeatureReq;window.dismissRemoveReq=dismissRemoveReq;window.confirmRemovePaid=confirmRemovePaid;window.remindRemovePayment=remindRemovePayment;window.remindPinPayment=remindPinPayment;window.remindRoulettePayment=remindRoulettePayment;window.remindPrintPayment=remindPrintPayment;window.toggleAdminUsers=toggleAdminUsers;window.adminSetUserStatus=adminSetUserStatus;window.likeTask=likeTask;window.openDeleteTask=openDeleteTask;window.confirmDeleteTaskPaid=confirmDeleteTaskPaid;window.openDeleteTaskResp=openDeleteTaskResp;window.confirmDeleteTaskRespPaid=confirmDeleteTaskRespPaid;window.openPrintDirty=openPrintDirty;window.approveRoulettePack=approveRoulettePack;window.dismissRoulettePack=dismissRoulettePack;window.requestRoulettePack=requestRoulettePack;window.checkRouletteUnlock=checkRouletteUnlock;window.dismissPublicExposureReq=dismissPublicExposureReq;window.approvePublicExposureReq=approvePublicExposureReq;window.renderAdminReqTab=renderAdminReqTab;window.replyPublicExposure=replyPublicExposure;window.commentPublicExposure=commentPublicExposure;window.reactPublicExposure=reactPublicExposure;window.reportPeComment=reportPeComment;window.compressOldPosts=compressOldPosts;window.doForgot=doForgot;
-      window.doSaveNewPassword=doSaveNewPassword;
-      window.openRecoveryUI=openRecoveryUI;
-      window.showAuth=showAuth;
-    }catch(e){}
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
+  <!-- CDN libs load AFTER first paint (age-gate HTML) — see rsLoadCdnLibs before main app script.
+       Keeping them out of <head> prevents a hung jsDelivr from blocking the whole document. -->
   <style>
     :root{--bg:#050506;--card:#0a0a0c;--elev:#101014;--orange:#ff6a00;--purple:#ff6a00;--red:#9f1239;--text:#ececef;--muted:#7a7a86;--border:#1c1c22}
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -4138,6 +4133,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     </div>
   </div>
 
+  <!-- Libs AFTER age-gate markup so first paint is not blocked by CDN RTT.
+       Sync tags keep createClient ordering; document.write fallbacks cover jsDelivr outages. -->
+  <script>window.__RS_APP_BUILD='202611262259';</script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>')}</script>
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
+  <script>if(!window.tus){document.write('<script src="https://unpkg.com/tus-js-client@4/dist/tus.min.js"><\/script>')}</script>
   <script>
     function enterSite(){
       // Guard against double auto-enter (DOMContentLoaded + readyState race).
@@ -5970,6 +5972,76 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e9){}
     }
     window.releaseInteractionBlockers=releaseInteractionBlockers;
+    /**
+     * Soft update detector — polls lightweight /build.json (no-store) so a stale
+     * SPA HTML document (bookmark to /wall, bfcache, odd CDN HIT) reloads once
+     * when a new deploy lands. Never clears sessions; one reload per tab life.
+     */
+    function checkAppFreshness(){
+      try{
+        if(window.__rsFreshCheckBusy || window.__rsFreshReloaded) return;
+        window.__rsFreshCheckBusy=true;
+        fetchWithTimeout('/build.json?_='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}},4000)
+          .then(function(r){ return r && r.ok ? r.json() : null; })
+          .then(function(j){
+            window.__rsFreshCheckBusy=false;
+            var remote=j && (j.build||j.version||j.id);
+            var local=window.__RS_APP_BUILD||'';
+            if(!remote || !local || String(remote)===String(local)) return;
+            try{
+              if(sessionStorage.getItem('rs_soft_reload_'+remote)==='1') return;
+              sessionStorage.setItem('rs_soft_reload_'+remote,'1');
+            }catch(e){}
+            window.__rsFreshReloaded=1;
+            try{ location.reload(); }catch(e2){}
+          })
+          .catch(function(){ window.__rsFreshCheckBusy=false; });
+      }catch(e){ window.__rsFreshCheckBusy=false; }
+    }
+    window.checkAppFreshness=checkAppFreshness;
+    /** Periodic ghost-overlay sweep — catches opacity:0 layers that ate all taps. */
+    function armInteractionWatchdog(){
+      if(window.__rsWatchdogArmed) return;
+      window.__rsWatchdogArmed=1;
+      setInterval(function(){
+        try{
+          if(document.hidden) return;
+          if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
+        }catch(e){}
+      }, 2500);
+      try{
+        document.addEventListener('visibilitychange', function(){
+          if(!document.hidden){
+            try{ releaseInteractionBlockers({}); }catch(e){}
+            try{ checkAppFreshness(); }catch(e2){}
+          }
+        });
+      }catch(e){}
+      try{
+        window.addEventListener('pageshow', function(ev){
+          // bfcache restore — drop ghost layers + re-check deploy freshness.
+          try{ releaseInteractionBlockers({force:!!(ev&&ev.persisted)}); }catch(e){}
+          try{ checkAppFreshness(); }catch(e2){}
+        });
+      }catch(e){}
+    }
+    window.armInteractionWatchdog=armInteractionWatchdog;
+    /** Component/network errors must not leave the shell frozen. */
+    function armGlobalErrorRecovery(){
+      if(window.__rsErrArmed) return;
+      window.__rsErrArmed=1;
+      try{
+        window.addEventListener('error', function(){
+          try{ if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({}); }catch(e){}
+        });
+      }catch(e){}
+      try{
+        window.addEventListener('unhandledrejection', function(){
+          try{ if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({}); }catch(e){}
+        });
+      }catch(e){}
+    }
+    window.armGlobalErrorRecovery=armGlobalErrorRecovery;
     async function applyRecoveryTokensFromUrl(){
       if(!sb||!sb.auth) return {session:null,applied:false};
       try{
@@ -7422,6 +7494,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
     function boot(){
       initUser();setupUI();
+      try{armGlobalErrorRecovery()}catch(eArm){}
+      try{armInteractionWatchdog()}catch(eWd){}
+      try{setTimeout(checkAppFreshness, 2500)}catch(eFresh){}
+      try{setInterval(checkAppFreshness, 5*60*1000)}catch(eFresh2){}
       var recoveringBoot=false;
       try{recoveringBoot=!!(window.__rs_recovery || isRecoveryUrl())}catch(eRecBoot){}
       if(recoveringBoot){
@@ -7438,6 +7514,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           try{slug0=currentRouteSlug()}catch(e){}
           if(!slug0 || slug0==='feed' || slug0==='home' || slug0==='extend' || slug0==='spotlight' || slug0===''){
             Promise.resolve(loadPosts()).catch(function(e){console.warn('boot loadPosts',e)});
+          } else if(slug0==='wall' || slug0==='normal' || slug0==='thewall' || slug0==='explore'){
+            // Cold open of /wall or /explore must fetch Wall data — do not wait for a
+            // prior feed visit (CF /feed is often empty; SB merge fills the wall).
+            try{
+              Promise.resolve(refreshWallSection({force:true,quiet:false})).catch(function(){});
+            }catch(eW){
+              try{loadNormalFeed(false,{quiet:false})}catch(eW2){}
+            }
           }
         }catch(e){try{loadPosts()}catch(e2){}}
       } else {
@@ -8798,11 +8882,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(names.indexOf(u)<0)names.push(u);
       });
       if(!names.length)return Promise.resolve();
-      // If CF /avatars keeps 404ing, skip further CF storms this session (SB still fills avatars).
+      // CF /avatars currently 404s after ~8–9s (Worker catch-all). Never await that hang —
+      // it froze feed paint / navigation for returning Chrome/Safari users. Hard timeout +
+      // sticky dead flag so only Supabase fills avatars after the first miss.
       var cfP=Promise.resolve();
       if(!window.__cfAvatarsDead){
-        cfP=fetch(CF_API+'/avatars?users='+encodeURIComponent(names.slice(0,40).join(',')),{cache:'force-cache'}).then(function(r){
-          if(r && (r.status===404||r.status===501||r.status===502)){ window.__cfAvatarsDead=1; return null; }
+        cfP=fetchWithTimeout(
+          CF_API+'/avatars?users='+encodeURIComponent(names.slice(0,40).join(',')),
+          {cache:'no-store'},
+          2500
+        ).then(function(r){
+          if(r && (r.status===404||r.status===501||r.status===502||r.status===503)){ window.__cfAvatarsDead=1; return null; }
           return r&&r.ok?r.json():null;
         }).then(function(j){
           if(!j)return;
@@ -18247,6 +18337,8 @@ function pendingRouletteTasks(){
     window.wallCacheFresh=wallCacheFresh;
     function showPanel(name, opts){
       opts=opts||{};
+      // Drop ghost overlays before section switches so nav never feels "frozen".
+      try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRelNav){}
       if(name==='packages'){openCoinShop();return;}
       if(name==='admin' && !opts.fromSecret && !adminGateOpen()){
         // No public Admin control — require unlinked /admin (or #admin) entry first
@@ -21474,7 +21566,7 @@ function pendingRouletteTasks(){
       if(!postId) return 0;
       var removed=0;
       try{
-        var r=await fetch(CF_API+'/notifs?to=__PIN_BOARD__',{cache:'no-store'});
+        var r=await fetchWithTimeout(CF_API+'/notifs?to=__PIN_BOARD__',{cache:'no-store'},4500);
         var j=await r.json().catch(function(){return{}});
         var list=(j&&j.notifs)||[];
         for(var i=0;i<list.length;i++){
@@ -21486,7 +21578,7 @@ function pendingRouletteTasks(){
           var pid=String(data.id||n.post_id||'');
           if(pid!==postId && String(n.post_id||'')!==postId) continue;
           try{
-            var dr=await fetch(CF_API+'/notifs/'+encodeURIComponent(String(n.id)),{method:'DELETE',cache:'no-store'});
+            var dr=await fetchWithTimeout(CF_API+'/notifs/'+encodeURIComponent(String(n.id)),{method:'DELETE',cache:'no-store'},4000);
             if(dr&&dr.ok) removed++;
           }catch(e){}
         }
@@ -21513,8 +21605,9 @@ function pendingRouletteTasks(){
     }
     async function loadPublicPins(){
       try{
-        var r=await fetch(CF_API+'/notifs?to=__PIN_BOARD__',{cache:'no-store'});
-        var j=await r.json();
+        // CF /notifs can take 8s+ even on 200 — never block Spotlight/boot on it.
+        var r=await fetchWithTimeout(CF_API+'/notifs?to=__PIN_BOARD__',{cache:'no-store'},4500);
+        var j=await r.json().catch(function(){return{}});
         var list=(j&&j.notifs)||[];
         var out=[];
         var seen={};
@@ -22408,17 +22501,26 @@ function pendingRouletteTasks(){
         // Defer Supabase merge so CF paint is not blocked by a second round-trip.
         function mergeSbRecentInto(targetList){
           if(typeof sb==='undefined' || !sb) return Promise.resolve(targetList);
-          return sb.from('posts').select('id,username,title,description,tags,image_url,media_url,thumb_url,media_type,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions,comments_count').order('created_at',{ascending:false}).limit(40)
-            .then(function(sbRecent){
-              ((sbRecent&&sbRecent.data)||[]).forEach(function(r){
-                var mapped=null;
-                try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
-                if(!mapped||isDeletedId(mapped.id))return;
-                mapped.hotCount=postHotCount(mapped);
-                if(!targetList.some(function(p){return String(p.id)===String(mapped.id)})) targetList.push(mapped);
-              });
-              return targetList;
-            }).catch(function(){return targetList});
+          // Must match production columns. media_url / thumb_url / media_type /
+          // comments_count are NOT on posts yet — selecting them returns HTTP 400
+          // and left cold /wall on "No posts yet" forever (CF /feed is often empty).
+          var WALL_SB_COLS='id,username,title,description,tags,image_url,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions';
+          return sbQueryTimeout(
+            sb.from('posts').select(WALL_SB_COLS).order('created_at',{ascending:false}).limit(80)
+              .then(function(sbRecent){
+                if(sbRecent&&sbRecent.error){ try{noteSupabaseOutage(sbRecent.error)}catch(e){} throw sbRecent.error; }
+                ((sbRecent&&sbRecent.data)||[]).forEach(function(r){
+                  var mapped=null;
+                  try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
+                  if(!mapped||isDeletedId(mapped.id))return;
+                  mapped.hotCount=postHotCount(mapped);
+                  if(!targetList.some(function(p){return String(p.id)===String(mapped.id)})) targetList.push(mapped);
+                });
+                return targetList;
+              }),
+            7000,
+            targetList
+          ).catch(function(){return targetList});
         }
         list=wallMergeLocalExtras(list).sort(function(a,b){return wallRankScore(b)-wallRankScore(a)});
         try{list=pinBrandNewFirst(list, BRAND_NEW_MS)}catch(e){}
@@ -22454,16 +22556,29 @@ function pendingRouletteTasks(){
         if(more) window.__wallVisible=Math.min(normalFeedPosts.length, (window.__wallVisible||8)+8);
         else if(quiet) window.__wallVisible=Math.min(normalFeedPosts.length, Math.max(Number(window.__wallVisible)||8, 8));
         else window.__wallVisible=Math.min(8, normalFeedPosts.length);
-        try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
+        // Never poison rs_wall_cache with an empty CF response — CF /feed is often
+        // empty while Supabase still has the wall. Writing [] made cold /wall visits
+        // stick on "No posts yet" (and wallCacheFresh served that empty forever).
+        try{
+          if(normalFeedPosts && normalFeedPosts.length){
+            writePostCache('rs_wall_cache',normalFeedPosts);
+          }
+        }catch(e){}
         renderNormalFeed({keepVisible:keepVisible});
         try{prefetchAvatars(normalFeedPosts.slice(0,window.__wallVisible||8)).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
         if(!more && !quiet){
           // Background SB merge + wider CF enrich — do not block first paint.
+          // IMPORTANT: mergeSbRecentInto mutates the same array it returns, so
+          // `merged.length > normalFeedPosts.length` was ALWAYS false after merge
+          // and the Wall never repainted when CF came back empty.
+          var wallBeforeSb=(normalFeedPosts&&normalFeedPosts.length)||0;
           Promise.resolve(mergeSbRecentInto(normalFeedPosts||[])).then(function(merged){
-            if(merged && merged.length>(normalFeedPosts||[]).length){
-              normalFeedPosts=pinBrandNewFirst(merged.sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
+            var after=(merged&&merged.length)||0;
+            if(after>wallBeforeSb || (after>0 && wallBeforeSb===0)){
+              normalFeedPosts=pinBrandNewFirst((merged||[]).sort(function(a,b){return wallRankScore(b)-wallRankScore(a)}), BRAND_NEW_MS);
               try{writePostCache('rs_wall_cache',normalFeedPosts)}catch(e){}
-              renderNormalFeed({keepVisible:true});
+              // force:true remounts when recovering from empty/Loading shell after CF miss.
+              renderNormalFeed({force:true,keepVisible:true});
             }
           }).catch(function(){});
           if(!window.__wallEnriching){
