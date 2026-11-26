@@ -8309,7 +8309,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         Object.keys(local).forEach(function(k){__usernameAliasMap[k]=local[k]});
       }catch(e){}
       try{
-        var r=await fetch('/api/game-play?action=list_aliases',{cache:'no-store'});
+        // Never hang profile/search navigation on a stalled aliases fetch (Telegram/Safari).
+        var r=await fetchWithTimeout('/api/game-play?action=list_aliases',{cache:'no-store'},4500);
         var j=await r.json().catch(function(){return {}});
         (j.aliases||[]).forEach(function(row){
           if(!row) return;
@@ -8369,7 +8370,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       opts=opts||{};
       var limit=Number(opts.limit||120)||120;
       if(!sb) return [];
-      await refreshUsernameAliasMap(false);
+      try{await refreshUsernameAliasMap(false)}catch(e){}
       var names=aliasesForUsername(username);
       var rows=[];
       var seen={};
@@ -8387,17 +8388,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{
         var cols2=cols+',user_id';
         for(var i=0;i<names.length;i++){
-          var r=await sb.from('posts').select(cols2).ilike('username', names[i]).order('created_at',{ascending:false}).limit(limit);
+          var r=await sbQueryTimeout(sb.from('posts').select(cols2).ilike('username', names[i]).order('created_at',{ascending:false}).limit(limit),7000,{data:null,error:null});
           if(r.error && /user_id/i.test(String(r.error.message||''))){
-            r=await sb.from('posts').select(cols).ilike('username', names[i]).order('created_at',{ascending:false}).limit(limit);
+            r=await sbQueryTimeout(sb.from('posts').select(cols).ilike('username', names[i]).order('created_at',{ascending:false}).limit(limit),7000,{data:null,error:null});
           }
-          if(!r.error) absorb(r.data);
+          if(r && !r.error) absorb(r.data);
         }
       }catch(e){
         try{
           for(var j=0;j<names.length;j++){
-            var r2=await sb.from('posts').select(cols).ilike('username', names[j]).order('created_at',{ascending:false}).limit(limit);
-            if(!r2.error) absorb(r2.data);
+            var r2=await sbQueryTimeout(sb.from('posts').select(cols).ilike('username', names[j]).order('created_at',{ascending:false}).limit(limit),7000,{data:null,error:null});
+            if(r2 && !r2.error) absorb(r2.data);
           }
         }catch(e2){}
       }
@@ -8410,14 +8411,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(uid && String(uid).indexOf('anon_')===0){
           var anon=String(uid).replace(/^anon_/,'');
           var tag='anon_id:'+anon;
-          var tr=await sb.from('posts').select(cols).contains('tags',[tag]).order('created_at',{ascending:false}).limit(limit);
-          if(tr.error){
-            // ignore missing contains support
-          } else absorb(tr.data);
+          var tr=await sbQueryTimeout(sb.from('posts').select(cols).contains('tags',[tag]).order('created_at',{ascending:false}).limit(limit),7000,{data:null,error:{message:'timeout'}});
+          if(tr && !tr.error) absorb(tr.data);
         } else if(uid){
           try{
-            var ur=await sb.from('posts').select(cols+',user_id').eq('user_id',uid).order('created_at',{ascending:false}).limit(limit);
-            if(!ur.error) absorb(ur.data);
+            var ur=await sbQueryTimeout(sb.from('posts').select(cols+',user_id').eq('user_id',uid).order('created_at',{ascending:false}).limit(limit),7000,{data:null,error:null});
+            if(ur && !ur.error) absorb(ur.data);
           }catch(e3){}
         }
       }catch(e){}
@@ -8626,15 +8625,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(!force&&profileCache[username]!==undefined&&profileCache[username]!==null)return profileCache[username];
       if(!sb)return profileCache[username]||null;
       try{
-        var r=await sb.from('profiles').select('username,bio,avatar_url,twitter,telegram,link,xp,updated_at,created_at').eq('username',username).maybeSingle();
+        var r=await sbQueryTimeout(sb.from('profiles').select('username,bio,avatar_url,twitter,telegram,link,xp,updated_at,created_at').eq('username',username).maybeSingle(),7000,{data:null,error:{message:'timeout'}});
         if(r.error){
           // fallback if created_at/xp column missing
-          r=await sb.from('profiles').select('*').eq('username',username).maybeSingle();
+          r=await sbQueryTimeout(sb.from('profiles').select('*').eq('username',username).maybeSingle(),7000,{data:null,error:null});
         }
         if((!r.data) && username){
           try{
-            var r2=await sb.from('profiles').select('username,bio,avatar_url,twitter,telegram,link,xp,updated_at,created_at').ilike('username',username).maybeSingle();
-            if(r2&&r2.error) r2=await sb.from('profiles').select('*').ilike('username',username).maybeSingle();
+            var r2=await sbQueryTimeout(sb.from('profiles').select('username,bio,avatar_url,twitter,telegram,link,xp,updated_at,created_at').ilike('username',username).maybeSingle(),7000,{data:null,error:{message:'timeout'}});
+            if(r2&&r2.error) r2=await sbQueryTimeout(sb.from('profiles').select('*').ilike('username',username).maybeSingle(),7000,{data:null,error:null});
             if(r2&&r2.data) r=r2;
           }catch(e2){}
         }
@@ -15191,7 +15190,12 @@ function pendingRouletteTasks(){
           try{setTimeout(function(){restoreGoonTokScroll()}, 160)}catch(e){}
         }
       };
-      document.getElementById('btn-user-back').onclick=function(){showPanel('feed')};
+      document.getElementById('btn-user-back').onclick=function(){
+        var dest=window.__userFrom||'explore';
+        window.__userFrom=null;
+        if(dest==='user'||dest==='detail') dest='explore';
+        showPanel(dest,{keepScroll:true});
+      };
       document.getElementById('btn-publish').onclick=createPost;
       document.getElementById('media-upload').onclick=function(){document.getElementById('photo-input').click()};
       document.getElementById('photo-input').onchange=handlePhoto;
@@ -15575,8 +15579,14 @@ function pendingRouletteTasks(){
         html+='<div style="font-size:12px;color:var(--muted);margin:4px 0 8px;font-weight:700">Accounts</div>';
         html+=accounts.map(function(a){
           var av=avatarHtml(a.name);
-          var bio=a.row&&a.row.bio?esc(String(a.row.bio).slice(0,60)):'';
-          return '<div class="post" style="cursor:pointer;padding:10px;margin-bottom:8px" onclick="openUser(\''+String(a.name).replace(/'/g,'')+'\')"><div style="display:flex;gap:10px;align-items:center"><div class="av" style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--elev);display:flex;align-items:center;justify-content:center;font-weight:700">'+av+'</div><div style="min-width:0"><div style="font-weight:700;color:var(--orange)">@'+esc(a.name)+'</div>'+(bio?'<div style="font-size:12px;color:var(--muted)">'+bio+'</div>':'')+'</div></div></div>';
+          var bio='';
+          try{
+            var rawBio=a.row&&a.row.bio?String(a.row.bio):'';
+            var cleanBio=typeof parseProfileExtra==='function'?(parseProfileExtra(rawBio).text||''):rawBio.replace(/<!--[\s\S]*?-->/g,'').trim();
+            if(cleanBio) bio=esc(cleanBio.slice(0,60));
+          }catch(e){}
+          // data-user + getAttribute avoids broken onclick when names contain quotes.
+          return '<div class="post explore-search-hit" role="button" tabindex="0" style="cursor:pointer;padding:10px;margin-bottom:8px" data-user="'+String(a.name).replace(/"/g,'&quot;')+'" onclick="event.preventDefault();event.stopPropagation();openUser(this.getAttribute(\'data-user\'))"><div style="display:flex;gap:10px;align-items:center"><div class="av" style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--elev);display:flex;align-items:center;justify-content:center;font-weight:700">'+av+'</div><div style="min-width:0"><div style="font-weight:700;color:var(--orange)">@'+esc(a.name)+'</div>'+(bio?'<div style="font-size:12px;color:var(--muted)">'+bio+'</div>':'')+'</div></div></div>';
         }).join('');
       }
       if(list.length){
@@ -15589,7 +15599,8 @@ function pendingRouletteTasks(){
           var timerExp=(expMs>Date.now())?expMs:(pinUntil>Date.now()?pinUntil:0);
           var timerTxt=timerExp?fmt(timerExp-Date.now()):'—';
           var pinHtml=pinUntil>Date.now()?'<span style="color:var(--orange);font-weight:800">Pinned · '+fmt(pinUntil-Date.now())+'</span>':'';
-          return '<div class="post" style="cursor:pointer;padding:10px" onclick="openDetail('+p.id+')"><div style="display:flex;gap:10px;align-items:flex-start">'+postThumb(p)+'<div style="flex:1;min-width:0"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">@'+esc(p.user)+' · '+(p.tags||[]).map(function(tg){return '#'+tg}).join(' ')+'</div><div class="post-stats" style="padding:8px 0 0;border:0"><span>👀 '+displayViews(p.views)+'</span><span>❤️ '+(p.likes||0)+'</span><span>⏱ '+timerTxt+'</span>'+(pinHtml?' · '+pinHtml:'')+'</div></div></div></div>';
+          // jsId quotes UUID/CF ids — bare openDetail(+p.id) throws for hyphenated ids and freezes navigation.
+          return '<div class="post explore-search-hit" role="button" tabindex="0" style="cursor:pointer;padding:10px" data-pid="'+String(p.id).replace(/"/g,'&quot;')+'" onclick="event.preventDefault();event.stopPropagation();window.__suppressDetailOpen=0;openDetail('+jsId(p.id)+')"><div style="display:flex;gap:10px;align-items:flex-start">'+postThumb(p)+'<div style="flex:1;min-width:0"><div class="post-title">'+esc(p.title)+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">@'+esc(p.user)+' · '+(p.tags||[]).map(function(tg){return '#'+tg}).join(' ')+'</div><div class="post-stats" style="padding:8px 0 0;border:0"><span>👀 '+displayViews(p.views)+'</span><span>❤️ '+(p.likes||0)+'</span><span>⏱ '+timerTxt+'</span>'+(pinHtml?' · '+pinHtml:'')+'</div></div></div></div>';
         }).join('');
       }
       box.innerHTML=html;
@@ -21754,7 +21765,8 @@ function pendingRouletteTasks(){
       var remote=null;
       for(var i=0;i<urls.length;i++){
         try{
-          var r0=await fetch(urls[i],{cache:'no-store'});
+          // Timed fetch so search/detail navigation never hangs on "Opening…" forever.
+          var r0=await fetchWithTimeout(urls[i],{cache:'no-store'},5500);
           if(!r0.ok) continue;
           var j0=await r0.json();
           var r=(j0&&j0.post)||(j0&&j0.posts&&j0.posts[0])||j0;
@@ -21774,7 +21786,7 @@ function pendingRouletteTasks(){
       }
       try{
         if(typeof sb!=='undefined' && sb){
-          var q=await sb.from('posts').select('*').eq('id', id).maybeSingle();
+          var q=await sbQueryTimeout(sb.from('posts').select('*').eq('id', id).maybeSingle(),7000,{data:null,error:{message:'timeout'}});
           if(q&&q.data&&q.data.id){
             var mapped2=cfRowToFeed(q.data);
             if(mapped2){
@@ -27497,9 +27509,18 @@ function postCardHtml(p, compact){
         if(box0) box0.innerHTML='<div class="empty">Opening…</div>';
         showPanel('detail');
         if(typeof ensureFeedPost==='function'){
-          try{post=await ensureFeedPost(id)}catch(e){}
+          try{
+            // Hard ceiling so a stalled CF/SB lookup never freezes detail forever.
+            post=await sbQueryTimeout(Promise.resolve(ensureFeedPost(id)).catch(function(){return null}),12000,null);
+          }catch(e){post=null}
         }
-        if(!post){showPostGone(id);return;}
+        if(!post){
+          if(typeof isDeletedId==='function' && isDeletedId(id)){ showPostGone(id); return; }
+          try{
+            if(box0) box0.innerHTML='<div class="empty">Couldn’t load this post.<div style="margin-top:12px"><button type="button" class="btn btn-primary btn-sm" onclick="openDetail('+jsId(id)+')">Retry</button> <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById(\'btn-back\')&&document.getElementById(\'btn-back\').click()">Back</button></div></div>';
+          }catch(e){showPostGone(id)}
+          return;
+        }
       }else{
         showPanel('detail');
         // Background verify — never block first paint on CF/SB round-trips.
@@ -27722,98 +27743,168 @@ function postCardHtml(p, compact){
     }
     async function openUser(username){
       if(!userClickable(username))return;
-      try{await refreshUsernameAliasMap(false)}catch(e){}
-      // Old handles resolve to the current display username BEFORE ban checks,
-      // so a soft-merged orphan row cannot block access to the live account.
-      var requested=String(username||'');
+      var requested=String(username||'').replace(/^@/,'').trim();
+      if(!requested)return;
+      // Resolve aliases from local/cache first so first paint is instant; refresh in background.
+      try{seedKnownUsernameAliases()}catch(e){}
+      try{
+        var localAliases=loadLocalUsernameAliases();
+        Object.keys(localAliases||{}).forEach(function(k){__usernameAliasMap[k]=localAliases[k]});
+      }catch(e){}
       username=resolveCurrentUsername(requested)||requested;
       if(isUserBanned(username)){
         toast('This account is banned');
         return;
       }
-      viewingUser=username;
-      loadFollowCounts(username,'user-follow-stats');
-      var featBadge=isFeaturedProfile(username)?featuredProfileBadgeHtml():'';
-      var ut=document.getElementById('user-title');
-      if(ut){
-        if(isVerifiedUser(username)) ut.innerHTML=nameWithVerified(username)+featBadge;
-        else if(featBadge) ut.innerHTML='@'+esc(username)+featBadge;
-        else ut.textContent='@'+username;
-      }
-      var un=document.getElementById('user-name');
-      if(un){
-        if(isVerifiedUser(username)) un.innerHTML=nameWithVerified(username)+featBadge;
-        else if(featBadge) un.innerHTML='@'+esc(username)+featBadge;
-        else un.textContent='@'+username;
-      }
-      var av=document.getElementById('user-avatar');
-      av.textContent=username.charAt(0).toUpperCase();
-      delete profileCache[username];
-      delete profileCache[requested];
-      var p=await loadProfile(username,true);
-      // If current handle profile missing, try requested alias then fall back.
-      if(!p && requested && normUserKey(requested)!==normUserKey(username)){
-        try{p=await loadProfile(requested,true)}catch(e){}
-      }
-      // explicit XP read (never trust stale cache)
-      var otherXp=0;
+      // Remember where we came from (search/explore) so Back does not dump to Extend.
       try{
-        if(sb){
-          var xr=await sb.from('profiles').select('xp').ilike('username',username).maybeSingle();
-          if((!xr.data||xr.data.xp==null) && requested){
-            xr=await sb.from('profiles').select('xp').ilike('username',requested).maybeSingle();
-          }
-          if(xr.data&&xr.data.xp!=null)otherXp=Number(xr.data.xp)||0;
-          if(p)p.xp=otherXp;
-          else if(xr.data)p={username:username,xp:otherXp};
+        var act=document.querySelector('.panel.active');
+        var pid=act&&act.id||'';
+        if(pid && pid!=='panel-user'){
+          window.__userFrom=pid.replace('panel-','');
         }
-      }catch(e){console.warn('xp fetch',e)}
-      if(p&&p.avatar_url)av.innerHTML='<img src="'+p.avatar_url+'" alt=""/>';
-      else av.textContent=username.charAt(0).toUpperCase();
-      try{paintProfileStoryRing('user-av-wrap', username, accountNamesMatch(username, currentUser&&currentUser.name))}catch(e){}
-      var pxu=parseProfileExtra(p&&p.bio?p.bio:'');
-      try{paintProfileBanner('user-banner', pxu.bn||'')}catch(eBn){}
-      document.getElementById('user-bio').innerHTML=(pxu.text?esc(pxu.text):'No bio yet')+profileChipsHtml(pxu);
-      var links=document.getElementById('user-links');links.innerHTML='';
-      if(p&&p.twitter){var _tw=String(p.twitter).trim();if(_tw.indexOf('http')===0){_tw=_tw.replace(/^.*x\.com\//i,'').replace(/^.*twitter\.com\//i,'').split(/[/?#]/)[0];}_tw=_tw.replace(/^@/,'');links.innerHTML+='<a href="'+linkUrl(p.twitter,'x')+'" target="_blank" rel="noopener">𝕏 @'+esc(_tw||'twitter')+'</a>';}
-      if(p&&p.telegram){var _tg=String(p.telegram).trim();if(/t\.me\//i.test(_tg)){_tg=_tg.replace(/^.*t\.me\//i,'').split(/[/?#]/)[0];}else{_tg=_tg.replace(/^@/,'');}links.innerHTML+='<a href="'+linkUrl(p.telegram,'tg')+'" target="_blank" rel="noopener">✈️ @'+esc(_tg||'telegram')+'</a>';}
-      if(p&&p.link){links.innerHTML+='<a href="'+linkUrl(p.link,'web')+'" target="_blank" rel="noopener">🔗 Link</a>';}
-
-      var fb=document.getElementById('btn-follow');
-      var mb=document.getElementById('btn-msg-user');
-      var can=isRegistered()&&!accountNamesMatch(username, currentUser.name);
-      if(fb){fb.style.display=can?'inline-block':'none';fb.textContent='Follow';
-        if(can&&sb){sb.from('follows').select('*').eq('follower',currentUser.name).eq('following',username).maybeSingle().then(function(r){if(r.data)fb.textContent='Following'});}
+      }catch(e){}
+      window.__openUserGen=(Number(window.__openUserGen)||0)+1;
+      var navGen=window.__openUserGen;
+      viewingUser=username;
+      var featBadge=isFeaturedProfile(username)?featuredProfileBadgeHtml():'';
+      function paintUserChrome(name){
+        var ut=document.getElementById('user-title');
+        if(ut){
+          if(isVerifiedUser(name)) ut.innerHTML=nameWithVerified(name)+featBadge;
+          else if(featBadge) ut.innerHTML='@'+esc(name)+featBadge;
+          else ut.textContent='@'+name;
+        }
+        var un=document.getElementById('user-name');
+        if(un){
+          if(isVerifiedUser(name)) un.innerHTML=nameWithVerified(name)+featBadge;
+          else if(featBadge) un.innerHTML='@'+esc(name)+featBadge;
+          else un.textContent='@'+name;
+        }
       }
-      if(mb)mb.style.display=can?'inline-block':'none';
+      paintUserChrome(username);
+      var av=document.getElementById('user-avatar');
+      if(av){
+        var cachedAv=null;
+        try{cachedAv=avatarUrlFor(username)||avatarUrlFor(requested)}catch(e){}
+        if(cachedAv) av.innerHTML='<img src="'+cachedAv+'" alt=""/>';
+        else av.textContent=username.charAt(0).toUpperCase();
+      }
+      var bioEl=document.getElementById('user-bio');
+      if(bioEl) bioEl.innerHTML='<span style="color:var(--muted)">Loading profile…</span>';
+      var links=document.getElementById('user-links');
+      if(links) links.innerHTML='';
       var ups=posts.filter(function(x){return sameAccountPost(x, username)});
-      try{paintJoinedDate('user-joined', p, ups)}catch(eJ){}
       var statsEl=document.getElementById('user-stats');
-      if(typeof otherXp!=='number')otherXp=(p&&p.xp!=null)?(Number(p.xp)||0):0;
       if(statsEl){
-        statsEl.innerHTML=profileStatsHtml(ups,{comments:0,saves:sumSavesOnPosts(ups),username:username,xp:otherXp});
+        statsEl.innerHTML=profileStatsHtml(ups,{comments:0,saves:sumSavesOnPosts(ups),username:username,xp:0});
       }
       var upBox=document.getElementById('user-posts');
       var gCount=document.getElementById('user-gallery-count');
-      if(upBox)upBox.innerHTML='<div class="gallery-empty">Loading gallery…</div>';
-      if(gCount)gCount.textContent='';
+      if(upBox){
+        if(ups.length){
+          // Instant local posts so search→profile never looks frozen while SB/CF load.
+          upBox.innerHTML='<div class="user-posts-grid">'+ups.slice(0,24).map(function(p){return postCardHtml(p,true)}).join('')+'</div>';
+        }else{
+          upBox.innerHTML='<div class="gallery-empty">Loading gallery…</div>';
+        }
+      }
+      if(gCount) gCount.textContent=ups.length?(ups.length+' posts'):'';
+      var fb=document.getElementById('btn-follow');
+      var mb=document.getElementById('btn-msg-user');
+      var can=isRegistered()&&currentUser&&currentUser.name&&!accountNamesMatch(username, currentUser.name);
+      if(fb){fb.style.display=can?'inline-block':'none';fb.textContent='Follow'}
+      if(mb) mb.style.display=can?'inline-block':'none';
       window.__profileFeedView='extended';
+      // Paint-first: leave search immediately; never await network before showPanel.
       showPanel('user');
       try{setPanelRoute('user',{extra:username,replace:true})}catch(e){}
+      try{forceTop()}catch(e){}
+      try{loadFollowCounts(username,'user-follow-stats')}catch(e){}
+      try{paintProfileStoryRing('user-av-wrap', username, accountNamesMatch(username, currentUser&&currentUser.name))}catch(e){}
 
       (async function(){
+        var stillHere=function(){return window.__openUserGen===navGen && normUserKey(viewingUser)===normUserKey(username)};
+        var p=null;
+        var otherXp=0;
+        try{await refreshUsernameAliasMap(false)}catch(e){}
+        if(!stillHere()) return;
+        var resolved=resolveCurrentUsername(requested)||requested;
+        if(resolved && normUserKey(resolved)!==normUserKey(username)){
+          username=resolved;
+          viewingUser=username;
+          paintUserChrome(username);
+          try{setPanelRoute('user',{extra:username,replace:true})}catch(e){}
+        }
+        if(isUserBanned(username)){
+          toast('This account is banned');
+          try{showPanel(window.__userFrom||'explore')}catch(e){}
+          return;
+        }
+        try{
+          delete profileCache[username];
+          delete profileCache[requested];
+          p=await loadProfile(username,true);
+          if(!p && requested && normUserKey(requested)!==normUserKey(username)){
+            try{p=await loadProfile(requested,true)}catch(e){}
+          }
+        }catch(e){console.warn('profile load',e);p=null}
+        if(!stillHere()) return;
+        try{
+          if(sb){
+            var xr=await sbQueryTimeout(sb.from('profiles').select('xp').ilike('username',username).maybeSingle(),6000,{data:null,error:null});
+            if((!xr.data||xr.data.xp==null) && requested){
+              xr=await sbQueryTimeout(sb.from('profiles').select('xp').ilike('username',requested).maybeSingle(),6000,{data:null,error:null});
+            }
+            if(xr.data&&xr.data.xp!=null) otherXp=Number(xr.data.xp)||0;
+            if(p) p.xp=otherXp;
+            else if(xr.data) p={username:username,xp:otherXp};
+          }
+        }catch(e){console.warn('xp fetch',e)}
+        if(!stillHere()) return;
+        if(av){
+          if(p&&p.avatar_url) av.innerHTML='<img src="'+p.avatar_url+'" alt=""/>';
+          else av.textContent=username.charAt(0).toUpperCase();
+        }
+        try{paintProfileStoryRing('user-av-wrap', username, accountNamesMatch(username, currentUser&&currentUser.name))}catch(e){}
+        var pxu=parseProfileExtra(p&&p.bio?p.bio:'');
+        try{paintProfileBanner('user-banner', pxu.bn||'')}catch(eBn){}
+        if(bioEl) bioEl.innerHTML=(pxu.text?esc(pxu.text):'No bio yet')+profileChipsHtml(pxu);
+        if(links){
+          links.innerHTML='';
+          if(p&&p.twitter){var _tw=String(p.twitter).trim();if(_tw.indexOf('http')===0){_tw=_tw.replace(/^.*x\.com\//i,'').replace(/^.*twitter\.com\//i,'').split(/[/?#]/)[0];}_tw=_tw.replace(/^@/,'');links.innerHTML+='<a href="'+linkUrl(p.twitter,'x')+'" target="_blank" rel="noopener">𝕏 @'+esc(_tw||'twitter')+'</a>';}
+          if(p&&p.telegram){var _tg=String(p.telegram).trim();if(/t\.me\//i.test(_tg)){_tg=_tg.replace(/^.*t\.me\//i,'').split(/[/?#]/)[0];}else{_tg=_tg.replace(/^@/,'');}links.innerHTML+='<a href="'+linkUrl(p.telegram,'tg')+'" target="_blank" rel="noopener">✈️ @'+esc(_tg||'telegram')+'</a>';}
+          if(p&&p.link){links.innerHTML+='<a href="'+linkUrl(p.link,'web')+'" target="_blank" rel="noopener">🔗 Link</a>';}
+        }
+        can=isRegistered()&&currentUser&&currentUser.name&&!accountNamesMatch(username, currentUser.name);
+        if(fb){
+          fb.style.display=can?'inline-block':'none';fb.textContent='Follow';
+          if(can&&sb){
+            sbQueryTimeout(sb.from('follows').select('*').eq('follower',currentUser.name).eq('following',username).maybeSingle(),5000,{data:null})
+              .then(function(r){if(stillHere()&&r&&r.data)fb.textContent='Following'});
+          }
+        }
+        if(mb) mb.style.display=can?'inline-block':'none';
+        ups=posts.filter(function(x){return sameAccountPost(x, username)});
+        try{paintJoinedDate('user-joined', p, ups)}catch(eJ){}
+        if(statsEl){
+          statsEl.innerHTML=profileStatsHtml(ups,{comments:0,saves:sumSavesOnPosts(ups),username:username,xp:otherXp});
+        }
+
         var gallery=[];
         var uname=normUserKey(username);
-        // Primary source: Supabase posts linked by account id / aliases (not CF username feed).
+        var galleryTimedOut=false;
         try{
-          var sbRows=await fetchSbPostsForAccount(username,{limit:120});
+          var sbRows=await sbQueryTimeout(Promise.resolve(fetchSbPostsForAccount(username,{limit:120})).catch(function(){return[]}),10000,null);
+          if(sbRows==null){ galleryTimedOut=true; sbRows=[]; }
           (sbRows||[]).forEach(function(item){
             if(!item)return;
             applyDisplayUsernameToPost(item);
             gallery.push(item);
-            if(!posts.some(function(p){return String(p.id)===String(item.id)}))posts.push(item);
+            if(!posts.some(function(pp){return String(pp.id)===String(item.id)}))posts.push(item);
           });
         }catch(e){console.warn('sb user gallery',e)}
+        if(!stillHere()) return;
         try{
           var cf=await fetchCfFeed();
           (cf||[]).forEach(function(row){
@@ -27824,9 +27915,10 @@ function postCardHtml(p, compact){
             item._cf=true;
             applyDisplayUsernameToPost(item);
             if(!gallery.some(function(g){return String(g.id)===String(item.id)})) gallery.push(item);
-            if(!posts.some(function(p){return String(p.id)===String(item.id)}))posts.push(item);
+            if(!posts.some(function(pp){return String(pp.id)===String(item.id)}))posts.push(item);
           });
         }catch(e){console.warn('gallery',e)}
+        if(!stillHere()) return;
         try{
           var localArch=JSON.parse(localStorage.getItem('rs_id_archive')||'[]')||[];
           localArch.forEach(function(r){
@@ -27834,33 +27926,35 @@ function postCardHtml(p, compact){
             if(gallery.some(function(g){return String(g.id)===String(r.id)}))return;
             var item={id:r.id,user:resolveCurrentUsername(r.username)||r.username,title:r.title||'',desc:r.description||'',tags:r.tags||[],created:new Date(r.created_at||Date.now()).getTime(),expires:0,views:r.views||0,likes:r.likes_count||0,image:r.image_url,images:r.image_url?[r.image_url]:[],featuredUntil:0,_cf:true};
             gallery.push(item);
-            if(!posts.some(function(p){return String(p.id)===String(item.id)}))posts.push(item);
+            if(!posts.some(function(pp){return String(pp.id)===String(item.id)}))posts.push(item);
           });
         }catch(e){}
-        if(!gallery.length)gallery=(ups||[]).filter(function(p){return !!p});
+        if(!gallery.length) gallery=(ups||[]).filter(function(pp){return !!pp});
         window.__profileGalleryItems=gallery;
-        setupProfileFeedTabs();
-        setProfileFeedView(window.__profileFeedView||'extended');
-        if(gCount)gCount.textContent=gallery.length?(gallery.length+' posts'):'';
+        try{setupProfileFeedTabs()}catch(e){}
+        try{setProfileFeedView(window.__profileFeedView||'extended')}catch(e){}
+        if(gCount) gCount.textContent=gallery.length?(gallery.length+' posts'):'';
         try{paintJoinedDate('user-joined', p, gallery)}catch(eJ2){}
         if(statsEl){
           statsEl.innerHTML=profileStatsHtml(gallery,{comments:0,saves:sumSavesOnPosts(gallery),username:username,xp:otherXp});
           if(gallery.length){
-            countCommentsForPosts(gallery.map(function(p){return p.id})).then(function(c){
+            countCommentsForPosts(gallery.map(function(pp){return pp.id})).then(function(c){
+              if(!stillHere()||!statsEl)return;
               statsEl.innerHTML=profileStatsHtml(gallery,{comments:c,saves:sumSavesOnPosts(gallery),username:username,xp:otherXp});
             });
           }
         }
         if(upBox){
-          if(!gallery.length)upBox.innerHTML='<div class="gallery-empty">No photos yet</div>';
-          else{
-            function isProfileGal(p){
-              // permanent normal/profile posts go to Normal tab; timed exposures to Extended
-              return isProfileOnly(p);
+          if(!gallery.length){
+            upBox.innerHTML=galleryTimedOut
+              ? '<div class="gallery-empty">Couldn’t load posts. <button type="button" class="btn btn-ghost btn-sm" onclick="openUser(\''+String(username).replace(/'/g,'')+'\')">Retry</button></div>'
+              : '<div class="gallery-empty">No photos yet</div>';
+          }else{
+            function isProfileGal(pp){
+              return isProfileOnly(pp);
             }
-            var feedG=gallery.filter(function(p){return !isProfileGal(p)});
+            var feedG=gallery.filter(function(pp){return !isProfileGal(pp)});
             var profG=gallery.filter(isProfileGal);
-            // Featured / pinned posts first on highlighted profiles.
             try{
               feedG.sort(function(a,b){
                 var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
@@ -27872,25 +27966,37 @@ function postCardHtml(p, compact){
             var html='';
             if(feedG.length){
               var pinnedN=0;
-              try{feedG.forEach(function(p){if(typeof isFeatured==='function'&&isFeatured(p))pinnedN++})}catch(e){}
+              try{feedG.forEach(function(pp){if(typeof isFeatured==='function'&&isFeatured(pp))pinnedN++})}catch(e){}
               html+='<div style="font-size:12px;color:var(--muted);margin:0 0 8px;font-weight:700">'+(pinnedN?'PINNED · ':'')+'ACTIVE EXPOSURES</div>';
-              html+='<div class="user-posts-grid">'+feedG.map(function(p){return postCardHtml(p,true)}).join('')+'</div>';
+              html+='<div class="user-posts-grid">'+feedG.map(function(pp){return postCardHtml(pp,true)}).join('')+'</div>';
             }
             if(profG.length){
               html+='<div style="font-size:12px;color:var(--muted);margin:14px 0 8px;font-weight:700">PROFILE GALLERY</div>';
-              html+='<div class="profile-gallery-feed">'+profG.map(function(p){
-                if(typeof isVideoPost==='function' && isVideoPost(p)) return postCardHtml(p,true);
+              html+='<div class="profile-gallery-feed">'+profG.map(function(pp){
+                if(typeof isVideoPost==='function' && isVideoPost(pp)) return postCardHtml(pp,true);
                 var mine=false;
                 try{mine=!!(currentUser&&currentUser.name&&accountNamesMatch(username, currentUser.name))}catch(eM){}
-                return profileGalleryPostHtml(p, mine);
+                return profileGalleryPostHtml(pp, mine);
               }).join('')+'</div>';
             }
             upBox.innerHTML=html||'<div class="gallery-empty">No photos yet</div>';
             try{setupProfileGallerySwipes()}catch(e){}
           }
         }
-      })();
+        if(!p && !gallery.length && !ups.length){
+          try{toast('Profile could not be fully loaded')}catch(e){}
+        }
+      })().catch(function(err){
+        console.warn('openUser',err);
+        try{
+          if(window.__openUserGen===navGen && upBox && /Loading gallery/.test(upBox.innerHTML||'')){
+            upBox.innerHTML='<div class="gallery-empty">Couldn’t open profile. <button type="button" class="btn btn-ghost btn-sm" onclick="openUser(\''+String(username).replace(/'/g,'')+'\')">Retry</button></div>';
+          }
+        }catch(e){}
+        try{toast('Couldn’t load this profile')}catch(e2){}
+      });
     }
+    window.openUser=openUser;
     function compressVideoFile(file){
       return new Promise(function(resolve,reject){
         if(!file)return reject(new Error('no file'));
