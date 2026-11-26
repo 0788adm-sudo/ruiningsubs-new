@@ -52,6 +52,10 @@
         {
           "key": "Service-Worker-Allowed",
           "value": "/"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -81,6 +85,10 @@
         {
           "key": "Content-Type",
           "value": "application/json; charset=utf-8"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -106,6 +114,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -131,6 +143,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -152,6 +168,10 @@
         {
           "key": "Surrogate-Control",
           "value": "no-store"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -173,6 +193,10 @@
         {
           "key": "Surrogate-Control",
           "value": "no-store"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -198,6 +222,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -223,6 +251,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -248,6 +280,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -273,6 +309,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -298,6 +338,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -323,6 +367,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -348,6 +396,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -373,6 +425,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -398,6 +454,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -423,6 +483,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -448,6 +512,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -473,6 +541,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -498,6 +570,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -523,6 +599,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -548,6 +628,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -573,6 +657,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -598,6 +686,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -623,6 +715,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -648,6 +744,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -673,6 +773,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -698,6 +802,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -723,6 +831,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -748,6 +860,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -773,6 +889,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -798,6 +918,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -823,6 +947,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -848,6 +976,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -873,6 +1005,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -898,6 +1034,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -923,6 +1063,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -948,6 +1092,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -973,6 +1121,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -998,6 +1150,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1023,6 +1179,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1048,6 +1208,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1073,6 +1237,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1098,6 +1266,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1123,6 +1295,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1148,6 +1324,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1173,6 +1353,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1198,6 +1382,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1223,6 +1411,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1248,6 +1440,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1273,6 +1469,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1298,6 +1498,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1323,6 +1527,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1348,6 +1556,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1373,6 +1585,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1398,6 +1614,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1423,6 +1643,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1448,6 +1672,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1473,6 +1701,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1498,6 +1730,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1523,6 +1759,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1548,6 +1788,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1573,6 +1817,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1598,6 +1846,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1623,6 +1875,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1648,6 +1904,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },
@@ -1673,6 +1933,10 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     }

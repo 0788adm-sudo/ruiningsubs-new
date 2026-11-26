@@ -72,7 +72,7 @@ assert(/Surrogate-Control:[^|]*no-store/i.test(wallBlob), 'Surrogate-Control on 
 assert(!/addEventListener\(\s*['"]fetch['"]/.test(sw), 'sw.js has no fetch handler');
 assert(html.indexOf("register('/sw.js')") >= 0, 'registers canonical /sw.js');
 assert(html.indexOf("register('/sw.js?v=") < 0, 'never registers query-string SW');
-assert(html.indexOf('rs_sw_recovered_v2') >= 0, 'one-shot SW recovery key');
+assert(html.indexOf('rs_sw_recovered_v3') >= 0, 'one-shot SW recovery key');
 
 /* —— CDN placement (not in head) —— */
 var head = html.split(/<\/head>/i)[0];
@@ -82,6 +82,7 @@ assert(/cdn\.jsdelivr\.net\/npm\/@supabase[\s\S]{0,400}function enterSite/.test(
   /@supabase\/supabase-js@2[\s\S]{0,800}function enterSite/.test(html),
   'supabase loads just before app script');
 assert(html.indexOf("unpkg.com/@supabase/supabase-js@2") >= 0, 'unpkg fallback for supabase');
+assert(!/document\.write\s*\(/.test(html), 'no document.write() CDN fallback');
 
 /* —— CF hang mitigations —— */
 assert(/fetchWithTimeout\(\s*CF_API\+'\/avatars/.test(html) ||

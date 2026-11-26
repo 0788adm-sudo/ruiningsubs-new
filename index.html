@@ -12,16 +12,20 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <!-- Build id for soft update detection (paired with /build.json, Cache-Control: no-store). -->
-  <meta name="rs-app-build" content="202611262259"/>
+  <meta name="rs-app-build" content="202611262331"/>
   <title>Ruining Subs (ruinexpose.com) | Public exposure board</title>
   <meta name="description" content="They're public. Timer running. Share before they pay to hide. Photos, videos, ID cards — ruinexpose.com"/>
   <meta name="keywords" content="Ruining Subs, ruinexpose.com, ruiningsubs.com, ruiningsubs, public exposure board, exposure feed, MasterSan, Ruin Roulette"/>
   <meta name="robots" content="index,follow,max-image-preview:large"/>
   <meta name="googlebot" content="index,follow"/>
   <link rel="canonical" href="https://www.ruinexpose.com/"/>
+  <!-- CRITICAL: first paint must NOT wait on Google Fonts. A hung fonts.googleapis.com
+       request left Safari white / Chrome black with a stuck progress bar while Incognito
+       (cold cache) sometimes raced ahead. Load fonts async after paint. -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow:wght@500;600;700;800&display=swap" media="print" onload="this.media='all'"/>
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow:wght@500;600;700;800&display=swap"/></noscript>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='16' font-family='Impact,Arial Black,sans-serif' fill='%23ff6a00'%3ERS%3C/text%3E%3C/svg%3E"/>
   <meta property="og:site_name" content="Ruining Subs"/>
   <meta property="og:title" content="RuiningSubs — they're public. Open it."/>
@@ -34,16 +38,42 @@
   <meta name="twitter:title" content="Ruining Subs (ruinexpose.com)"/>
   <meta name="twitter:description" content="Public exposure board at ruinexpose.com"/>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Ruining Subs","url":"https://www.ruinexpose.com/","alternateName":["ruinexpose","ruinexpose.com","ruiningsubs","ruiningsubs.com","RuiningSubs"],"description":"Public exposure board. Post photos, ID cards, printed exposure, Ruin Roulette.","potentialAction":{"@type":"SearchAction","target":"https://www.ruinexpose.com/wall","query-input":"required name=search_term_string"}}</script>
+  <!-- Inline critical paint — guarantees dark shell + age-gate even if the 2MB CSS
+       block or later JS never finishes. Fixes Safari white / Chrome black blanks. -->
+  <style id="rs-critical-paint">
+    html,body{background:#050506!important;color:#ececef;margin:0;min-height:100%;}
+    #age-gate{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:#000;color:#ececef;font-family:system-ui,-apple-system,sans-serif;}
+    #age-gate.hidden{display:none!important}
+    #age-gate .logo{font-size:2rem;margin-bottom:16px;font-weight:900;letter-spacing:-0.5px}
+    #age-gate .logo span{color:#ff6a00}
+    #age-gate p{color:#9a9aa3;margin:0 0 28px;max-width:300px;line-height:1.4}
+    #age-gate .btn{border:none;border-radius:999px;padding:14px 24px;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit}
+    #age-gate .btn-primary{background:#ff6a00;color:#111}
+    #age-gate .btn-secondary{background:#101014;color:#ececef;border:1px solid #1c1c22;margin-top:8px}
+    #app{display:none}#app.show{display:block}
+  </style>
   <!-- Recover sticky/buggy Service Workers WITHOUT clearing user sessions.
        Critical: update the SAME /sw.js URL in-place (never ?v=…). Unregistering
        before update() leaves the old controller hanging navigations forever.
        Reload only on controllerchange/message — never on every paint (Telegram
        WebViews often lack durable sessionStorage and would infinite-loop). -->
   <script>
+  window.__RS_APP_BUILD='202611262331';
+  window.__rsBootTrace=[];
+  window.__rsTrace=function(step, extra){
+    try{
+      var row={t:Date.now(),s:String(step||'')};
+      if(extra!=null) row.x=extra;
+      window.__rsBootTrace.push(row);
+      if(window.__rsBootTrace.length>60) window.__rsBootTrace=window.__rsBootTrace.slice(-40);
+      localStorage.setItem('rs_boot_trace', JSON.stringify(window.__rsBootTrace));
+    }catch(e){}
+  };
+  try{window.__rsTrace('head-start', location.pathname)}catch(e){}
   (function(){
     try{
       if(!('serviceWorker' in navigator)) return;
-      var RECOVERED_KEY='rs_sw_recovered_v2';
+      var RECOVERED_KEY='rs_sw_recovered_v3';
       var reloadArmed=false;
       function wipeCaches(){
         try{
@@ -66,6 +96,7 @@
         if(reloadArmed || alreadyRecovered()) return;
         reloadArmed=true;
         markRecovered();
+        try{window.__rsTrace('sw-reload')}catch(e){}
         setTimeout(function(){ try{ location.reload(); }catch(e){} }, 50);
       }
       wipeCaches();
@@ -80,12 +111,12 @@
           }catch(e){}
         });
         navigator.serviceWorker.addEventListener('controllerchange', function(){
-          // New no-op claimed — one reload so a hung navigation is abandoned.
+          // New no-op claimed — one reload so a hung/blank navigation is abandoned.
           oneReload();
         });
       }catch(e){}
       if(alreadyRecovered()){
-        // Prior pass already reloaded this tab life / session — just sweep.
+        // Prior pass already reloaded this tab life / session — just sweep. Never re-register.
         navigator.serviceWorker.getRegistrations().then(function(regs){
           return Promise.all((regs||[]).map(function(r){ try{ return r.unregister(); }catch(e){ return null; } }));
         }).then(wipeCaches).catch(function(){});
@@ -97,6 +128,7 @@
           wipeCaches();
           return;
         }
+        try{window.__rsTrace('sw-regs', regs.length)}catch(e){}
         // 1) Force in-place update of every existing registration (same script URL).
         //    register('/sw.js') without query string refreshes the canonical worker.
         var updates=[];
@@ -124,25 +156,36 @@
   </script>
   <!-- Failsafe: never leave users on a blank white/black shell if boot stalls.
        Covers auto-enter (rs_age_ok) where #app.show hides the age gate but boot
-       never paints — the prior gap that left Telegram/Safari on a dead shell. -->
+       never paints — AND the case where HTML arrived but JS/CDN never finished. -->
   <script>
   (function(){
     try{
       function ensureBootRescueUI(){
+        if(!document.body) return null;
         var el=document.getElementById('rs-boot-rescue');
         if(el) return el;
         el=document.createElement('div');
         el.id='rs-boot-rescue';
         el.setAttribute('role','alert');
-        el.style.cssText='position:fixed;inset:0;z-index:10050;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;background:#050506;color:#ececef;font-family:system-ui,sans-serif';
+        el.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;background:#050506;color:#ececef;font-family:system-ui,sans-serif';
         el.innerHTML='<p style="color:#9a9aa3;font-size:12px;letter-spacing:.4px;margin:0 0 10px">RUINEXPOSE</p>'
           +'<h1 style="font-size:1.25rem;margin:0 0 10px;font-weight:800">Still loading</h1>'
-          +'<p style="color:#9a9aa3;line-height:1.45;max-width:280px;margin:0 0 22px">Connection stalled. Reload to recover — your session stays saved.</p>'
+          +'<p style="color:#9a9aa3;line-height:1.45;max-width:280px;margin:0 0 22px">Connection stalled. Reload to recover — your login stays saved.</p>'
           +'<button type="button" id="rs-boot-rescue-btn" style="border:none;border-radius:999px;padding:14px 28px;font-weight:800;font-size:15px;background:#ff6a00;color:#111;cursor:pointer">Reload</button>';
         document.body.appendChild(el);
         var btn=document.getElementById('rs-boot-rescue-btn');
         if(btn) btn.onclick=function(){ try{ location.reload(); }catch(e){} };
+        try{window.__rsTrace('rescue-ui')}catch(e){}
         return el;
+      }
+      function forceAgeGateVisible(){
+        var gate=document.getElementById('age-gate');
+        var app=document.getElementById('app');
+        if(gate){
+          gate.classList.remove('hidden');
+          gate.setAttribute('style','position:fixed;inset:0;z-index:9999;display:flex!important;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:#000;color:#ececef;visibility:visible;opacity:1');
+        }
+        if(app){ app.classList.remove('show'); try{app.style.display='none'}catch(e){} }
       }
       function shellLooksAlive(){
         try{
@@ -154,62 +197,71 @@
           if(detail && detail.children && detail.children.length && !/Opening|Loading/i.test(detail.textContent||'')) return true;
           var panel=document.querySelector('.panel.active');
           if(panel && panel.id && panel.id!=='panel-feed'){
-            // Non-feed section visible (profile, wall, games…) counts as painted.
             if(panel.offsetHeight>40) return true;
           }
           if(feed && feed.children && feed.children.length && !/^[\s]*Loading/i.test(String(feed.textContent||'').trim())) return true;
+          var gate=document.getElementById('age-gate');
+          if(gate && !gate.classList.contains('hidden')){
+            var btn=document.getElementById('btn-enter');
+            if(btn && (btn.offsetParent!==null || btn.getClientRects().length)) return true;
+          }
         }catch(e){}
         return false;
       }
       function rescueBlankShell(){
         try{
+          if(!document.body){
+            // Body not parsed yet — schedule again; do not claim success.
+            return;
+          }
           var gate=document.getElementById('age-gate');
           var app=document.getElementById('app');
-          if(!gate && !app) return;
-          var appShown=app && app.classList.contains('show');
-          if(appShown){
-            if(shellLooksAlive()){
-              var rescueOk=document.getElementById('rs-boot-rescue');
-              if(rescueOk) try{ rescueOk.remove(); }catch(e){}
-              return;
-            }
-            // App visible but main panels empty / frozen — surface a recoverable hint.
-            var feed=document.getElementById('posts-container');
-            if(feed && /Loading/i.test(String(feed.textContent||'')) && !window.__rsBootFeedNudge){
-              window.__rsBootFeedNudge=1;
-              feed.innerHTML='<div class="empty">Still loading… <button type="button" class="btn btn-ghost" style="margin-top:10px" onclick="try{loadPosts()}catch(e){location.reload()}">Retry feed</button></div>';
-            }
-            // Dead shell after auto-enter: no feed paint, no active section — full-screen reload.
-            if(!window.__rsBootRescueShown && !shellLooksAlive()){
+          if(!gate && !app){
+            // HTML shell missing entirely (blank SW document) — offer reload.
+            if(!window.__rsBootRescueShown){
               window.__rsBootRescueShown=1;
               ensureBootRescueUI();
             }
             return;
           }
-          var gateHidden=gate && gate.classList.contains('hidden');
-          // Still on age gate with visible CTA — fine.
-          if(gate && !gateHidden){
-            var btn=document.getElementById('btn-enter');
-            if(btn && (btn.offsetParent!==null || btn.getClientRects().length)) return;
+          if(shellLooksAlive()){
+            var rescueOk=document.getElementById('rs-boot-rescue');
+            if(rescueOk) try{ rescueOk.remove(); }catch(e){}
+            return;
           }
-          // Blank / unusable: force age gate visible so the user can enter.
-          if(gate){
-            gate.classList.remove('hidden');
-            gate.style.display='flex';
-            gate.style.visibility='visible';
-            gate.style.opacity='1';
+          var appShown=app && (app.classList.contains('show') || app.style.display==='block');
+          if(appShown){
+            var feed=document.getElementById('posts-container');
+            if(feed && !feed.querySelector('article.post') && !window.__rsBootFeedNudge){
+              window.__rsBootFeedNudge=1;
+              feed.innerHTML='<div class="empty" style="padding:24px;text-align:center;color:#9a9aa3">Still loading… <button type="button" style="margin-top:10px;padding:10px 16px;border-radius:999px;border:1px solid #333;background:#111;color:#fff" onclick="try{loadPosts()}catch(e){location.reload()}">Retry feed</button></div>';
+            }
+            if(!window.__rsBootRescueShown){
+              window.__rsBootRescueShown=1;
+              ensureBootRescueUI();
+            }
+            return;
           }
-          if(app) app.classList.remove('show');
+          // No alive shell — force age gate (covers white Safari / black Chrome blanks).
+          forceAgeGateVisible();
+          if(!window.__rsBootRescueShown && Date.now()-(window.__rsBootStart||Date.now())>5000){
+            window.__rsBootRescueShown=1;
+            ensureBootRescueUI();
+          }
         }catch(e){}
       }
-      setTimeout(rescueBlankShell, 3500);
-      setTimeout(rescueBlankShell, 7000);
+      window.__rsBootStart=Date.now();
+      window.__rsForceAgeGateVisible=forceAgeGateVisible;
+      window.__rsRescueBlankShell=rescueBlankShell;
+      // Faster cadence — blank screens must not wait 3.5s on mobile.
+      setTimeout(rescueBlankShell, 1200);
+      setTimeout(rescueBlankShell, 2500);
+      setTimeout(rescueBlankShell, 4500);
+      setTimeout(rescueBlankShell, 8000);
       setTimeout(rescueBlankShell, 12000);
     }catch(e){}
   })();
   </script>
-  <!-- CDN libs load AFTER first paint (age-gate HTML) — see rsLoadCdnLibs before main app script.
-       Keeping them out of <head> prevents a hung jsDelivr from blocking the whole document. -->
   <style>
     :root{--bg:#050506;--card:#0a0a0c;--elev:#101014;--orange:#ff6a00;--purple:#ff6a00;--red:#9f1239;--text:#ececef;--muted:#7a7a86;--border:#1c1c22}
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -2738,11 +2790,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <h1>Ruining Subs</h1>
     <p>Public exposure feed at https://www.ruiningsubs.com — post photos, generate ID, get printed, Ruin Roulette.</p>
   </noscript>
-  <div id="age-gate">
-    <div class="logo" style="font-size:2rem;margin-bottom:16px">RUINING<span>SUB$</span></div>
-    <p>This site contains adult exposure content. You must be 18+ to enter.</p>
-    <button class="btn btn-primary" id="btn-enter" type="button" style="background:#ff6a00;color:#111;border-color:#ff6a00" onclick="try{enterSite()}catch(e){var g=document.getElementById('age-gate');if(g)g.classList.add('hidden');var a=document.getElementById('app');if(a)a.classList.add('show')}">I am 18 or older</button>
-    <button class="btn btn-secondary" id="btn-exit" type="button" style="margin-top:8px">Exit</button>
+  <div id="age-gate" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:#000;color:#ececef;font-family:system-ui,-apple-system,sans-serif">
+    <div class="logo" style="font-size:2rem;margin-bottom:16px;font-weight:900">RUINING<span style="color:#ff6a00">SUB$</span></div>
+    <p style="color:#9a9aa3;margin:0 0 28px;max-width:300px;line-height:1.4">This site contains adult exposure content. You must be 18+ to enter.</p>
+    <button class="btn btn-primary" id="btn-enter" type="button" style="background:#ff6a00;color:#111;border:none;border-radius:999px;padding:14px 24px;font-weight:700;font-size:15px" onclick="try{if(typeof enterSite==='function')enterSite();else{var g=document.getElementById('age-gate');if(g)g.classList.add('hidden');var a=document.getElementById('app');if(a)a.classList.add('show')}}catch(e){var g=document.getElementById('age-gate');if(g)g.classList.add('hidden');var a=document.getElementById('app');if(a)a.classList.add('show')}">I am 18 or older</button>
+    <button class="btn btn-secondary" id="btn-exit" type="button" style="margin-top:8px;background:#101014;color:#ececef;border:1px solid #1c1c22;border-radius:999px;padding:14px 24px;font-weight:700">Exit</button>
   </div>
 
   <div id="app">
@@ -4133,13 +4185,58 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     </div>
   </div>
 
-  <!-- Libs AFTER age-gate markup so first paint is not blocked by CDN RTT.
-       Sync tags keep createClient ordering; document.write fallbacks cover jsDelivr outages. -->
-  <script>window.__RS_APP_BUILD='202611262259';</script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>')}</script>
-  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-  <script>if(!window.tus){document.write('<script src="https://unpkg.com/tus-js-client@4/dist/tus.min.js"><\/script>')}</script>
+  <!-- CDN libs: ASYNC only. Never use sync script src or document-write fallbacks —
+       a hung jsDelivr left returning Safari/Chrome on a stuck progress bar, and
+       document-write after a failed load can wipe the document (classic white screen). -->
+  <script>
+    window.__RS_APP_BUILD='202611262331';
+    try{if(typeof window.__rsTrace==='function') window.__rsTrace('cdn-loader')}catch(e){}
+    (function(){
+      function loadScript(url){
+        return new Promise(function(resolve){
+          try{
+            var s=document.createElement('script');
+            s.async=true;
+            s.src=url;
+            s.onload=function(){ resolve(true); };
+            s.onerror=function(){ resolve(false); };
+            (document.head||document.documentElement).appendChild(s);
+          }catch(e){ resolve(false); }
+        });
+      }
+      function loadWithFallback(urls, timeoutMs){
+        urls=urls||[];
+        return new Promise(function(resolve){
+          var i=0, done=false;
+          function finish(v){ if(done)return; done=true; resolve(!!v); }
+          setTimeout(function(){ finish(false); }, Number(timeoutMs)||6000);
+          function next(){
+            if(done) return;
+            if(i>=urls.length){ finish(false); return; }
+            loadScript(urls[i++]).then(function(ok){
+              if(ok) finish(true);
+              else next();
+            });
+          }
+          next();
+        });
+      }
+      window.__rsSbReady=loadWithFallback([
+        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+        'https://unpkg.com/@supabase/supabase-js@2'
+      ], 6000).then(function(ok){
+        try{window.__rsTrace('supabase-cdn', ok?'ok':'fail')}catch(e){}
+        return ok;
+      });
+      window.__rsTusReady=loadWithFallback([
+        'https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js',
+        'https://unpkg.com/tus-js-client@4/dist/tus.min.js'
+      ], 6000).then(function(ok){
+        try{window.__rsTrace('tus-cdn', ok?'ok':'fail')}catch(e){}
+        return ok;
+      });
+    })();
+  </script>
   <script>
     function enterSite(){
       // Guard against double auto-enter (DOMContentLoaded + readyState race).
@@ -4151,38 +4248,62 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         return;
       }
       window.__enterSiteStarted=true;
+      try{window.__rsTrace('enterSite')}catch(e){}
       try{localStorage.setItem('rs_age_ok','1')}catch(e){}
       document.getElementById('age-gate').classList.add('hidden');
       document.getElementById('app').classList.add('show');
-      try{boot()}catch(e){console.error(e)}
-      try{loadFagBalance()}catch(e){}
-      try{setupPwaInstall()}catch(e){}
-      setTimeout(checkRecoveryHash, 300);
-      setTimeout(checkRecoveryHash, 1000);
-      // Telegram only once per page life — preference lives in localStorage across refreshes.
-      // Group invite arms after channel closes (or immediately if channel does not show).
-      // Never overlay recovery form (Gmail / Telegram / Safari in-app browsers).
-      setTimeout(function(){
-        try{
-          if(window.__rs_recovery || (typeof isRecoveryUrl==='function' && isRecoveryUrl())) return;
-          maybeShowTelegram();
-        }catch(e){}
-        try{
-          if(window.__rs_recovery || (typeof isRecoveryUrl==='function' && isRecoveryUrl())) return;
-          armTgGroupAfterChannelDecision();
-        }catch(e){}
-      },1200);
+      // Never leave a pure black #app while boot/CDN catches up (Chrome blank symptom).
+      try{
+        var feed=document.getElementById('posts-container');
+        if(feed && !feed.querySelector('article.post') && !String(feed.textContent||'').trim()){
+          feed.innerHTML='<div class="empty" style="padding:28px;text-align:center;color:#9a9aa3">Loading…</div>';
+        }
+        var act=document.querySelector('.panel.active');
+        if(!act){
+          var feedPanel=document.getElementById('panel-feed');
+          if(feedPanel) feedPanel.classList.add('active');
+        }
+      }catch(eShell){}
+      function startBoot(){
+        try{if(typeof ensureSbClient==='function') ensureSbClient()}catch(e0){}
+        try{boot()}catch(e){console.error(e);try{window.__rsTrace('boot-err', String(e&&e.message||e))}catch(e2){}}
+        try{loadFagBalance()}catch(e){}
+        try{setupPwaInstall()}catch(e){}
+        setTimeout(checkRecoveryHash, 300);
+        setTimeout(checkRecoveryHash, 1000);
+        setTimeout(function(){
+          try{
+            if(window.__rs_recovery || (typeof isRecoveryUrl==='function' && isRecoveryUrl())) return;
+            maybeShowTelegram();
+          }catch(e){}
+          try{
+            if(window.__rs_recovery || (typeof isRecoveryUrl==='function' && isRecoveryUrl())) return;
+            armTgGroupAfterChannelDecision();
+          }catch(e){}
+        },1200);
+      }
+      // Prefer waiting briefly for supabase CDN, but never block UI forever.
+      var ready=window.__rsSbReady;
+      if(ready && typeof ready.then==='function'){
+        var booted=false;
+        ready.then(function(){ if(booted)return; booted=true; startBoot(); });
+        setTimeout(function(){ if(booted)return; booted=true; try{window.__rsTrace('boot-timeout')}catch(e){}; startBoot(); }, 2500);
+      }else{
+        startBoot();
+      }
     }
     // auto-enter if already verified (needed for recovery email links)
     try{
       var ua=String(navigator.userAgent||'');
       var isBot=/googlebot|bingbot|yandex|baiduspider|duckduckbot|slurp|facebookexternalhit|twitterbot|linkedinbot|crawler|spider/i.test(ua);
-      if(isBot || localStorage.getItem('rs_age_ok')==='1' || isRecoveryUrl()){
+      if(isBot || localStorage.getItem('rs_age_ok')==='1' || (typeof isRecoveryUrl==='function' && isRecoveryUrl())){
         if(document.readyState==='loading'){
           document.addEventListener('DOMContentLoaded',function(){ setTimeout(enterSite,50); });
         }else{
           setTimeout(enterSite,50);
         }
+      }else{
+        try{window.__rsTrace('awaiting-age-gate')}catch(e){}
       }
     }catch(e){}
     function setupPwaInstall(){
@@ -5709,66 +5830,82 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     }
 
     var sb=null;
-    try{if(window.supabase&&window.supabase.createClient){
-      if(window.sb&&window.sb.auth){sb=window.sb}
-      else{
-        sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});
-        window.sb=sb;
-      }
+    function bindSbAuthListener(client){
+      if(!client||!client.auth||window.__rs_recovery_auth_bound) return;
+      window.__rs_recovery_auth_bound=true;
       // Single auth listener — recovery + session sync. Duplicate handlers re-open
       // recovery UI (freeze) and fight login/logout shell visibility.
       // IMPORTANT: keep this callback synchronous. Never await Supabase/DB here
       // (deadlocks the auth lock and freezes getSession / navigation). Defer work
       // with setTimeout so auth state updates first; load profile data afterwards.
-      if(!window.__rs_recovery_auth_bound){
-        window.__rs_recovery_auth_bound=true;
-        sb.auth.onAuthStateChange(function(event, session){
-          try{
-            if(event==='PASSWORD_RECOVERY'){
-              window.__rs_recovery=true;
-              window.__rs_recovery_session_ok=!!(session&&session.user);
-              setTimeout(function(){
-                try{openRecoveryUI({sessionOk:!!(session&&session.user)})}catch(e){}
-              },120);
-              return;
-            }
-            if(event==='SIGNED_OUT'){
-              if(window.__rs_recovery) return;
+      client.auth.onAuthStateChange(function(event, session){
+        try{
+          if(event==='PASSWORD_RECOVERY'){
+            window.__rs_recovery=true;
+            window.__rs_recovery_session_ok=!!(session&&session.user);
+            setTimeout(function(){
+              try{openRecoveryUI({sessionOk:!!(session&&session.user)})}catch(e){}
+            },120);
+            return;
+          }
+          if(event==='SIGNED_OUT'){
+            if(window.__rs_recovery) return;
+            setTimeout(function(){
+              try{
+                if(typeof applySignedOutLocal==='function') applySignedOutLocal({quiet:true});
+                else if(typeof syncAuthShell==='function') syncAuthShell();
+                if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
+              }catch(e){}
+            },0);
+            return;
+          }
+          if(event==='SIGNED_IN' || event==='TOKEN_REFRESHED' || event==='INITIAL_SESSION' || event==='USER_UPDATED'){
+            if(window.__rs_recovery) return;
+            if(session&&session.user){
               setTimeout(function(){
                 try{
-                  if(typeof applySignedOutLocal==='function') applySignedOutLocal({quiet:true});
+                  if(typeof applyAuthFromSession==='function') applyAuthFromSession(session,{quiet:true,skipHeavy:true});
                   else if(typeof syncAuthShell==='function') syncAuthShell();
+                  if(event==='SIGNED_IN' && typeof releaseInteractionBlockers==='function'){
+                    releaseInteractionBlockers({});
+                  }
+                }catch(e){}
+              },0);
+            } else if(event==='SIGNED_IN' || event==='INITIAL_SESSION'){
+              setTimeout(function(){
+                try{
+                  if(typeof syncAuthShell==='function') syncAuthShell();
                   if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
                 }catch(e){}
               },0);
-              return;
             }
-            if(event==='SIGNED_IN' || event==='TOKEN_REFRESHED' || event==='INITIAL_SESSION' || event==='USER_UPDATED'){
-              if(window.__rs_recovery) return;
-              if(session&&session.user){
-                setTimeout(function(){
-                  try{
-                    // Update local auth shell first; heavy profile fetches stay outside.
-                    if(typeof applyAuthFromSession==='function') applyAuthFromSession(session,{quiet:true,skipHeavy:true});
-                    else if(typeof syncAuthShell==='function') syncAuthShell();
-                    if(event==='SIGNED_IN' && typeof releaseInteractionBlockers==='function'){
-                      releaseInteractionBlockers({});
-                    }
-                  }catch(e){}
-                },0);
-              } else if(event==='SIGNED_IN' || event==='INITIAL_SESSION'){
-                setTimeout(function(){
-                  try{
-                    if(typeof syncAuthShell==='function') syncAuthShell();
-                    if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
-                  }catch(e){}
-                },0);
-              }
-            }
-          }catch(err){console.error(err)}
-        });
+          }
+        }catch(err){console.error(err)}
+      });
+    }
+    function ensureSbClient(){
+      try{
+        if(sb&&sb.auth) return sb;
+        if(window.sb&&window.sb.auth){ sb=window.sb; bindSbAuthListener(sb); return sb; }
+        if(!(window.supabase&&window.supabase.createClient)) return null;
+        sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});
+        window.sb=sb;
+        bindSbAuthListener(sb);
+        try{window.__rsTrace('sb-ready')}catch(e){}
+        return sb;
+      }catch(e){
+        console.error(e);
+        try{window.__rsTrace('sb-err', String(e&&e.message||e))}catch(e2){}
+        return null;
       }
-    }}catch(e){console.error(e)}
+    }
+    window.ensureSbClient=ensureSbClient;
+    try{ensureSbClient()}catch(e){}
+    try{
+      if(window.__rsSbReady&&typeof window.__rsSbReady.then==='function'){
+        window.__rsSbReady.then(function(){ try{ensureSbClient()}catch(e){} });
+      }
+    }catch(e){}
 
     
     function isRecoveryUrl(){
