@@ -63,10 +63,11 @@ assert(html.includes('YOUR TASKS — PICK ANY'), 'tasks section title');
 assert(html.includes('id="dice-tasks-section"') || html.includes('id="dice-task-list"'), 'dice tasks');
 assert(html.includes('id="ttt-tasks-section"') || html.includes('id="ttt-task-list"'), 'ttt tasks');
 assert(html.includes('id="roulette-catalog-list"') || html.includes('roulette-task-picker'), 'roulette tasks');
-assert(html.includes('does not use a') || html.includes('does not use another') || html.includes('no play used'), 'selecting task does not consume play');
+assert(html.includes('does not use a') || html.includes('does not use another') || html.includes('no play used') || html.includes('Selecting never consumes a play'), 'selecting task does not consume play');
 assert(html.includes('RS_TASK_CATALOG_SEED'), 'client seed catalog');
 assert(html.includes('function renderGameTasksSection'), 'renderGameTasksSection');
 assert(html.includes('function selectCatalogTask'), 'selectCatalogTask');
+assert(html.includes('registerProgressivePlayTask') && html.includes('PROGRESSIVE_TASK_MAX'), 'progressive 3-task system');
 
 // —— Points economy separate from Coins ——
 assert(html.includes('rs_points_ledger') || html.includes('Points:'), 'points UI/storage');
