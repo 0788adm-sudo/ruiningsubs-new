@@ -36,7 +36,9 @@ assert(html.indexOf("register('/sw.js')") >= 0 || html.indexOf('register("/sw.js
 assert(/reg\.update|r\.update/.test(html), 'calls registration.update() on existing SWs');
 assert(html.indexOf('RS_SW_NOOP_READY') >= 0, 'listens for no-op ready message');
 assert(html.indexOf('controllerchange') >= 0, 'reloads once on controllerchange');
-assert(html.indexOf('rs_sw_recovered_v3') >= 0, 'one-shot reload key prevents infinite loops');
+assert(html.indexOf('rs_sw_recovered_v4') >= 0 || html.indexOf('rs_sw_recovered_v3') >= 0,
+  'one-shot reload key prevents infinite loops');
+assert(!/client\.navigate\s*\(/.test(sw), 'SW must not force-navigate clients (Safari freeze)');
 assert(html.indexOf('__rsSwRecovered') >= 0, 'in-memory reload guard for Telegram (no sessionStorage)');
 assert(html.indexOf('reloadArmed') >= 0, 'reloadArmed prevents multi-fire reload');
 assert(!/if\s*\(\s*navigator\.serviceWorker\.controller\s*&&\s*!sessionStorage/.test(html), 'must not reload on every paint just because a controller exists');

@@ -55,7 +55,7 @@ Secundario (sin SW):
 
 | Archivo | Cambio |
 |---------|--------|
-| `sw.js` | No-op + `clients.claim()` + **`client.navigate(url)`** para forzar red tras claim |
+| `sw.js` | No-op + `clients.claim()` + postMessage (no force-navigate — that froze Safari taps) |
 | `index.html` | CSS crítico inline; fonts async; age-gate con estilos inline; CDN async sin document.write; `ensureSbClient`; boot trace; enterSite pinta “Loading…”; rescue más rápido (1.2s+) |
 | `build.json` | `202611262331` |
 | `vercel.json` | `Clear-Site-Data: "cache"` en HTML/SW (no `storage` → sesiones intactas) |
