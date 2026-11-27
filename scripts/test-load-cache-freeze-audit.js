@@ -72,7 +72,9 @@ assert(/Surrogate-Control:[^|]*no-store/i.test(wallBlob), 'Surrogate-Control on 
 assert(!/addEventListener\(\s*['"]fetch['"]/.test(sw), 'sw.js has no fetch handler');
 assert(html.indexOf("register('/sw.js')") >= 0, 'registers canonical /sw.js');
 assert(html.indexOf("register('/sw.js?v=") < 0, 'never registers query-string SW');
-assert(html.indexOf('rs_sw_recovered_v3') >= 0, 'one-shot SW recovery key');
+assert(html.indexOf('rs_sw_recovered_v4') >= 0 || html.indexOf('rs_sw_recovered_v3') >= 0,
+  'one-shot SW recovery key');
+assert(!/client\.navigate\s*\(/.test(sw), 'SW must not client.navigate');
 
 /* —— CDN placement (not in head) —— */
 var head = html.split(/<\/head>/i)[0];

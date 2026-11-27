@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <!-- Build id for soft update detection (paired with /build.json, Cache-Control: no-store). -->
-  <meta name="rs-app-build" content="202611262331"/>
+  <meta name="rs-app-build" content="202611270115"/>
   <title>Ruining Subs (ruinexpose.com) | Public exposure board</title>
   <meta name="description" content="They're public. Timer running. Share before they pay to hide. Photos, videos, ID cards — ruinexpose.com"/>
   <meta name="keywords" content="Ruining Subs, ruinexpose.com, ruiningsubs.com, ruiningsubs, public exposure board, exposure feed, MasterSan, Ruin Roulette"/>
@@ -58,7 +58,7 @@
        Reload only on controllerchange/message — never on every paint (Telegram
        WebViews often lack durable sessionStorage and would infinite-loop). -->
   <script>
-  window.__RS_APP_BUILD='202611262331';
+  window.__RS_APP_BUILD='202611270115';
   window.__rsBootTrace=[];
   window.__rsTrace=function(step, extra){
     try{
@@ -73,7 +73,9 @@
   (function(){
     try{
       if(!('serviceWorker' in navigator)) return;
-      var RECOVERED_KEY='rs_sw_recovered_v3';
+      // localStorage primary — Safari private / ITP can drop sessionStorage across
+      // navigations and re-arm SW recovery forever (stuck spinner + dead taps).
+      var RECOVERED_KEY='rs_sw_recovered_v4';
       var reloadArmed=false;
       function wipeCaches(){
         try{
@@ -85,12 +87,16 @@
       }
       function alreadyRecovered(){
         if(window.__rsSwRecovered) return true;
-        try{ if(sessionStorage.getItem(RECOVERED_KEY)) return true; }catch(e){}
+        try{ if(localStorage.getItem(RECOVERED_KEY)) return true; }catch(e){}
+        try{ if(sessionStorage.getItem(RECOVERED_KEY)) return true; }catch(e2){}
+        // Honor prior v3 flag so returning clients do not re-register.
+        try{ if(localStorage.getItem('rs_sw_recovered_v3') || sessionStorage.getItem('rs_sw_recovered_v3')) return true; }catch(e3){}
         return false;
       }
       function markRecovered(){
         window.__rsSwRecovered=1;
-        try{ sessionStorage.setItem(RECOVERED_KEY,'1'); }catch(e){}
+        try{ localStorage.setItem(RECOVERED_KEY,'1'); }catch(e){}
+        try{ sessionStorage.setItem(RECOVERED_KEY,'1'); }catch(e2){}
       }
       function oneReload(){
         if(reloadArmed || alreadyRecovered()) return;
@@ -236,10 +242,9 @@
               window.__rsBootFeedNudge=1;
               feed.innerHTML='<div class="empty" style="padding:24px;text-align:center;color:#9a9aa3">Still loading… <button type="button" style="margin-top:10px;padding:10px 16px;border-radius:999px;border:1px solid #333;background:#111;color:#fff" onclick="try{loadPosts()}catch(e){location.reload()}">Retry feed</button></div>';
             }
-            if(!window.__rsBootRescueShown){
-              window.__rsBootRescueShown=1;
-              ensureBootRescueUI();
-            }
+            // NEVER cover a painted #app with a fullscreen rescue layer — that trapped
+            // logged-in users on Profile with a visible bottom nav that could not receive taps.
+            // In-feed Retry is enough while boot/CDN catch up.
             return;
           }
           // No alive shell — force age gate (covers white Safari / black Chrome blanks).
@@ -865,12 +870,13 @@
     #modal-tg label{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--muted);margin-top:12px;cursor:pointer}
 
     /* Official RUINEXPOSE Telegram group invitation (independent from channel popup) */
-    /* CRITICAL: never leave an opacity:0 fullscreen layer with pointer-events:auto.
-       Telegram / Safari often disable or skip CSS animations — if .show only fades in via
-       animation, the modal stays invisible while blocking every tap (bottom nav, Edit profile). */
+    /* CRITICAL: never animate opacity on this fullscreen root. animation:forwards that
+       stalls at from{opacity:0} (Safari / Telegram WebViews) left an invisible layer with
+       pointer-events:auto over the entire viewport — profile painted, bottom nav frozen.
+       Opacity/hit-testing are class-driven only; animate the card, not the shield. */
     #modal-tg-group{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:8010;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none}
-    #modal-tg-group.show{display:flex;opacity:1;pointer-events:auto;animation:tgGroupIn .38s ease-out forwards}
-    #modal-tg-group.hiding{display:flex;opacity:0;pointer-events:none;animation:tgGroupOut .22s ease-in forwards}
+    #modal-tg-group.show{display:flex;opacity:1;pointer-events:auto}
+    #modal-tg-group.hiding{display:flex;opacity:0;pointer-events:none}
     #modal-tg-group .tg-group-card{
       background:linear-gradient(165deg,#0a0a0a 0%,#050505 55%,#0c0c0e 100%);
       border:1px solid rgba(192,192,200,.28);
@@ -907,10 +913,11 @@
       font-size:22px;line-height:1;cursor:pointer;padding:4px 8px;
     }
     #modal-tg-group .tg-group-close:hover{color:#c8c8d0}
-    @keyframes tgGroupIn{from{opacity:0}to{opacity:1}}
-    @keyframes tgGroupOut{from{opacity:1}to{opacity:0}}
     @keyframes tgGroupCardIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
     #modal-tg-group.show .tg-group-card{animation:tgGroupCardIn .4s ease-out}
+    @media(prefers-reduced-motion:reduce){
+      #modal-tg-group.show .tg-group-card{animation:none}
+    }
     @media(max-width:380px){
       #modal-tg-group .tg-group-card{padding:20px 14px 16px;max-width:100%}
       #modal-tg-group .tg-group-title{font-size:14px}
@@ -1044,8 +1051,10 @@
       transform:translateX(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
       display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom));
       overflow-y:auto;-webkit-overflow-scrolling:touch;
+      /* Closed drawer must never steal taps over the bottom nav (Safari transform hit-testing). */
+      pointer-events:none;visibility:hidden;
     }
-    #side-menu.open{transform:translateX(0)}
+    #side-menu.open{transform:translateX(0);pointer-events:auto;visibility:visible}
     .sm-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding:0 2px}
     .sm-head .logo{font-size:1.15rem}
     .sm-close{width:40px;height:40px;border-radius:12px;background:var(--elev);border:1px solid var(--border);color:var(--text);font-size:20px;cursor:pointer}
@@ -4189,7 +4198,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
        a hung jsDelivr left returning Safari/Chrome on a stuck progress bar, and
        document-write after a failed load can wipe the document (classic white screen). -->
   <script>
-    window.__RS_APP_BUILD='202611262331';
+    window.__RS_APP_BUILD='202611270115';
     try{if(typeof window.__rsTrace==='function') window.__rsTrace('cdn-loader')}catch(e){}
     (function(){
       function loadScript(url){
@@ -5864,21 +5873,25 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             if(session&&session.user){
               setTimeout(function(){
                 try{
-                  if(typeof applyAuthFromSession==='function') applyAuthFromSession(session,{quiet:true,skipHeavy:true});
-                  else if(typeof syncAuthShell==='function') syncAuthShell();
-                  if(event==='SIGNED_IN' && typeof releaseInteractionBlockers==='function'){
-                    releaseInteractionBlockers({});
-                  }
-                }catch(e){}
-              },0);
-            } else if(event==='SIGNED_IN' || event==='INITIAL_SESSION'){
-              setTimeout(function(){
-                try{
-                  if(typeof syncAuthShell==='function') syncAuthShell();
-                  if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
-                }catch(e){}
-              },0);
-            }
+                    if(typeof applyAuthFromSession==='function') applyAuthFromSession(session,{quiet:true,skipHeavy:true});
+                    else if(typeof syncAuthShell==='function') syncAuthShell();
+                    if(event==='SIGNED_IN' && typeof releaseInteractionBlockers==='function'){
+                      // force:true — invite overlays / rescue must not trap nav after login.
+                      releaseInteractionBlockers({force:true,unlockBody:true});
+                      setTimeout(function(){
+                        try{releaseInteractionBlockers({force:true,unlockBody:true})}catch(e2){}
+                      },400);
+                    }
+                  }catch(e){}
+                },0);
+              } else if(event==='SIGNED_IN' || event==='INITIAL_SESSION'){
+                setTimeout(function(){
+                  try{
+                    if(typeof syncAuthShell==='function') syncAuthShell();
+                    if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({force:true,unlockBody:true});
+                  }catch(e){}
+                },0);
+              }
           }
         }catch(err){console.error(err)}
       });
@@ -6030,6 +6043,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
      * capturing pointer events (post-login / post-recovery "frozen site").
      * By default only removes GHOST blockers (invisible but hit-testable). Pass
      * force:true after auth transitions to also close invite overlays.
+     * Also probes elementFromPoint over the bottom nav and clears known shields
+     * that are covering it while effectively invisible.
      * Never touches user data / accounts.
      */
     function releaseInteractionBlockers(opts){
@@ -6048,6 +6063,36 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           return st.pointerEvents!=='none' || el.classList.contains('show') || el.classList.contains('hiding') || (el.style && el.style.display==='block');
         }catch(e){return false}
       }
+      function clearKnownShield(el){
+        if(!el || !el.id) return false;
+        try{
+          if(el.id==='modal-tg'){ el.classList.remove('show'); return true; }
+          if(el.id==='modal-tg-group'){
+            el.classList.remove('show'); el.classList.remove('hiding');
+            el.setAttribute('aria-hidden','true');
+            try{el.style.pointerEvents='none';el.style.opacity='0'}catch(ePe){}
+            return true;
+          }
+          if(el.id==='side-menu-bg'){
+            el.classList.remove('show'); el.style.display='none';
+            try{el.style.pointerEvents='none'}catch(eBg){}
+            return true;
+          }
+          if(el.id==='side-menu'){
+            el.classList.remove('open'); el.setAttribute('aria-hidden','true');
+            return true;
+          }
+          if(el.id==='rs-boot-rescue'){ el.remove(); return true; }
+          if(el.id==='rs-levelup'){ el.classList.remove('show'); return true; }
+          if(el.id==='video-upload-progress' && !window.__publishingVideo){
+            el.classList.remove('show'); el.setAttribute('aria-hidden','true'); return true;
+          }
+          if(el.id==='lightbox' || (el.classList && el.classList.contains('lb-overlay'))){
+            el.classList.remove('on'); return true;
+          }
+        }catch(e){}
+        return false;
+      }
       try{
         var tg=document.getElementById('modal-tg');
         if(tg && (opts.force || isGhostOverlay(tg))){
@@ -6060,7 +6105,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           tgg.classList.remove('show');
           tgg.classList.remove('hiding');
           tgg.setAttribute('aria-hidden','true');
-          try{tgg.style.pointerEvents='none'}catch(ePe){}
+          try{tgg.style.pointerEvents='none';tgg.style.opacity='0'}catch(ePe){}
         }
       }catch(e2){}
       try{
@@ -6072,10 +6117,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           bg.style.display='none';
           try{bg.style.pointerEvents='none'}catch(eBg){}
         }
-        if(opts.force && sm){
+        if((opts.force || (!menuOpen && sm && isGhostOverlay(sm))) && sm){
           sm.classList.remove('open');
           sm.setAttribute('aria-hidden','true');
-          if(bg){bg.classList.remove('show');bg.style.display='none'}
+          if(bg && (opts.force || !menuOpen)){bg.classList.remove('show');bg.style.display='none';try{bg.style.pointerEvents='none'}catch(eBg2){}}
         }
       }catch(e3){}
       try{
@@ -6084,7 +6129,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e4){}
       try{
         var rescue=document.getElementById('rs-boot-rescue');
-        if(rescue && (opts.force || window.__rsBootPainted)) rescue.remove();
+        // Drop rescue whenever the shell painted OR force — never leave z-max overlay up.
+        if(rescue){
+          var dropRescue=!!(opts.force || window.__rsBootPainted);
+          if(!dropRescue){
+            try{
+              var act=document.querySelector('.panel.active');
+              if(act && act.id && act.id!=='panel-feed' && act.offsetHeight>40) dropRescue=true;
+              if(document.querySelector('#posts-container article.post')) dropRescue=true;
+            }catch(eAlive){}
+          }
+          if(dropRescue) rescue.remove();
+        }
       }catch(e5){}
       try{
         var vup=document.getElementById('video-upload-progress');
@@ -6098,8 +6154,54 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       }catch(e6){}
       try{
         var ep=document.getElementById('edit-profile-modal');
-        if(ep && opts.closeEdit) ep.classList.remove('show');
+        if(ep && opts.closeEdit){
+          ep.classList.remove('show');
+          try{document.body.style.overflow=''}catch(eEp){}
+        }
       }catch(e7){}
+      try{
+        var lb=document.getElementById('lightbox');
+        if(lb && (opts.force || isGhostOverlay(lb))){
+          lb.classList.remove('on');
+        }
+      }catch(eLb){}
+      try{
+        // Probe the bottom nav hit target — if a known shield sits on top while
+        // invisible/ghosty, tear it down even when force was not requested.
+        var nav=document.querySelector('.bottom-nav .nav-row')||document.querySelector('.bottom-nav');
+        if(nav){
+          var nr=nav.getBoundingClientRect();
+          if(nr.width>20 && nr.height>10){
+            var nx=nr.left+nr.width/2;
+            var ny=nr.top+Math.min(22, Math.max(8, nr.height*0.4));
+            var hit=document.elementFromPoint(nx, ny);
+            if(hit && !(hit.closest && hit.closest('.bottom-nav,.nav-row'))){
+              var node=hit;
+              while(node && node!==document.body){
+                var stHit=null;
+                try{stHit=window.getComputedStyle(node)}catch(eSt){}
+                var opHit=stHit?parseFloat(stHit.opacity):1;
+                if(isNaN(opHit)) opHit=1;
+                var known=node.id==='modal-tg-group'||node.id==='modal-tg'||node.id==='side-menu-bg'||node.id==='side-menu'||node.id==='rs-boot-rescue'||node.id==='rs-levelup'||node.id==='video-upload-progress'||node.id==='lightbox'||(node.classList&&node.classList.contains('lb-overlay'));
+                if(known && (opts.force || opHit<=0.05 || isGhostOverlay(node) || node.id==='rs-boot-rescue' || (node.id==='side-menu-bg'&&!node.classList.contains('show')) || (node.id==='side-menu'&&!node.classList.contains('open')))){
+                  clearKnownShield(node);
+                  break;
+                }
+                // Fullscreen fixed layer covering nav with near-zero opacity.
+                if(stHit && stHit.position==='fixed' && opHit<=0.05 && stHit.pointerEvents!=='none'){
+                  var fr=node.getBoundingClientRect();
+                  if(fr.width>window.innerWidth*0.6 && fr.height>window.innerHeight*0.4){
+                    try{node.style.pointerEvents='none'}catch(ePe2){}
+                    try{node.classList.remove('show');node.classList.remove('on');node.classList.remove('hiding')}catch(eCls){}
+                    break;
+                  }
+                }
+                node=node.parentElement;
+              }
+            }
+          }
+        }
+      }catch(eProbe){}
       try{
         if(opts.unlockBody) document.body.style.overflow='';
       }catch(e8){}
@@ -6143,9 +6245,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       setInterval(function(){
         try{
           if(document.hidden) return;
+          // Probe includes elementFromPoint over bottom nav (see releaseInteractionBlockers).
           if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({});
         }catch(e){}
-      }, 2500);
+      }, 1800);
       try{
         document.addEventListener('visibilitychange', function(){
           if(!document.hidden){
@@ -7931,7 +8034,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             if(typeof ensureRecoveryFormInteractive==='function') ensureRecoveryFormInteractive();
           }catch(eRec){}
         } else if(showLogged){
-          // Registered shell is up — make sure no ghost overlay is eating taps.
+          // Ghost-only here (syncAuthShell runs often). Auth paths force-clear separately.
           try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel){}
         }
         return showLogged;
@@ -8056,9 +8159,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var g=window.__rsGesture; if(!g) return;
         if(Math.abs((x||0)-g.x)>RS_TAP_MOVE_PX || Math.abs((y||0)-g.y)>RS_TAP_MOVE_PX) g.moved=true;
       }
+      function rsGestureClear(){
+        try{ if(window.__rsGesture) window.__rsGesture.moved=false; }catch(e){}
+      }
       window.rsTapWasScroll=function(){
         try{return !!(window.__rsGesture&&window.__rsGesture.moved)}catch(e){return false}
       };
+      window.rsGestureClear=rsGestureClear;
       document.addEventListener('touchstart',function(e){
         var t=e.changedTouches&&e.changedTouches[0];
         if(!t)return;
@@ -8083,6 +8190,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         if(g.id!=null && e.pointerId!==g.id) return;
         rsGestureMove(e.clientX,e.clientY);
       },{passive:true,capture:true});
+      // Clear after the current event finishes so same-gesture handlers still see
+      // moved=true, but the next tap cannot inherit a stuck latch (keyboard dismiss).
+      function rsGestureClearSoon(){ setTimeout(rsGestureClear, 0); }
+      document.addEventListener('pointerup', rsGestureClearSoon, {passive:true,capture:true});
+      document.addEventListener('pointercancel', rsGestureClearSoon, {passive:true,capture:true});
+      document.addEventListener('touchend', rsGestureClearSoon, {passive:true,capture:true});
+      document.addEventListener('touchcancel', rsGestureClearSoon, {passive:true,capture:true});
     }
     
     async function loadFollowCounts(username, elId){
@@ -15390,24 +15504,29 @@ function pendingRouletteTasks(){
         btn.addEventListener('pointerdown',function(e){
           if(e.pointerType==='mouse' && e.button!==0)return;
           navSx=e.clientX||0;navSy=e.clientY||0;navMoved=false;
+          // Bottom nav must never inherit a stuck global scroll latch from login keyboard dismiss.
+          try{if(typeof rsGestureClear==='function') rsGestureClear()}catch(eClr){}
         },{passive:true});
         btn.addEventListener('pointermove',function(e){
-          if(Math.abs((e.clientX||0)-navSx)>12||Math.abs((e.clientY||0)-navSy)>12) navMoved=true;
+          if(Math.abs((e.clientX||0)-navSx)>18||Math.abs((e.clientY||0)-navSy)>18) navMoved=true;
         },{passive:true});
         btn.addEventListener('pointerup',function(e){
           if(e.pointerType==='mouse' && e.button!==0)return;
-          if(navMoved || (typeof rsTapWasScroll==='function' && rsTapWasScroll())) return;
+          // Only the local latch — global rsTapWasScroll used to swallow every nav tap after auth.
+          if(navMoved) return;
           e.preventDefault();
           e.stopPropagation();
+          try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel){}
           applyNav(btn.getAttribute('data-p'));
         },true);
         btn.addEventListener('click',function(e){
-          if(navMoved || (typeof rsTapWasScroll==='function' && rsTapWasScroll())){
+          if(navMoved){
             e.preventDefault();
             e.stopPropagation();
             return;
           }
           e.preventDefault();
+          try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel){}
           applyNav(btn.getAttribute('data-p'));
         },true);
       });
@@ -33576,7 +33695,7 @@ async function onIdFace(e){
         }
         // Auth state first — never await DB inside onAuthStateChange; profile loads below.
         applyAuthFromSession(session,{quiet:true,skipHeavy:true});
-        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel){}
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({force:true,unlockBody:true})}catch(eRel){}
         if(await enforceCurrentAccount()===false)return;
         // Shell already shows logged-in — sync extras without keeping Login visible.
         try{await refreshUsernameAliasMap(true)}catch(e){}
@@ -33590,7 +33709,12 @@ async function onIdFace(e){
         refreshProfileUI();
         syncAuthShell();
         updateProfilePanel();
-        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eRel2){}
+        // force after keyboard dismiss / invite timers — ghost-only was not enough.
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({force:true,unlockBody:true})}catch(eRel2){}
+        setTimeout(function(){
+          try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({force:true,unlockBody:true})}catch(eRel3){}
+          try{if(typeof rsGestureClear==='function') rsGestureClear()}catch(eG){}
+        },450);
         var name=(currentUser&&currentUser.name)||'user';
         setAuthStatus('');
         toast('Signed in @'+name);
@@ -33600,7 +33724,7 @@ async function onIdFace(e){
         window.__rs_login_busy=false;
         if(btn){btn.disabled=false;btn.textContent='Login'}
         // Failed or cancelled login must never leave a busy / overlay lock behind.
-        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({})}catch(eFin){}
+        try{if(typeof releaseInteractionBlockers==='function') releaseInteractionBlockers({force:true,unlockBody:true})}catch(eFin){}
       }
     }
     async function doRegister(){

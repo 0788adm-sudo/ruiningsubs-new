@@ -1,9 +1,13 @@
-/* Ruinexpose service worker — permanent no-op + forced client recovery.
+/* Ruinexpose service worker — permanent no-op + safe client recovery.
    DO NOT add a fetch handler. DO NOT unregister from inside the worker.
    A prior SW intercepted every GET (including navigations). Hung/blank
-   fetch handlers left normal Safari/Chrome on white/black screens while
-   Incognito worked. This worker replaces that script URL in-place, claims
-   clients, then navigates them so a blank synthetic document is abandoned. */
+   fetch handlers left Safari/Chrome on white/black screens while Incognito
+   worked. This worker replaces that script URL in-place and claims clients.
+
+   CRITICAL: never force-navigate controlled clients from activate. On iPhone
+   Safari a mid-session navigation while the SPA is already painted leaves the
+   tab with a stuck progress bar and dead taps (profile visible, bottom nav
+   frozen). The page recovers via postMessage → oneReload() only when needed. */
 self.addEventListener('install', function (event) {
   self.skipWaiting();
 });
@@ -30,16 +34,9 @@ self.addEventListener('activate', function (event) {
         clients.forEach(function (client) {
           try {
             if (client && typeof client.postMessage === 'function') {
-              client.postMessage({ type: 'RS_SW_NOOP_READY', v: 3 });
+              client.postMessage({ type: 'RS_SW_NOOP_READY', v: 4 });
             }
           } catch (e) {}
-          // Force a real network navigation so a blank SW document is replaced.
-          // Safe: we have no fetch handler, so navigate hits the network.
-          try {
-            if (client && typeof client.navigate === 'function' && client.url) {
-              client.navigate(client.url);
-            }
-          } catch (e2) {}
         });
       } catch (e) {}
     })()

@@ -6,7 +6,7 @@
  *  A) Blank navigate-intercepting SW → empty document (Incognito works, normal fails)
  *  B) Auto-enter (rs_age_ok) must never leave a pure black empty #app
  *  C) Static: no render-blocking Google Fonts, no document.write, critical paint CSS,
- *     async CDN loader, SW client.navigate recovery, boot trace
+ *     async CDN loader, SW postMessage recovery (no client.navigate), boot trace
  */
 'use strict';
 var fs = require('fs');
@@ -39,14 +39,16 @@ assert(html.indexOf('__rsSbReady') >= 0 && html.indexOf('loadWithFallback') >= 0
 assert(html.indexOf("cdn.jsdelivr.net/npm/@supabase") > html.indexOf('id="age-gate"') ||
   html.indexOf('__rsSbReady') > 0,
   'CDN does not block age-gate parse');
-assert(html.indexOf('rs_sw_recovered_v3') >= 0, 'SW recovery key bumped to v3');
+assert(html.indexOf('rs_sw_recovered_v4') >= 0, 'SW recovery key bumped to v4 (localStorage)');
 assert(html.indexOf('rs_boot_trace') >= 0 && html.indexOf('__rsTrace') >= 0, 'boot trace instrumentation');
 assert(html.indexOf('Never leave a pure black #app') >= 0 || html.indexOf('pure black #app') >= 0,
   'enterSite paints loading shell before boot');
 assert(html.indexOf('function ensureSbClient') >= 0, 'ensureSbClient defers createClient until CDN ready');
-assert(/client\.navigate\(client\.url\)/.test(sw), 'SW no-op force-navigates blank clients');
+// client.navigate left Safari mid-navigation (stuck spinner + dead taps after login).
+assert(!/client\.navigate\s*\(/.test(sw), 'SW must NOT client.navigate (page oneReload only)');
+assert(/postMessage[\s\S]{0,80}RS_SW_NOOP_READY/.test(sw), 'SW signals page via postMessage');
 assert(!/addEventListener\(\s*['"]fetch['"]/.test(sw), 'SW still has no fetch handler');
-assert(String(build.build) === '202611262331' || html.indexOf(build.build) >= 0, 'build id synced');
+assert(String(build.build) === '202611270115' || html.indexOf(build.build) >= 0, 'build id synced');
 assert(html.indexOf('content="' + build.build + '"') >= 0, 'meta build matches build.json');
 
 var rootHdr = (vercel.headers || []).find(function (h) { return h.source === '/'; });
