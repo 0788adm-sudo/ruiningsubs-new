@@ -29,6 +29,12 @@ assert(html.includes('NOT NOW'), 'not now CTA');
 assert(html.includes('function openGamePackModal'), 'openGamePackModal');
 assert(html.includes('function confirmGamePackPurchase'), 'confirmGamePackPurchase');
 assert(html.includes('__gamePackBusy'), 'double-click guard');
+assert(html.includes('YA PAGUÉ — RECLAMAR') || html.includes('claimGamePackPaid'), 'Ya pagué claim CTA');
+assert(html.includes('openGamePackExternalPay'), 'PayPal/Throne from pack modal');
+assert(html.includes('PayPal $5') && html.includes('Throne $5'), 'PayPal + Throne $5 in modal');
+assert(html.includes('approveGamePack') && html.includes('dismissGamePack'), 'admin approve/delete helpers');
+assert(html.includes('APROBAR') && html.includes('ELIMINAR'), 'admin approve/delete buttons');
+assert(html.includes('dice_pack_request') && html.includes('tic_tac_toe_pack_request'), 'per-game pack request kinds');
 
 // —— Server pack validation unchanged ——
 assert(game.includes("action === 'buy_pack'"), 'buy_pack server');

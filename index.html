@@ -3748,7 +3748,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <a class="btn btn-secondary" id="btn-roulette-paypal-pack" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800;background:#0070ba;border:0;color:#fff" onclick="openRouletteExternalPay('paypal');return true">PayPal $5 · MartinJimenez205</a>
             <a class="btn btn-secondary" id="btn-roulette-throne-pack" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800;background:#4c1d95;color:#fff" onclick="openRouletteExternalPay('throne');return true"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Throne $5</span></a>
             <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:8px;background:#111;color:#fff;border:1px solid #f7931a;font-weight:800" onclick="openRouletteExternalPay('btc')">₿ Bitcoin — Copy Wallet</button>
-            <button class="btn btn-primary" type="button" id="btn-roulette-claim-spins" style="width:100%;margin-bottom:8px;padding:14px;font-weight:900;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" onclick="claimRoulettePackPaid()">I PAID — CLAIM SPINS</button>
+            <button class="btn btn-primary" type="button" id="btn-roulette-claim-spins" style="width:100%;margin-bottom:8px;padding:14px;font-weight:900;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" onclick="claimRoulettePackPaid()">YA PAGUÉ — RECLAMAR / I PAID</button>
             <div id="roulette-pack-review" style="display:none;margin:0 0 8px;padding:10px;border-radius:12px;border:1px solid #f5c518;background:rgba(245,197,24,.1);font-size:13px;font-weight:800;color:#f5c518">PAYMENT UNDER REVIEW</div>
             <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin-bottom:8px" onclick="openCoinShop()">Buy Coins first</button>
             <button class="btn btn-ghost btn-sm" type="button" id="btn-roulette-check-unlock-2" onclick="checkRouletteUnlock()" style="width:100%;margin-bottom:4px">Check for approved unlock</button>
@@ -4058,7 +4058,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-game-tasks').style.display='block';adminLoadGameTaskCatalog()">Game tasks</button>
               <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-challenges').style.display='block';renderAdminChallenges()">Challenges</button>
               <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-tools').style.display='block'">Tools</button>
-              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-roulette').style.display='block';renderAdminReqTab('roulette')">Roulette</button>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-roulette').style.display='block';renderAdminReqTab('roulette')">Game packs</button>
               <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('more-taskpack').style.display='block';renderAdminReqTab('taskpack')">Task packs</button>
             </div>
             <div id="more-tasks" style="display:none" class="admin-card">
@@ -12926,11 +12926,60 @@ async function claimPayPalPack(p){
     }
     var __gamePackBusy=false;
     var __gamePackGame='roulette';
+    var __gamePackPayProvider='external';
     function gamePackLabel(game){
       game=String(game||'roulette');
-      if(game==='dice') return {unit:'rolls',title:'OUT OF FREE PLAYS?',desc:'Unlock 10 additional plays for 10 Coins.'};
-      if(game==='tic_tac_toe'||game==='triki') return {unit:'games',title:'OUT OF FREE PLAYS?',desc:'Unlock 10 additional plays for 10 Coins.'};
-      return {unit:'spins',title:'OUT OF FREE PLAYS?',desc:'Unlock 10 additional plays for 10 Coins.'};
+      if(game==='dice') return {unit:'rolls',name:'Exposure Dice',title:'OUT OF FREE PLAYS?',desc:'Unlock 10 additional plays for 10 Coins.'};
+      if(game==='tic_tac_toe'||game==='triki') return {unit:'games',name:'Tic-Tac-Toe',title:'OUT OF FREE PLAYS?',desc:'Unlock 10 additional plays for 10 Coins.'};
+      return {unit:'spins',name:'Ruin Roulette',title:'OUT OF FREE PLAYS?',desc:'Unlock 10 additional plays for 10 Coins.'};
+    }
+    function gamePackRequestKind(game){
+      game=String(game||'roulette');
+      if(game==='dice') return 'dice_pack_request';
+      if(game==='tic_tac_toe'||game==='triki') return 'tic_tac_toe_pack_request';
+      return 'roulette_pack_request';
+    }
+    function gamePackPendingKey(game){
+      return 'rs_game_pack_pending_'+String(game||'roulette');
+    }
+    function markGamePackUnderReview(game, reqId){
+      game=String(game||__gamePackGame||'roulette');
+      try{
+        localStorage.setItem(gamePackPendingKey(game), JSON.stringify({
+          id:reqId||('gp_'+Date.now().toString(36)),
+          user:rouletteBuyerId(),
+          game:game,
+          at:Date.now(),
+          status:'pending'
+        }));
+      }catch(e){}
+      if(game==='roulette'){
+        try{markRoulettePackUnderReview(reqId)}catch(e){}
+      }
+      var el=document.getElementById('gpm-review');
+      if(el){el.style.display='block';el.textContent='PAYMENT UNDER REVIEW · '+gamePackLabel(game).name}
+    }
+    function clearGamePackUnderReview(game){
+      game=String(game||__gamePackGame||'roulette');
+      try{localStorage.removeItem(gamePackPendingKey(game))}catch(e){}
+      if(game==='roulette'){ try{clearRoulettePackUnderReview()}catch(e){} }
+      var el=document.getElementById('gpm-review');
+      if(el) el.style.display='none';
+    }
+    function restoreGamePackReviewBanner(game){
+      game=String(game||__gamePackGame||'roulette');
+      try{
+        var p=JSON.parse(localStorage.getItem(gamePackPendingKey(game))||'null');
+        var el=document.getElementById('gpm-review');
+        if(el){
+          if(p&&p.status==='pending'){
+            el.style.display='block';
+            el.textContent='PAYMENT UNDER REVIEW · '+(gamePackLabel(game).name);
+          }else{
+            el.style.display='none';
+          }
+        }
+      }catch(e){}
     }
     async function openGamePackModal(game){
       game=String(game||'roulette');
@@ -12941,11 +12990,14 @@ async function claimPayPalPack(p){
       var title=document.getElementById('gpm-title');
       var desc=document.getElementById('gpm-desc');
       var balEl=document.getElementById('gpm-balance');
+      var gameEl=document.getElementById('gpm-game-label');
       if(title) title.textContent=meta.title;
       if(desc) desc.textContent=meta.desc;
+      if(gameEl) gameEl.textContent=meta.name+' · 10 '+meta.unit;
       var bal=Number(window.__fcLast||0)||0;
       try{bal=await loadFagBalance()}catch(e){}
       if(balEl) balEl.textContent='Your Coins balance: '+bal;
+      restoreGamePackReviewBanner(game);
       if(ov){ov.classList.add('show');ov.style.display='flex'}
     }
     function closeGamePackModal(){
@@ -12968,9 +13020,135 @@ async function claimPayPalPack(p){
         if(btn){btn.disabled=false;btn.textContent='BUY 10 PLAYS — 10 COINS'}
       }
     }
+    function openGamePackExternalPay(provider){
+      provider=String(provider||'paypal').toLowerCase();
+      try{ensureAnonIdentity(false)}catch(e){}
+      __gamePackPayProvider=provider;
+      window.__roulettePackPayProvider=provider;
+      var game=__gamePackGame||'roulette';
+      var meta=gamePackLabel(game);
+      if(provider==='throne'){
+        try{window.open((typeof THRONE_PACK_5!=='undefined'?THRONE_PACK_5:'https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899'),'_blank','noopener')}catch(e){}
+      }else{
+        try{window.open((typeof PAYPAL_ME!=='undefined'?PAYPAL_ME+'/5':'https://www.paypal.me/MartinJimenez205/5'),'_blank','noopener')}catch(e){}
+      }
+      toast('Pay $5 for 10 '+meta.unit+' ('+meta.name+'), then tap YA PAGUÉ');
+    }
+    async function claimGamePackPaid(){
+      if(__gamePackBusy) return;
+      __gamePackBusy=true;
+      var claimBtn=document.getElementById('gpm-claim');
+      if(claimBtn){claimBtn.disabled=true;claimBtn.textContent='ENVIANDO…'}
+      try{
+        try{await ensureAnonIdentity(false)}catch(e){}
+        var game=__gamePackGame||'roulette';
+        if(game==='triki') game='tic_tac_toe';
+        var meta=gamePackLabel(game);
+        var user=rouletteBuyerId();
+        var provider=String(__gamePackPayProvider||window.__roulettePackPayProvider||'external');
+        var reqId='gp_'+game.slice(0,4)+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+        var acct=rouletteAccountType();
+        var kind=gamePackRequestKind(game);
+        var atMs=Date.now();
+        markGamePackUnderReview(game, reqId);
+        toast('PAYMENT UNDER REVIEW');
+        var msgLine=String(meta.name).toUpperCase()+' PACK · @'+user+' · '+acct+' · '+provider+' $5 · '+meta.unit+' ×10 · request '+reqId+' · '+new Date(atMs).toISOString();
+        try{
+          await notifyAdminPayment({
+            kind:kind,
+            postId:reqId,
+            user:user,
+            amount:'$5 / 10 '+meta.unit,
+            label:String(meta.name).toUpperCase()+' 10 '+meta.unit.toUpperCase(),
+            message:msgLine+' · YA PAGUÉ — grant 10 '+meta.unit+' after verified payment'
+          });
+        }catch(e){}
+        try{
+          await cfCreateRequest({
+            kind:kind,
+            user:user,
+            amount:'$5',
+            coins:0,
+            provider:provider,
+            label:meta.name+' 10 '+meta.unit,
+            payload:{
+              product:game+'_pack',
+              game:game,
+              spins:GAME_PACK_USES||10,
+              uses:GAME_PACK_USES||10,
+              usd:5,
+              request_id:reqId,
+              account_type:acct,
+              anonymous_user_id:getAnonSessionId(),
+              requested_at:atMs,
+              message:msgLine
+            }
+          });
+        }catch(e){}
+        try{
+          if(sb){
+            await sb.from('notifications').insert({
+              to_username:'admin',
+              from_username:user,
+              type:kind,
+              post_id:null,
+              message:JSON.stringify({
+                user:user,
+                game:game,
+                game_name:meta.name,
+                account_type:acct,
+                anonymous_user_id:getAnonSessionId(),
+                provider:provider,
+                amount:'$5',
+                package:'10 '+meta.unit,
+                request_id:reqId,
+                status:'pending',
+                at:atMs,
+                requested_at:atMs
+              }),
+              created_at:new Date(atMs).toISOString(),
+              read:false
+            });
+          }
+        }catch(e){}
+        // Also mirror onto CF admin board so panel still sees the claim without Supabase.
+        try{
+          await fetch(CF_API+'/notifs',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            cache:'no-store',
+            body:JSON.stringify({
+              to_username:'admin',
+              from_username:user,
+              type:kind,
+              post_id:reqId,
+              message:JSON.stringify({
+                user:user,
+                game:game,
+                game_name:meta.name,
+                provider:provider,
+                amount:'$5',
+                package:'10 '+meta.unit,
+                request_id:reqId,
+                status:'pending',
+                at:atMs,
+                requested_at:atMs,
+                message:msgLine
+              })
+            })
+          });
+        }catch(e){}
+        toast('Solicitud enviada — admin desbloqueará 10 '+meta.unit+' de '+meta.name);
+      } finally {
+        __gamePackBusy=false;
+        if(claimBtn){claimBtn.disabled=false;claimBtn.textContent='YA PAGUÉ — RECLAMAR'}
+      }
+    }
     window.openGamePackModal=openGamePackModal;
     window.closeGamePackModal=closeGamePackModal;
     window.confirmGamePackPurchase=confirmGamePackPurchase;
+    window.openGamePackExternalPay=openGamePackExternalPay;
+    window.claimGamePackPaid=claimGamePackPaid;
 
     async function buyRoulettePack(opts){
       opts=opts||{};
@@ -13029,84 +13207,24 @@ async function claimPayPalPack(p){
     }
     function openRouletteExternalPay(provider){
       provider=String(provider||'paypal').toLowerCase();
-      try{ensureAnonIdentity(false)}catch(e){}
-      window.__roulettePackPayProvider=provider;
+      __gamePackGame='roulette';
       if(provider==='btc'){
         try{
           navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)});
         }catch(e){toast('BTC wallet: '+BTC_WALLET)}
-      }else if(provider==='throne'){
-        try{window.open((typeof THRONE_PACK_5!=='undefined'?THRONE_PACK_5:PAY_LINKS.roulette.throne),'_blank','noopener')}catch(e){}
-      }else{
-        try{window.open((typeof PAYPAL_ME!=='undefined'?PAYPAL_ME+'/5':'https://www.paypal.me/MartinJimenez205/5'),'_blank','noopener')}catch(e){}
+        toast('Pay $5 for 10 spins, then tap YA PAGUÉ / I PAID');
+        try{openRoulettePayment()}catch(e){}
+        return;
       }
-      toast('Pay $5 for 10 spins, then tap I PAID — CLAIM SPINS');
+      openGamePackExternalPay(provider);
       try{openRoulettePayment()}catch(e){}
     }
     async function requestRoulettePackPayPal(){
       return openRouletteExternalPay('paypal');
     }
     async function claimRoulettePackPaid(){
-      try{await ensureAnonIdentity(false)}catch(e){}
-      var user=rouletteBuyerId();
-      var provider=String(window.__roulettePackPayProvider||'external');
-      var reqId='rp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
-      var acct=rouletteAccountType();
-      markRoulettePackUnderReview(reqId);
-      toast('PAYMENT UNDER REVIEW');
-      try{
-        await notifyAdminPayment({
-          kind:'roulette_pack_request',
-          postId:reqId,
-          user:user,
-          amount:'10 Coins / 10 spins',
-          label:'ROULETTE 10 SPINS',
-          message:'🎰 ROULETTE PACK · @'+user+' · '+acct+' · '+provider+' $5 · request '+reqId+' · grant 10 spins after verified payment · I PAID — CLAIM SPINS'
-        });
-      }catch(e){}
-      try{
-        await cfCreateRequest({
-          kind:'roulette_pack_request',
-          user:user,
-          amount:'$5',
-          coins:0,
-          provider:provider,
-          label:'Roulette 10 spins',
-          payload:{
-            product:'roulette_pack',
-            spins:ROULETTE_PACK_SPINS,
-            usd:5,
-            request_id:reqId,
-            account_type:acct,
-            anonymous_user_id:getAnonSessionId(),
-            message:'🎰 ROULETTE PACK · @'+user+' · '+provider+' $5 · 10 spins'
-          }
-        });
-      }catch(e){}
-      try{
-        if(sb){
-          await sb.from('notifications').insert({
-            to_username:'admin',
-            from_username:user,
-            type:'roulette_pack_request',
-            post_id:null,
-            message:JSON.stringify({
-              user:user,
-              account_type:acct,
-              anonymous_user_id:getAnonSessionId(),
-              provider:provider,
-              amount:'$5',
-              package:'10 spins',
-              request_id:reqId,
-              status:'pending',
-              at:Date.now()
-            }),
-            created_at:new Date().toISOString(),
-            read:false
-          });
-        }
-      }catch(e){}
-      toast('PAYMENT UNDER REVIEW — spins unlock after admin verifies');
+      __gamePackGame='roulette';
+      return claimGamePackPaid();
     }
     window.buyRoulettePack=buyRoulettePack;
     window.requestRoulettePackPayPal=requestRoulettePackPayPal;
@@ -13327,9 +13445,12 @@ async function claimPayPalPack(p){
       }
     }
 
-    async function approveRoulettePack(id, username){
+    async function approveGamePack(id, username, game){
       if(!username){toast('No user');return}
       id=String(id||'');
+      game=String(game||'roulette');
+      if(game==='triki') game='tic_tac_toe';
+      var meta=gamePackLabel(game);
       var reqId=id || ('admin_pack_'+Date.now().toString(36));
       var ok=false;
       try{
@@ -13340,6 +13461,7 @@ async function claimPayPalPack(p){
           headers:{'Content-Type':'application/json',Authorization:token?('Bearer '+token):''},
           body:JSON.stringify({
             action:'grant_pack',
+            game:game,
             target_user:String(username).replace(/^@/,''),
             user:String(username).replace(/^@/,''),
             request_id:reqId,
@@ -13351,24 +13473,32 @@ async function claimPayPalPack(p){
         var j=await r.json().catch(function(){return{}});
         ok=!!(r.ok&&j&&j.ok);
         if(ok&&j.reused) toast('Already credited — no double grant');
-        else if(ok) toast('APPROVE PAYMENT · 10 spins credited to @'+username);
-        else toast((j&&j.error)||'Could not credit spins');
-      }catch(e){toast('Could not credit spins')}
-      try{pushNotif(username,'admin','roulette_unlock',null,'🎰 Payment verified — 10 roulette spins unlocked. Open Roulette → Check for approved unlock.')}catch(e){}
+        else if(ok) toast('APROBADO · 10 '+meta.unit+' de '+meta.name+' → @'+username);
+        else toast((j&&j.error)||'Could not credit plays');
+      }catch(e){toast('Could not credit plays')}
+      try{
+        pushNotif(username,'admin',game+'_unlock',null,
+          'Payment verified — 10 '+meta.unit+' unlocked for '+meta.name+'. Open the game to play.');
+      }catch(e){}
       if(sb && id){
         try{await sb.from('notifications').delete().eq('id',id)}catch(e){}
       }
+      try{markDismissed('rs_roulette_dismissed', id)}catch(e){}
+      try{markDismissed('rs_game_pack_dismissed', id)}catch(e){}
       try{renderAdminReqTab('roulette')}catch(e){try{renderAdmin()}catch(e2){}}
       return ok;
     }
+    async function approveRoulettePack(id, username, game){
+      return approveGamePack(id, username, game||'roulette');
+    }
 
-    async function dismissRoulettePack(id, username){
+    async function dismissGamePack(id, username, game){
       id=String(id||'');
-      try{
-        var d=JSON.parse(localStorage.getItem('rs_roulette_dismissed')||'[]')||[];
-        if(d.indexOf(id)<0)d.push(id);
-        localStorage.setItem('rs_roulette_dismissed',JSON.stringify(d.slice(-150)));
-      }catch(e){}
+      game=String(game||'roulette');
+      if(game==='triki') game='tic_tac_toe';
+      var meta=gamePackLabel(game);
+      try{markDismissed('rs_roulette_dismissed', id)}catch(e){}
+      try{markDismissed('rs_game_pack_dismissed', id)}catch(e){}
       if(username){
         try{
           var token='';
@@ -13378,6 +13508,7 @@ async function claimPayPalPack(p){
             headers:{'Content-Type':'application/json',Authorization:token?('Bearer '+token):''},
             body:JSON.stringify({
               action:'reject_pack',
+              game:game,
               target_user:String(username).replace(/^@/,''),
               user:String(username).replace(/^@/,''),
               request_id:id||('reject_'+Date.now().toString(36)),
@@ -13386,15 +13517,25 @@ async function claimPayPalPack(p){
             cache:'no-store'
           });
         }catch(e){}
-        try{pushNotif(username,'admin','roulette_pack_rejected',null,'Roulette pack payment rejected — no spins credited.')}catch(e){}
+        try{pushNotif(username,'admin',game+'_pack_rejected',null,meta.name+' pack rejected — no '+meta.unit+' credited.')}catch(e){}
       }
       if(sb && id){
         try{await sb.from('notifications').delete().eq('id',id)}catch(e){}
-        try{await sb.from('notifications').delete().eq('type','roulette_pack_request').eq('id',id)}catch(e){}
+        try{
+          var kinds=['roulette_pack_request','dice_pack_request','tic_tac_toe_pack_request','triki_pack_request','game_pack_request'];
+          for(var ki=0;ki<kinds.length;ki++){
+            try{await sb.from('notifications').delete().eq('type',kinds[ki]).eq('id',id)}catch(e2){}
+          }
+        }catch(e){}
       }
-      toast('REJECT PAYMENT · no spins credited');
+      toast('ELIMINADA · sin acreditar '+meta.unit);
       try{renderAdminReqTab('roulette')}catch(e){try{renderAdmin()}catch(e2){}}
     }
+    async function dismissRoulettePack(id, username, game){
+      return dismissGamePack(id, username, game||'roulette');
+    }
+    window.approveGamePack=approveGamePack;
+    window.dismissGamePack=dismissGamePack;
     window.approveRoulettePack=approveRoulettePack;
     window.dismissRoulettePack=dismissRoulettePack;
 
@@ -35913,37 +36054,120 @@ async function onIdFace(e){
       try{refreshAdminBadges()}catch(e){}
     }
 
+    function inferGameFromPackRequest(type, meta){
+      meta=meta||{};
+      var g=String(meta.game||meta.pack_game||'').toLowerCase();
+      if(g==='triki') g='tic_tac_toe';
+      if(g==='roulette'||g==='dice'||g==='tic_tac_toe') return g;
+      var t=String(type||'').toLowerCase();
+      if(t.indexOf('dice')>=0) return 'dice';
+      if(t.indexOf('tic_tac')>=0||t.indexOf('triki')>=0) return 'tic_tac_toe';
+      var prod=String(meta.product||'').toLowerCase();
+      if(prod.indexOf('dice')>=0) return 'dice';
+      if(prod.indexOf('tic')>=0||prod.indexOf('triki')>=0) return 'tic_tac_toe';
+      return 'roulette';
+    }
     async function renderAdminRouletteBox(box){
       box=box||document.getElementById('admin-req-roulette');
       if(!box)return;
-      var rouDismissed=dismissedSet('rs_roulette_dismissed');
+      var rouDismissed=dismissedSet('rs_roulette_dismissed').concat(dismissedSet('rs_game_pack_dismissed'));
+      var seen={};
       var rrq=[];
-      if(sb){
-        try{
-          var rn=await sb.from('notifications').select('*').eq('type','roulette_pack_request').order('created_at',{ascending:false}).limit(30);
-          rrq=(rn.data||[]).filter(function(r){return rouDismissed.indexOf(String(r.id))<0});
-        }catch(e){}
+      function pushReq(row){
+        if(!row) return;
+        var id=String(row.id||row.request_id||'');
+        var key=id||(String(row.from_username||row.user||'')+'|'+(row.created_at||row.at||'')+'|'+(row.type||''));
+        if(seen[key]) return;
+        if(id && rouDismissed.indexOf(id)>=0) return;
+        seen[key]=1;
+        rrq.push(row);
       }
-      if(!rrq.length){box.innerHTML='<div class="empty">No roulette requests</div>';return}
-      box.innerHTML='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px"><strong style="color:var(--orange)">🎰 Roulette pack claims ('+rrq.length+')</strong>'+rrq.map(function(r){
+      var packTypes=['roulette_pack_request','dice_pack_request','tic_tac_toe_pack_request','triki_pack_request','game_pack_request'];
+      if(sb){
+        for(var ti=0;ti<packTypes.length;ti++){
+          try{
+            var rn=await sb.from('notifications').select('*').eq('type',packTypes[ti]).order('created_at',{ascending:false}).limit(40);
+            (rn.data||[]).forEach(function(r){ pushReq(r); });
+          }catch(e){}
+        }
+      }
+      // CF admin notifs fallback (covers claims that never hit Supabase).
+      try{
+        var cfN=await fetchCfNotifs('admin');
+        (cfN||[]).forEach(function(n){
+          var t=String(n.type||'');
+          if(packTypes.indexOf(t)<0 && t.indexOf('_pack_request')<0) return;
+          pushReq({
+            id:n.id||n.post_id||'',
+            from_username:n.from_username||n.user||'',
+            type:t,
+            message:n.message||'',
+            created_at:n.created_at||n.created||null,
+            post_id:n.post_id||null
+          });
+        });
+      }catch(e){}
+      // CF /requests queue for pack kinds
+      try{
+        for(var qi=0;qi<packTypes.length;qi++){
+          var rows=await cfAdminRequests('pending', packTypes[qi]);
+          (rows||[]).forEach(function(r){
+            var payload=r.payload||{};
+            pushReq({
+              id:r.id||payload.request_id||'',
+              from_username:r.user_id||r.user||payload.user||'',
+              type:r.kind||packTypes[qi],
+              message:JSON.stringify({
+                user:r.user_id||r.user,
+                game:payload.game||'',
+                provider:r.provider||payload.provider||'',
+                amount:r.amount||'$5',
+                package:payload.package||('10 '+(payload.spins||10)),
+                request_id:payload.request_id||r.id,
+                at:r.created_at||r.created||Date.now(),
+                requested_at:payload.requested_at||r.created_at
+              }),
+              created_at:r.created_at||r.created||null,
+              _cf_request:true
+            });
+          });
+        }
+      }catch(e){}
+      rrq.sort(function(a,b){
+        var ta=new Date(a.created_at||0).getTime()||Number((function(){try{return JSON.parse(a.message||'{}').at}catch(e){return 0}})())||0;
+        var tb=new Date(b.created_at||0).getTime()||Number((function(){try{return JSON.parse(b.message||'{}').at}catch(e){return 0}})())||0;
+        return tb-ta;
+      });
+      if(!rrq.length){box.innerHTML='<div class="empty">No game pack requests</div>';return}
+      box.innerHTML='<div style="background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:10px"><strong style="color:var(--orange)">Game pack claims ('+rrq.length+')</strong><p style="font-size:12px;color:var(--muted);margin:6px 0 0">PayPal / Throne $5 → 10 plays. Approve credits immediately. Delete removes the request.</p>'+rrq.map(function(r){
         var u=r.from_username||'?';
         var meta={};
-        try{meta=JSON.parse(r.message||'{}')||{}}catch(e){meta={}}
+        try{meta=typeof r.message==='object'&&r.message?r.message:(JSON.parse(r.message||'{}')||{})}catch(e){meta={}}
+        if(!u||u==='?') u=meta.user||u;
+        var game=inferGameFromPackRequest(r.type, meta);
+        var gMeta=gamePackLabel(game);
         var acct=meta.account_type||(/^anon_/i.test(String(u))?'anonymous':'registered');
         var provider=meta.provider||'external';
         var amount=meta.amount||'$5';
-        var pack=meta.package||'10 spins';
-        var reqId=meta.request_id||r.id||'';
-        var when=r.created_at?ago(new Date(r.created_at).getTime()):'';
-        var whenFull=r.created_at?new Date(r.created_at).toLocaleString():'';
-        return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,58,237,.18)">'
-          +'<strong>@'+esc(u)+'</strong> <span style="font-size:11px;color:var(--muted)">· '+esc(acct)+(when?' · '+when:'')+'</span>'
-          +'<div style="font-size:11px;color:var(--muted);margin:4px 0">Method: '+esc(provider)+' · Amount: '+esc(amount)+' · Package: '+esc(pack)+' · Status: PENDING'+(whenFull?' · '+esc(whenFull):'')+'</div>'
-          +'<div style="font-size:11px;color:var(--muted);margin:0 0 6px;word-break:break-word">'+esc(typeof r.message==='string'?r.message:JSON.stringify(meta))+'</div>'
+        var pack=meta.package||('10 '+gMeta.unit);
+        var reqId=meta.request_id||r.post_id||r.id||'';
+        var atMs=Number(meta.requested_at||meta.at)||0;
+        if(!atMs && r.created_at) atMs=new Date(r.created_at).getTime()||0;
+        var whenBogota=(typeof formatAdminBogotaDateTime==='function'&&atMs)?formatAdminBogotaDateTime(atMs):(atMs?new Date(atMs).toLocaleString():'');
+        var whenRel=atMs?ago(atMs):(r.created_at?ago(new Date(r.created_at).getTime()):'');
+        var safeReq=String(reqId||r.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        var safeId=String(r.id||reqId||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        var safeUser=String(u).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        var safeGame=String(game).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(124,58,237,.18)">'
+          +'<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#c4b5fd;font-weight:900;margin-bottom:4px">'+esc(gMeta.name)+'</div>'
+          +'<strong>@'+esc(u)+'</strong> <span style="font-size:11px;color:var(--muted)">· '+esc(acct)+(whenRel?' · '+whenRel:'')+'</span>'
+          +'<div style="font-size:12px;color:#f5c518;font-weight:800;margin:4px 0">Solicitud: '+esc(whenBogota||'hora no registrada')+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin:4px 0">Juego: '+esc(gMeta.name)+' · Method: '+esc(provider)+' · Amount: '+esc(amount)+' · Package: '+esc(pack)+' · PENDING</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin:0 0 8px;word-break:break-word">'+esc(meta.message||(typeof r.message==='string'?r.message:JSON.stringify(meta)))+'</div>'
           +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
-          +'<button class="btn btn-primary btn-sm" type="button" onclick="approveRoulettePack(\''+String(reqId||r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">APPROVE PAYMENT</button>'
-          +'<button class="btn btn-danger btn-sm" type="button" onclick="dismissRoulettePack(\''+String(r.id).replace(/'/g,"\\'")+'\',\''+String(u).replace(/'/g,"\\'")+'\')">REJECT PAYMENT</button>'
-          +'<button class="btn btn-secondary btn-sm" type="button" onclick="remindRoulettePayment(\''+String(u).replace(/'/g,"\\'")+'\')">Remind</button>'
+          +'<button class="btn btn-primary btn-sm" type="button" onclick="approveGamePack(\''+safeReq+'\',\''+safeUser+'\',\''+safeGame+'\')">APROBAR</button>'
+          +'<button class="btn btn-danger btn-sm" type="button" onclick="dismissGamePack(\''+safeId+'\',\''+safeUser+'\',\''+safeGame+'\')">ELIMINAR</button>'
           +'</div></div>';
       }).join('')+'</div>';
     }
@@ -37448,7 +37672,14 @@ async function onIdFace(e){
       <h3 class="gpm-title" id="gpm-title">OUT OF FREE PLAYS?</h3>
       <p class="gpm-desc" id="gpm-desc">Unlock 10 additional plays for 10 Coins.</p>
       <div class="gpm-bal" id="gpm-balance">Coins: —</div>
+      <div id="gpm-game-label" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#c4b5fd;font-weight:800;text-align:center;margin:0 0 10px">Roulette</div>
       <button class="btn btn-primary" type="button" id="gpm-buy" style="width:100%;margin-bottom:8px;background:#7c3aed;border:0;font-weight:900;padding:14px" onclick="confirmGamePackPurchase()">BUY 10 PLAYS — 10 COINS</button>
+      <div style="font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:4px 0 8px;text-align:center">Or pay $5 USD</div>
+      <a class="btn btn-secondary" id="gpm-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800;background:#0070ba;border:0;color:#fff" onclick="openGamePackExternalPay('paypal');return true">PayPal $5 · MartinJimenez205</a>
+      <a class="btn btn-secondary" id="gpm-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px;font-weight:800;background:#4c1d95;color:#fff" onclick="openGamePackExternalPay('throne');return true"><span class="pay-row"><img class="pay-logo" src="https://throne.com/favicon.ico" alt=""> Throne $5</span></a>
+      <button class="btn btn-primary" type="button" id="gpm-claim" style="width:100%;margin-bottom:8px;padding:14px;font-weight:900;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" onclick="claimGamePackPaid()">YA PAGUÉ — RECLAMAR</button>
+      <div id="gpm-review" style="display:none;margin:0 0 8px;padding:10px;border-radius:12px;border:1px solid #f5c518;background:rgba(245,197,24,.1);font-size:13px;font-weight:800;color:#f5c518;text-align:center">PAYMENT UNDER REVIEW</div>
+      <div style="font-size:11px;color:var(--muted);margin:0 0 10px;line-height:1.35;text-align:center">PayPal / Throne $5 unlocks 10 plays after admin approval. Coins pack credits instantly.</div>
       <button class="btn btn-ghost" type="button" style="width:100%" onclick="closeGamePackModal()">NOT NOW</button>
     </div>
   </div>

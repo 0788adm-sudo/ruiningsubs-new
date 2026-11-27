@@ -32,7 +32,12 @@ const ALLOWED_KINDS = {
   payment: 1,
   feature_request: 1,
   roulette_pack_request: 1,
-  roulette_pack: 1
+  roulette_pack: 1,
+  dice_pack_request: 1,
+  dice_pack: 1,
+  tic_tac_toe_pack_request: 1,
+  triki_pack_request: 1,
+  game_pack_request: 1
 };
 
 function json(res, code, body) {

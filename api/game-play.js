@@ -1540,7 +1540,8 @@ module.exports = async function handler(req, res) {
     return handleUsernameIdentity(req, res, body, null);
   }
 
-  // Admin grant / reject of external roulette pack payments (PayPal / Throne / BTC).
+  // Admin grant / reject of external game pack payments (PayPal / Throne / BTC).
+  // Supports roulette, dice, and tic_tac_toe — 10 plays credited immediately on approve.
   if (action === 'grant_pack' || action === 'approve_pack' || action === 'reject_pack') {
     var adminTok = bearerToken(req);
     var adminOk = false;
@@ -1550,31 +1551,36 @@ module.exports = async function handler(req, res) {
     if (!target) return json(res, 400, { ok: false, error: 'need_user' });
     var reqId = String(body.request_id || body.play_id || body.ref || playId || '').trim().slice(0, 80);
     if (!reqId) reqId = 'admin_pack_' + Date.now().toString(36);
+    var grantGame = normalizeGame(body.game || body.pack_game || game || 'roulette') || 'roulette';
+    if (grantGame === 'triki') grantGame = 'tic_tac_toe';
+    if (!LIVE_GAMES[grantGame]) grantGame = 'roulette';
+    var unitLabel = grantGame === 'dice' ? 'rolls' : (grantGame === 'tic_tac_toe' ? 'games' : 'spins');
     if (action === 'reject_pack') {
-      await postBoard(BOARD_PLAYS, target, 'roulette_pack_reject', reqId, {
-        user: target, game: 'roulette', kind: 'pack_reject',
+      await postBoard(BOARD_PLAYS, target, packActionForGame(grantGame) + '_reject', reqId, {
+        user: target, game: grantGame, kind: 'pack_reject',
         request_id: reqId, at: Date.now(), reason: String(body.reason || 'rejected')
       });
       try {
-        await postBoard(target, 'admin', 'roulette_pack_rejected', reqId, {
-          user: target, request_id: reqId, status: 'rejected', at: Date.now(),
-          message: 'Roulette pack payment rejected — no spins credited.'
+        await postBoard(target, 'admin', grantGame + '_pack_rejected', reqId, {
+          user: target, game: grantGame, request_id: reqId, status: 'rejected', at: Date.now(),
+          message: String(grantGame).toUpperCase() + ' pack payment rejected — no ' + unitLabel + ' credited.'
         });
       } catch (e) {}
-      return json(res, 200, { ok: true, status: 'rejected', request_id: reqId, user: target });
+      return json(res, 200, { ok: true, status: 'rejected', request_id: reqId, user: target, game: grantGame });
     }
-    var granted = await grantRoulettePack(target, reqId, {
+    var granted = await grantGamePack(target, grantGame, reqId, {
       source: 'admin_approve',
       provider: String(body.provider || 'external'),
       request_id: reqId,
       coins: 0,
-      usd: 5
+      usd: 5,
+      spins: GAME_PACK_USES
     });
     try {
-      await postBoard(target, 'admin', 'roulette_unlock', reqId, {
-        user: target, request_id: reqId, status: 'approved',
-        spins: ROULETTE_PACK_SPINS, at: Date.now(),
-        message: 'Payment verified — ' + ROULETTE_PACK_SPINS + ' roulette spins unlocked.'
+      await postBoard(target, 'admin', grantGame + '_unlock', reqId, {
+        user: target, game: grantGame, request_id: reqId, status: 'approved',
+        spins: GAME_PACK_USES, at: Date.now(),
+        message: 'Payment verified — ' + GAME_PACK_USES + ' ' + grantGame + ' ' + unitLabel + ' unlocked.'
       });
     } catch (e) {}
     return json(res, 200, {
@@ -1582,6 +1588,7 @@ module.exports = async function handler(req, res) {
       status: 'approved',
       reused: !!granted.reused,
       user: target,
+      game: grantGame,
       request_id: reqId,
       spins_granted: granted.spins_granted,
       pack_spins: granted.pack_spins,
