@@ -13,7 +13,9 @@ const FREE_RECOVERY_MS = Number(process.env.FREE_RECOVERY_MS || (24 * 60 * 60 * 
 const FC_DICE = Number(process.env.FC_COST_DICE || 10);
 const FC_DICE_PACK = Number(process.env.FC_COST_DICE_PACK || 10);
 const FC_TTT_PACK = Number(process.env.FC_COST_TTT_PACK || 10);
+/** Custom 30-option purchases removed — kept only so old env vars do not break boot. */
 const FC_CUSTOM = Number(process.env.FC_COST_CUSTOM_ROULETTE || 250);
+const CUSTOM_GAMES_ENABLED = false;
 /** Prize slots (pin / +10d) are weighted higher so users win more often without guaranteeing wins. */
 const ROULETTE_PRIZE_WEIGHT = Math.max(1, Number(process.env.ROULETTE_PRIZE_WEIGHT || 4) || 4);
 const TRIKI_PIN_HOURS = Number(process.env.TRIKI_PIN_HOURS || 48);
@@ -1439,7 +1441,6 @@ module.exports = async function handler(req, res) {
         costs: {
           roulette: FC_ROULETTE,
           dice: FC_DICE,
-          custom: FC_CUSTOM,
           roulette_pack: FC_ROULETTE_PACK,
           dice_pack: FC_DICE_PACK,
           tic_tac_toe_pack: FC_TTT_PACK,
@@ -1447,6 +1448,7 @@ module.exports = async function handler(req, res) {
           delete: 10,
           print: 350
         },
+        custom_games_enabled: false,
         packs: [
           { usd: 5, coins: 60 },
           { usd: 10, coins: 110 },
@@ -1590,7 +1592,14 @@ module.exports = async function handler(req, res) {
   if (!user) {
     return json(res, 401, { ok: false, error: 'session_required', message: 'Missing anonymous session or login' });
   }
-  if (game && !LIVE_GAMES[game] && game !== 'custom_roulette' && game !== 'custom_dice') {
+  if (game && !LIVE_GAMES[game]) {
+    if (game === 'custom_roulette' || game === 'custom_dice') {
+      return json(res, 410, {
+        ok: false,
+        error: 'custom_removed',
+        message: 'Custom 30 options purchases have been removed. Buy 10 plays for 10 Coins instead.'
+      });
+    }
     return json(res, 400, { ok: false, error: 'game_disabled', game: game });
   }
   if (!playId) {
@@ -1605,47 +1614,13 @@ module.exports = async function handler(req, res) {
   locks.set(lockKey, Date.now());
 
   try {
-    // —— Custom private 30-option wheel/dice request (registered only) ——
-    if (game === 'custom_roulette' || game === 'custom_dice') {
-      if (player.anon) return json(res, 401, { ok: false, error: 'login_required' });
-      if (!options || options.length < 2) {
-        return json(res, 400, { ok: false, error: 'need_options', message: 'Provide 2–30 custom options' });
-      }
-      var cleanOpts = options.map(function (o) {
-        if (typeof o === 'string') return { title: String(o).slice(0, 80) };
-        return { title: String((o && (o.title || o.label || o.text)) || '').slice(0, 80), desc: String((o && o.desc) || '').slice(0, 200) };
-      }).filter(function (o) { return o.title; }).slice(0, 30);
-      if (cleanOpts.length < 2) return json(res, 400, { ok: false, error: 'need_options' });
-
-      var spendCustom = await spendViaWallet(user, FC_CUSTOM, game, playId);
-      if (!spendCustom.ok) {
-        if (spendCustom.error === 'insufficient') {
-          return json(res, 402, { ok: false, error: 'insufficient', message: 'Insufficient Coins', need: FC_CUSTOM, balance: spendCustom.balance || 0 });
-        }
-        return json(res, 502, { ok: false, error: spendCustom.error || 'spend_failed', need: FC_CUSTOM });
-      }
-      await postBoard(BOARD_PLAYS, user, 'custom_game', playId, {
-        id: playId, user: user, game: game, paid: true, coins: FC_CUSTOM,
-        options: cleanOpts, at: Date.now(), kind: 'custom_purchase'
+    // Custom 30-option purchases permanently removed (CUSTOM_GAMES_ENABLED=false).
+    if (!CUSTOM_GAMES_ENABLED && (game === 'custom_roulette' || game === 'custom_dice')) {
+      return json(res, 410, {
+        ok: false,
+        error: 'custom_removed',
+        message: 'Custom 30 options purchases have been removed.'
       });
-      await postBoard('admin', user, game + '_request', playId, {
-        id: playId, user: user, game: game, coins: FC_CUSTOM, usd: 25,
-        options_count: cleanOpts.length, at: Date.now(),
-        message: 'CUSTOM ' + game.toUpperCase() + ' · @' + user + ' · 250 Coins / $25 · ' + cleanOpts.length + ' options'
-      });
-      var outCustom = {
-        ok: true,
-        reused: !!spendCustom.reused,
-        game: game,
-        play_id: playId,
-        coins: FC_CUSTOM,
-        balance: spendCustom.balance,
-        options: cleanOpts,
-        private: true,
-        label: '-' + FC_CUSTOM + ' Coins — custom ' + game
-      };
-      recent.set(lockKey, { at: Date.now(), body: outCustom });
-      return json(res, 200, outCustom);
     }
 
     // —— Game packs: 10 Coins → 10 prepaid uses (roulette / dice / tic_tac_toe) ——
