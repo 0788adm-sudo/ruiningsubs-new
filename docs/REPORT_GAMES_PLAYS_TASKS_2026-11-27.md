@@ -61,4 +61,8 @@ Escenarios cubiertos estáticamente: modal, packs idempotentes, Custom 30 ausent
 
 ## Confirmación de alcance
 
-**No se alteraron:** recargas de Coins, PayPal/Throne shop, Wall, Feed, autenticación, ni economía comercial fuera de `buy_pack` de juegos. Custom 30 se eliminó a propósito. Recompensas de exposición pública **no activadas**.
+**No se alteraron:** recargas de Coins, Wall, Feed, autenticación, ni economía comercial fuera de packs de juegos. Custom 30 se eliminó a propósito. Recompensas de exposición pública **no activadas**.
+
+## Seguimiento — pagos externos $5 (PayPal / Throne)
+
+El modal de cobro de cada juego incluye PayPal $5, Throne $5 y **YA PAGUÉ — RECLAMAR**. La solicitud llega al admin (Supabase + CF notifs + `/requests`) con usuario, juego y hora (Bogotá). Botones **APROBAR** (acredita 10 intentos al instante vía `grant_pack` por juego) y **ELIMINAR**.
