@@ -23,15 +23,16 @@ assert(game.includes('grantRoulettePack'), 'server grantRoulettePack helper');
 assert(!/function buyRoulettePack\(\)\{[\s\S]{0,200}isRegistered\(\)/.test(html), 'buyRoulettePack no login gate');
 assert(!/function requestRoulettePackPayPal\(\)\{[\s\S]{0,200}isRegistered\(\)/.test(html), 'PayPal pack no login gate');
 assert(!/function checkRouletteUnlock[\s\S]{0,120}isRegistered\(\)/.test(html), 'checkRouletteUnlock no login gate');
-assert(html.includes('claimRoulettePackPaid'), 'I PAID claim spins helper');
-assert(html.includes('I PAID — CLAIM SPINS'), 'I PAID button visible');
+assert(html.includes('claimRoulettePackPaid') || html.includes('claimGamePackPaid'), 'I PAID claim spins helper');
+assert(html.includes('YA PAGUÉ') || html.includes('I PAID'), 'I PAID / YA PAGUÉ button visible');
 assert(html.includes('BUY 10 EXTRA SPINS'), 'BUY 10 EXTRA SPINS button');
 assert(html.includes('10 Coins · pack of 10') || html.includes('10 Coins'), 'price line under buy button');
 assert(html.includes('PAYMENT UNDER REVIEW'), 'under review banner');
 assert(html.includes("openRouletteExternalPay('throne')") || html.includes('openRouletteExternalPay("throne")') || html.includes("openRouletteExternalPay('throne')"), 'Throne option');
 assert(html.includes("openRouletteExternalPay('btc')") || html.includes('Bitcoin'), 'BTC option');
-assert(html.includes('APPROVE PAYMENT'), 'admin approve label');
-assert(html.includes('REJECT PAYMENT'), 'admin reject label');
+assert(html.includes('APPROVE PAYMENT') || html.includes('APROBAR'), 'admin approve label');
+assert(html.includes('REJECT PAYMENT') || html.includes('ELIMINAR'), 'admin reject/delete label');
+assert(html.includes('dice_pack_request') || adminReq.includes('dice_pack_request'), 'dice pack request accepted');
 
 // —— Backend pack for anonymous ——
 assert(!/buy_pack[\s\S]{0,200}player\.anon\) return json\(res, 401/.test(game), 'buy_pack allows anon');

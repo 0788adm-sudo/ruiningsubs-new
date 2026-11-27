@@ -13,7 +13,8 @@ assert(html.includes('86473EC5-CFDC-4A8C-93FE-153A3F248899'), 'Throne $5 item li
 assert(/delete\s*:\s*10/.test(html) || html.includes('delete:10'), 'Delete cost 10 FC');
 assert(/roulette\s*:\s*10/.test(html) || html.includes('roulette:10'), 'Roulette 10 FC');
 assert(/dice\s*:\s*10/.test(html) || html.includes('dice:10'), 'Dice 10 FC');
-assert(html.includes('custom_roulette:250') || html.includes('custom_roulette:250'), 'Custom wheel 250 FC');
+assert(!html.includes('Custom 30 options — 250 Coins'), 'Custom 30 options UI removed');
+assert(html.includes('OUT OF FREE PLAYS?') || html.includes('openGamePackModal'), 'unified pack purchase modal');
 assert(
   html.includes('Pay 10 Coins') ||
     html.includes('Delete now — 10 Coins') ||
@@ -52,8 +53,9 @@ assert(html.includes('BUY 10 EXTRA SPINS') || html.includes('Pay with Coins bala
 assert(html.includes('Free uses exhausted'), 'exhausted free spins copy');
 assert(html.includes('buyRoulettePack') && html.includes('ROULETTE_PACK_FC=10') && html.includes('ROULETTE_PACK_SPINS=10'), 'client pack purchase');
 assert(html.includes('Could not record spin on server'), 'spins require server record');
-assert(html.includes('openCustomRouletteRequest'), 'custom 30-option request');
-assert(html.includes('THRONE_CUSTOM_GAME') || html.includes('THRONE_PACK_25'), 'custom uses Throne $25');
+assert(html.includes('openCustomRouletteRequest'), 'custom stub kept for legacy callers');
+assert(html.includes('Custom 30 options has been removed') || game.includes('custom_removed'), 'custom purchase disabled');
+assert(game.includes('custom_games_enabled: false') || game.includes('CUSTOM_GAMES_ENABLED = false'), 'server custom disabled');
 assert(html.includes('getTrikiChallenge') && html.includes('max:3'), 'Triki max 3 games');
 assert(
   (html.includes('RETOS DISPONIBLES') && html.includes('Acepto este reto')) ||

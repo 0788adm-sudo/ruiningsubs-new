@@ -35,7 +35,7 @@ assert(html.includes('function requestPinAction') && html.includes('10 Coins'), 
 assert(html.includes('Paid delete ·') && html.includes('10 Coins'), 'Delete uses Coins balance');
 assert(html.includes('Recharge Coins') && html.includes('60 Coins — $5 USD'), 'Recharge pack $5 → 60 Coins');
 assert(html.includes('requestRoulettePackPayPal') && html.includes('roulette_pack_request'), 'Roulette PayPal pending approval');
-assert(html.includes('claimRoulettePackPaid') && html.includes('I PAID — CLAIM SPINS'), 'I PAID claim spins');
+assert((html.includes('claimRoulettePackPaid')||html.includes('claimGamePackPaid')) && (html.includes('YA PAGUÉ')||html.includes('I PAID')), 'I PAID claim spins');
 assert(html.includes('BUY 10 EXTRA SPINS'), 'buy extra spins CTA');
 assert(html.includes('does <strong style="color:#fff">not</strong> auto-credit') || html.includes('does not auto-pin'), 'no auto-grant messaging');
 
