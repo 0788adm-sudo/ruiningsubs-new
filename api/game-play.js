@@ -1,6 +1,15 @@
 // Game play intake: roulette / dice / tic_tac_toe.
 // Free uses: 3 per game per cycle, then 24h recovery (independent counters).
 // Anonymous sessions, pin rewards, XP-safe. Does NOT touch PayPal / Throne payment flows.
+// Also hosts Stories actions (Hobby serverless cap — no extra /api file).
+
+const path = require('path');
+let storiesApi = null;
+try {
+  storiesApi = require(path.join(__dirname, '..', 'lib', 'stories'));
+} catch (e) {
+  storiesApi = null;
+}
 
 const CF_API = process.env.CF_API || 'https://ruiningsubs-api.0788adm.workers.dev';
 const SITE = process.env.SITE_URL || 'https://www.ruinexpose.com';
@@ -1412,6 +1421,22 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     var qAction = String((req.query && req.query.action) || '').toLowerCase();
+    if (
+      storiesApi &&
+      (qAction === 'stories' ||
+        qAction === 'story' ||
+        /^stories?_/.test(qAction) ||
+        qAction === 'stories_list' ||
+        qAction === 'story_list' ||
+        qAction === 'stories_users' ||
+        qAction === 'stories_migrate')
+    ) {
+      return storiesApi.handleStoriesRequest(req, res, null, req.query || {}, {
+        json: json,
+        verifyAdminToken: verifyAdminToken,
+        bearerToken: bearerToken
+      });
+    }
     if (qAction === 'anon_identity' || qAction === 'anon' || qAction === 'identity') {
       return handleAnonIdentity(req, res, null, req.query || {});
     }
@@ -1517,6 +1542,32 @@ module.exports = async function handler(req, res) {
   var wins = Number(body.wins || 0) || 0;
   var gamesPlayed = Number(body.games || body.games_played || 0) || 0;
   var action = String(body.action || '').toLowerCase();
+  if (
+    storiesApi &&
+    (action === 'stories' ||
+      action === 'story' ||
+      /^stories?_/.test(action) ||
+      action === 'story_publish' ||
+      action === 'story_view' ||
+      action === 'story_like' ||
+      action === 'story_unlike' ||
+      action === 'story_delete' ||
+      action === 'story_list' ||
+      action === 'stories_list' ||
+      action === 'stories_publish' ||
+      action === 'stories_view' ||
+      action === 'stories_like' ||
+      action === 'stories_unlike' ||
+      action === 'stories_delete' ||
+      action === 'stories_migrate' ||
+      action === 'stories_users')
+  ) {
+    return storiesApi.handleStoriesRequest(req, res, body, null, {
+      json: json,
+      verifyAdminToken: verifyAdminToken,
+      bearerToken: bearerToken
+    });
+  }
   if (action === 'anon_identity' || action === 'link_anon') {
     return handleAnonIdentity(req, res, body, null);
   }
