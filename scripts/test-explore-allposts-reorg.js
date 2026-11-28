@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Feed / Explore / Topics / Videos reorganization guards.
+ * Feed / Explore / Topics / Videos reorganization guards (v3).
+ * FEED owns EXTENDED + ALL POSTS tabs; Explore is discovery; Videos ≠ GoonTok.
  */
 var fs = require('fs');
 var path = require('path');
@@ -17,48 +18,54 @@ function assert(c, m) {
 }
 
 // —— Bottom nav: five destinations ——
-assert(/data-p="feed"[\s\S]*?Extended/.test(html), 'nav Extended');
-assert(/data-p="wall"[\s\S]*?All Posts/.test(html), 'nav All Posts');
+assert(/data-p="feed"[\s\S]{0,400}Feed/.test(html), 'nav Feed');
 assert(/data-p="goontok"[\s\S]*?GoonTok/.test(html), 'nav GoonTok');
 assert(/data-p="post"[\s\S]*?CREATE/.test(html), 'nav Create');
 assert(/data-p="explore"[\s\S]*?Explore/.test(html), 'nav Explore');
+assert(/data-p="profile"[\s\S]*?Profile/.test(html), 'nav Profile');
+assert(!/data-p="wall"[\s\S]*?All Posts/.test(html.slice(html.indexOf('class="nav-row"'), html.indexOf('class="nav-row"') + 2500)), 'All Posts not a bottom-nav item');
 assert((html.match(/class="nav-item/g) || []).length >= 4, 'four side nav items + center create');
 
-// —— All Posts primary filters ——
-var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1200);
-assert(wallBar.includes('data-wall-filter="all"') && wallBar.includes('>All<'), 'All filter');
-assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>Posts<'), 'Posts filter');
-assert(wallBar.includes('data-wall-filter="tasks"') && wallBar.includes('>Games<'), 'Games filter');
-assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('>Extended<'), 'Extended filter');
-assert((wallBar.match(/data-wall-filter="/g) || []).length === 4, 'exactly 4 primary All Posts filters');
-assert(!wallBar.includes('>Dominants<') && !wallBar.includes('IDs / PEA') && !wallBar.includes('>Text<'), 'secondary chips removed from primary bar');
-assert(html.includes("allowed=['all','tasks','normal','timed']"), 'setWallFilter allowlist v2');
-assert(html.includes('rs_wall_filters_v2'), 'filters v2 migration flag');
+// —— FEED tabs ——
+assert(html.includes('data-feed-tab="extended"') && html.includes('>EXTENDED<'), 'EXTENDED tab');
+assert(html.includes('data-feed-tab="all"') && html.includes('>ALL POSTS<'), 'ALL POSTS tab');
+assert(html.includes('function openFeedAllPosts') && html.includes('function openFeedExtended'), 'feed tab helpers');
+assert(html.includes("localStorage.setItem('rs_feed_tab'"), 'feed tab persistence');
+
+// —— All Posts primary filters (exactly 6) ——
+var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1600);
+assert(wallBar.includes('data-wall-filter="all"') && wallBar.includes('>ALL<'), 'ALL filter');
+assert(wallBar.includes('data-wall-filter="tasks"') && wallBar.includes('>GAMES<'), 'GAMES filter');
+assert(wallBar.includes('data-wall-filter="id"') && wallBar.includes('>ID<'), 'ID filter');
+assert(wallBar.includes('data-wall-filter="pea"') && wallBar.includes('>PEA<'), 'PEA filter');
+assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>REGULAR POSTS<'), 'REGULAR POSTS filter');
+assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('>TIMED POSTS<'), 'TIMED POSTS filter');
+assert((wallBar.match(/data-wall-filter="/g) || []).length === 6, 'exactly 6 primary All Posts filters');
+assert(html.includes("allowed=['all','tasks','id','pea','normal','timed']"), 'setWallFilter allowlist v3');
+assert(html.includes('rs_wall_filters_v3'), 'filters v3 migration flag');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'sort retained');
-
-// —— Topics on All Posts ——
-assert(html.includes('id="wall-topics"'), 'Topics block on All Posts');
 assert(html.includes('id="wall-search"'), 'All Posts search');
-var wall = html.slice(html.indexOf('id="panel-wall"'), html.indexOf('id="panel-extended"'));
-assert(wall.indexOf('id="wall-search"') < wall.indexOf('id="wall-topics"'), 'search above Topics');
-assert(wall.indexOf('id="wall-topics"') < wall.indexOf('id="wall-filter-bar"'), 'Topics above filters');
-assert(wall.indexOf('id="wall-filter-bar"') < wall.indexOf('id="wall-sort-bar"'), 'filters above sort');
-assert(html.includes('function renderWallTopics') && html.includes('function topicStatsList'), 'topic count helpers');
-assert(html.includes('function normalizeTopicKey'), 'topic key normalization');
-assert(html.includes('Popular') && html.includes('Recent') && html.includes('View All'), 'topic discovery modes');
-assert(html.includes('function openCommunity'), 'topic feed retained');
 
-// —— Explore hub (not a feed) ——
+// —— Topics on Explore (not primary All Posts) ——
+assert(html.includes('id="explore-topics-panel"'), 'Topics panel on Explore');
+assert(html.includes('POPULAR TOPICS') && html.includes('RECENT TOPICS') && html.includes('VIEW ALL TOPICS'), 'topic discovery modes');
+assert(html.includes('function openTopicInAllPosts'), 'topic opens All Posts');
+assert(html.includes('__wallTopicFilter'), 'topic filter state');
+assert(html.includes('function openCommunity'), 'topic feed retained');
+var wallSlice = html.slice(html.indexOf('id="panel-wall"'), html.indexOf('id="panel-extended"'));
+assert(wallSlice.includes('style="display:none"') || /id="wall-topics"[\s\S]*?display:none/.test(wallSlice), 'Topics block hidden on All Posts');
+
+// —— Explore hub ——
 assert(html.includes('class="explore-title">EXPLORE<'), 'Explore title');
-assert(html.includes('DISCOVER RUINEXPOSE'), 'Explore subtitle');
 assert(html.includes('Search users, content or topics'), 'Explore search placeholder');
+assert(html.includes('btn-explore-allposts') && html.includes('openFeedAllPosts'), 'ALL POSTS explore card');
+assert(html.includes('Discover all community publications'), 'ALL POSTS card subtitle');
 assert(html.includes('btn-explore-trending') && html.includes('openExploreTrending'), 'Trending card');
 assert(html.includes('Exposure Map') && html.includes('openExposureMap'), 'Exposure Map retained');
 assert(html.includes('explore-games-card') && html.includes('openChallengesHub'), 'Games card');
 assert(html.includes('btn-explore-idcard') && html.includes('btn-explore-pea'), 'ID/PEA tools');
 assert(html.includes('btn-explore-print') && html.includes('btn-explore-randomcam'), 'Print + RandomCam');
 assert(html.includes('btn-explore-goontok') && html.includes('btn-explore-videos'), 'GoonTok + Videos tools');
-assert(!html.includes('$10</b><div style="font-size:12px;color:#f5c518">110 Coins'), 'coin pack grid removed from Explore top');
 
 // —— Videos catalog (not GoonTok) ——
 assert(html.includes('vid-catalog') && html.includes('videos-catalog-sub'), 'Videos catalog markup');
@@ -117,6 +124,8 @@ var sandbox = {
 var src =
   extractFn('isRouletteWallPost') +
   extractFn('isGameTaskWallPost') +
+  extractFn('isPeaPost') +
+  extractFn('isIdPost') +
   'function isWallTimedPost(p){if(!p)return false;if(typeof isPeaOrIdPost===\'function\'&&isPeaOrIdPost(p))return false;if(typeof isVideoPost===\'function\'&&isVideoPost(p))return false;var exp=Number(p.expires||0);if(!exp||!isFinite(exp))return false;var now=Date.now();return exp>now&&exp<=now+60*24*3600*1000;}\n' +
   'function isWallTextPost(p){if(!p)return false;if(isPeaOrIdPost(p))return false;if(isGameTaskWallPost(p))return false;if(isWallTimedPost(p))return false;if(!isTimelessWallPost(p))return false;return !wallPostHasMedia(p);}\n' +
   'function isWallNormalPost(p){if(!p)return false;if(isPeaOrIdPost(p))return false;if(isGameTaskWallPost(p))return false;if(isRouletteWallPost(p))return false;if(isWallTimedPost(p))return false;return isTimelessWallPost(p);}\n' +
@@ -133,13 +142,18 @@ var samples = [
   { id: 2, title: 'Extend me', tags: ['exposed', 'ext_360'], created: now - 1000, expires: now + 3600000, images: ['b.jpg'], user: 'b' },
   { id: 3, title: 'Roulette proof', tags: ['roulette', 'game_origin:roulette'], created: now - 2000, expires: 0, images: ['c.jpg'], user: 'c' },
   { id: 4, title: 'Dice proof', tags: ['dice', 'exposure_dice', 'game_origin:dice'], created: now - 3000, expires: 0, images: ['d.jpg'], user: 'd' },
+  { id: 5, title: 'Published ID', tags: ['generated_id', 'idcard'], created: now - 4000, expires: 0, images: ['e.jpg'], user: 'e' },
+  { id: 6, title: 'Published PEA', tags: ['generated_pea', 'pea'], created: now - 5000, expires: 0, images: ['f.jpg'], user: 'f' },
   { id: 9, title: 'GoonTok clip', tags: ['goontok', 'video'], created: now - 8000, expires: 0, images: ['v.mp4'], user: 'i', _kind: 'video' }
 ];
 
-assert(sandbox.matchesWallFilter(samples[0], 'all') && sandbox.matchesWallFilter(samples[1], 'all') && sandbox.matchesWallFilter(samples[2], 'all'), 'All includes post+extend+game');
-assert(sandbox.matchesWallFilter(samples[0], 'normal') && !sandbox.matchesWallFilter(samples[2], 'normal') && !sandbox.matchesWallFilter(samples[1], 'normal'), 'Posts filter excludes games/extend');
-assert(sandbox.matchesWallFilter(samples[2], 'tasks') && sandbox.matchesWallFilter(samples[3], 'tasks') && !sandbox.matchesWallFilter(samples[0], 'tasks'), 'Games filter only game proofs');
-assert(sandbox.matchesWallFilter(samples[1], 'timed') && !sandbox.matchesWallFilter(samples[0], 'timed'), 'Extended filter only timed');
-assert(!sandbox.matchesWallFilter(samples[4], 'all'), 'All excludes GoonTok catalog');
+assert(sandbox.matchesWallFilter(samples[0], 'all') && sandbox.matchesWallFilter(samples[1], 'all') && sandbox.matchesWallFilter(samples[2], 'all'), 'All includes post+timed+game');
+assert(sandbox.matchesWallFilter(samples[0], 'normal') && !sandbox.matchesWallFilter(samples[2], 'normal') && !sandbox.matchesWallFilter(samples[1], 'normal'), 'REGULAR POSTS excludes games/timed');
+assert(!sandbox.matchesWallFilter(samples[4], 'normal') && !sandbox.matchesWallFilter(samples[5], 'normal'), 'REGULAR POSTS excludes ID/PEA');
+assert(sandbox.matchesWallFilter(samples[2], 'tasks') && sandbox.matchesWallFilter(samples[3], 'tasks') && !sandbox.matchesWallFilter(samples[0], 'tasks'), 'GAMES filter only game proofs');
+assert(sandbox.matchesWallFilter(samples[1], 'timed') && !sandbox.matchesWallFilter(samples[0], 'timed'), 'TIMED POSTS only timed');
+assert(sandbox.matchesWallFilter(samples[4], 'id') && !sandbox.matchesWallFilter(samples[5], 'id'), 'ID filter');
+assert(sandbox.matchesWallFilter(samples[5], 'pea') && !sandbox.matchesWallFilter(samples[4], 'pea'), 'PEA filter');
+assert(!sandbox.matchesWallFilter(samples[6], 'all'), 'All excludes GoonTok catalog');
 
 console.log('\nExplore / All Posts / Topics / Videos reorg checks passed');

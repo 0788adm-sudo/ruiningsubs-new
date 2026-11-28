@@ -1615,9 +1615,25 @@
     .entry-ico.idcard svg{filter:drop-shadow(0 0 6px rgba(45,212,191,.85))!important}
 
     
-.global-feed-switch{display:flex;gap:4px;margin:10px 14px 6px;padding:4px;background:rgba(20,20,20,.94);border:1px solid var(--border);border-radius:14px;position:relative;z-index:30}
-.global-feed-switch button{flex:1;border:0;border-radius:10px;padding:9px 10px;background:transparent;color:var(--muted);font:800 13px inherit;cursor:pointer}
-.global-feed-switch button.active{background:var(--orange);color:#000}
+.global-feed-switch,.feed-mode-tabs{display:flex;gap:4px;margin:8px 0 10px;padding:4px;background:rgba(20,20,20,.94);border:1px solid var(--border);border-radius:14px;position:relative;z-index:30}
+.global-feed-switch button,.feed-mode-tabs button{flex:1;border:0;border-radius:10px;padding:10px 10px;background:transparent;color:var(--muted);font:800 12px inherit;letter-spacing:.04em;cursor:pointer;min-height:42px;touch-action:manipulation}
+.global-feed-switch button.active,.feed-mode-tabs button.active{background:linear-gradient(90deg,#7c3aed,#ff6a00);color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
+.wall-topic-active{display:none;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:8px 10px;border-radius:12px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.12);color:#e9d5ff;font-size:12px;font-weight:800}
+.wall-topic-active.is-on{display:flex}
+.wall-topic-active button{border:0;background:transparent;color:#c4b5fd;font-weight:900;cursor:pointer;min-height:36px;padding:0 8px}
+.explore-allposts-card{width:100%;text-align:left;border-radius:16px;padding:14px 14px 12px;margin:0 0 14px;border:1px solid rgba(255,106,0,.4);background:linear-gradient(135deg,rgba(255,106,0,.14),rgba(124,58,237,.1));color:#fff;cursor:pointer}
+.explore-allposts-card strong{display:block;font-size:16px;font-weight:900;letter-spacing:.02em}
+.explore-allposts-card .explore-card-sub{display:block;margin-top:4px;font-size:12px;color:#cfcfd6;font-weight:600}
+.explore-topics-panel{margin:0 0 16px;padding:12px;border-radius:16px;border:1px solid #2a2a32;background:#101014}
+.explore-topics-tools{display:flex;flex-direction:column;gap:8px;margin:0 0 10px}
+.explore-topics-tools input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid #2a2a32;background:#0a0a0a;color:#fff;font-size:14px}
+.explore-topics-mode{display:flex;gap:6px}
+.explore-topics-mode-chip{flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:8px;font-size:11px;font-weight:800;cursor:pointer;min-height:36px}
+.explore-topics-mode-chip.on{border-color:rgba(124,58,237,.55);color:#fff;background:rgba(124,58,237,.18)}
+.explore-topics-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.explore-topics-list button,.explore-topics-mini button{text-align:left;border-radius:12px;border:1px solid #2a2a32;background:#0c0c10;padding:10px;color:#fff;cursor:pointer}
+.explore-topics-list button strong,.explore-topics-mini button strong{display:block;font-size:13px}
+.explore-topics-list button span,.explore-topics-mini button span{display:block;margin-top:3px;font-size:11px;color:#9a9aa3;font-weight:700}
 
 
     #panel-feed.normal-mode > *{display:none!important}
@@ -2915,6 +2931,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
     <main>
       <div id="panel-feed" class="panel active">
+        <div class="feed-mode-tabs" id="feed-mode-tabs-extended" role="tablist" aria-label="Feed tabs">
+          <button type="button" class="active" data-feed-tab="extended" role="tab" aria-selected="true">EXTENDED</button>
+          <button type="button" data-feed-tab="all" role="tab" aria-selected="false">ALL POSTS</button>
+        </div>
 
         <div class="banner" style="padding:14px 14px 12px">
           <div class="brand-mark">RUINING<span>SUB$</span></div>
@@ -3136,6 +3156,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </div>
         <div id="search-results" class="explore-search-results" style="display:none" aria-live="polite"></div>
         <div id="explore-browse" class="explore-browse">
+          <button type="button" class="explore-allposts-card" id="btn-explore-allposts" onclick="openFeedAllPosts()">
+            <strong>ALL POSTS</strong>
+            <span class="explore-card-sub">Discover all community publications.</span>
+          </button>
           <div class="explore-sec-label">DISCOVER</div>
           <div class="explore-discover-grid">
             <button type="button" class="explore-card explore-card-trending" id="btn-explore-trending" onclick="openExploreTrending()">
@@ -3144,7 +3168,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <span class="explore-card-sub">Genuine recent engagement</span>
             </button>
             <button type="button" class="explore-card explore-card-map" id="btn-explore-map-card" onclick="openExposureMap()">
-              <span class="explore-card-kicker">MAP</span>
+              <span class="explore-card-kicker">EXPOSURE MAP</span>
               <strong>Exposure Map</strong>
               <span class="explore-card-sub">City-level pins · privacy first</span>
             </button>
@@ -3201,15 +3225,24 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
 
           <div class="explore-sec-label">TOPICS</div>
-          <div id="explore-communities" class="explore-topics-mini"></div>
-          <button type="button" class="btn btn-ghost" style="width:100%;margin:0 0 18px" onclick="showPanel('wall');try{openAllTopicsPanel()}catch(e){}">View All Topics on All Posts</button>
+          <div class="explore-topics-panel" id="explore-topics-panel">
+            <div class="explore-topics-tools">
+              <input type="search" id="explore-topics-search" placeholder="Search topics…" autocomplete="off" aria-label="Search topics"/>
+              <div class="explore-topics-mode" role="group" aria-label="Topic discovery">
+                <button type="button" class="explore-topics-mode-chip on" data-topics-mode="popular">POPULAR TOPICS</button>
+                <button type="button" class="explore-topics-mode-chip" data-topics-mode="recent">RECENT TOPICS</button>
+              </div>
+            </div>
+            <div id="explore-communities" class="explore-topics-list"></div>
+            <button type="button" class="btn btn-ghost" style="width:100%;margin:10px 0 0" id="btn-explore-topics-all" onclick="openAllTopicsPanel()">VIEW ALL TOPICS</button>
+          </div>
 
           <div id="trending-tags" class="explore-trending-tags"></div>
         </div><!-- /explore-browse -->
       </div>
       <div id="panel-doms" class="panel">
         <div class="panel-h">
-          <button class="back" type="button" onclick="showPanel('wall')">←</button>
+          <button class="back" type="button" onclick="showPanel('explore')">←</button>
           <h2>Verified Dominants</h2>
           <button class="btn btn-ghost btn-sm" type="button" id="btn-dom-staff" style="opacity:.28;font-size:10px">in</button>
         </div>
@@ -3279,6 +3312,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <div id="panel-wall" class="panel">
         <div id="wall-home">
           <div id="explore-normal-wrap">
+            <div class="feed-mode-tabs" id="feed-mode-tabs-all" role="tablist" aria-label="Feed tabs">
+              <button type="button" data-feed-tab="extended" role="tab" aria-selected="false">EXTENDED</button>
+              <button type="button" class="active" data-feed-tab="all" role="tab" aria-selected="true">ALL POSTS</button>
+            </div>
             <div id="pig-of-day" style="margin:0 0 8px"></div>
             <div class="wall-head">
               <div class="wall-head-row">
@@ -3289,10 +3326,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" onclick="openNormalPostComposer();return false">＋ Post</button>
             </div>
             <div class="wall-search-wrap">
-              <input type="search" id="wall-search" placeholder="Search posts, @users, #topics…" autocomplete="off" enterkeyhint="search" aria-label="Search All Posts"/>
+              <input type="search" id="wall-search" placeholder="Search posts and users…" autocomplete="off" enterkeyhint="search" aria-label="Search All Posts"/>
             </div>
-            <!-- Topics discovery — immediately below search -->
-            <div id="wall-topics" class="wall-topics" aria-label="Topics">
+            <div id="wall-topic-active" class="wall-topic-active" aria-live="polite">
+              <span id="wall-topic-active-label">Topic</span>
+              <button type="button" id="btn-clear-wall-topic" onclick="clearWallTopicFilter()">Clear</button>
+            </div>
+            <!-- Topics discovery moved to EXPLORE; keep hooks for legacy scripts -->
+            <div id="wall-topics" class="wall-topics" aria-hidden="true" style="display:none">
               <div class="wall-topics-head">
                 <div>
                   <div class="wall-topics-kicker">TOPICS</div>
@@ -3307,15 +3348,17 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                   <button type="button" class="wall-topics-mode-chip" data-topics-mode="recent">Recent</button>
                 </div>
               </div>
-              <div id="wall-topics-list" class="wall-topics-list"><div class="wall-topics-empty">Loading topics…</div></div>
+              <div id="wall-topics-list" class="wall-topics-list"></div>
             </div>
             <div id="wall-stories" class="wall-stories"></div>
             <div id="wall-hot-slot" class="wall-day-photos"></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="All Posts filters">
-              <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">All</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Posts</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="tasks" role="tab" aria-selected="false">Games</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">Extended</button>
+              <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">ALL</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="tasks" role="tab" aria-selected="false">GAMES</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="id" role="tab" aria-selected="false">ID</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="pea" role="tab" aria-selected="false">PEA</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">REGULAR POSTS</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">TIMED POSTS</button>
             </div>
             <div id="wall-dominants-soon" class="wall-dominants-soon" role="status" aria-live="polite" hidden>
               <div class="wall-dominants-soon-inner">
@@ -4186,13 +4229,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <nav class="bottom-nav">
       <div class="stats-strip" style="display:none"></div>
       <div class="nav-row">
-        <button class="nav-item active" data-p="feed" type="button" aria-label="Extended — main exposure feed">
-          <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></span>Extended
+        <button class="nav-item active" data-p="feed" type="button" aria-label="Feed — Extended and All Posts">
+          <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></span>Feed
         </button>
-        <button class="nav-item" data-p="wall" type="button" aria-label="All Posts — complete community feed">
-          <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></span>All Posts
-        </button>
-        <button class="nav-item" data-p="goontok" type="button">
+        <button class="nav-item" data-p="goontok" type="button" aria-label="GoonTok">
           <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M10 9.2v5.6L15.2 12Z" fill="currentColor" stroke="none"/></svg></span>GoonTok
         </button>
         <button class="nav-center" data-p="post" type="button" aria-label="Create — publish">
@@ -4201,6 +4241,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </button>
         <button class="nav-item" data-p="explore" type="button" aria-label="Explore — discovery and tools">
           <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg></span>Explore
+        </button>
+        <button class="nav-item" data-p="profile" type="button" aria-label="Profile">
+          <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="3.2"/><path d="M5 20c.8-3.8 3.1-5.7 7-5.7s6.2 1.9 7 5.7"/></svg></span>Profile
         </button>
       </div>
     </nav>
@@ -14385,31 +14428,22 @@ async function claimPayPalPack(p){
         return {id:c.id,name:c.name,sub:c.sub,color:c.color,count:list.length,latest:latest};
       });
     }
-    function renderExploreCommunities(){
-      var box=document.getElementById('explore-communities');
-      if(!box) return;
-      var stats=topicStatsList().slice().sort(function(a,b){return b.count-a.count}).slice(0,6);
-      box.innerHTML=stats.map(function(c){
-        return '<button type="button" onclick="openCommunity(\''+c.id+'\')">'
-          +'<strong>#'+esc(String(c.name||'').replace(/\s+/g,''))+'</strong>'
-          +'<span>'+c.count+' post'+(c.count===1?'':'s')+'</span></button>';
-      }).join('');
-    }
-    window.renderExploreCommunities=renderExploreCommunities;
-    window.normalizeTopicKey=normalizeTopicKey;
-    window.postMatchesTopic=postMatchesTopic;
-    window.topicStatsList=topicStatsList;
     var wallTopicsMode='popular';
-    function renderWallTopics(){
-      var box=document.getElementById('wall-topics-list');
-      if(!box) return;
-      var q=((document.getElementById('wall-topics-search')||{}).value||'').trim().toLowerCase();
+    function topicChipHtml(c, limitName){
+      var name=String(c.name||c.id||'');
+      if(limitName) name=name.replace(/\s+/g,'');
+      return '<button type="button" class="wall-topic-chip" onclick="openTopicInAllPosts(\''+c.id+'\')">'
+        +'<strong>#'+esc(name)+'</strong>'
+        +'<span>'+c.count+' post'+(c.count===1?'':'s')+'</span></button>';
+    }
+    function sortedTopicStats(mode, q, limit){
       var stats=topicStatsList();
-      if(wallTopicsMode==='recent'){
+      if(mode==='recent'){
         stats.sort(function(a,b){return (b.latest||0)-(a.latest||0) || (b.count-a.count)});
       }else{
         stats.sort(function(a,b){return (b.count-a.count) || (b.latest||0)-(a.latest||0)});
       }
+      q=String(q||'').trim().toLowerCase();
       if(q){
         stats=stats.filter(function(c){
           return String(c.name||'').toLowerCase().indexOf(q)>=0
@@ -14417,23 +14451,115 @@ async function claimPayPalPack(p){
             || String(c.sub||'').toLowerCase().indexOf(q)>=0;
         });
       }
+      if(limit && stats.length>limit) stats=stats.slice(0,limit);
+      return stats;
+    }
+    function renderExploreCommunities(){
+      var box=document.getElementById('explore-communities');
+      if(!box) return;
+      var q=((document.getElementById('explore-topics-search')||{}).value||'').trim().toLowerCase();
+      var showAll=!!window.__exploreTopicsShowAll;
+      var stats=sortedTopicStats(wallTopicsMode, q, showAll?0:6);
       if(!stats.length){
-        box.innerHTML='<div class="wall-topics-empty">No matching topics</div>';
+        box.innerHTML='<div class="wall-topics-empty" style="grid-column:1/-1;color:#9a9aa3;font-size:12px;padding:8px">No matching topics</div>';
         return;
       }
-      box.innerHTML=stats.map(function(c){
-        return '<button type="button" class="wall-topic-chip" onclick="openCommunity(\''+c.id+'\')">'
-          +'<strong>#'+esc(String(c.name||'').replace(/\s+/g,''))+'</strong>'
-          +'<span>'+c.count+' post'+(c.count===1?'':'s')+'</span></button>';
-      }).join('');
+      box.innerHTML=stats.map(function(c){return topicChipHtml(c,true)}).join('');
     }
+    window.renderExploreCommunities=renderExploreCommunities;
+    window.normalizeTopicKey=normalizeTopicKey;
+    window.postMatchesTopic=postMatchesTopic;
+    window.topicStatsList=topicStatsList;
+    function renderWallTopics(){
+      // Topics live in Explore; keep wall list in sync for legacy callers.
+      var box=document.getElementById('wall-topics-list');
+      if(box){
+        var stats=sortedTopicStats(wallTopicsMode, ((document.getElementById('wall-topics-search')||{}).value||''), 0);
+        box.innerHTML=stats.length?stats.map(function(c){return topicChipHtml(c,true)}).join(''):'<div class="wall-topics-empty">No matching topics</div>';
+      }
+      try{renderExploreCommunities()}catch(e){}
+    }
+    function syncWallTopicActiveUi(){
+      var bar=document.getElementById('wall-topic-active');
+      var lab=document.getElementById('wall-topic-active-label');
+      var id=window.__wallTopicFilter||'';
+      if(!bar) return;
+      if(!id){
+        bar.classList.remove('is-on');
+        if(lab) lab.textContent='Topic';
+        return;
+      }
+      var c=(COMMUNITIES||[]).filter(function(x){return x.id===id})[0];
+      bar.classList.add('is-on');
+      if(lab) lab.textContent='Topic · #'+(c?String(c.name||id).replace(/\s+/g,''):id)+' · filtered in All Posts';
+    }
+    function clearWallTopicFilter(){
+      window.__wallTopicFilter='';
+      syncWallTopicActiveUi();
+      try{renderNormalFeed({force:true})}catch(e){}
+    }
+    window.clearWallTopicFilter=clearWallTopicFilter;
+    function openTopicInAllPosts(id){
+      var c=(COMMUNITIES||[]).filter(function(x){return x.id===id})[0];
+      if(!c && !id) return;
+      window.__wallTopicFilter=id;
+      try{localStorage.setItem('rs_feed_tab','all')}catch(e){}
+      try{setWallFilter('all')}catch(e){}
+      try{openFeedAllPosts()}catch(e){try{showPanel('wall')}catch(e2){}}
+      syncWallTopicActiveUi();
+      try{renderNormalFeed({force:true})}catch(e){}
+      try{
+        var counts=communityInterest();
+        counts[id]=(counts[id]||0)+1;
+        localStorage.setItem('rs_comm_interest', JSON.stringify(counts));
+      }catch(e){}
+    }
+    window.openTopicInAllPosts=openTopicInAllPosts;
+    function openFeedAllPosts(){
+      try{localStorage.setItem('rs_feed_tab','all')}catch(e){}
+      try{syncFeedModeTabs('all')}catch(e){}
+      try{showPanel('wall')}catch(e){}
+      try{loadNormalFeed(true)}catch(e){}
+    }
+    window.openFeedAllPosts=openFeedAllPosts;
+    function openFeedExtended(){
+      try{localStorage.setItem('rs_feed_tab','extended')}catch(e){}
+      try{syncFeedModeTabs('extended')}catch(e){}
+      try{showPanel('feed')}catch(e){}
+    }
+    window.openFeedExtended=openFeedExtended;
+    function syncFeedModeTabs(mode){
+      mode=mode==='all'?'all':'extended';
+      document.querySelectorAll('.feed-mode-tabs button[data-feed-tab]').forEach(function(b){
+        var on=b.getAttribute('data-feed-tab')===mode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on?'true':'false');
+      });
+    }
+    function setupFeedModeTabs(){
+      document.querySelectorAll('.feed-mode-tabs').forEach(function(wrap){
+        if(wrap.__wired) return;
+        wrap.__wired=1;
+        wrap.addEventListener('click', function(ev){
+          var b=ev.target&&ev.target.closest?ev.target.closest('[data-feed-tab]'):null;
+          if(!b) return;
+          ev.preventDefault();
+          var tab=b.getAttribute('data-feed-tab')||'extended';
+          if(tab==='all') openFeedAllPosts();
+          else openFeedExtended();
+        });
+      });
+    }
+    window.setupFeedModeTabs=setupFeedModeTabs;
+    window.syncFeedModeTabs=syncFeedModeTabs;
     function setupWallTopicsUi(){
-      document.querySelectorAll('.wall-topics-mode-chip').forEach(function(b){
+      document.querySelectorAll('.wall-topics-mode-chip, .explore-topics-mode-chip').forEach(function(b){
         if(b.__wired) return;
         b.__wired=true;
         b.onclick=function(){
           wallTopicsMode=b.getAttribute('data-topics-mode')||'popular';
-          document.querySelectorAll('.wall-topics-mode-chip').forEach(function(x){
+          window.__exploreTopicsShowAll=false;
+          document.querySelectorAll('.wall-topics-mode-chip, .explore-topics-mode-chip').forEach(function(x){
             x.classList.toggle('on', x.getAttribute('data-topics-mode')===wallTopicsMode);
           });
           renderWallTopics();
@@ -14443,6 +14569,14 @@ async function claimPayPalPack(p){
       if(search && !search.__wired){
         search.__wired=true;
         search.addEventListener('input', function(){renderWallTopics()});
+      }
+      var exploreSearch=document.getElementById('explore-topics-search');
+      if(exploreSearch && !exploreSearch.__wired){
+        exploreSearch.__wired=true;
+        exploreSearch.addEventListener('input', function(){
+          window.__exploreTopicsShowAll=true;
+          renderExploreCommunities();
+        });
       }
       var wallSearch=document.getElementById('wall-search');
       if(wallSearch && !wallSearch.__wired){
@@ -14461,12 +14595,13 @@ async function claimPayPalPack(p){
       }
     }
     function openAllTopicsPanel(){
-      try{showPanel('wall')}catch(e){}
-      var el=document.getElementById('wall-topics');
+      try{showPanel('explore')}catch(e){}
+      window.__exploreTopicsShowAll=true;
+      var el=document.getElementById('explore-topics-panel');
       if(el){try{el.scrollIntoView({behavior:'smooth',block:'start'})}catch(e){}}
-      var search=document.getElementById('wall-topics-search');
+      var search=document.getElementById('explore-topics-search');
       if(search){try{search.focus()}catch(e){}}
-      renderWallTopics();
+      renderExploreCommunities();
     }
     window.renderWallTopics=renderWallTopics;
     window.setupWallTopicsUi=setupWallTopicsUi;
@@ -16594,6 +16729,14 @@ function pendingRouletteTasks(){
             try{openExtendPostComposer()}catch(e){try{setExposurePostMode()}catch(e2){}}
           }
           if(target==='goontok'){openGoonTok();return;}
+          if(target==='feed'){
+            var tab='extended';
+            try{tab=localStorage.getItem('rs_feed_tab')||'extended'}catch(e){}
+            if(tab==='all'){openFeedAllPosts();return;}
+            openFeedExtended();
+            return;
+          }
+          if(target==='wall'){openFeedAllPosts();return;}
           showPanel(target);
         }catch(err){console.warn(err)}
       }
@@ -16637,6 +16780,8 @@ function pendingRouletteTasks(){
     function setupUI(){
       // Bind bottom nav first so a later setup error cannot leave the app unnavigable.
       try{bindBottomNav()}catch(e){console.warn('bindBottomNav',e)}
+      try{setupFeedModeTabs()}catch(e){}
+      try{setupWallTopicsUi()}catch(e){}
       try{setupTelegramPopup()}catch(e){}
       try{setupTgGroupPopup()}catch(e){}
       try{setupTaskUI()}catch(e){console.warn(e)}
@@ -19819,10 +19964,20 @@ function pendingRouletteTasks(){
       try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
       document.querySelectorAll('.nav-row .nav-item').forEach(function(n){
         var dp=n.getAttribute('data-p');
-        // EXTENDED denser panel shares the same main-feed nav destination as homepage feed.
-        var on=dp===name || (name==='extended' && dp==='feed');
+        // FEED owns both EXTENDED (panel-feed) and ALL POSTS (panel-wall).
+        var on=dp===name || ((name==='extended'||name==='wall') && dp==='feed');
         n.classList.toggle('active', on);
       });
+      try{
+        if(name==='feed'||name==='extended'){
+          localStorage.setItem('rs_feed_tab','extended');
+          if(typeof syncFeedModeTabs==='function') syncFeedModeTabs('extended');
+        }else if(name==='wall'){
+          localStorage.setItem('rs_feed_tab','all');
+          if(typeof syncFeedModeTabs==='function') syncFeedModeTabs('all');
+          if(typeof syncWallTopicActiveUi==='function') syncWallTopicActiveUi();
+        }
+      }catch(e){}
       if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');var loBtn=document.getElementById('btn-admin-logout');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';if(loBtn)loBtn.style.display='inline-flex';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';if(loBtn)loBtn.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
       if(name==='feed' || name==='extended'){
         if(opts.fromDetail && posts && posts.length){
@@ -19839,7 +19994,7 @@ function pendingRouletteTasks(){
       if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}
       if(name==='explore'){
         try{renderTrendingTags()}catch(e){}
-        try{renderExploreCommunities()}catch(e){}
+        try{setupWallTopicsUi();renderExploreCommunities()}catch(e){}
         /* Explore is a discovery hub — do not treat it as another community feed. */
         try{if(typeof refreshExploreMapPreview==='function')refreshExploreMapPreview()}catch(e){}
         startViewVisit('explore');
@@ -21865,6 +22020,29 @@ function pendingRouletteTasks(){
       var title=String(p.title||'').toLowerCase();
       return title.indexOf('published pea')>=0||title.indexOf('published id')>=0||title==='pea'||title.indexOf('pea ')===0;
     }
+    function isPeaPost(p){
+      if(!p)return false;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0) return true;
+      var title=String(p.title||'').toLowerCase();
+      return title.indexOf('published pea')>=0||title==='pea'||title.indexOf('pea ')===0;
+    }
+    function isIdPost(p){
+      if(!p)return false;
+      if(isPeaPost(p)) return false;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0) return true;
+      var title=String(p.title||'').toLowerCase();
+      return title.indexOf('published id')>=0||title.indexOf('id card')>=0;
+    }
+    window.isPeaPost=isPeaPost;
+    window.isIdPost=isIdPost;
     function wallDayKey(){
       var d=new Date();
       return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -22015,14 +22193,20 @@ function pendingRouletteTasks(){
           localStorage.setItem('rs_wall_filters_v2','1');
           localStorage.setItem('rs_wall_filter','all');
         }
+        // v3: ALL · GAMES · ID · PEA · REGULAR POSTS · TIMED POSTS
+        if(!localStorage.getItem('rs_wall_filters_v3')){
+          localStorage.setItem('rs_wall_filters_v3','1');
+          localStorage.setItem('rs_wall_filter','all');
+        }
         var f=localStorage.getItem('rs_wall_filter')||'all';
-        if(f==='post'||f==='posts') f='normal';
-        if(f==='extend'||f==='extend_post'||f==='extended') f='timed';
+        if(f==='post'||f==='posts'||f==='regular'||f==='regular_posts') f='normal';
+        if(f==='extend'||f==='extend_post'||f==='extended'||f==='timed_posts') f='timed';
         // Games = former Tasks / Roulette proofs.
         if(f==='roulette'||f==='games') f='tasks';
+        if(f==='generated') f='all';
         // Secondary destinations moved to Explore — collapse to All.
-        if(['trending','following','new','foryou','moment','dominants','generated','text'].indexOf(f)>=0) f='all';
-        if(['all','tasks','normal','timed'].indexOf(f)<0) f='all';
+        if(['trending','following','new','foryou','moment','dominants','text'].indexOf(f)>=0) f='all';
+        if(['all','tasks','id','pea','normal','timed'].indexOf(f)<0) f='all';
         localStorage.setItem('rs_wall_filter',f);
         return f;
       }catch(e){return'all'}
@@ -22056,12 +22240,13 @@ function pendingRouletteTasks(){
     }
     function setWallFilter(f){
       f=String(f||'all');
-      // Primary All Posts chips: All / Posts / Games / Extended
-      var allowed=['all','tasks','normal','timed'];
-      if(f==='post'||f==='posts') f='normal';
-      if(f==='extend' || f==='extend_post' || f==='extended') f='timed';
+      // Primary All Posts chips: ALL / GAMES / ID / PEA / REGULAR POSTS / TIMED POSTS
+      var allowed=['all','tasks','id','pea','normal','timed'];
+      if(f==='post'||f==='posts'||f==='regular'||f==='regular_posts') f='normal';
+      if(f==='extend' || f==='extend_post' || f==='extended' || f==='timed_posts') f='timed';
       if(f==='roulette'||f==='games') f='tasks';
-      if(['trending','following','new','foryou','moment','dominants','generated','text'].indexOf(f)>=0) f='all';
+      if(f==='generated') f='all';
+      if(['trending','following','new','foryou','moment','dominants','text'].indexOf(f)>=0) f='all';
       if(allowed.indexOf(f)<0) f='all';
       wallFilter=f;
       // Spec: every category defaults to Most Recent when opened; user can switch after.
@@ -22073,7 +22258,7 @@ function pendingRouletteTasks(){
       try{
         var box=document.getElementById('explore-normal-posts');
         if(box){
-          box.classList.toggle('wall-ids-mode', false);
+          box.classList.toggle('wall-ids-mode', f==='id'||f==='pea'||f==='generated');
           box.classList.toggle('wall-text-mode', false);
           box.classList.toggle('wall-roulette-mode', f==='tasks');
           box.classList.toggle('wall-tasks-mode', f==='tasks');
@@ -22273,28 +22458,35 @@ function pendingRouletteTasks(){
     function matchesWallFilter(p, filter){
       filter=filter||wallFilter||'all';
       if(filter==='roulette'||filter==='games') filter='tasks';
-      if(filter==='posts'||filter==='post') filter='normal';
-      if(filter==='extended'||filter==='extend'||filter==='extend_post') filter='timed';
-      // Dominants / IDs / Text are no longer primary chips — only via All.
+      if(filter==='posts'||filter==='post'||filter==='regular'||filter==='regular_posts') filter='normal';
+      if(filter==='extended'||filter==='extend'||filter==='extend_post'||filter==='timed_posts') filter='timed';
+      // Dominants coming-soon — not a live filter.
       if(filter==='dominants') return false;
       // All Posts = one continuous community feed of every publication type (no record copies).
       if(filter==='all') return !!(typeof isWallUnifiedPost==='function'?isWallUnifiedPost(p):true);
       // Games = Roulette / Dice / Tic-Tac-Toe / Challenges proofs.
       if(filter==='tasks') return !!(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p));
-      // Extended = active extension timers only.
+      // ID / PEA — original generated categories (not duplicated records).
+      if(filter==='id') return !!(typeof isIdPost==='function'&&isIdPost(p));
+      if(filter==='pea') return !!(typeof isPeaPost==='function'&&isPeaPost(p));
+      // Timed posts = active duration window (distinct from the EXTENDED destination).
       if(filter==='timed') return isWallTimedPost(p);
-      // Posts = regular community publications (not games / not active timers).
+      // Regular posts = community posts that are not timed / games / ID / PEA.
       if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return false;
       if(isWallTimedPost(p)) return false;
-      if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
+      if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)){
+        if(filter==='generated') return true;
+        return false;
+      }
+      if(filter==='generated') return false;
       if(!isWallNativePost(p) && filter!=='generated') return false;
       if(filter==='text') return isWallTextPost(p);
-      if(filter==='normal') return isWallNormalPost(p) || isWallTextPost(p) || (!!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)));
+      if(filter==='normal') return isWallNormalPost(p) || isWallTextPost(p);
       if(filter==='following') return isWallFollowingPost(p);
       if(filter==='new') return isWallNewPost(p);
       if(filter==='foryou') return isWallForYouPost(p);
       if(filter==='trending') return isWallTrendingPost(p);
-      return isWallNormalPost(p) || (!!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))) || isWallTextPost(p);
+      return isWallNormalPost(p) || isWallTextPost(p);
     }
     function wallInteractionScore(p){
       // Recent engagement window (~7d) for Most Interaction sort.
@@ -22336,7 +22528,12 @@ function pendingRouletteTasks(){
           var title=String(p.title||'').toUpperCase();
           if(title.indexOf('PIN REQUEST')===0||title.indexOf('PRINT REQUEST')===0) return false;
         }catch(e){}
-        return matchesWallFilter(p, wallFilter);
+        if(!matchesWallFilter(p, wallFilter)) return false;
+        try{
+          var topicId=window.__wallTopicFilter||'';
+          if(topicId && typeof postMatchesTopic==='function' && !postMatchesTopic(p, topicId)) return false;
+        }catch(e){}
+        return true;
       });
       var sortByCreated=function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)};
       var sortByInteraction=function(a,b){
@@ -22432,7 +22629,7 @@ function pendingRouletteTasks(){
         });
         window.__wallVisible=next;
         try{
-          var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
+          var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||''), String(window.__wallTopicFilter||'')].join('|');
           var paintIds=list.slice(0,next).map(function(p){return String(p&&p.id)}).join(',');
           window.__wallPaintIds=paintIds;
           window.__wallPaintSig=wallSig+'#'+paintIds+'#'+next;
@@ -22476,7 +22673,7 @@ function pendingRouletteTasks(){
       var list=buildWallFilteredList();
       window.__wallRest=list;
       window.__lastWallListLen=list.length;
-      var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
+      var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||''), String(window.__wallTopicFilter||'')].join('|');
       var sigChanged=window.__wallSig!==wallSig;
       if(sigChanged){
         window.__wallSig=wallSig;
@@ -22505,7 +22702,9 @@ function pendingRouletteTasks(){
         moment:'Nothing on the wall yet. Post something.',
         all:'Nothing in All Posts yet. Publish a post, extend, or game proof.',
         normal:'No regular posts yet.',
-        timed:'No Extended publications live right now.',
+        timed:'No timed posts live right now.',
+        id:'No ID publications yet.',
+        pea:'No PEA publications yet.',
         generated:'No generated IDs / PEAs yet.',
         tasks:'No game publications yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
         roulette:'No game publications yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
@@ -24285,30 +24484,17 @@ function pendingRouletteTasks(){
     window.openExtendPostComposer=openExtendPostComposer;
 
     function setGlobalFeedMode(mode){
-      if(mode==='normal'){
-        try{showPanel('wall')}catch(e){}
-        try{loadNormalFeed()}catch(e){}
+      if(mode==='normal'||mode==='all'){
+        try{openFeedAllPosts()}catch(e){
+          try{showPanel('wall')}catch(e2){}
+          try{loadNormalFeed()}catch(e3){}
+        }
         return;
       }
-      var panel=document.getElementById('panel-feed');
-      var wrap=document.getElementById('global-feed-switch');
-      if(!panel)return;
-      mode='extended';
-      if(wrap)wrap.querySelectorAll('button').forEach(function(b){
-        b.classList.toggle('active',b.getAttribute('data-feed-mode')===mode);
-      });
-      if(mode==='normal'){
-        panel.classList.add('normal-mode');
-        var nf=document.getElementById('normal-feed-panel');
-        if(nf)nf.style.display='block';
-        loadNormalFeed();
-      }else{
-        panel.classList.remove('normal-mode');
-        var nf=document.getElementById('normal-feed-panel');
-        if(nf)nf.style.display='none';
-        try{loadPosts()}catch(e){}
+      try{openFeedExtended()}catch(e){
+        try{showPanel('feed')}catch(e2){}
+        try{loadPosts()}catch(e3){}
       }
-      try{setPanelRoute('feed')}catch(e){}
     }
 
 

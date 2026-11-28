@@ -24,19 +24,21 @@ assert(html.includes('Videos are permanent on GoonTok — never show Extend'), '
 assert(/function postHasActiveTimer\(p\)\{[\s\S]{0,400}isVideoPost/.test(html), 'postHasActiveTimer excludes videos');
 assert(html.includes('Permanent on GoonTok — no timer'), 'composer copy says permanent');
 
-// 3) All Posts primary filters — All / Posts / Games / Extended
+// 3) All Posts primary filters — ALL / GAMES / ID / PEA / REGULAR POSTS / TIMED POSTS
 var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 2000);
-assert(wallBar.includes('data-wall-filter="all"') && wallBar.includes('>All<'), 'All tab');
-assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>Posts<'), 'Posts tab');
-assert(wallBar.includes('data-wall-filter="tasks"') && wallBar.includes('>Games<'), 'Games tab');
-assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('>Extended<'), 'Extended tab');
+assert(wallBar.includes('data-wall-filter="all"') && wallBar.includes('>ALL<'), 'ALL tab');
+assert(wallBar.includes('data-wall-filter="tasks"') && wallBar.includes('>GAMES<'), 'GAMES tab');
+assert(wallBar.includes('data-wall-filter="id"') && wallBar.includes('>ID<'), 'ID tab');
+assert(wallBar.includes('data-wall-filter="pea"') && wallBar.includes('>PEA<'), 'PEA tab');
+assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>REGULAR POSTS<'), 'REGULAR POSTS tab');
+assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('>TIMED POSTS<'), 'TIMED POSTS tab');
 assert(!wallBar.includes('data-wall-filter="dominants"'), 'Dominants no longer primary chip');
-assert(!wallBar.includes('data-wall-filter="generated"'), 'IDs/PEA no longer primary chip');
+assert(!wallBar.includes('data-wall-filter="generated"'), 'combined IDs/PEA chip removed');
 assert(!wallBar.includes('data-wall-filter="text"'), 'Text no longer primary chip');
 assert(!wallBar.includes('data-wall-filter="roulette"'), 'Roulette tab replaced by Games');
-assert((wallBar.match(/data-wall-filter="/g) || []).length === 4, 'exactly 4 wall filter chips');
-assert(html.includes("allowed=['all','tasks','normal','timed']"), 'setWallFilter allowlist All/Posts/Games/Extended');
-assert(html.includes('rs_wall_filters_v2'), 'filters v2 migration');
+assert((wallBar.match(/data-wall-filter="/g) || []).length === 6, 'exactly 6 wall filter chips');
+assert(html.includes("allowed=['all','tasks','id','pea','normal','timed']"), 'setWallFilter allowlist v3');
+assert(html.includes('rs_wall_filters_v3'), 'filters v3 migration');
 
 // Sort controls + Games CTA
 assert(html.includes('id="wall-sort-bar"') && html.includes('data-wall-sort="recent"') && html.includes('data-wall-sort="interaction"'), 'per-category Most Recent / Most Interaction');
@@ -48,8 +50,9 @@ assert(html.includes('function isRouletteWallPost'), 'legacy roulette detector k
 assert(html.includes('function wallCategoryBadgeHtml'), 'category badges for mixed feed');
 assert(html.includes('rs_wall_unified_v1'), 'one-time migration to All Posts');
 
-// Topics discovery on All Posts
-assert(html.includes('id="wall-topics"') && html.includes('function renderWallTopics'), 'Topics on All Posts');
+// Topics discovery on Explore
+assert(html.includes('id="explore-topics-panel"') && html.includes('function openTopicInAllPosts'), 'Topics on Explore open All Posts');
+assert(html.includes('data-feed-tab="extended"') && html.includes('data-feed-tab="all"'), 'FEED tabs');
 
 // Videos catalog
 assert(html.includes('vid-catalog') && html.includes('Most Viewed'), 'Videos catalog sorts');
