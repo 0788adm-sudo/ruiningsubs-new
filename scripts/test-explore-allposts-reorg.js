@@ -48,7 +48,10 @@ assert(html.includes('id="wall-search"'), 'All Posts search');
 
 // —— Topics on Explore (not primary All Posts) ——
 assert(html.includes('id="explore-topics-panel"'), 'Topics panel on Explore');
-assert(html.includes('POPULAR TOPICS') && html.includes('RECENT TOPICS') && html.includes('VIEW ALL TOPICS'), 'topic discovery modes');
+assert(html.includes('TRENDING TOPICS'), 'Trending Topics label');
+assert(!html.includes('POPULAR TOPICS') && !html.includes('RECENT TOPICS') && !html.includes('VIEW ALL TOPICS'), 'legacy topic discovery modes removed');
+assert(!html.includes('id="explore-topics-search"'), 'Explore topic search removed');
+assert(html.includes('function trendingTopicStats') && html.includes('trendingTopicStats(6)'), 'top-6 live topic frequencies');
 assert(html.includes('function openTopicInAllPosts'), 'topic opens All Posts');
 assert(html.includes('__wallTopicFilter'), 'topic filter state');
 assert(html.includes('function openCommunity'), 'topic feed retained');
@@ -61,7 +64,9 @@ assert(html.includes('Search users, content or topics'), 'Explore search placeho
 assert(html.includes('btn-explore-allposts') && html.includes('openFeedAllPosts'), 'ALL POSTS explore card');
 assert(html.includes('Discover all community publications'), 'ALL POSTS card subtitle');
 assert(html.includes('btn-explore-trending') && html.includes('openExploreTrending'), 'Trending card');
-assert(html.includes('Exposure Map') && html.includes('openExposureMap'), 'Exposure Map retained');
+assert(!html.includes('btn-explore-map-card') && !html.includes('explore-card-map'), 'duplicate Explore map promo card removed');
+assert(html.includes('explore-map-card') && html.includes('Open Map') && html.includes('openExposureMap'), 'Exposure Map world preview retained');
+assert(html.includes('btn-feed-exposure-map') && html.includes('Discover users around the world'), 'Feed Exposure Map shortcut');
 assert(html.includes('explore-games-card') && html.includes('openChallengesHub'), 'Games card');
 assert(html.includes('btn-explore-idcard') && html.includes('btn-explore-pea'), 'ID/PEA tools');
 assert(html.includes('btn-explore-print') && html.includes('btn-explore-randomcam'), 'Print + RandomCam');
