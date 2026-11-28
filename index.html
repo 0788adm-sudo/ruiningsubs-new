@@ -3066,13 +3066,19 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 #id-archive-list .id-archive-card .id-arch-media img{
   width:100%;height:auto;max-height:70vh;object-fit:contain;object-position:center;display:block;
 }
-/* Wall IDs / PEA tab: keep uniform grid thumbs; full art opens in detail */
-#explore-normal-posts.wall-ids-mode .normal-feed-post-media{
+/* Wall IDs / PEA: keep card art visible in the 2-col grid (contain, never crop away) */
+#explore-normal-posts.wall-ids-mode .normal-feed-post-media,
+#explore-normal-posts article.nf-id-card .normal-feed-post-media,
+#explore-normal-posts article.nf-pea-card .normal-feed-post-media{
   aspect-ratio:3/4!important;max-height:none!important;overflow:hidden;background:#000;
   display:flex;align-items:center;justify-content:center;min-height:0;
 }
 #explore-normal-posts.wall-ids-mode .normal-feed-post-media img,
-#explore-normal-posts.wall-ids-mode .normal-feed-post-media video{
+#explore-normal-posts.wall-ids-mode .normal-feed-post-media video,
+#explore-normal-posts article.nf-id-card .normal-feed-post-media img,
+#explore-normal-posts article.nf-id-card .normal-feed-post-media video,
+#explore-normal-posts article.nf-pea-card .normal-feed-post-media img,
+#explore-normal-posts article.nf-pea-card .normal-feed-post-media video{
   width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;object-position:center center;display:block;
 }
 #id-archive-list .id-archive-card .id-arch-meta{
@@ -5861,7 +5867,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         body:JSON.stringify(row)
       });
       var j=await r.json().catch(function(){return{}});
-      if(r.ok && !(j&&j.ok===false) && (j.post||j.id||(j.ok&&j.post!==null))) return j;
+      // Require a real saved id — `{ok:true}` alone used to skip the SB fallback and left
+      // Publish ID/PEA with phantom local `cf_*` rows that never appeared in All Posts.
+      var cfSavedId=(function(x){
+        if(!x||x.ok===false) return null;
+        if(x.post&&x.post.id!=null) return x.post.id;
+        if(x.data&&x.data.id!=null) return x.data.id;
+        if(x.id!=null) return x.id;
+        return null;
+      })(j);
+      if(r.ok && cfSavedId!=null) return j;
 
       // CF D1 insert is currently broken ("16 values for 18 columns"). Fall back to Supabase
       // so GoonTok / video publish keeps working while the Worker schema is patched.
@@ -5894,7 +5909,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         var intendedExt=isVideo?0:(intendedExtendAmountForWrite(row, tags)||0);
         // Timed posts must persist the publisher's choice. Only use legacy 360 when
         // neither column nor ext_N tag carried an amount (old clients).
-        if(!isVideo && !(intendedExt>0)) intendedExt=360;
+        // Permanent ID/PEA cards stay at 0 — they are not timed exposures.
+        var isIdPeaWrite=tags.indexOf('generated_id')>=0||tags.indexOf('generated_pea')>=0||tags.indexOf('idcard')>=0||tags.indexOf('pea')>=0;
+        if(!isVideo && !(intendedExt>0)) intendedExt=isIdPeaWrite?0:360;
         var ins={
           username:row.username||'anon',
           title:row.title||'',
@@ -22469,7 +22486,15 @@ function pendingRouletteTasks(){
         +'<span class="nf-stat-views">👁 '+esc(String(viewLabel))+'</span>'
         +'<span class="nf-stat-likes">❤ <span data-likes-id="'+pid+'">'+likesN+'</span></span>'
         +'</div>';
-      return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
+      var idPeaClass='';
+      try{
+        if(typeof isPeaPost==='function'&&isPeaPost(p)) idPeaClass=' nf-pea-card';
+        else if(typeof isIdPost==='function'&&isIdPost(p)) idPeaClass=' nf-id-card';
+        else if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)){
+          idPeaClass=(String(p.title||'').toLowerCase().indexOf('pea')>=0)?' nf-pea-card':' nf-id-card';
+        }
+      }catch(e){}
+      return '<article class="normal-feed-post'+idPeaClass+'" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
         +'<div class="normal-feed-post-head"><div class="av" style="cursor:pointer" '+(clickable?'onclick="openUser(\''+String(p.user).replace(/'/g,'')+'\')"':'')+'>'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+tierBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div></div>'
         +media
@@ -22504,9 +22529,10 @@ function pendingRouletteTasks(){
       if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
       if(!Array.isArray(tg))tg=[];
       tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
-      if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0)return true;
+      // Bare tag "id" matches older Publish ID rows (same as loadIdArchive).
+      if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0||tg.indexOf('id')>=0)return true;
       var title=String(p.title||'').toLowerCase();
-      return title.indexOf('published pea')>=0||title.indexOf('published id')>=0||title==='pea'||title.indexOf('pea ')===0;
+      return title.indexOf('published pea')>=0||title.indexOf('published id')>=0||title==='pea'||title.indexOf('pea ')===0||title==='id'||title.indexOf('id card')>=0;
     }
     function isPeaPost(p){
       if(!p)return false;
@@ -22525,9 +22551,10 @@ function pendingRouletteTasks(){
       if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
       if(!Array.isArray(tg))tg=[];
       tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
-      if(tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0) return true;
+      // generated_id / idcard / bare "id" — older publishes often used only "id".
+      if(tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0||tg.indexOf('id')>=0) return true;
       var title=String(p.title||'').toLowerCase();
-      return title.indexOf('published id')>=0||title.indexOf('id card')>=0;
+      return title.indexOf('published id')>=0||title.indexOf('id card')>=0||title==='id';
     }
     window.isPeaPost=isPeaPost;
     window.isIdPost=isIdPost;
@@ -22737,6 +22764,12 @@ function pendingRouletteTasks(){
       if(['trending','following','new','foryou','moment','dominants','text'].indexOf(f)>=0) f='all';
       if(allowed.indexOf(f)<0) f='all';
       wallFilter=f;
+      // Category chips (ID/PEA/…) must not keep a stuck Explore topic filter.
+      // Topics only apply on ALL (openTopicInAllPosts sets filter=all + topic).
+      if(f!=='all' && window.__wallTopicFilter){
+        window.__wallTopicFilter='';
+        try{syncWallTopicActiveUi()}catch(e){}
+      }
       // Spec: every category defaults to Most Recent when opened; user can switch after.
       wallSortMode='recent';
       try{localStorage.setItem('rs_wall_sort_'+f,'recent')}catch(e){}
@@ -22746,7 +22779,7 @@ function pendingRouletteTasks(){
       try{
         var box=document.getElementById('explore-normal-posts');
         if(box){
-          box.classList.toggle('wall-ids-mode', f==='id'||f==='pea'||f==='generated');
+          box.classList.toggle('wall-ids-mode', f==='id'||f==='pea');
           box.classList.toggle('wall-text-mode', false);
           box.classList.toggle('wall-roulette-mode', f==='tasks');
           box.classList.toggle('wall-tasks-mode', f==='tasks');
@@ -22767,10 +22800,11 @@ function pendingRouletteTasks(){
       window.__wallPaintIds='';
       try{cancelFeedScrollRestore()}catch(e){}
       renderNormalFeed({force:true});
-      // Soft top-up in background if this slice looks thin
+      // Soft top-up in background if this slice looks thin — always refresh ID/PEA
+      // so tagged rows outside the latest CF/SB window still land in All Posts.
       try{
         var n=(window.__lastWallListLen||0);
-        if(n<8 && typeof loadNormalFeed==='function') loadNormalFeed(true);
+        if((f==='id'||f==='pea'||n<8) && typeof loadNormalFeed==='function') loadNormalFeed(true);
       }catch(e){}
     }
     window.setWallFilter=setWallFilter;
@@ -22794,7 +22828,8 @@ function pendingRouletteTasks(){
       try{
         var box=document.getElementById('explore-normal-posts');
         if(box){
-          box.classList.toggle('wall-ids-mode', wallFilter==='generated');
+          // Keep wall-ids-mode for ID + PEA (legacy 'generated' was remapped to 'all').
+          box.classList.toggle('wall-ids-mode', wallFilter==='id'||wallFilter==='pea');
           box.classList.toggle('wall-text-mode', wallFilter==='text');
           box.classList.toggle('wall-roulette-mode', wallFilter==='tasks');
           box.classList.toggle('wall-tasks-mode', wallFilter==='tasks');
@@ -24805,20 +24840,36 @@ function pendingRouletteTasks(){
           // comments_count are NOT on posts yet — selecting them returns HTTP 400
           // and left cold /wall on "No posts yet" forever (CF /feed is often empty).
           var WALL_SB_COLS='id,username,title,description,tags,image_url,expires_at,created_at,views,likes_count,extensions_count,extend_amount,extenders,liked_by,featured_until,saves_count,downloads_count,reactions';
+          function pushSbRows(rows){
+            (rows||[]).forEach(function(r){
+              var mapped=null;
+              try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
+              if(!mapped||isDeletedId(mapped.id))return;
+              mapped.hotCount=postHotCount(mapped);
+              if(!targetList.some(function(p){return String(p.id)===String(mapped.id)})) targetList.push(mapped);
+            });
+          }
+          // Latest wall window + dedicated ID/PEA tag queries so Publish ID / Publish PEA
+          // rows are not lost when they fall outside the newest 80 posts (CF /feed is often empty).
+          var recentQ=sb.from('posts').select(WALL_SB_COLS).order('created_at',{ascending:false}).limit(80);
+          var idQs=[
+            sb.from('posts').select(WALL_SB_COLS).contains('tags',['generated_id']).order('created_at',{ascending:false}).limit(40),
+            sb.from('posts').select(WALL_SB_COLS).contains('tags',['idcard']).order('created_at',{ascending:false}).limit(40),
+            sb.from('posts').select(WALL_SB_COLS).contains('tags',['id']).order('created_at',{ascending:false}).limit(40),
+            sb.from('posts').select(WALL_SB_COLS).contains('tags',['generated_pea']).order('created_at',{ascending:false}).limit(40),
+            sb.from('posts').select(WALL_SB_COLS).contains('tags',['pea']).order('created_at',{ascending:false}).limit(40)
+          ];
           return sbQueryTimeout(
-            sb.from('posts').select(WALL_SB_COLS).order('created_at',{ascending:false}).limit(80)
-              .then(function(sbRecent){
-                if(sbRecent&&sbRecent.error){ try{noteSupabaseOutage(sbRecent.error)}catch(e){} throw sbRecent.error; }
-                ((sbRecent&&sbRecent.data)||[]).forEach(function(r){
-                  var mapped=null;
-                  try{mapped=cfRowToFeed(r)}catch(e){mapped=null}
-                  if(!mapped||isDeletedId(mapped.id))return;
-                  mapped.hotCount=postHotCount(mapped);
-                  if(!targetList.some(function(p){return String(p.id)===String(mapped.id)})) targetList.push(mapped);
-                });
-                return targetList;
-              }),
-            7000,
+            Promise.all([recentQ].concat(idQs)).then(function(results){
+              var first=results&&results[0];
+              if(first&&first.error){ try{noteSupabaseOutage(first.error)}catch(e){} throw first.error; }
+              (results||[]).forEach(function(res){
+                if(res&&res.error){ try{noteSupabaseOutage(res.error)}catch(e){} return; }
+                pushSbRows((res&&res.data)||[]);
+              });
+              return targetList;
+            }),
+            9000,
             targetList
           ).catch(function(){return targetList});
         }
@@ -31410,22 +31461,19 @@ async function onIdFace(e){
             thumb_url:payload.image_url,
             media_type:'image',
             expires_at:null,
-            feed:'wall'
+            feed:'wall',
+            extend_amount:0
           });
-        }catch(e){console.warn('cf id share',e)}
+        }catch(e){console.warn('cf id share',e);cfShare=null}
+        // Prefer a real persisted row (CF or Supabase fallback). Never invent phantom cf_* ids —
+        // those looked published locally then vanished from ALL POSTS → ID / PEA.
         var row=(cfShare&&(cfShare.post||cfShare.data))||null;
-        if(!row){
-          row={
-            id:'cf_'+Date.now(),
-            username:payload.username,
-            title:payload.title,
-            description:payload.description,
-            tags:payload.tags,
-            image_url:payload.image_url,
-            created_at:new Date().toISOString()
-          };
+        if(!row && cfShare && cfShare.id!=null) row=cfShare;
+        if(!row || row.id==null){
+          toast('Could not publish — try again');
+          return;
         }
-        if(!row.image_url) row.image_url=payload.image_url;
+        if(!row.image_url) row.image_url=row.media_url||payload.image_url;
         if(!row.username) row.username=payload.username;
         if(!row.tags) row.tags=payload.tags;
         if(Array.isArray(payload.tags)){
@@ -31473,12 +31521,16 @@ async function onIdFace(e){
             if(!normalFeedPosts.some(function(p){return String(p.id)===String(shared.id)})) normalFeedPosts.unshift(shared);
             try{localStorage.setItem('rs_last_pub',JSON.stringify({id:shared.id,user:shared.user,title:shared.title,desc:shared.desc,tags:shared.tags,image:shared.image,expires:0,t:Date.now()}))}catch(e){}
             try{if(typeof renderFeed==='function')renderFeed()}catch(e){}
-            try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
             try{if(typeof renderWallHot==='function')renderWallHot()}catch(e){}
             try{
-              showPanel('wall');
+              // Land on the matching All Posts category so the new card is visible immediately.
+              try{localStorage.setItem('rs_feed_tab','all')}catch(eTab){}
+              try{showPanel('wall')}catch(eWall){}
+              try{setWallFilter(isPea?'pea':'id')}catch(eFilt){
+                try{renderNormalFeed({force:true})}catch(eRend){}
+              }
               setTimeout(function(){
-                try{renderNormalFeed()}catch(e){}
+                try{renderNormalFeed({force:true})}catch(e){}
                 try{if(row&&row.id&&typeof openDetail==='function')openDetail(row.id)}catch(e){}
               },350);
             }catch(e){}
@@ -31610,7 +31662,21 @@ async function onIdFace(e){
           var cfRows=await fetchCfFeed();
           pushRows(cfRows||[]);
         }catch(e0){console.warn('cf archive',e0)}
-        // 3) Memory posts already in the app
+        // Supabase by tag — CF /feed is often empty; do not leave the archive blank.
+        try{
+          if(typeof sb!=='undefined' && sb){
+            var ARCH_COLS='id,username,title,description,tags,image_url,created_at,views,likes_count';
+            var archQs=tagList.map(function(tag){
+              return sb.from('posts').select(ARCH_COLS).contains('tags',[tag]).order('created_at',{ascending:false}).limit(40);
+            });
+            var archRes=await withTimeout(Promise.all(archQs),8000).catch(function(){return []});
+            (archRes||[]).forEach(function(res){
+              if(res&&res.error) return;
+              pushRows((res&&res.data)||[]);
+            });
+          }
+        }catch(eSbArch){console.warn('sb archive',eSbArch)}
+        // Memory posts already in the app
         if(typeof posts!=='undefined' && Array.isArray(posts) && posts.length){
           pushRows(posts.map(function(p){
             return {id:p.id,username:p.user,title:p.title,description:p.desc,image_url:p.image||(p.images&&p.images[0]),created_at:p.created,tags:p.tags,views:p.views,likes_count:p.likes};
@@ -31681,9 +31747,10 @@ async function onIdFace(e){
       var tags=p.tags||[];
       if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
       if(!Array.isArray(tags))tags=[];
-      if(tags.indexOf('generated_id')>=0||tags.indexOf('generated_pea')>=0||tags.indexOf('idcard')>=0||tags.indexOf('pea')>=0)return true;
+      tags=tags.map(function(t){return String(t||'').toLowerCase().replace(/^#/,'')});
+      if(tags.indexOf('generated_id')>=0||tags.indexOf('generated_pea')>=0||tags.indexOf('idcard')>=0||tags.indexOf('pea')>=0||tags.indexOf('id')>=0)return true;
       var t=String(p.title||'').toLowerCase();
-      if(t==='published id'||t==='published pea'||t.indexOf('id card')>=0||t.indexOf('pea')>=0)return true;
+      if(t==='published id'||t==='published pea'||t==='id'||t.indexOf('id card')>=0||t.indexOf('pea')>=0)return true;
       return false;
     }
     function isVideoPost(p){
