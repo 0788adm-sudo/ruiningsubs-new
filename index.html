@@ -595,8 +595,15 @@
     .modal-bg.show{display:flex}
     .modal{background:var(--card);border:1px solid var(--border);border-radius:20px 20px 14px 14px;width:100%;max-width:400px;padding:22px;max-height:80vh;overflow-y:auto}
     /* Delete modal must sit above bottom-nav (z=5000) so Cancel / $5 CTAs stay tappable on mobile + Telegram WebView */
-    #remove-modal.modal-bg{z-index:6000;align-items:center;padding:12px 16px calc(18px + env(safe-area-inset-bottom,0px))}
-    #remove-modal .modal{max-height:min(88vh,760px);padding-bottom:26px;-webkit-overflow-scrolling:touch}
+    #remove-modal.modal-bg,#pin-modal.modal-bg{z-index:6000;align-items:center;padding:12px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+    #remove-modal .modal,#pin-modal .modal{max-height:min(88vh,760px);padding-bottom:26px;-webkit-overflow-scrolling:touch}
+    #btn-pin-fc.btn-remove-fc-pay{
+      width:100%;margin-bottom:10px;padding:14px;font-weight:800;border:0;
+      background:linear-gradient(135deg,#f5c518,#ff8a00);color:#111;border-radius:14px;
+    }
+    #btn-pin-fc.btn-remove-fc-pay .rm-fc-pay-label{display:flex;flex-direction:column;align-items:center;line-height:1.2;text-align:center}
+    #btn-pin-fc.btn-remove-fc-pay .rm-fc-pay-title{font-size:16px;font-weight:900}
+    #btn-pin-fc.btn-remove-fc-pay .rm-fc-pay-sub{font-size:12px;font-weight:600;opacity:.92}
     #btn-remove-fc.btn-remove-fc-pay{
       width:100%;margin-bottom:10px;padding:14px;font-weight:800;border:0;border-radius:14px;
       background:linear-gradient(90deg,#ec4899,#db2777);color:#fff;
@@ -750,8 +757,14 @@
     .wall-filter-bar::-webkit-scrollbar{display:none}
     .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
+    .wall-filter-chip[data-wall-filter="tasks"].on,
     .wall-filter-chip[data-wall-filter="roulette"].on{background:linear-gradient(90deg,#ff8a00,#ff3b1f);box-shadow:0 0 14px rgba(255,106,0,.4)}
     .wall-filter-chip[data-wall-filter="dominants"].on{background:linear-gradient(90deg,#7c3aed,#ec4899);box-shadow:0 0 14px rgba(236,72,153,.35)}
+    .wall-tasks-cta{display:none;margin:0 8px 8px}
+    .wall-tasks-cta.is-on{display:block}
+    .wall-tasks-cta-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .wall-tasks-cta-row .btn{width:100%;padding:10px 8px;font-weight:900;font-size:11px;border-radius:12px;border:0;line-height:1.2}
+    .wall-tasks-cta-note{font-size:11px;color:#9a9aa3;text-align:center;margin-top:6px;line-height:1.35}
     .wall-dominants-soon{display:none;margin:8px 4px 24px;padding:48px 22px;border-radius:20px;text-align:center;position:relative;overflow:hidden;background:
       radial-gradient(ellipse at 30% 20%,rgba(124,58,237,.28),transparent 55%),
       radial-gradient(ellipse at 70% 80%,rgba(236,72,153,.18),transparent 50%),
@@ -766,6 +779,7 @@
     #explore-normal-wrap.wall-dominants-mode .wall-quick-actions,
     #explore-normal-wrap.wall-dominants-mode .wall-sort-bar,
     #explore-normal-wrap.wall-dominants-mode #wall-roulette-cta,
+    #explore-normal-wrap.wall-dominants-mode #wall-tasks-cta,
     #explore-normal-wrap.wall-dominants-mode #explore-normal-posts{display:none!important}
     .wall-sort-bar{display:flex;gap:6px;padding:0 4px 8px;margin:0 0 6px}
     .wall-sort-chip{flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;cursor:pointer;touch-action:manipulation;min-height:36px}
@@ -2236,269 +2250,216 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   #posts-container{grid-template-columns:repeat(5,minmax(0,1fr))!important}
 }
 
-/* ——— Coins shop · RUINEXPOSE underground membership ——— */
+/* ——— Coins shop · RuinExpose integrated recharge ——— */
 #panel-coins.coins-lux{
-  --lux-ink:#f0f0f2;
-  --lux-mute:#8a8690;
-  --lux-gold:#e85d04;
-  --lux-burn:#c2410c;
-  --lux-steel:#a8adb8;
-  --lux-graph:#3a3a42;
-  --lux-carbon:#0c0c0e;
-  --lux-blood:#7f1d1d;
+  --lux-ink:#ececef;
+  --lux-mute:#7a7a86;
+  --lux-gold:#ff6a00;
+  --lux-yellow:#f5c518;
+  --lux-purple:#7c3aed;
+  --lux-steel:#9a9aa3;
+  --lux-graph:#1c1c22;
+  --lux-carbon:#0a0a0c;
   position:relative;
   overflow-x:hidden;
   overflow-y:visible;
-  padding:8px 12px 36px;
+  padding:10px 12px 40px;
   font-family:Barlow,system-ui,sans-serif;
   color:var(--lux-ink);
   isolation:isolate;
   background:
-    repeating-linear-gradient(90deg,transparent 0 47px,rgba(255,255,255,.012) 47px 48px),
-    repeating-linear-gradient(0deg,transparent 0 47px,rgba(255,255,255,.01) 47px 48px),
-    #070708;
+    radial-gradient(ellipse 80% 40% at 50% -10%,rgba(124,58,237,.16),transparent 55%),
+    radial-gradient(ellipse 60% 30% at 100% 20%,rgba(255,106,0,.08),transparent 50%),
+    #050506;
 }
-#panel-coins.coins-lux::before{
-  content:"";
-  position:absolute;inset:0;
-  background:
-    linear-gradient(180deg,rgba(232,93,4,.05) 0%,transparent 22%),
-    radial-gradient(ellipse 70% 28% at 50% 0%,rgba(127,29,29,.18),transparent 60%);
-  pointer-events:none;z-index:0;
-}
+#panel-coins.coins-lux::before{content:none}
 #panel-coins.coins-lux::after{
   content:"";
-  position:absolute;left:0;right:0;top:0;height:2px;
-  background:linear-gradient(90deg,#7f1d1d 0%,#e85d04 55%,#5c5c66 100%);
+  position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(124,58,237,.55),rgba(255,106,0,.45),transparent);
   pointer-events:none;z-index:2;
 }
-@keyframes coinsLuxRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-#panel-coins .coins-lux-inner{position:relative;z-index:1;max-width:480px;margin:0 auto;width:100%;box-sizing:border-box}
-#panel-coins .coins-lux-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+@keyframes coinsLuxRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#panel-coins .coins-lux-inner{position:relative;z-index:1;max-width:440px;margin:0 auto;width:100%;box-sizing:border-box}
+#panel-coins .coins-lux-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+#panel-coins .coins-lux-title-wrap{flex:1;min-width:0;text-align:center}
 #panel-coins .coins-lux-back{
-  width:36px;height:36px;border-radius:6px;
+  width:34px;height:34px;border-radius:10px;
   background:var(--lux-carbon);border:1px solid var(--lux-graph);
   color:var(--lux-ink);
 }
 #panel-coins .coins-lux-link{
   border:1px solid var(--lux-graph);background:var(--lux-carbon);
-  color:var(--lux-mute);border-radius:6px;padding:7px 10px;
-  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
-  font-family:inherit;transition:border-color .15s ease,color .15s ease;
+  color:var(--lux-mute);border-radius:10px;padding:7px 10px;
+  font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
+  font-family:inherit;
 }
-#panel-coins .coins-lux-link:hover{color:#fff;border-color:rgba(232,93,4,.55)}
-#panel-coins .coins-lux-hero{text-align:center;margin:0 0 12px;animation:coinsLuxRise .4s ease both}
 #panel-coins .coins-lux-kicker{
-  display:inline-block;font-family:Oswald,Impact,sans-serif;font-weight:700;
-  font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--lux-gold);
-  margin:0 0 4px;padding-bottom:2px;border-bottom:2px solid var(--lux-gold);
+  display:block;font-family:Oswald,Impact,sans-serif;font-weight:600;
+  font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--lux-gold);
+  margin:0 0 2px;
 }
 #panel-coins .coins-lux-brand{
   font-family:Oswald,Impact,"Arial Narrow",sans-serif;
-  font-weight:700;font-size:clamp(2.6rem,12vw,3.6rem);line-height:.9;
-  letter-spacing:.05em;text-transform:uppercase;color:#fff;
-}
-#panel-coins .coins-lux-lede{
-  margin:8px auto 0;max-width:34ch;font-size:12px;line-height:1.4;color:var(--lux-mute);font-weight:600;
+  font-weight:700;font-size:clamp(1.35rem,5.5vw,1.7rem);line-height:1.05;
+  letter-spacing:.04em;text-transform:uppercase;color:#fff;margin:0;
 }
 #panel-coins .coins-lux-vault{
   position:relative;overflow:hidden;
-  border-radius:6px;padding:10px 12px;margin:0 0 10px;
+  border-radius:14px;padding:12px 14px;margin:0 0 8px;
   border:1px solid var(--lux-graph);
-  background:var(--lux-carbon);
-  box-shadow:inset 2px 0 0 var(--lux-gold),0 8px 18px rgba(0,0,0,.4);
-  animation:coinsLuxRise .45s ease .03s both;
-}
-#panel-coins .coins-lux-vault::before{
-  content:"";position:absolute;right:0;top:0;bottom:0;width:28%;
-  background:repeating-linear-gradient(-18deg,transparent 0 6px,rgba(232,93,4,.06) 6px 7px);
-  pointer-events:none;
+  background:linear-gradient(135deg,#0c0c10 0%,#0a0a0c 100%);
+  box-shadow:inset 0 0 0 1px rgba(124,58,237,.12);
+  animation:coinsLuxRise .35s ease both;
 }
 #panel-coins .coins-lux-vault-label{
-  display:block;font-size:9px;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--lux-gold);font-weight:800;margin-bottom:4px;font-family:Oswald,sans-serif;
+  display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--lux-purple);font-weight:800;margin-bottom:4px;font-family:Oswald,sans-serif;
 }
-#panel-coins .coins-lux-vault-row{display:flex;align-items:baseline;gap:8px;position:relative;z-index:1}
+#panel-coins .coins-lux-vault-row{display:flex;align-items:baseline;gap:8px}
 #panel-coins .coins-lux-vault-n{
-  font-family:Oswald,Impact,sans-serif;font-size:2.1rem;font-weight:700;
+  font-family:Oswald,Impact,sans-serif;font-size:2rem;font-weight:700;
   color:#fff;letter-spacing:.02em;line-height:1;
 }
-#panel-coins .coins-lux-vault-unit{font-size:10px;font-weight:800;color:var(--lux-steel);letter-spacing:.14em;text-transform:uppercase}
-#panel-coins .coins-lux-steps{
-  list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
-  margin:0 0 10px;padding:0;animation:coinsLuxRise .5s ease .05s both;
+#panel-coins .coins-lux-vault-unit{font-size:11px;font-weight:800;color:var(--lux-yellow);letter-spacing:.08em;text-transform:uppercase}
+#panel-coins .coins-lux-need{
+  border-radius:12px;padding:10px 12px;margin:0 0 8px;
+  border:1px solid rgba(245,197,24,.35);
+  background:rgba(245,197,24,.08);
+  color:#f5c518;font-size:12px;font-weight:700;line-height:1.4;
 }
-#panel-coins .coins-lux-steps li{
-  border:1px solid #2a2a32;border-radius:5px;padding:8px 6px;
-  background:#0a0a0c;text-align:center;min-width:0;
+#panel-coins .coins-lux-flow{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+  margin:0 0 8px;
 }
-#panel-coins .coins-lux-steps b{
-  display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--lux-gold);margin-bottom:2px;font-weight:800;font-family:Oswald,sans-serif;
+#panel-coins .coins-lux-flow span{
+  border:1px solid var(--lux-graph);border-radius:10px;padding:8px 6px;
+  background:#0a0a0c;text-align:center;font-size:10px;font-weight:700;
+  color:var(--lux-mute);letter-spacing:.02em;
 }
-#panel-coins .coins-lux-steps span{display:block;font-size:10px;line-height:1.3;color:var(--lux-mute);font-weight:600}
 #panel-coins .coins-lux-rates{
-  text-align:center;font-size:10px;color:var(--lux-mute);line-height:1.45;
-  margin:0 0 12px;letter-spacing:.01em;animation:coinsLuxRise .5s ease .07s both;
-  padding:8px 8px;border:1px solid #26262e;border-radius:5px;background:#0a0a0c;
+  text-align:center;font-size:11px;color:var(--lux-mute);line-height:1.4;
+  margin:0 0 12px;padding:0;
 }
-#panel-coins .coins-lux-rates strong{color:var(--lux-gold);font-weight:800}
-#panel-coins .coins-lux-rates .coins-lux-fx{color:var(--lux-steel);font-weight:800;margin-top:4px}
+#panel-coins .coins-lux-rates strong{color:var(--lux-yellow);font-weight:800}
 #panel-coins #coin-pending{margin:0 0 10px}
 #panel-coins .coins-lux-pending,
 #panel-coins .coins-lux-credited{
-  border-radius:6px;padding:10px 12px;margin:0 0 8px;
+  border-radius:12px;padding:10px 12px;margin:0 0 8px;
 }
 #panel-coins .coins-lux-pending{
-  border:1px solid rgba(232,93,4,.4);
-  background:#120c0a;
-  box-shadow:inset 2px 0 0 var(--lux-gold);
+  border:1px solid rgba(255,106,0,.35);
+  background:rgba(255,106,0,.08);
 }
 #panel-coins .coins-lux-credited{
   border:1px solid rgba(52,211,153,.28);
-  background:#07140f;
+  background:rgba(52,211,153,.08);
 }
 #panel-coins .coins-lux-section{
-  font-family:Oswald,Impact,sans-serif;font-size:1.15rem;font-weight:700;
-  color:#fff;margin:2px 0 4px;letter-spacing:.06em;text-transform:uppercase;
+  font-family:Oswald,Impact,sans-serif;font-size:1rem;font-weight:700;
+  color:#fff;margin:2px 0 6px;letter-spacing:.05em;text-transform:uppercase;
 }
 #panel-coins .coins-lux-section-sub{font-size:11px;color:var(--lux-mute);margin:0 0 8px;line-height:1.35;font-weight:600}
-#panel-coins .coins-lux-hint{
-  border:1px solid #2a2a32;border-radius:5px;padding:8px 10px;margin:0 0 10px;
-  background:#0a0a0c;font-size:11px;color:var(--lux-mute);line-height:1.4;
-  border-left:2px solid var(--lux-blood);
-}
-#panel-coins .coins-lux-hint strong{color:var(--lux-ink);font-weight:800}
-/* Membership pack cards */
+#panel-coins .coins-lux-hint{display:none}
 #panel-coins .coins-lux-pack{
-  position:relative;border-radius:6px;padding:10px 10px 8px;margin:0 0 9px;
+  position:relative;border-radius:14px;padding:12px;margin:0 0 8px;
   border:1px solid var(--lux-graph);
-  background:#0b0b0d;
-  box-shadow:0 6px 16px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.03);
-  transition:border-color .15s ease, box-shadow .15s ease;
-  animation:coinsLuxRise .45s ease both;
-  overflow:hidden;
+  background:#0a0a0c;
+  transition:border-color .15s ease;
+  animation:coinsLuxRise .35s ease both;
 }
-#panel-coins .coins-lux-pack::before{
-  content:"";position:absolute;left:10px;right:10px;top:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(232,93,4,.45),transparent);
-  pointer-events:none;
-}
-#panel-coins .coins-lux-pack::after{
-  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
-  background:#2e2e36;pointer-events:none;
-}
-#panel-coins .coins-lux-pack:hover{
-  border-color:#4a4a54;
-  box-shadow:0 8px 18px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
-}
+#panel-coins .coins-lux-pack:hover{border-color:#2a2a32}
 #panel-coins .coins-lux-pack.is-min{
-  border-color:rgba(232,93,4,.5);
+  border-color:rgba(124,58,237,.45);
+  background:linear-gradient(160deg,rgba(124,58,237,.12),#0a0a0c 70%);
 }
-#panel-coins .coins-lux-pack.is-min::after{background:var(--lux-gold)}
 #panel-coins .coins-lux-pack.is-premium{
-  border-color:#4a4038;
+  border-color:rgba(255,106,0,.35);
 }
-#panel-coins .coins-lux-pack.is-premium::after{background:var(--lux-burn)}
 #panel-coins .coins-lux-pack-head{
   display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;
   min-width:0;
 }
 #panel-coins .coins-lux-pack-deal{
-  display:flex;align-items:baseline;gap:7px;flex-wrap:nowrap;min-width:0;
+  display:flex;align-items:baseline;gap:8px;flex-wrap:nowrap;min-width:0;
 }
 #panel-coins .coins-lux-pack-usd{
-  font-family:Oswald,Impact,sans-serif;font-size:clamp(1.55rem,7vw,1.95rem);font-weight:700;
+  font-family:Oswald,Impact,sans-serif;font-size:clamp(1.4rem,6vw,1.75rem);font-weight:700;
   color:#fff;letter-spacing:.02em;line-height:1;flex-shrink:0;
 }
 #panel-coins .coins-lux-pack-arrow{
-  font-family:Oswald,Impact,sans-serif;font-size:1.05rem;font-weight:700;
+  font-family:Oswald,Impact,sans-serif;font-size:1rem;font-weight:700;
   color:var(--lux-gold);line-height:1;flex-shrink:0;
 }
 #panel-coins .coins-lux-pack-coins{
-  font-family:Oswald,Impact,sans-serif;font-size:clamp(1.05rem,4.8vw,1.35rem);font-weight:700;
-  color:var(--lux-steel);letter-spacing:.06em;line-height:1;text-transform:uppercase;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-family:Oswald,Impact,sans-serif;font-size:clamp(1rem,4.5vw,1.25rem);font-weight:700;
+  color:var(--lux-steel);letter-spacing:.04em;line-height:1;text-transform:uppercase;
+  white-space:nowrap;
 }
-#panel-coins .coins-lux-pack-coins b{color:#fff;font-weight:700;margin-right:.18em}
+#panel-coins .coins-lux-pack-coins b{color:var(--lux-yellow);font-weight:700;margin-right:.18em}
 #panel-coins .coins-lux-badge{
-  flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
-  color:#000;background:var(--lux-gold);
-  border-radius:3px;padding:3px 6px;font-family:Oswald,sans-serif;line-height:1.2;
+  flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:#fff;background:var(--lux-purple);
+  border-radius:999px;padding:4px 8px;font-family:Oswald,sans-serif;line-height:1.2;
 }
-#panel-coins .coins-lux-badge.is-min{background:#fff;color:#111}
+#panel-coins .coins-lux-badge.is-min{background:var(--lux-purple);color:#fff}
 #panel-coins .coins-lux-pay-row{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:0 0 6px;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 6px;
 }
 #panel-coins .coins-lux-pay{
-  display:block;width:100%;margin:0;border-radius:5px;padding:7px 6px;
+  display:block;width:100%;margin:0;border-radius:10px;padding:8px 6px;
   font-family:inherit;font-size:11px;font-weight:800;cursor:pointer;
   border:1px solid #2a2a32;background:#121218;color:var(--lux-ink);
-  transition:background .12s ease,border-color .12s ease,transform .1s ease;
+  transition:transform .1s ease,opacity .12s ease;
   letter-spacing:.02em;line-height:1.15;text-align:center;
   box-sizing:border-box;min-width:0;
 }
 #panel-coins .coins-lux-pay:active{transform:scale(.985)}
-#panel-coins .coins-lux-pay.throne{border-color:#5b21b6;background:#3b0764;color:#e9d5ff}
+#panel-coins .coins-lux-pay.throne{border-color:rgba(124,58,237,.55);background:#2e1065;color:#e9d5ff}
 #panel-coins .coins-lux-pay.throne .pay-row{display:inline-flex;align-items:center;justify-content:center;gap:4px;max-width:100%}
 #panel-coins .coins-lux-pay.throne .pay-logo{display:block;flex-shrink:0;width:12px;height:12px}
 #panel-coins .coins-lux-pay.paypal{background:#003087;border-color:#009cde;color:#fff}
-#panel-coins .coins-lux-pay.btc{background:#0a0a0a;border-color:#f7931a;color:#fff;font-size:10px;padding:7px 4px}
+#panel-coins .coins-lux-pay.btc{background:#0a0a0a;border-color:rgba(247,147,26,.55);color:#fff;font-size:10px;padding:8px 4px}
 #panel-coins .coins-lux-pay.paid{
-  margin-top:0;padding:9px 10px;border-radius:6px;
-  background:#ff5500;color:#000;border:1px solid #ff5500;
-  font-size:12px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;
-  box-shadow:0 4px 12px rgba(255,85,0,.28);
+  margin-top:0;padding:10px;border-radius:10px;
+  background:linear-gradient(90deg,#7c3aed,#ff6a00);color:#fff;border:0;
+  font-size:12px;font-weight:900;letter-spacing:.03em;text-transform:uppercase;
 }
-#panel-coins .coins-lux-pay.paid:hover{background:#ff661a;box-shadow:0 5px 14px rgba(255,85,0,.34)}
+#panel-coins .coins-lux-pay.paid:hover{opacity:.92}
 #panel-coins .coins-lux-pack-note{
-  font-size:10px;color:var(--lux-mute);text-align:center;margin:5px 0 0;line-height:1.35;font-weight:600;
+  font-size:10px;color:var(--lux-mute);text-align:center;margin:4px 0 0;line-height:1.3;font-weight:600;
 }
 #panel-coins .coins-lux-print-btn{
-  display:block;width:100%;margin:6px 0 10px;padding:12px 12px;
-  border-radius:6px;border:1px solid var(--lux-gold);
-  background:var(--lux-gold);
-  color:#000;font-family:Oswald,Impact,sans-serif;font-size:1.15rem;font-weight:700;
-  letter-spacing:.28em;text-transform:uppercase;cursor:pointer;
-  box-shadow:0 6px 16px rgba(232,93,4,.28);
-  transition:transform .12s ease, background .12s ease, box-shadow .12s ease;
-}
-#panel-coins .coins-lux-print-btn:hover{
-  transform:translateY(-1px);
-  background:#f06a14;
-  box-shadow:0 8px 18px rgba(232,93,4,.36);
+  display:block;width:100%;margin:8px 0 10px;padding:11px 12px;
+  border-radius:12px;border:1px solid rgba(255,106,0,.45);
+  background:rgba(255,106,0,.12);
+  color:#ffb35c;font-family:Oswald,Impact,sans-serif;font-size:1rem;font-weight:700;
+  letter-spacing:.2em;text-transform:uppercase;cursor:pointer;
 }
 #panel-coins .coins-lux-print-btn:active{transform:scale(.985)}
 #panel-coins .coins-lux-custom{
-  border-radius:6px;padding:12px 12px 10px;margin:0 0 8px;
-  border:1px solid #3a3030;
-  background:#0c0a0b;
-  box-shadow:inset 2px 0 0 var(--lux-blood);
+  border-radius:14px;padding:12px;margin:0 0 8px;
+  border:1px solid var(--lux-graph);
+  background:#0a0a0c;
 }
-#panel-coins .coins-lux-custom .kicker{font-size:9px;letter-spacing:.16em;color:var(--lux-gold);font-weight:800;font-family:Oswald,sans-serif}
-#panel-coins .coins-lux-custom h3{font-family:Oswald,Impact,sans-serif;font-size:1.1rem;font-weight:700;margin:4px 0;color:#fff;letter-spacing:.04em;text-transform:uppercase}
+#panel-coins .coins-lux-custom .kicker{font-size:9px;letter-spacing:.14em;color:var(--lux-purple);font-weight:800;font-family:Oswald,sans-serif}
+#panel-coins .coins-lux-custom h3{font-family:Oswald,Impact,sans-serif;font-size:1rem;font-weight:700;margin:4px 0;color:#fff;letter-spacing:.04em;text-transform:uppercase}
 #panel-coins .coins-lux-custom p{font-size:11px;color:var(--lux-mute);line-height:1.4;margin:0 0 8px;font-weight:600}
 #panel-coins .coins-lux-custom .coins-lux-pay.paid{padding:8px 10px;font-size:11px}
 @media(prefers-reduced-motion:reduce){
   #panel-coins .coins-lux-vault,
-  #panel-coins .coins-lux-hero,
-  #panel-coins .coins-lux-steps,
-  #panel-coins .coins-lux-rates,
   #panel-coins .coins-lux-pack{animation:none}
 }
 @media(max-width:420px){
-  #panel-coins.coins-lux{padding:6px 10px 40px}
-  #panel-coins .coins-lux-pack{padding:9px 8px 7px}
-  #panel-coins .coins-lux-pay.btc{letter-spacing:0;font-size:9px}
-  #panel-coins .coins-lux-pay.paid{font-size:11px;padding:8px 8px;letter-spacing:.02em}
-  #panel-coins .coins-lux-print-btn{letter-spacing:.18em;font-size:1.05rem;padding:11px 10px}
+  #panel-coins.coins-lux{padding:8px 10px 40px}
+  #panel-coins .coins-lux-pack{padding:10px}
+  #panel-coins .coins-lux-pay.btc{font-size:9px}
+  #panel-coins .coins-lux-pay.paid{font-size:11px;padding:9px 8px}
+  #panel-coins .coins-lux-print-btn{letter-spacing:.14em;font-size:.95rem;padding:10px}
 }
 @media(max-width:360px){
-  #panel-coins .coins-lux-steps{grid-template-columns:1fr;gap:5px}
-  #panel-coins .coins-lux-steps li{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px}
-  #panel-coins .coins-lux-steps b{margin:0}
   #panel-coins .coins-lux-pay-row{gap:4px}
-  #panel-coins .coins-lux-pack-usd{font-size:1.4rem}
+  #panel-coins .coins-lux-pack-usd{font-size:1.3rem}
   #panel-coins .coins-lux-pack-coins{font-size:.95rem}
 }
 
@@ -3271,11 +3232,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div id="wall-hot-slot" class="wall-day-photos"></div>
             <div class="wall-tagline">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
+              <button type="button" class="wall-filter-chip" data-wall-filter="tasks" role="tab" aria-selected="false">Tasks</button>
               <button type="button" class="wall-filter-chip on" data-wall-filter="normal" role="tab" aria-selected="true">Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">Extend Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="dominants" role="tab" aria-selected="false">Dominants</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="roulette" role="tab" aria-selected="false">Roulette</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
             </div>
             <div id="wall-dominants-soon" class="wall-dominants-soon" role="status" aria-live="polite" hidden>
@@ -3285,10 +3246,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
                 <p class="wall-dominants-soon-sub">Exclusive · Invite only</p>
               </div>
             </div>
-            <div id="wall-roulette-cta" style="display:none;margin:0 8px 8px">
-              <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="width:100%;padding:12px 16px;font-weight:900;font-size:14px;border-radius:14px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);border:0;box-shadow:0 0 18px rgba(255,106,0,.4)" onclick="openRoulette()">SPIN ROULETTE</button>
-              <div style="font-size:11px;color:#9a9aa3;text-align:center;margin-top:6px;line-height:1.35">Challenge proofs from Ruin Roulette · newest first</div>
+            <div id="wall-tasks-cta" class="wall-tasks-cta" aria-label="Open games">
+              <div class="wall-tasks-cta-row">
+                <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#fff" onclick="openRoulette()">🎡 Roulette</button>
+                <button type="button" class="btn btn-primary" id="btn-wall-open-dice" style="background:linear-gradient(135deg,#f5c518,#ff8a00);color:#111" onclick="openDiceGame()">🎲 Dice</button>
+                <button type="button" class="btn btn-primary" id="btn-wall-open-ttt" style="background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff" onclick="try{openChallengesHub();startTicTacToeMenu()}catch(e){showPanel('challenges')}">❌ Tic-Tac-Toe</button>
+              </div>
+              <div class="wall-tasks-cta-note">Game proofs from Roulette · Dice · Tic-Tac-Toe · no duplicates</div>
             </div>
+            <div id="wall-roulette-cta" style="display:none" hidden aria-hidden="true"></div>
             <div class="wall-quick-actions">
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
               <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
@@ -3401,32 +3367,27 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div class="coins-lux-inner">
           <div class="coins-lux-top">
             <button class="back coins-lux-back" type="button" onclick="showPanel('feed')" aria-label="Back">←</button>
-            <button class="coins-lux-link" type="button" onclick="copySectionLink('coins','Coins')">Copy page link</button>
-          </div>
-          <div class="coins-lux-hero">
-            <div class="coins-lux-kicker">RUINEXPOSE</div>
-            <div class="coins-lux-brand">Coins</div>
-            <p class="coins-lux-lede">Pay outside. Credit lands here. Spend on pin, delete, print, and games.</p>
+            <div class="coins-lux-title-wrap">
+              <div class="coins-lux-kicker">RUINEXPOSE</div>
+              <h2 class="coins-lux-brand">Recharge Coins</h2>
+            </div>
+            <button class="coins-lux-link" type="button" onclick="copySectionLink('coins','Coins')">Share</button>
           </div>
           <div id="coin-balance" class="coins-lux-vault" aria-live="polite">
-            <span class="coins-lux-vault-label">Your balance</span>
+            <span class="coins-lux-vault-label">Balance</span>
             <div class="coins-lux-vault-row">
               <span id="coin-balance-n" class="coins-lux-vault-n">0</span>
               <span class="coins-lux-vault-unit">Coins</span>
             </div>
           </div>
-          <ol class="coins-lux-steps" aria-label="How to recharge">
-            <li><b>01</b><span>Pay Throne, PayPal or BTC</span></li>
-            <li><b>02</b><span>Tap I paid on your pack</span></li>
-            <li><b>03</b><span>Watch Pending credit</span></li>
-          </ol>
+          <div id="coin-need" class="coins-lux-need" style="display:none" aria-live="polite"></div>
+          <div class="coins-lux-flow" aria-label="How to recharge">
+            <span>1 · Pay</span>
+            <span>2 · I paid</span>
+            <span>3 · Credited</span>
+          </div>
           <div class="coins-lux-rates">
-            <strong>Pin 10 Coins</strong> · 48h ·
-            <strong>Delete 10 Coins</strong> ·
-            <strong>Roulette 10 Coins</strong> ·
-            <strong>Print 350 Coins</strong>
-            <div class="coins-lux-fx">$1 = 10 Coins</div>
-            <div style="margin-top:4px">Min recharge <strong>$5 → 60 Coins</strong></div>
+            Pin / Delete <strong>10</strong> · Roulette pack <strong>10</strong> · Print <strong>350</strong>
           </div>
           <div id="coin-pending" style="display:none"></div>
           <div id="coin-packs"></div>
@@ -4204,6 +4165,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-remove-paid" onclick="confirmWallRemovePaid()">I paid $5 — pending admin verification</button>
       <button class="btn btn-secondary" type="button" style="display:none;width:100%;margin-bottom:10px" id="btn-remove-buycoins" onclick="closeModals();openNeedCoins({cost:10,why:'delete',action:'delete'})">Recharge Coins · $5 → 60</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-rm" type="button">Cancel</button>
+    </div>
+  </div>
+  <div class="modal-bg" id="pin-modal">
+    <div class="modal">
+      <h3 style="margin-bottom:6px">Pin · 10 Coins or $5</h3>
+      <p style="font-size:14px;line-height:1.45;margin-bottom:10px">
+        Paid pin · <strong style="color:#f5c518">10 Coins</strong> pins it immediately for 48h. PayPal / Throne <strong style="color:#f5c518">$5</strong> needs admin verification after you tap <strong>I paid</strong>.
+      </p>
+      <p id="pin-balance-label" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.35);color:#f5c518;font-size:13px;font-weight:700;line-height:1.4"></p>
+      <p id="pin-post-id-label" style="display:none"></p>
+      <button class="btn btn-primary btn-remove-fc-pay" type="button" id="btn-pin-fc" onclick="pinWithCoinsFromModal()"><span class="pay-row" style="justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex-shrink:0"><ellipse cx="12" cy="17.2" rx="7" ry="2.3" fill="rgba(255,255,255,.35)"/><ellipse cx="12" cy="13.6" rx="7" ry="2.3" fill="rgba(255,255,255,.55)"/><ellipse cx="12" cy="10" rx="7" ry="2.3" fill="#fff"/></svg><span class="rm-fc-pay-label"><span class="rm-fc-pay-title">Pay 10 Coins</span><span class="rm-fc-pay-sub">Pin immediately · 48h</span></span></span></button>
+      <div id="pin-request-status" style="display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.35);color:#f5c518;font-size:13px;font-weight:700;line-height:1.4"></div>
+      <a class="btn btn-primary" id="btn-pin-paypal" href="https://www.paypal.me/MartinJimenez205/5" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#0070ba;border:0" onclick="try{window.__pinPayProvider='paypal';startPayTicket({kind:'pin',label:'Pin post',amount:'$5',provider:'paypal',postId:window.__pinPostId||currentDetailId||null})}catch(e){}">PayPal $5</a>
+      <a class="btn btn-secondary" id="btn-pin-throne" href="https://throne.com/mastersan/item/86473EC5-CFDC-4A8C-93FE-153A3F248899" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px;padding:14px;font-weight:800;background:#4c1d95" onclick="try{window.__pinPayProvider='throne';startPayTicket({kind:'pin',label:'Pin post',amount:'$5',provider:'throne',postId:window.__pinPostId||currentDetailId||null})}catch(e){}">Pay $5 on Throne</a>
+      <button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:linear-gradient(90deg,#14532d,#166534);color:#dcfce7;border:1px solid #15803d" id="btn-pin-paid" onclick="confirmPinPaid()">I paid $5 — pending admin verification</button>
+      <button class="btn btn-secondary" type="button" style="display:none;width:100%;margin-bottom:10px" id="btn-pin-buycoins" onclick="closeModals();openNeedCoins({cost:10,why:'pin',action:'pin'})">Recharge Coins · $5 → 60</button>
+      <button class="btn btn-ghost" style="width:100%" id="btn-cancel-pin" type="button">Cancel</button>
     </div>
   </div>
   <button type="button" id="btn-scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;right:14px;bottom:100px;z-index:95;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--elev);color:var(--orange);font-size:20px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.4)">↑</button>
@@ -12059,13 +12037,13 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           +'<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:8px;font-weight:800" onclick="try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast(\'BTC wallet copied\')}).catch(function(){toast(\'BTC: \'+BTC_WALLET)})}catch(e){toast(\'BTC: \'+BTC_WALLET)}">₿ Copy Bitcoin wallet</button>'
           +'<button type="button" class="btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#111;border:0;font-weight:900;padding:14px;border-radius:14px" onclick="closeNeedCoins();confirmCoinPackPaid({usd:'+packUsd+',coins:'+packCoins+',url:\''+String(throneUrl).replace(/'/g,'')+'\',paypal:\''+String(paypalUrl).replace(/'/g,'')+'\'})">I paid — request '+packCoins+' Coins</button>';
       }
-      ov.innerHTML='<div style="width:100%;max-width:400px;background:#121214;border:1px solid rgba(255,106,0,.4);border-radius:20px 20px 14px 14px;padding:18px 16px 16px">'
-        +'<div style="font-size:11px;letter-spacing:1.4px;color:#ffb35c;font-weight:800;margin-bottom:6px">RECHARGE COINS</div>'
-        +'<div style="font-size:22px;font-weight:900;margin-bottom:6px">Recharge Coins</div>'
-        +'<p style="color:#bdbdbd;font-size:13px;line-height:1.45;margin:0 0 8px">You need <strong style="color:#f5c518">'+cost+' Coins</strong> to '+esc(whyLabel)+'. Balance: <strong style="color:#fff">'+bal+' Coins</strong>.</p>'
-        +'<p style="color:#9a9aa3;font-size:12px;line-height:1.4;margin:0 0 12px">Coins are account credit — buy once, then spend on Pin, Delete, and other actions. No $5 charge per action.</p>'
+      window.__coinsNeed={cost:cost,why:whyLabel,action:actionKey};
+      ov.innerHTML='<div style="width:100%;max-width:400px;background:#0a0a0c;border:1px solid #1c1c22;border-radius:18px;padding:18px 16px 16px;box-shadow:0 0 0 1px rgba(124,58,237,.12)">'
+        +'<div style="font-size:10px;letter-spacing:.18em;color:#7c3aed;font-weight:800;margin-bottom:4px;font-family:Oswald,sans-serif">RECHARGE COINS</div>'
+        +'<div style="font-size:20px;font-weight:900;margin-bottom:6px;font-family:Oswald,sans-serif;letter-spacing:.03em;text-transform:uppercase">Recharge Coins</div>'
+        +'<p style="color:#bdbdbd;font-size:13px;line-height:1.45;margin:0 0 12px">Need <strong style="color:#f5c518">'+cost+' Coins</strong> for '+esc(whyLabel)+'. Balance: <strong style="color:#fff">'+bal+'</strong>.</p>'
         +bodyHtml
-        +'<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeNeedCoins();openCoinShop()">See all packs</button>'
+        +'<button type="button" class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeNeedCoins();openCoinShop({cost:'+cost+',why:\''+String(whyLabel).replace(/'/g,'')+'\',action:\''+String(actionKey).replace(/'/g,'')+'\'})">See all packs</button>'
         +'<button type="button" class="btn btn-ghost" style="width:100%" onclick="closeNeedCoins()">Not now</button>'
         +'</div>';
       ov.style.display='flex';
@@ -12073,7 +12051,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       try{loadFagBalance().then(function(n){
         bal=Number(n)||0;
         var tip=ov.querySelector('p');
-        if(tip) tip.innerHTML='You need <strong style="color:#f5c518">'+cost+' Coins</strong> to '+esc(whyLabel)+'. Balance: <strong style="color:#fff">'+bal+' Coins</strong>.';
+        if(tip) tip.innerHTML='Need <strong style="color:#f5c518">'+cost+' Coins</strong> for '+esc(whyLabel)+'. Balance: <strong style="color:#fff">'+bal+'</strong>.';
       })}catch(e){}
     }
     function closeNeedCoins(){
@@ -12274,28 +12252,47 @@ async function claimPayPalPack(p){
     window.refreshCoinPending=refreshCoinPending;
     window.renderCoinPending=renderCoinPending;
 
-    function openCoinShop(){
+    function syncCoinNeedBanner(){
+      try{
+        var el=document.getElementById('coin-need');
+        if(!el) return;
+        var need=window.__coinsNeed||null;
+        if(!need || !(Number(need.cost)>0)){
+          el.style.display='none';
+          el.textContent='';
+          return;
+        }
+        var bal=Number(window.__fcLast||0)||0;
+        var cost=Number(need.cost)||0;
+        var why=String(need.why||need.action||'this action');
+        el.style.display='block';
+        el.innerHTML='Need <strong style="color:#fff">'+cost+' Coins</strong> for '+esc(why)+' · you have <strong style="color:#fff">'+bal+'</strong>'+(bal>=cost?' · ready.':' · pick a pack below.');
+      }catch(e){}
+    }
+    function openCoinShop(opts){
+      opts=opts||{};
+      if(opts.cost || opts.why || opts.action){
+        window.__coinsNeed={cost:Number(opts.cost||0)||0,why:String(opts.why||opts.action||''),action:String(opts.action||opts.why||'')};
+      }
       showPanel('coins');
+      syncCoinNeedBanner();
       var box=document.getElementById('coin-packs');
       if(box){
         box.innerHTML='';
         var tip=document.createElement('div');
-        tip.innerHTML='<div class="coins-lux-section">Choose your pack</div><p class="coins-lux-section-sub">Select an amount, pay outside, then confirm here.</p>';
+        tip.innerHTML='<div class="coins-lux-section">Packs</div><p class="coins-lux-section-sub">Pay · tap I paid · credit after admin confirms.</p>';
         box.appendChild(tip);
-        var paidBar=document.createElement('div');
-        paidBar.className='coins-lux-hint';
-        paidBar.innerHTML='<strong>How credit works</strong><br>I paid creates your receipt. Pending = waiting for Master. Credited = Coins already in your balance. Typical wait: a few minutes while Master is online.';
-        box.appendChild(paidBar);
         FC_PACKS.forEach(function(p, idx){
           var card=document.createElement('div');
           var hot=p.usd===5;
           var premium=p.usd>=50;
           card.className='coins-lux-pack'+(hot?' is-min':'')+(premium?' is-premium':'');
-          card.style.animationDelay=(0.06+idx*0.03)+'s';
+          card.style.animationDelay=(0.04+idx*0.02)+'s';
           var h=document.createElement('div');
           h.className='coins-lux-pack-head';
           var badge='';
-          if(hot) badge='<span class="coins-lux-badge is-min">Min · $5</span>';
+          if(hot) badge='<span class="coins-lux-badge is-min">Min</span>';
+          else if(p.usd===25) badge='<span class="coins-lux-badge">Popular</span>';
           else if(premium) badge='<span class="coins-lux-badge">Premium</span>';
           h.innerHTML='<div class="coins-lux-pack-deal"><span class="coins-lux-pack-usd">$'+p.usd+'</span><span class="coins-lux-pack-arrow" aria-hidden="true">→</span><span class="coins-lux-pack-coins"><b>'+p.coins+'</b> Coins</span></div>'+badge;
           card.appendChild(h);
@@ -12312,12 +12309,12 @@ async function claimPayPalPack(p){
           }
           addBtn(pays,'<span class="pay-row"><svg class="pay-logo" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l2.2 4.5 5 .7-3.6 3.5.9 5.1L12 14.8 7.5 16.8l.9-5.1L4.8 8.2l5-.7L12 3z" fill="#c4b5fd"/><circle cx="12" cy="12" r="9.2" stroke="rgba(196,181,253,.55)" stroke-width="1.2"/></svg> Throne</span>','throne',function(){window.open(p.url||THRONE_HOME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins});});
           addBtn(pays,'PayPal','paypal',function(){window.open(p.paypal||PAYPAL_ME,'_blank','noopener');startPayTicket({kind:'coins',label:p.coins+' Coins pack',amount:'$'+p.usd,coins:p.coins,provider:'paypal'});});
-          addBtn(pays,'₿ Bitcoin','btc',function(){try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)})}catch(e){toast('BTC wallet: '+BTC_WALLET)}}).title='Copy Bitcoin wallet';
+          addBtn(pays,'₿ BTC','btc',function(){try{navigator.clipboard.writeText(BTC_WALLET).then(function(){toast('BTC wallet copied')}).catch(function(){toast('BTC wallet: '+BTC_WALLET)})}catch(e){toast('BTC wallet: '+BTC_WALLET)}}).title='Copy Bitcoin wallet';
           card.appendChild(pays);
           addBtn(card,'I paid — request '+p.coins+' Coins','paid',function(){confirmCoinPackPaid(p);});
           var note=document.createElement('p');
           note.className='coins-lux-pack-note';
-          note.textContent='Pay first. Then tap I paid — it appears under Pending credit.';
+          note.textContent='Pending until Master confirms · Coins credit after approval';
           card.appendChild(note);
           box.appendChild(card);
         });
@@ -12330,10 +12327,10 @@ async function claimPayPalPack(p){
         box.appendChild(printBtn);
         var page=document.createElement('div');
         page.className='coins-lux-custom';
-        page.innerHTML='<div class="kicker">CUSTOM</div><h3>Custom exposure videos</h3><p>Personalized exposure and humiliation videos. Men or women. Message on Telegram and I make the fantasy real.</p><a class="coins-lux-pay paid" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Telegram · @mastersan01</a>';
+        page.innerHTML='<div class="kicker">CUSTOM</div><h3>Custom videos</h3><p>Message on Telegram for personalized exposure.</p><a class="coins-lux-pay paid" href="https://t.me/mastersan01" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Telegram · @mastersan01</a>';
         box.appendChild(page);
       }
-      loadFagBalance();
+      loadFagBalance().then(function(){syncCoinNeedBanner()}).catch(function(){syncCoinNeedBanner()});
       renderCoinPending();
       try{
         clearInterval(window.__coinPendingPoll);
@@ -16565,6 +16562,10 @@ function pendingRouletteTasks(){
         extC.onclick=onYesExtend;
       }
       document.getElementById('btn-cancel-rm').onclick=closeModals;
+      var btnCancelPin=document.getElementById('btn-cancel-pin');
+      if(btnCancelPin) btnCancelPin.onclick=closeModals;
+      var pinMod=document.getElementById('pin-modal');
+      if(pinMod) pinMod.onclick=function(e){if(e.target===pinMod)closeModals()};
       var bdc=document.getElementById('btn-donate-close'); if(bdc)bdc.onclick=closeModals;
       var dmod=document.getElementById('donate-modal');
       if(dmod)dmod.onclick=function(e){if(e.target===dmod)closeModals()};
@@ -21067,6 +21068,32 @@ function pendingRouletteTasks(){
       var blob=(String(p.title||'')+' '+String(p.desc||'')).toLowerCase();
       return blob.indexOf('roulette order')>=0||blob.indexOf('roulette task')>=0;
     }
+    // Wall · Tasks: every proof published from Roulette / Dice / Tic-Tac-Toe (reuse existing posts).
+    function isGameTaskWallPost(p){
+      if(!p)return false;
+      try{
+        var origin=typeof detectGameOrigin==='function'?detectGameOrigin(p):'';
+        if(origin==='roulette'||origin==='dice'||origin==='tic_tac_toe') return true;
+      }catch(e){}
+      try{if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)) return true}catch(e){}
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('dice')>=0||tg.indexOf('exposure_dice')>=0||tg.indexOf('game_badge_dice')>=0) return true;
+      if(tg.indexOf('tic_tac_toe')>=0||tg.indexOf('ttt_challenge')>=0||tg.indexOf('game_badge_ttt')>=0) return true;
+      if(tg.indexOf('game_badge_roulette')>=0||tg.indexOf('roulette_task')>=0||tg.indexOf('roulette')>=0) return true;
+      for(var i=0;i<tg.length;i++){
+        if(tg[i].indexOf('game_origin:roulette')===0||tg[i].indexOf('game_origin:dice')===0||tg[i].indexOf('game_origin:tic_tac_toe')===0) return true;
+        if(tg[i].indexOf('game_task:')===0) return true;
+      }
+      var blob=(String(p.title||'')+' '+String(p.desc||'')).toLowerCase();
+      if(blob.indexOf('roulette order')>=0||blob.indexOf('roulette task')>=0) return true;
+      if(blob.indexOf('exposure dice')>=0||blob.indexOf('dice challenge')>=0) return true;
+      if(blob.indexOf('tic-tac-toe')>=0||blob.indexOf('tic tac toe')>=0||blob.indexOf('triki')>=0) return true;
+      return false;
+    }
+    window.isGameTaskWallPost=isGameTaskWallPost;
     function isNormalFeedPost(p){
       if(!p)return false;
       var tg=p.tags||[];
@@ -21074,6 +21101,7 @@ function pendingRouletteTasks(){
       if(!Array.isArray(tg))tg=[];
       tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
       if(tg.indexOf('generated_id')>=0 || tg.indexOf('generated_pea')>=0 || tg.indexOf('idcard')>=0 || tg.indexOf('pea')>=0)return true;
+      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p))return true;
       if(isRouletteWallPost(p))return true;
       // Videos stay on The Wall as normal publications
       if(tg.indexOf('video')>=0)return true;
@@ -21588,9 +21616,11 @@ function pendingRouletteTasks(){
         var f=localStorage.getItem('rs_wall_filter')||'normal';
         if(f==='post') f='normal';
         if(f==='extend'||f==='extend_post') f='timed';
+        // Roulette tab renamed/expanded to Tasks (all game proofs).
+        if(f==='roulette') f='tasks';
         // Drop retired Wall tabs (Moment / Trending / Following / New / For You).
         if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
-        if(['normal','timed','dominants','generated','roulette','text'].indexOf(f)<0) f='normal';
+        if(['tasks','normal','timed','dominants','generated','text'].indexOf(f)<0) f='normal';
         localStorage.setItem('rs_wall_filter',f);
         return f;
       }catch(e){return'normal'}
@@ -21624,10 +21654,11 @@ function pendingRouletteTasks(){
     }
     function setWallFilter(f){
       f=String(f||'normal');
-      // Wall sections: Post / Extend / Dominants / IDs·PEA / Roulette / Text
-      var allowed=['normal','timed','dominants','generated','roulette','text'];
+      // Wall sections: Tasks / Post / Extend / Dominants / IDs·PEA / Text
+      var allowed=['tasks','normal','timed','dominants','generated','text'];
       if(f==='post') f='normal';
       if(f==='extend' || f==='extend_post') f='timed';
+      if(f==='roulette') f='tasks';
       if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
       if(allowed.indexOf(f)<0) f='normal';
       wallFilter=f;
@@ -21642,10 +21673,14 @@ function pendingRouletteTasks(){
         if(box){
           box.classList.toggle('wall-ids-mode', f==='generated');
           box.classList.toggle('wall-text-mode', f==='text');
-          box.classList.toggle('wall-roulette-mode', f==='roulette');
+          box.classList.toggle('wall-roulette-mode', f==='tasks');
+          box.classList.toggle('wall-tasks-mode', f==='tasks');
         }
-        var cta=document.getElementById('wall-roulette-cta');
-        if(cta) cta.style.display=f==='roulette'?'block':'none';
+        var cta=document.getElementById('wall-tasks-cta')||document.getElementById('wall-roulette-cta');
+        if(cta){
+          if(f==='tasks'){cta.style.display='block';cta.classList.add('is-on')}
+          else{cta.style.display='none';cta.classList.remove('is-on')}
+        }
       }catch(e){}
       // Instant client filter — remount this category only (do not keep previous tab cards).
       window.__wallVisible=12;
@@ -21686,10 +21721,14 @@ function pendingRouletteTasks(){
         if(box){
           box.classList.toggle('wall-ids-mode', wallFilter==='generated');
           box.classList.toggle('wall-text-mode', wallFilter==='text');
-          box.classList.toggle('wall-roulette-mode', wallFilter==='roulette');
+          box.classList.toggle('wall-roulette-mode', wallFilter==='tasks');
+          box.classList.toggle('wall-tasks-mode', wallFilter==='tasks');
         }
-        var cta=document.getElementById('wall-roulette-cta');
-        if(cta) cta.style.display=wallFilter==='roulette'?'block':'none';
+        var cta=document.getElementById('wall-tasks-cta')||document.getElementById('wall-roulette-cta');
+        if(cta){
+          if(wallFilter==='tasks'){cta.style.display='block';cta.classList.add('is-on')}
+          else{cta.style.display='none';cta.classList.remove('is-on')}
+        }
         syncWallDominantsMode();
       }catch(e){}
     }
@@ -21744,6 +21783,7 @@ function pendingRouletteTasks(){
     function isWallTextPost(p){
       if(!p)return false;
       if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))return false;
+      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p))return false;
       if(isWallTimedPost(p))return false;
       if(!isTimelessWallPost(p))return false;
       return !wallPostHasMedia(p);
@@ -21752,6 +21792,7 @@ function pendingRouletteTasks(){
       // Timeless posts without timer — Hot🔥 eligible (photos/video/status, not generated cards)
       if(!p)return false;
       if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))return false;
+      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p))return false;
       if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p))return false;
       if(isWallTimedPost(p))return false;
       return isTimelessWallPost(p);
@@ -21811,15 +21852,17 @@ function pendingRouletteTasks(){
       return isWallMomentPost(p)||isWallTrendingPost(p);
     }
     function isWallNativePost(p){
-      // Wall-composed posts (status/photos/roulette proofs) vs GoonTok catalog clips.
+      // Wall-composed posts (status/photos/game proofs) vs GoonTok catalog clips.
       if(!p)return false;
       if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)) return true;
+      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return true;
       var tg=p.tags||[];
       if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
       if(!Array.isArray(tg))tg=[];
       tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
       if(tg.indexOf('normal_feed')>=0||tg.indexOf('profile_gallery')>=0||tg.indexOf('profile_only')>=0) return true;
       if(tg.indexOf('roulette')>=0||tg.indexOf('roulette_task')>=0) return true;
+      if(tg.indexOf('dice')>=0||tg.indexOf('exposure_dice')>=0||tg.indexOf('tic_tac_toe')>=0||tg.indexOf('ttt_challenge')>=0) return true;
       // Catalog video clips belong in GoonTok / Videos only.
       if(typeof isVideoPost==='function'&&isVideoPost(p)) return false;
       if(tg.indexOf('video')>=0||tg.indexOf('goontok')>=0) return false;
@@ -21827,24 +21870,25 @@ function pendingRouletteTasks(){
     }
     function matchesWallFilter(p, filter){
       filter=filter||wallFilter||'normal';
+      if(filter==='roulette') filter='tasks';
       // Dominants is a coming-soon section — no feed posts yet.
       if(filter==='dominants') return false;
+      // Tasks = all game proofs (Roulette / Dice / Tic-Tac-Toe). Exclusive — no duplicates elsewhere.
+      if(filter==='tasks') return !!(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p));
+      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return false;
       // Timed exposures belong in Timed (and Extend) — never duplicate into other Wall tabs.
       if(filter==='timed') return isWallTimedPost(p);
       if(isWallTimedPost(p)) return false;
       if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
-      if(filter==='roulette') return !!(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p));
-      // Roulette proofs stay in the Roulette tab only.
-      if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p) && filter!=='roulette') return false;
       // Keep GoonTok catalog clips out of permanent Wall tabs.
       if(!isWallNativePost(p) && filter!=='generated') return false;
-      if(filter==='text') return isWallTextPost(p) && !(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p));
+      if(filter==='text') return isWallTextPost(p);
       if(filter==='normal') return isWallNormalPost(p);
       if(filter==='following') return isWallFollowingPost(p);
       if(filter==='new') return isWallNewPost(p);
       if(filter==='foryou') return isWallForYouPost(p);
       if(filter==='trending') return isWallTrendingPost(p);
-      // Legacy moment → permanent Wall board without roulette / timers
+      // Legacy moment → permanent Wall board without game tasks / timers
       return isWallNormalPost(p) || (!!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))) || isWallTextPost(p);
     }
     function wallInteractionScore(p){
@@ -22057,7 +22101,8 @@ function pendingRouletteTasks(){
         normal:'No posts yet. Publish without a timer — Hot🔥 boosts them.',
         timed:'No Extend posts live right now.',
         generated:'No generated IDs / PEAs yet.',
-        roulette:'No Roulette challenges yet. Spin, accept, and publish your proof.',
+        tasks:'No game tasks yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
+        roulette:'No game tasks yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
         text:'No text posts yet.'
       };
       var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing on the wall yet.')+'</div>';
@@ -23246,7 +23291,7 @@ function pendingRouletteTasks(){
         if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
         // Never treat GoonTok swipe / nav chrome as an accidental open.
         // Note: .gt-keep / .gt-ext / .dx-ext already handled above — not excluded here.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,.wall-head,#btn-create-normal-post-explore,.entry-ico,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,#wall-tasks-cta,.wall-head,#btn-create-normal-post-explore,.entry-ico,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
         // Spotlight: open on tap, but ignore right after a horizontal swipe.
         if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
         // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).
@@ -30894,11 +30939,22 @@ async function onIdFace(e){
           }catch(eM){}
         }
         var isRoulettePub=false;
+        var isGameTaskPub=false;
         try{
           isRoulettePub=(tags||[]).some(function(t){return String(t).toLowerCase().replace(/^#/,'')==='roulette'||String(t).toLowerCase().replace(/^#/,'')==='roulette_task'});
           if(!isRoulettePub && window.__pendingRoulettePublish) isRoulettePub=true;
+          isGameTaskPub=isRoulettePub
+            || !!(window.__pendingGamePublish&&window.__pendingGamePublish.game)
+            || !!(window.__pendingDicePublish)
+            || !!(window.__pendingChallengePublish)
+            || (tags||[]).some(function(t){
+              var x=String(t).toLowerCase().replace(/^#/,'');
+              return x==='dice'||x==='exposure_dice'||x==='tic_tac_toe'||x==='ttt_challenge'
+                || x.indexOf('game_origin:')===0||x.indexOf('game_task:')===0
+                || x.indexOf('game_badge_')===0;
+            });
         }catch(e){}
-        if(isRoulettePub){
+        if(isGameTaskPub||isRoulettePub){
           try{
             var claimed=JSON.parse(localStorage.getItem('rs_roulette_published')||'{}')||{};
             var spinKey=(window.__pendingRoulettePublish&&window.__pendingRoulettePublish.playId)||('pub_'+(row&&row.id));
@@ -30964,8 +31020,8 @@ async function onIdFace(e){
           try{updatePostPanelBackBtn()}catch(eL5){}
         }catch(e){}
         if(!profileMode){
-          toast(isRoulettePub
-            ? ('Published to Wall → Roulette · ID '+(row&&row.id?row.id:''))
+          toast((isGameTaskPub||isRoulettePub)
+            ? ('Published to Wall → Tasks · ID '+(row&&row.id?row.id:''))
             : ('Published in Extended · ID '+(row&&row.id?row.id:'')+' · visible to everyone while the timer runs'));
         }
         try{
@@ -30984,9 +31040,9 @@ async function onIdFace(e){
           document.getElementById('new-desc').value='';
           document.getElementById('new-tags').value='';
         }catch(e){}
-        if(isRoulettePub){
+        if(isGameTaskPub||isRoulettePub){
           try{setExposurePostMode()}catch(e){}
-          try{showPanel('wall');setWallFilter('roulette');loadNormalFeed()}catch(e){}
+          try{showPanel('wall');setWallFilter('tasks');loadNormalFeed()}catch(e){}
           return;
         }
         if(profileMode){
@@ -32535,14 +32591,25 @@ async function onIdFace(e){
         : ((currentUser&&currentUser.name)||'guest');
       var code=payTicketCode();
       // CRITICAL: delete tickets must carry the canonical post id (never blank).
+      var isPin=/pin|feature/i.test(String(opts.kind||'')+' '+String(opts.label||''));
       var ticketPostId=opts.postId||opts.id||opts.post_id||null;
       if(!ticketPostId && isRemove){
         ticketPostId=window.__removePostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
+      }
+      if(!ticketPostId && isPin){
+        ticketPostId=window.__pinPostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
       }
       if(ticketPostId!=null) ticketPostId=String(ticketPostId).trim()||null;
       if(isRemove && !ticketPostId){
         toast('Open the post first — delete payment needs a post ID');
         return;
+      }
+      if(isPin && !ticketPostId){
+        toast('Open the post first — pin payment needs a post ID');
+        return;
+      }
+      if(isPin){
+        try{window.__pinPayProvider=String(opts.provider||window.__pinPayProvider||'').toLowerCase().trim()}catch(e){}
       }
       var provider=String(opts.provider||window.__removePayProvider||'').toLowerCase().trim();
       if(isRemove && provider) window.__removePayProvider=provider;
@@ -32605,19 +32672,27 @@ async function onIdFace(e){
       var arr=loadPayTickets();
       var t=arr.find(function(x){return x.code===code})||window.__payTicket;
       if(t){t.status='paid';t.paidAt=Date.now()}
-      // Backfill missing delete post id before notifying admin (legacy tickets / race).
+      // Backfill missing delete/pin post id before notifying admin (legacy tickets / race).
       if(t && !t.postId && /remove/i.test(String(t.kind||'')+' '+String(t.label||''))){
         t.postId=window.__removePostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
+        if(t.postId!=null) t.postId=String(t.postId).trim()||null;
+      }
+      if(t && !t.postId && /pin|feature/i.test(String(t.kind||'')+' '+String(t.label||''))){
+        t.postId=window.__pinPostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
         if(t.postId!=null) t.postId=String(t.postId).trim()||null;
       }
       if(t&&/remove/i.test(String(t.kind||'')+' '+String(t.label||'')) && !t.postId){
         toast('Missing post ID — reopen the post, then tap I PAID');
         return false;
       }
+      if(t&&/pin|feature/i.test(String(t.kind||'')+' '+String(t.label||'')) && !t.postId){
+        toast('Missing post ID — reopen the post, then tap I PAID');
+        return false;
+      }
       savePayTickets(arr);
       var kind='pay_ticket';
       if(t&&/remove/i.test(t.kind||t.label||'')) kind='remove_request';
-      if(t&&/pin|feature/i.test(t.kind||t.label||'')) kind='feature_request';
+      if(t&&/pin|feature/i.test(t.kind||t.label||'')) kind='pin_payment_request';
       if(t&&/print/i.test(t.kind||t.label||'')) kind='print_request';
       if(t&&(/coins/i.test(String(t.kind||''))||Number(t.coins||0)>0)&&!/pin|remove|print|page|feature/i.test(String(t.kind||'')+' '+String(t.label||''))) kind='coins';
       await notifyAdminPayment({
@@ -32715,8 +32790,41 @@ async function onIdFace(e){
           }catch(e3){}
         }catch(e){console.warn('ticket remove_request CF',e)}
       }
+      if(t&&t.postId&&kind==='pin_payment_request'){
+        try{
+          var pinProvider=String(t.provider||window.__pinPayProvider||'throne/paypal').toLowerCase().trim()||'throne/paypal';
+          var featLocal2=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
+          featLocal2=featLocal2.filter(function(x){return normalizeAdminPostId(x.id)!==normalizeAdminPostId(t.postId)});
+          featLocal2.unshift({id:String(t.postId),user:t.user||'',title:'Pin',amount:t.amount||'$5',at:Date.now(),status:'PAYMENT CLAIMED / PENDING',provider:pinProvider,thumb:''});
+          localStorage.setItem('rs_feature_req',JSON.stringify(featLocal2.slice(0,30)));
+        }catch(e){}
+        try{
+          var pinProvider2=String(t.provider||window.__pinPayProvider||'throne/paypal').toLowerCase().trim()||'throne/paypal';
+          await cfCreateRequest({
+            kind:'pin_payment_request',
+            postId:String(t.postId),
+            user:t.user||'',
+            amount:t.amount||'$5',
+            coins:0,
+            provider:pinProvider2,
+            label:'PIN',
+            payload:{
+              message:'TICKET '+(t.code||'')+' paid · post #'+t.postId,
+              post_id:String(t.postId),
+              product:'Pin',
+              duration:'48 hours',
+              provider:pinProvider2,
+              status:'PAYMENT CLAIMED / PENDING',
+              auto_pin:false,
+              ticket:t.code||''
+            },
+            message:'🚨 PIN PAYMENT REQUEST · ticket '+(t.code||'')+' · @'+(t.user||'')+' · post #'+t.postId+' · $5 · method '+pinProvider2+' · PAYMENT CLAIMED / PENDING · do not pin until admin approves'
+          });
+          try{showPinRequestStatus(t.postId)}catch(e2){}
+        }catch(e){console.warn('ticket pin_payment_request CF',e)}
+      }
       try{await pingAdminMail('RS PAID '+(t&&t.code),'@'+(t&&t.user)+' paid '+(t&&t.amount)+' for '+(t&&t.label)+(t&&t.postId?' post #'+t.postId:''))}catch(e){}
-      toast(kind==='coins'?'Pending credit · waiting for Master':'Sent to Master');
+      toast(kind==='coins'?'Pending credit · waiting for Master':(kind==='pin_payment_request'?'Pin request pending admin verification':'Sent to Master'));
       try{document.getElementById('pay-ticket-modal').classList.remove('show');document.getElementById('pay-ticket-modal').style.display='none'}catch(e){}
     }
     window.startPayTicket=startPayTicket;
@@ -33323,7 +33431,7 @@ async function onIdFace(e){
     }
     function closeModals(){
       window.__blockFeedTap=Date.now()+250;
-      ['extend-modal','remove-modal','donate-modal','game-pack-modal'].forEach(function(id){
+      ['extend-modal','remove-modal','pin-modal','donate-modal','game-pack-modal'].forEach(function(id){
         try{
           var m=document.getElementById(id);
           if(!m)return;
@@ -34100,29 +34208,127 @@ async function onIdFace(e){
         ov.onclick=function(e){if(e.target===ov)ov.style.display='none'};
       }catch(e){}
     }
-    async function requestPinAction(id){
+    function paintPinCoinsPayButton(btn, cost){
+      if(!btn) return;
+      cost=Number(cost)||((typeof FC_COSTS!=='undefined'&&FC_COSTS.pin)||10);
+      btn.classList.add('btn-remove-fc-pay');
+      btn.style.display='block';
+      btn.disabled=false;
+      btn.removeAttribute('aria-busy');
+      btn.style.background='';
+      btn.style.color='';
+      btn.style.border='';
+      btn.innerHTML='<span class="pay-row" style="justify-content:center">'
+        +'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex-shrink:0">'
+        +'<ellipse cx="12" cy="17.2" rx="7" ry="2.3" fill="rgba(255,255,255,.35)"/>'
+        +'<ellipse cx="12" cy="13.6" rx="7" ry="2.3" fill="rgba(255,255,255,.55)"/>'
+        +'<ellipse cx="12" cy="10" rx="7" ry="2.3" fill="#fff"/>'
+        +'</svg>'
+        +'<span class="rm-fc-pay-label"><span class="rm-fc-pay-title">Pay '+cost+' Coins</span>'
+        +'<span class="rm-fc-pay-sub">Pin immediately · 48h</span></span></span>';
+      btn.setAttribute('onclick','pinWithCoinsFromModal()');
+    }
+    function setPinModalExternalPay(show){
+      try{
+        var throne=document.getElementById('btn-pin-throne');
+        var paypal=document.getElementById('btn-pin-paypal');
+        var paid=document.getElementById('btn-pin-paid');
+        var disp=show?'block':'none';
+        if(throne) throne.style.display=disp;
+        if(paypal) paypal.style.display=disp;
+        if(paid) paid.style.display=disp;
+      }catch(e){}
+    }
+    function showPinRequestStatus(postId){
+      try{
+        var el=document.getElementById('pin-request-status');
+        if(!el) return;
+        var key=String(postId||window.__pinPostId||'');
+        var pending=false;
+        try{
+          var featLocal=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
+          pending=featLocal.some(function(x){return String(x.id)===key && (!x.status || /pending|claim/i.test(String(x.status||'')))});
+        }catch(e){}
+        if(pending){
+          el.style.display='block';
+          el.textContent='Pin request pending admin verification for post #'+key+'. Not pinned yet.';
+        }else{
+          el.style.display='none';
+          el.textContent='';
+        }
+      }catch(e){}
+    }
+    function openPinModal(id){
       id=id||(typeof currentDetailId!=='undefined'?currentDetailId:null);
       if(!id){toast('Open the post first');return false}
-      var cost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
       var uid=typeof coinUserId==='function'?coinUserId():((currentUser&&currentUser.name)||'');
       uid=String(uid||'').replace(/^@/,'').trim();
-      if(!uid || uid==='anon' || uid==='guest'){
+      if(!uid || uid==='anon' || uid==='guest' || /^anon[_:]/i.test(uid) || (typeof isAnonymousAccount==='function'&&isAnonymousAccount())){
         toast('Login required');
         try{showAuth('login')}catch(e){}
         return false;
       }
-      var bal=Number(window.__fcLast||0)||0;
-      try{bal=Number(await loadFagBalance())||0}catch(e){}
-      if(bal<cost){
-        try{openNeedCoins({cost:cost,why:'pin',action:'pin'})}catch(e){try{openCoinShop()}catch(err){}}
-        return false;
+      window.__pinPostId=id;
+      window.__pinPayProvider=window.__pinPayProvider||'';
+      var pinCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
+      var post=null;
+      try{post=typeof findPostAnywhere==='function'?findPostAnywhere(id):null}catch(e){}
+      if(!post) try{post=(posts||[]).find(function(p){return String(p.id)===String(id)})}catch(e){}
+      var already=false;
+      try{already=!!(typeof isFeatured==='function'&&isFeatured(post))}catch(e){}
+      var title=document.querySelector('#pin-modal h3');
+      var pEl=document.querySelector('#pin-modal > .modal > p');
+      var balLab=document.getElementById('pin-balance-label');
+      var lab=document.getElementById('pin-post-id-label');
+      var fc=document.getElementById('btn-pin-fc');
+      var paid=document.getElementById('btn-pin-paid');
+      var buy=document.getElementById('btn-pin-buycoins');
+      if(lab) lab.textContent=String(id||'—');
+      if(title) title.textContent=already?('Renew pin · '+pinCost+' Coins or $5'):('Pin · '+pinCost+' Coins or $5');
+      if(pEl){
+        pEl.innerHTML=already
+          ?('This post is already on Spotlight. Add another 48h with <strong style="color:#f5c518">'+pinCost+' Coins</strong> immediately, or PayPal / Throne <strong style="color:#f5c518">$5</strong> after <strong>I paid</strong> (admin verifies).')
+          :('Paid pin · <strong style="color:#f5c518">'+pinCost+' Coins</strong> pins it immediately for 48h. PayPal / Throne <strong style="color:#f5c518">$5</strong> needs admin verification after you tap <strong>I paid</strong>.');
       }
-      return await pinWithCoins(id);
+      if(balLab){balLab.style.display='none';balLab.textContent=''}
+      if(paid){paid.style.display='block';paid.disabled=false;paid.textContent='I paid $5 — pending admin verification'}
+      paintPinCoinsPayButton(fc, pinCost);
+      setPinModalExternalPay(true);
+      if(buy) buy.style.display='none';
+      try{
+        var stBox=document.getElementById('pin-request-status');
+        if(stBox){stBox.style.display='none';stBox.textContent=''}
+      }catch(e){}
+      var modal=document.getElementById('pin-modal');
+      if(modal){modal.style.display='';modal.classList.add('show')}
+      try{showPinRequestStatus(id)}catch(e){}
+      (async function(){
+        var bal=Number(window.__fcLast||0)||0;
+        try{bal=Number(await loadFagBalance())||0}catch(e){}
+        if(balLab){
+          balLab.style.display='block';
+          balLab.innerHTML='Your balance: <strong style="color:#fff">'+bal+' Coins</strong>'+(bal>=pinCost?' · enough to pin now.':' · need '+pinCost+' Coins, or pay $5 below.');
+        }
+        paintPinCoinsPayButton(fc, pinCost);
+        if(buy) buy.style.display=bal>=pinCost?'none':'block';
+      })();
+      return true;
+    }
+    window.openPinModal=openPinModal;
+    async function requestPinAction(id){
+      return openPinModal(id);
     }
     window.requestPinAction=requestPinAction;
+    async function pinWithCoinsFromModal(){
+      var id=window.__pinPostId||(typeof currentDetailId!=='undefined'?currentDetailId:null);
+      if(!id){toast('Open the post first');return false}
+      var ok=await pinWithCoins(id);
+      if(ok){try{closeModals()}catch(e){}}
+      return ok;
+    }
+    window.pinWithCoinsFromModal=pinWithCoinsFromModal;
     async function pinWithCoins(id){
       var cost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
-      // Pre-check balance so we never open a $5-per-pin window — recharge Coins instead.
       var balPre=Number(window.__fcLast||0)||0;
       try{balPre=Number(await loadFagBalance())||balPre}catch(e){}
       if(balPre<cost){
@@ -34136,6 +34342,7 @@ async function onIdFace(e){
       var pinDone=false;
       setTimeout(function(){if(!pinDone){payProgress(true,'Pinned','Closing…',100);setTimeout(function(){payProgress(false)},600)}},8000);
       try{document.getElementById('feature-modal').style.display='none'}catch(e){}
+      try{closeModals()}catch(e){}
       var until=Date.now()+48*60*60*1000;
       try{setLocalFeatured(id, until)}catch(e){}
       var src=(posts||[]).find(function(p){return String(p.id)===String(id)});
@@ -34187,11 +34394,20 @@ async function onIdFace(e){
       if(__pinRequestLocks[key]){toast('Your pin request is already being sent. Please wait.');return}
       __pinRequestLocks[key]=true;
       var btn=null;
-      try{btn=document.querySelector('#feature-modal button[onclick*="confirmPinPaid"]');if(btn){btn.disabled=true;btn.style.opacity='.55';btn.textContent='⏳ Sending…'}}catch(e){}
+      try{
+        btn=document.getElementById('btn-pin-paid')||document.querySelector('#feature-modal button[onclick*="confirmPinPaid"]');
+        if(btn){btn.disabled=true;btn.style.opacity='.55';btn.textContent='⏳ Sending…'}
+      }catch(e){}
       function inlineStatus(pct,text,detail){
-        try{var el=document.getElementById('pin-request-status');if(!el)return;el.innerHTML='<div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.35)"><div style="font-size:12px;font-weight:900;letter-spacing:.4px;color:#c4b5fd;margin-bottom:7px">REQUEST PROGRESS</div><div style="font-size:13px;font-weight:800;margin-bottom:8px">'+esc(text||'Processing…')+'</div><div style="height:7px;background:#1b1b1f;border-radius:999px;overflow:hidden"><div style="height:100%;width:'+Math.max(0,Math.min(100,pct))+'%;background:linear-gradient(90deg,#7c3aed,#f5c518);transition:width .3s"></div></div><div style="font-size:11px;color:var(--muted);margin-top:7px">'+Math.round(pct)+'%'+(detail?' · '+esc(detail):'')+'</div></div>'}catch(e){}
+        try{
+          var el=document.getElementById('pin-request-status');
+          if(!el)return;
+          el.style.display='block';
+          el.innerHTML='<div style="font-size:12px;font-weight:900;letter-spacing:.4px;color:#c4b5fd;margin-bottom:7px">REQUEST PROGRESS</div><div style="font-size:13px;font-weight:800;margin-bottom:8px;color:#fff">'+esc(text||'Processing…')+'</div><div style="height:7px;background:#1b1b1f;border-radius:999px;overflow:hidden"><div style="height:100%;width:'+Math.max(0,Math.min(100,pct))+'%;background:linear-gradient(90deg,#7c3aed,#f5c518);transition:width .3s"></div></div><div style="font-size:11px;color:var(--muted);margin-top:7px">'+Math.round(pct)+'%'+(detail?' · '+esc(detail):'')+'</div>';
+        }catch(e){}
       }
-      var msg='🚨 PREMIUM PIN REQUEST · @'+user+' · post #'+key+' · 10 Coins · 48h';
+      var provider=String(window.__pinPayProvider||'throne/paypal').toLowerCase().trim()||'throne/paypal';
+      var msg='🚨 PIN REQUEST · @'+user+' · post #'+key+' · $5 · 48h · '+provider+' · pending admin verify (do not pin twice)';
       var pinThumb='';
       try{
         var pinPost=typeof findPostAnywhere==='function'?findPostAnywhere(key):null;
@@ -34201,14 +34417,14 @@ async function onIdFace(e){
       try{
         var featLocal=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
         featLocal=featLocal.filter(function(x){return normalizeAdminPostId(x.id)!==normalizeAdminPostId(key)});
-        featLocal.unshift({id:key,user:user,title:'Premium Pin',amount:'$10',at:Date.now(),thumb:pinThumb||''});
+        featLocal.unshift({id:key,user:user,title:'Pin',amount:'$5',at:Date.now(),status:'PAYMENT CLAIMED / PENDING',provider:provider,thumb:pinThumb||''});
         localStorage.setItem('rs_feature_req',JSON.stringify(featLocal.slice(0,30)));
       }catch(e){}
       try{
         inlineStatus(15,'Notifying admin…','Do not close this window');
         var notifOk=false, reqOk=false, req=null, lastErr='';
         try{
-          await notifyAdminPayment({kind:'pin_payment_request',postId:key,user:user,amount:'$10',label:'PREMIUM PIN',message:msg});
+          await notifyAdminPayment({kind:'pin_payment_request',postId:key,user:user,amount:'$5',label:'PIN',message:msg});
           notifOk=true;
         }catch(e){lastErr=(e&&e.message)||lastErr}
         inlineStatus(45,'Creating pin request…','Saving for admin review');
@@ -34218,7 +34434,7 @@ async function onIdFace(e){
             var check=await fetchWithTimeout(CF_API+'/posts/'+encodeURIComponent(key),{cache:'no-store'}, 8000);
             if(!check.ok) console.warn('CF post check', check.status);
           }catch(e){console.warn('CF post check',e)}
-          req=await cfCreateRequest({kind:'pin_payment_request',postId:key,user:user,amount:'$10',coins:50,provider:'throne',label:'PREMIUM PIN',payload:{message:msg,post_id:key,product:'Premium Pin',duration:'48 hours',thumb_url:pinThumb||''},message:msg});
+          req=await cfCreateRequest({kind:'pin_payment_request',postId:key,user:user,amount:'$5',coins:0,provider:provider,label:'PIN',payload:{message:msg,post_id:key,product:'Pin',duration:'48 hours',thumb_url:pinThumb||'',provider:provider},message:msg});
           if(req&&(req.id||(req._channels&&(req._channels.request||req._channels.notifs)))) reqOk=true;
         }catch(e){lastErr=(e&&e.message)||lastErr;console.warn('pin request',e)}
         if(!reqOk && !notifOk){
@@ -34228,9 +34444,14 @@ async function onIdFace(e){
           }catch(e){lastErr=(e&&e.message)||lastErr}
         }
         if(!(reqOk||notifOk)) throw new Error(lastErr||'Could not send request');
-        inlineStatus(100,'Request sent','Done'); setTimeout(function(){var el=document.getElementById('pin-request-status');if(el)el.innerHTML=''},800);
+        inlineStatus(100,'Request sent','Pending admin verification');
+        try{showPinRequestStatus(key)}catch(e){}
+        try{
+          var paidBtn=document.getElementById('btn-pin-paid');
+          if(paidBtn){paidBtn.disabled=true;paidBtn.textContent='✓ Request sent — pending'}
+        }catch(e){}
         try{var m=document.getElementById('feature-modal');if(m){var b=m.querySelector('button[onclick*="confirmPinPaid"]');if(b){b.disabled=true;b.textContent='✓ Request sent'}}}catch(e){}
-        toast('Pin request sent ✓ Admin has received it.');
+        toast('Pin request sent ✓ Pending admin verification — not pinned yet.');
         return req||{ok:true,notified:notifOk};
       }catch(e){inlineStatus(100,'Could not send request',(e&&e.message)||'Cloudflare error');toast((e&&e.message)||'Could not send request')}finally{__pinRequestLocks[key]=false;try{if(btn){btn.disabled=true;btn.style.opacity='.7'}}catch(e){}}
     }
@@ -34442,33 +34663,8 @@ async function onIdFace(e){
         if(post){posts=posts||[];posts.unshift(post)}
       }catch(e){}
       if(!post){toast('Post not loaded');return}
-      // Not featured yet → spend 10 Coins immediately (or open Recharge Coins). No Premium Pin · $5 window.
-      if(!isFeatured(post)){
-        try{requestPinAction(id)}catch(e){try{pinWithCoins(id)}catch(err){}}
-        return;
-      }
-      var left=postFeaturedUntil(post)-Date.now();
-      var pinCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
-      var html='<div style="padding:8px 0 16px">'
-        +'<div style="font-size:18px;font-weight:800;margin-bottom:8px">Already on Spotlight</div>'
-        +'<p style="color:var(--text);font-size:14px;line-height:1.5;margin-bottom:10px">This post is pinned for <strong>'+fmt(left)+'</strong>.</p>'
-        +'<p style="margin-bottom:14px">Add another 48 hours: <strong style="color:#f5c518">'+pinCost+' Coins</strong> from your balance</p>'
-        +'<button class="btn btn-primary" type="button" style="width:100%;margin-bottom:10px;padding:14px;font-weight:800;background:#f5c518;color:#000" onclick="requestPinAction('+jsId(id)+')">Renew pin — '+pinCost+' Coins</button>'
-        +'<button class="btn btn-secondary" type="button" style="width:100%;margin-bottom:10px" onclick="document.getElementById(\'feature-modal\').style.display=\'none\';openNeedCoins({cost:'+pinCost+',why:\'pin\',action:\'pin\'})">Recharge Coins · $5 → 60</button>'
-        +'<button class="btn btn-ghost" style="width:100%" type="button" id="btn-feature-cancel">Close</button>'
-        +'</div>';
-      var ov=document.getElementById('feature-modal');
-      if(!ov){
-        ov=document.createElement('div');
-        ov.id='feature-modal';
-        ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:5000;display:flex;align-items:flex-end;justify-content:center;padding:16px';
-        document.body.appendChild(ov);
-      }
-      ov.innerHTML='<div style="background:var(--card);border:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:18px 16px calc(18px + env(safe-area-inset-bottom))">'+html+'</div>';
-      ov.style.display='flex';
-      ov.onclick=function(e){if(e.target===ov)ov.style.display='none'};
-      var cancel=document.getElementById('btn-feature-cancel');
-      if(cancel)cancel.onclick=function(){ov.style.display='none'};
+      // Same dual-pay modal as Delete: 10 Coins immediate OR $5 external + I paid.
+      try{openPinModal(id)}catch(e){try{requestPinAction(id)}catch(err){}}
     }
     window.openFeature=openFeature;
 

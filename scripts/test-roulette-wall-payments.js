@@ -26,7 +26,7 @@ assert(html.includes('var ROULETTE_PACK_SPINS=10') && html.includes('var ROULETT
 assert(html.includes('lastRoulettePlayId') && html.includes('rs_roulette_last_challenge'), 'spin ↔ challenge association');
 assert(html.includes('rs_roulette_published') && html.includes('__pendingRoulettePublish'), 'duplicate publish guard');
 assert(html.includes("tags.push('roulette','roulette_task')") || html.includes("tagsEl.value = 'roulette, roulette_task"), 'publish tags roulette category');
-assert(html.includes("setWallFilter('roulette')"), 'after publish jump to Roulette feed');
+assert(html.includes("setWallFilter('tasks')") || html.includes("setWallFilter('roulette')"), 'after publish jump to Tasks feed');
 assert(html.includes('roulette-wall-badge') && (html.includes('🎲 Roulette') || html.includes('🎡 Ruin Roulette') || html.includes("label:'🎡 Ruin Roulette'")), 'Roulette badge on cards');
 assert(html.includes('wallSortMode') && html.includes('rs_wall_sort_'), 'independent per-category sort memory');
 assert(html.includes('(Number(b.created)||0)-(Number(a.created)||0)'), 'Most Recent = created DESC');
