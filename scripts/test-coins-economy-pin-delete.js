@@ -58,6 +58,10 @@ assert(html.indexOf("setRemoveModalExternalPay(true)") >= 0, 'external $5 pay en
 assert(html.indexOf("kind:'remove_request'") >= 0, 'I paid $5 creates remove_request');
 assert(html.indexOf('btn-remove-btc') >= 0 || html.indexOf('Bitcoin payment') >= 0, 'Bitcoin delete payment option');
 assert(html.indexOf('Coins require a registered account') >= 0, 'guest cannot spend Coins on delete');
+// Guest Pin mirrors Delete ($5 claim) — login gate removed from openPinModal only
+assert(html.indexOf('Guest session · pay $5 directly (no account required). Coins require a registered account.') >= 0, 'guest pin/delete share $5 messaging');
+assert(!/function openPinModal\([\s\S]*?toast\('Login required'\)/.test(html), 'openPinModal does not require login');
+assert(html.indexOf('You already have a pending pin request') >= 0, 'duplicate pin requests blocked');
 
 // Credit only after confirmed payment (existing I paid → pending → admin credit)
 assert(html.indexOf('confirmCoinPackPaid') >= 0, 'I paid creates pending credit request');

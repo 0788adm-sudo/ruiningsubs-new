@@ -32,6 +32,14 @@ assert(html.includes('data-feed-tab="all"') && html.includes('ALL POSTS'), 'ALL 
 assert(html.includes('id="panel-feed"') && html.includes('id="panel-wall"'), 'EXTENDED and ALL POSTS panels');
 assert(html.includes('function openFeedAllPosts'), 'openFeedAllPosts helper');
 assert(html.includes('function syncFeedModeTabs') || html.includes('data-feed-tab'), 'feed tab sync');
+// Placement: Exposure Videos → EXTENDED|ALL POSTS → feed search
+(function () {
+  var m = html.match(/id="panel-feed"[\s\S]*?id="posts-container"/);
+  assert(!!m, 'panel-feed extract for tab order');
+  var b = m[0];
+  assert(b.indexOf('home-videos-wrap') < b.indexOf('feed-mode-tabs-extended'), 'tabs below Exposure Videos');
+  assert(b.indexOf('feed-mode-tabs-extended') < b.indexOf('feed-search-wrap'), 'tabs above feed search');
+})();
 
 // ALL POSTS filters
 ['ALL', 'GAMES', 'ID', 'PEA', 'REGULAR POSTS', 'TIMED POSTS'].forEach(function (label) {
