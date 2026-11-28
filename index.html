@@ -369,12 +369,12 @@
       main{max-width:1280px;padding:16px 20px 140px}
       #posts-container{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
       .user-posts-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-      #explore-normal-posts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+      #explore-normal-posts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
       #explore-normal-posts .normal-feed-post,
       #explore-normal-posts .post{
         border:1px solid var(--border);border-radius:14px;background:var(--card);margin:0;
       }
-      #explore-normal-posts .normal-feed-post-media img{max-height:240px}
+      #explore-normal-posts .normal-feed-post-media img{max-height:none}
       .post-media{aspect-ratio:3/4}
       .post-title{font-size:13px}
       .post-desc{font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -390,7 +390,7 @@
       main{max-width:1480px}
       #posts-container{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
       .user-posts-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-      #explore-normal-posts{grid-template-columns:repeat(4,minmax(0,1fr))}
+      #explore-normal-posts{grid-template-columns:repeat(3,minmax(0,1fr))}
       .vid-list,.vid-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
       .post-media{aspect-ratio:4/5}
     }
@@ -2384,8 +2384,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   }
   #explore-normal-posts{
     display:grid!important;
-    grid-template-columns:repeat(3,minmax(0,1fr))!important;
-    gap:10px!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:12px!important;
   }
   #explore-normal-posts > *{min-width:0}
   #explore-normal-posts .normal-feed-post,
@@ -2395,7 +2395,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     background:var(--card)!important;
     margin:0!important;
   }
-  #explore-normal-posts .normal-feed-post-media img{max-height:220px!important}
+  #explore-normal-posts .normal-feed-post-media img{max-height:none!important}
   .post-media{aspect-ratio:3/4!important;max-height:280px!important}
   .post-media img,.post-media video{max-height:280px!important;object-fit:cover}
   .post-title{font-size:13px!important}
@@ -2415,8 +2415,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 @media(min-width:1280px){
   main{max-width:1540px!important}
-  #posts-container,.user-posts-grid,#explore-normal-posts,.vid-list,.vid-grid{
+  #posts-container,.user-posts-grid,.vid-list,.vid-grid{
     grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  }
+  #explore-normal-posts{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
   }
   .post-media{max-height:260px!important}
 }
@@ -2795,24 +2798,206 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   .gt-meta{left:12px;right:68px;bottom:calc(44px + env(safe-area-inset-bottom,0px))}
 }
 
-/* Wall consistency */
-#explore-normal-posts .normal-feed-post-media{
-  aspect-ratio:4/5;max-height:none;overflow:hidden;background:#000;
+/* ALL POSTS — 2-column compact grid (does not affect EXTENDED / #posts-container) */
+#explore-normal-posts{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  padding:0 2px 28px;
+  align-items:stretch;
 }
+#explore-normal-posts > .normal-feed-empty,
+#explore-normal-posts > .empty,
+#explore-normal-posts > #wall-more-sentinel{
+  grid-column:1/-1;
+}
+#explore-normal-posts > article.normal-feed-post{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  margin:0!important;
+  padding:0 0 6px!important;
+  background:var(--card,#0a0a0c)!important;
+  border:1px solid var(--border,#1c1c22)!important;
+  border-radius:14px!important;
+  border-bottom:1px solid var(--border)!important;
+  overflow:hidden;
+  box-shadow:0 6px 18px rgba(0,0,0,.28);
+  content-visibility:auto;
+  contain-intrinsic-size:auto 340px;
+}
+#explore-normal-posts .normal-feed-post-head{
+  padding:8px 8px 6px!important;
+  gap:6px!important;
+  align-items:center;
+}
+#explore-normal-posts .normal-feed-post-head .av{
+  width:28px!important;
+  height:28px!important;
+  flex:0 0 28px;
+  border-radius:50%;
+  overflow:hidden;
+}
+#explore-normal-posts .normal-feed-post-head .av img{
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+#explore-normal-posts .normal-feed-post-meta{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:2px 4px;
+  min-width:0;
+}
+#explore-normal-posts .normal-feed-post-user{
+  font-size:11px!important;
+  font-weight:800;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#explore-normal-posts .normal-feed-post-time{
+  font-size:9px!important;
+  width:100%;
+  margin-top:0!important;
+}
+#explore-normal-posts .nf-timer-chip,
+#explore-normal-posts .nf-hot-chip{
+  margin-left:0!important;
+  padding:1px 6px!important;
+  font-size:9px!important;
+}
+#explore-normal-posts .nf-cat-badge,
+#explore-normal-posts .game-origin-badge,
+#explore-normal-posts .normal-feed-post-meta > span[style*="border-radius:999px"],
+#explore-normal-posts .normal-feed-post-meta > button.game-origin-badge{
+  margin-left:0!important;
+  font-size:8px!important;
+  padding:1px 5px!important;
+  letter-spacing:.3px!important;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#explore-normal-posts .normal-feed-post-media{
+  position:relative;
+  margin:0 8px 6px!important;
+  aspect-ratio:4/5;
+  max-height:none!important;
+  overflow:hidden;
+  background:#000;
+  border-radius:10px!important;
+  border:1px solid rgba(255,255,255,.06)!important;
+  box-shadow:none!important;
+}
+#explore-normal-posts .normal-feed-post-media:after{display:none!important}
 #explore-normal-posts .normal-feed-post-media img,
-#explore-normal-posts .normal-feed-post-media video{
-  width:100%;height:100%;object-fit:cover;display:block;max-height:none!important;
+#explore-normal-posts .normal-feed-post-media video,
+#explore-normal-posts .normal-feed-post-media .lazy-video,
+#explore-normal-posts .normal-feed-post-media .lv-player{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block;
+  max-height:none!important;
+}
+#explore-normal-posts .normal-feed-view-badge{
+  top:6px!important;
+  right:6px!important;
+  padding:4px 7px!important;
+  font-size:9px!important;
+  gap:4px!important;
+}
+#explore-normal-posts .normal-feed-view-badge .eye{font-size:11px!important}
+#explore-normal-posts .normal-feed-post-body{padding:0 8px 4px!important}
+#explore-normal-posts .normal-feed-post-title{
+  font-size:12px;
+  font-weight:800;
+  line-height:1.3;
+  color:#fff;
+  margin:0 0 3px;
+  cursor:pointer;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  word-break:break-word;
 }
 #explore-normal-posts .normal-feed-post-text{
-  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;
+  font-size:11px!important;
+  line-height:1.35!important;
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+  overflow:hidden!important;
+  white-space:normal!important;
+  margin:0!important;
 }
-#explore-normal-posts .normal-feed-post-actions{align-items:stretch}
+#explore-normal-posts .nf-action-hint{display:none!important}
+#explore-normal-posts .normal-feed-reacts{display:none!important}
+#explore-normal-posts .normal-feed-post-stats{
+  display:flex!important;
+  align-items:center;
+  gap:8px;
+  padding:0 8px 6px;
+  font-size:10px;
+  font-weight:800;
+  color:#9a9aa3;
+}
+#explore-normal-posts .normal-feed-post-stats .nf-stat-likes{color:#ffb35c}
+#explore-normal-posts .normal-feed-post-actions{
+  display:grid!important;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:4px!important;
+  padding:2px 6px 8px!important;
+  margin-top:auto;
+  align-items:stretch;
+}
+#explore-normal-posts .normal-feed-post-actions .btn-extend,
+#explore-normal-posts .normal-feed-post-actions .btn-hot{
+  grid-column:1/-1;
+}
+#explore-normal-posts .normal-feed-post-actions .btn{
+  min-height:34px!important;
+  padding:6px 3px!important;
+  font-size:10px!important;
+  border-radius:10px!important;
+  flex:unset!important;
+  min-width:0!important;
+  letter-spacing:0!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#explore-normal-posts .normal-feed-post-actions .nf-action-icon{
+  font-size:13px;
+  margin-right:0;
+  vertical-align:-1px;
+}
+#explore-normal-posts .normal-feed-post-actions .nf-action-lab{display:none}
+#explore-normal-posts .normal-feed-post-actions .nf-feed-comment{flex:unset!important}
+#explore-normal-posts .normal-feed-post-actions .btn[data-nf-act="dl"]{
+  grid-column:1/-1;
+}
+#explore-normal-posts .normal-feed-post-actions .btn-like [data-likes-id],
+#explore-normal-posts .normal-feed-post-actions .btn-like span[data-likes-id]{
+  font-size:10px!important;
+  font-weight:900;
+  margin-left:3px;
+}
 @media(min-width:900px){
-  #explore-normal-posts .normal-feed-post{
-    border:1px solid var(--border)!important;border-radius:14px!important;background:var(--card)!important;
-    margin:0!important;overflow:hidden;
+  #explore-normal-posts{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:12px!important;
   }
   #explore-normal-posts .normal-feed-post-media{aspect-ratio:3/4}
+}
+@media(min-width:1280px){
+  #explore-normal-posts{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:12px!important;
+  }
 }
 
 /* ID cards / generated pics gallery — full card visible, never cropped */
@@ -2829,14 +3014,14 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 #id-archive-list .id-archive-card .id-arch-media img{
   width:100%;height:auto;max-height:70vh;object-fit:contain;object-position:center;display:block;
 }
-/* Wall IDs / PEA tab: show full ID image (contain), not cover-cropped */
+/* Wall IDs / PEA tab: keep uniform grid thumbs; full art opens in detail */
 #explore-normal-posts.wall-ids-mode .normal-feed-post-media{
-  aspect-ratio:auto!important;max-height:none!important;overflow:hidden;background:#000;
-  display:flex;align-items:center;justify-content:center;min-height:180px;
+  aspect-ratio:3/4!important;max-height:none!important;overflow:hidden;background:#000;
+  display:flex;align-items:center;justify-content:center;min-height:0;
 }
 #explore-normal-posts.wall-ids-mode .normal-feed-post-media img,
 #explore-normal-posts.wall-ids-mode .normal-feed-post-media video{
-  width:100%!important;height:auto!important;max-height:78vh!important;object-fit:contain!important;object-position:center center;display:block;
+  width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;object-position:center center;display:block;
 }
 #id-archive-list .id-archive-card .id-arch-meta{
   padding:8px 9px 6px;min-width:0;
@@ -22134,13 +22319,18 @@ function pendingRouletteTasks(){
       try{isRouletteCard=typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)}catch(e){}
       var challengeLine='';
       if(isRouletteCard && p.title){
-        challengeLine='<div class="normal-feed-post-text" style="font-weight:800;color:#ffb35c;cursor:pointer;margin-bottom:4px" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.title)+'</div>';
+        challengeLine='<div class="normal-feed-post-title" style="font-weight:800;color:#ffb35c;cursor:pointer;margin-bottom:4px" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.title)+'</div>';
+      }
+      var titleLine='';
+      if(!isRouletteCard && p.title){
+        titleLine='<div class="normal-feed-post-title" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.title)+'</div>';
       }
       var body=p.desc?'<div class="normal-feed-post-text" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.desc)+'</div>':'';
-      if(!body && !media && !challengeLine){
+      if(!body && !media && !challengeLine && !titleLine){
         body='<div class="normal-feed-post-text" style="cursor:pointer" data-nf-act="open" data-nf-id="'+esc(String(p.id))+'">'+esc(p.title||'Post')+'</div>';
       }
       if(challengeLine) body=challengeLine+(body||'');
+      else if(titleLine) body=titleLine+(body||'');
       var clickable=userClickable(p.user);
       var userShown=typeof shortDisplayUser==='function'?shortDisplayUser(p.user):String(p.user||'');
       var userName=clickable
@@ -22204,19 +22394,33 @@ function pendingRouletteTasks(){
         actionBtns+='<button class="btn btn-hot'+(alreadyHot?' on':'')+'" type="button" '+(alreadyHot?'disabled':'')+' data-nf-act="hot" data-nf-id="'+pid+'"><span class="nf-action-icon">🔥</span> Hot'+(hotN?' · '+hotN:'')+'</button>';
       }
       // Delete lives only inside the post detail — never on Wall/feed cards.
+      var likesN=Number(p.likes||0)||0;
+      var statsRow='<div class="normal-feed-post-stats" aria-label="Post stats">'
+        +'<span class="nf-stat-views">👁 '+esc(String(viewLabel))+'</span>'
+        +'<span class="nf-stat-likes">❤ <span data-likes-id="'+pid+'">'+likesN+'</span></span>'
+        +'</div>';
       return '<article class="normal-feed-post" data-pid="'+pid+'" data-normal-post-id="'+pid+'">'
-        +'<div class="normal-feed-post-head"><div class="av">'+avatarHtml(p.user)+'</div>'
+        +'<div class="normal-feed-post-head"><div class="av" style="cursor:pointer" '+(clickable?'onclick="openUser(\''+String(p.user).replace(/'/g,'')+'\')"':'')+'>'+avatarHtml(p.user)+'</div>'
         +'<div class="normal-feed-post-meta" style="flex:1">'+userName+kindBadge+tierBadge+timerChip+'<div class="normal-feed-post-time">'+ago(p.created)+'</div></div></div>'
         +media
         +'<div class="normal-feed-post-body">'+body+'</div>'
+        +statsRow
         +'<span class="nf-action-hint">Tap a reaction to leave your mark</span>'
         +reactRow
         +'<div class="normal-feed-post-actions">'
         +actionBtns
-        +'<button class="btn btn-like'+(mine?' liked':'')+'" type="button" data-nf-act="picker" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(mine||'❤️')+'</span>'+(mine?' Reacted':' React')+' · <span data-likes-id="'+pid+'">'+(p.likes||0)+'</span></button>'
-        +'<button class="btn btn-secondary nf-feed-comment" type="button" data-nf-act="comment" data-nf-id="'+pid+'"><span class="nf-action-icon">💬</span> Comment</button>'
-        +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'"><span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span> '+(saved?'Saved':'Save')+'</button>'
-        +(vsrc?'<button class="btn btn-secondary" type="button" data-nf-act="dl" data-nf-id="'+pid+'"><span class="nf-action-icon">⬇️</span> Download</button>':'')
+        +'<button class="btn btn-like'+(mine?' liked':'')+'" type="button" data-nf-act="picker" data-nf-id="'+pid+'" aria-label="'+(mine?'Reacted':'React')+'">'
+          +'<span class="nf-action-icon">'+(mine||'❤️')+'</span>'
+          +'<span class="nf-action-lab">'+(mine?' Reacted':' React')+' · </span>'
+          +'<span data-likes-id="'+pid+'">'+likesN+'</span>'
+        +'</button>'
+        +'<button class="btn btn-secondary nf-feed-comment" type="button" data-nf-act="comment" data-nf-id="'+pid+'" aria-label="Comment">'
+          +'<span class="nf-action-icon">💬</span><span class="nf-action-lab"> Comment</span>'
+        +'</button>'
+        +'<button class="btn btn-secondary" type="button" data-nf-act="save" data-nf-id="'+pid+'" aria-label="'+(saved?'Saved':'Save')+'">'
+          +'<span class="nf-action-icon">'+(saved?'🔖':'📌')+'</span><span class="nf-action-lab"> '+(saved?'Saved':'Save')+'</span>'
+        +'</button>'
+        +(vsrc?'<button class="btn btn-secondary" type="button" data-nf-act="dl" data-nf-id="'+pid+'" aria-label="Download"><span class="nf-action-icon">⬇️</span><span class="nf-action-lab"> Download</span></button>':'')
         +'</div>'
         +'</article>';
     }

@@ -46,6 +46,12 @@ assert(wall.indexOf('id="wall-sort-bar"') < wall.indexOf('id="explore-normal-pos
 assert((wall.match(/id="wall-sort-bar"/g) || []).length === 1, 'sorting controls not duplicated');
 assert(wall.includes('>ALL<') && wall.includes('>GAMES<') && wall.includes('>TIMED POSTS<'), 'six-filter labels');
 
+// ALL POSTS 2-column grid (scoped; Extended stays independent)
+assert(/#explore-normal-posts\s*\{[^}]*grid-template-columns:\s*repeat\(2/.test(html), 'All Posts 2-column grid');
+assert(html.includes('normal-feed-post-title') && html.includes('normal-feed-post-stats'), 'compact title + stats on All Posts cards');
+assert(html.includes('id="posts-container"') && /#posts-container\{display:grid;grid-template-columns:1fr 1fr/.test(html), 'Extended posts-container grid retained');
+assert(html.includes('id="feed-float-switch"') && html.includes('feed-float-switch'), 'floating feed switch retained');
+
 // Wall + Post opens permanent composer
 assert(html.includes('onclick="openNormalPostComposer()'), 'Wall + Post calls openNormalPostComposer');
 assert(html.includes('function openNormalPostComposer') && html.includes('__wallComposer=true'), 'permanent Wall composer flag');
