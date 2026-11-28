@@ -24,11 +24,12 @@ assert(html.includes('Videos are permanent on GoonTok — never show Extend'), '
 assert(/function postHasActiveTimer\(p\)\{[\s\S]{0,400}isVideoPost/.test(html), 'postHasActiveTimer excludes videos');
 assert(html.includes('Permanent on GoonTok — no timer'), 'composer copy says permanent');
 
-// 3) Wall tabs — Tasks / Post / Extend / Dominants / IDs·PEA / Text
-var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1800);
-assert(wallBar.includes('data-wall-filter="tasks"') && wallBar.includes('>Tasks<'), 'Tasks tab');
+// 3) Wall tabs — All Posts / Post / Extend / Tasks / Dominants / IDs·PEA / Text
+var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 2000);
+assert(wallBar.includes('data-wall-filter="all"') && wallBar.includes('>All Posts<'), 'All Posts tab');
 assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>Post<'), 'Post tab');
 assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('Extend Post'), 'Extend Post tab');
+assert(wallBar.includes('data-wall-filter="tasks"') && wallBar.includes('>Tasks<'), 'Tasks tab');
 assert(wallBar.includes('data-wall-filter="dominants"') && wallBar.includes('>Dominants<'), 'Dominants tab');
 assert(wallBar.includes('data-wall-filter="generated"') && wallBar.includes('IDs / PEA'), 'IDs/PEA tab');
 assert(wallBar.includes('data-wall-filter="text"'), 'Text tab');
@@ -38,23 +39,26 @@ assert(!wallBar.includes('data-wall-filter="trending"'), 'no Trending tab');
 assert(!wallBar.includes('data-wall-filter="following"'), 'no Following tab');
 assert(!wallBar.includes('data-wall-filter="foryou"'), 'no For You tab');
 assert(!wallBar.includes('data-wall-filter="new"'), 'no New tab');
-assert((wallBar.match(/data-wall-filter="/g) || []).length === 6, 'exactly 6 wall filter chips');
-assert(html.includes("allowed=['tasks','normal','timed','dominants','generated','text']"), 'setWallFilter allowlist includes Tasks');
+assert((wallBar.match(/data-wall-filter="/g) || []).length === 7, 'exactly 7 wall filter chips');
+assert(html.includes("allowed=['all','tasks','normal','timed','dominants','generated','text']"), 'setWallFilter allowlist includes All Posts + Tasks');
 assert(html.includes('id="wall-dominants-soon"') && html.includes('Coming soon… Masters ready to dominate you.'), 'Dominants coming-soon screen');
 assert(html.includes('COMING SOON') && html.includes('wall-dominants-soon-label'), 'COMING SOON label on Dominants');
 
-// Category order: Tasks → Post → Extend → Dominants → IDs → Text
-var orderIdx = ['tasks', 'normal', 'timed', 'dominants', 'generated', 'text'].map(function (f) {
+// Category order: All → Post → Extend → Tasks → Dominants → IDs → Text
+var orderIdx = ['all', 'normal', 'timed', 'tasks', 'dominants', 'generated', 'text'].map(function (f) {
   return wallBar.indexOf('data-wall-filter="' + f + '"');
 });
-assert(orderIdx.every(function (n) { return n >= 0; }) && orderIdx.join(',') === orderIdx.slice().sort(function (a, b) { return a - b; }).join(','), 'Wall category order Tasks→Post→Extend→Dominants→IDs→Text');
+assert(orderIdx.every(function (n) { return n >= 0; }) && orderIdx.join(',') === orderIdx.slice().sort(function (a, b) { return a - b; }).join(','), 'Wall category order All→Post→Extend→Tasks→Dominants→IDs→Text');
 
 // Sort controls + Tasks CTA
 assert(html.includes('id="wall-sort-bar"') && html.includes('data-wall-sort="recent"') && html.includes('data-wall-sort="interaction"'), 'per-category Most Recent / Most Interaction');
 assert(html.includes('wallInteractionScore') && html.includes("wallSortMode==='interaction'"), 'interaction sort uses dynamic score');
 assert(html.includes('id="wall-tasks-cta"') && html.includes('openRoulette()') && html.includes('openDiceGame()'), 'Tasks feed game CTAs');
 assert(html.includes('function isGameTaskWallPost') && html.includes("filter==='tasks'"), 'Tasks posts unified by category');
+assert(html.includes('function isWallUnifiedPost') && html.includes("filter==='all'"), 'All Posts unified matcher');
 assert(html.includes('function isRouletteWallPost'), 'legacy roulette detector kept');
+assert(html.includes('function wallCategoryBadgeHtml'), 'category badges for mixed feed');
+assert(html.includes('rs_wall_unified_v1'), 'one-time migration to All Posts');
 
 // 4) IDs / PEA contain (not cover-crop)
 assert(/#id-archive-list \.id-archive-card \.id-arch-media img\{[^}]*object-fit:\s*contain/.test(html), 'id-archive object-fit contain');

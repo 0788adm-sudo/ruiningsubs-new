@@ -758,8 +758,17 @@
     .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
     .wall-filter-chip[data-wall-filter="tasks"].on,
+    .wall-filter-chip[data-wall-filter="all"].on{background:linear-gradient(90deg,#7c3aed,#ff6a00);box-shadow:0 0 14px rgba(124,58,237,.4)}
+    .wall-filter-chip[data-wall-filter="tasks"].on{background:linear-gradient(90deg,#ff8a00,#7c3aed);box-shadow:0 0 14px rgba(255,106,0,.35)}
     .wall-filter-chip[data-wall-filter="roulette"].on{background:linear-gradient(90deg,#ff8a00,#ff3b1f);box-shadow:0 0 14px rgba(255,106,0,.4)}
     .wall-filter-chip[data-wall-filter="dominants"].on{background:linear-gradient(90deg,#7c3aed,#ec4899);box-shadow:0 0 14px rgba(236,72,153,.35)}
+    .nf-cat-badge{display:inline-block;font-size:10px;font-weight:900;letter-spacing:.55px;color:#111;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:middle;line-height:1.4}
+    .nf-cat-badge.cat-post{background:#c4b5fd}
+    .nf-cat-badge.cat-extend{background:#ffb35c}
+    .nf-cat-badge.cat-text{background:#94a3b8}
+    .nf-cat-badge.cat-task{background:linear-gradient(135deg,#f5c518,#ff6a00)}
+    .nf-cat-badge.cat-video{background:#fbbf24}
+    .nf-cat-badge.cat-print{background:#fb7185}
     .wall-tasks-cta{display:none;margin:0 8px 8px}
     .wall-tasks-cta.is-on{display:block}
     .wall-tasks-cta-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
@@ -3232,9 +3241,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div id="wall-hot-slot" class="wall-day-photos"></div>
             <div class="wall-tagline">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
-              <button type="button" class="wall-filter-chip" data-wall-filter="tasks" role="tab" aria-selected="false">Tasks</button>
-              <button type="button" class="wall-filter-chip on" data-wall-filter="normal" role="tab" aria-selected="true">Post</button>
+              <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">All Posts</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Post</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">Extend Post</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="tasks" role="tab" aria-selected="false">Tasks</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="dominants" role="tab" aria-selected="false">Dominants</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="generated" role="tab" aria-selected="false">IDs / PEA</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="text" role="tab" aria-selected="false">Text</button>
@@ -21068,12 +21078,12 @@ function pendingRouletteTasks(){
       var blob=(String(p.title||'')+' '+String(p.desc||'')).toLowerCase();
       return blob.indexOf('roulette order')>=0||blob.indexOf('roulette task')>=0;
     }
-    // Wall · Tasks: every proof published from Roulette / Dice / Tic-Tac-Toe (reuse existing posts).
+    // Wall · Tasks: every proof published from Roulette / Dice / Tic-Tac-Toe / Challenges (reuse existing posts).
     function isGameTaskWallPost(p){
       if(!p)return false;
       try{
         var origin=typeof detectGameOrigin==='function'?detectGameOrigin(p):'';
-        if(origin==='roulette'||origin==='dice'||origin==='tic_tac_toe') return true;
+        if(origin==='roulette'||origin==='dice'||origin==='tic_tac_toe'||origin==='challenges') return true;
       }catch(e){}
       try{if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)) return true}catch(e){}
       var tg=p.tags||[];
@@ -21083,8 +21093,10 @@ function pendingRouletteTasks(){
       if(tg.indexOf('dice')>=0||tg.indexOf('exposure_dice')>=0||tg.indexOf('game_badge_dice')>=0) return true;
       if(tg.indexOf('tic_tac_toe')>=0||tg.indexOf('ttt_challenge')>=0||tg.indexOf('game_badge_ttt')>=0) return true;
       if(tg.indexOf('game_badge_roulette')>=0||tg.indexOf('roulette_task')>=0||tg.indexOf('roulette')>=0) return true;
+      if(tg.indexOf('challenge')>=0||tg.indexOf('challenge_proof')>=0||tg.indexOf('game_badge_challenge')>=0) return true;
+      if(tg.indexOf('public_task')>=0) return true;
       for(var i=0;i<tg.length;i++){
-        if(tg[i].indexOf('game_origin:roulette')===0||tg[i].indexOf('game_origin:dice')===0||tg[i].indexOf('game_origin:tic_tac_toe')===0) return true;
+        if(tg[i].indexOf('game_origin:roulette')===0||tg[i].indexOf('game_origin:dice')===0||tg[i].indexOf('game_origin:tic_tac_toe')===0||tg[i].indexOf('game_origin:challenges')===0) return true;
         if(tg[i].indexOf('game_task:')===0) return true;
       }
       var blob=(String(p.title||'')+' '+String(p.desc||'')).toLowerCase();
@@ -21094,6 +21106,78 @@ function pendingRouletteTasks(){
       return false;
     }
     window.isGameTaskWallPost=isGameTaskWallPost;
+    // Unified community feed: every Wall publication type from existing posts records (no copies).
+    // Includes Post / Extend / Tasks / IDs·PEA / Text / print cases. Excludes GoonTok catalog-only clips
+    // (those stay in GoonTok) and admin pin/print requests (stripped earlier in buildWallFilteredList).
+    function isWallUnifiedPost(p){
+      if(!p)return false;
+      if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)) return true;
+      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return true;
+      if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)) return true;
+      if(typeof isWallTimedPost==='function'&&isWallTimedPost(p)) return true;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('print_case')>=0) return true;
+      if(tg.indexOf('public_task')>=0||tg.indexOf('challenge')>=0||tg.indexOf('challenge_proof')>=0) return true;
+      // Wall-composed / native only — never flood All Posts with GoonTok catalog rows.
+      if(typeof isWallNativePost==='function') return !!isWallNativePost(p);
+      if(typeof isWallTextPost==='function'&&isWallTextPost(p)) return true;
+      if(typeof isWallNormalPost==='function'&&isWallNormalPost(p)) return true;
+      return false;
+    }
+    window.isWallUnifiedPost=isWallUnifiedPost;
+    function wallCategoryBadgeHtml(p){
+      if(!p)return '';
+      try{
+        if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)){
+          var pea=String(p.title||'').toLowerCase().indexOf('pea')>=0;
+          try{
+            var tg0=p.tags||[];
+            if(typeof tg0==='string'){try{tg0=JSON.parse(tg0)}catch(e){tg0=[]}}
+            if(Array.isArray(tg0)&&(tg0.indexOf('generated_pea')>=0||tg0.indexOf('pea')>=0)) pea=true;
+          }catch(e){}
+          return pea
+            ?'<span class="nf-cat-badge" style="background:#34d399">PEA</span>'
+            :'<span class="nf-cat-badge" style="background:#60a5fa">ID</span>';
+        }
+      }catch(e){}
+      try{
+        if(typeof gameOriginBadgeHtml==='function'){
+          var g=gameOriginBadgeHtml(p);
+          if(g) return g;
+        }
+      }catch(e){}
+      try{
+        if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)){
+          if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)){
+            return '<button type="button" class="game-origin-badge" data-open-game-badge="roulette" style="margin-left:6px">🏆 RUIN ROULETTE</button>';
+          }
+          return '<span class="nf-cat-badge cat-task">TASK</span>';
+        }
+      }catch(e){}
+      try{
+        var tg=p.tags||[];
+        if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+        if(Array.isArray(tg)){
+          tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+          if(tg.indexOf('print_case')>=0||tg.indexOf('print')>=0) return '<span class="nf-cat-badge cat-print">PRINT</span>';
+          if(tg.indexOf('public_task')>=0) return '<span class="nf-cat-badge cat-task">TASK</span>';
+        }
+      }catch(e){}
+      try{
+        if(typeof isWallTimedPost==='function'&&isWallTimedPost(p)) return '<span class="nf-cat-badge cat-extend">EXTEND</span>';
+      }catch(e){}
+      try{
+        if((typeof isVideoPost==='function'&&isVideoPost(p))||p._kind==='video') return '<span class="nf-cat-badge cat-video">VIDEO</span>';
+      }catch(e){}
+      try{
+        if(typeof isWallTextPost==='function'&&isWallTextPost(p)) return '<span class="nf-cat-badge cat-text">TEXT</span>';
+      }catch(e){}
+      return '<span class="nf-cat-badge cat-post">POST</span>';
+    }
+    window.wallCategoryBadgeHtml=wallCategoryBadgeHtml;
     function isNormalFeedPost(p){
       if(!p)return false;
       var tg=p.tags||[];
@@ -21397,16 +21481,21 @@ function pendingRouletteTasks(){
       var pid=esc(String(p.id));
       var kindBadge='';
       try{
-        if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)){
-          kindBadge=String(p.title||'').toLowerCase().indexOf('pea')>=0||(p.tags||[]).indexOf('generated_pea')>=0||(p.tags||[]).indexOf('pea')>=0
-            ?'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#34d399;border-radius:999px;padding:2px 7px;margin-left:6px">PEA</span>'
-            :'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#60a5fa;border-radius:999px;padding:2px 7px;margin-left:6px">ID</span>';
-        }else if(typeof gameOriginBadgeHtml==='function'&&gameOriginBadgeHtml(p)){
-          kindBadge=gameOriginBadgeHtml(p);
-        }else if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)){
-          kindBadge='<button type="button" class="game-origin-badge" data-open-game-badge="roulette" style="margin-left:6px">🏆 RUIN ROULETTE</button>';
-        }else if(vsrc||(typeof isVideoPost==='function'&&isVideoPost(p))){
-          kindBadge='<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#fbbf24;border-radius:999px;padding:2px 7px;margin-left:6px">VIDEO</span>';
+        if(typeof wallCategoryBadgeHtml==='function'){
+          kindBadge=wallCategoryBadgeHtml(p)||'';
+        }
+        if(!kindBadge){
+          if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)){
+            kindBadge=String(p.title||'').toLowerCase().indexOf('pea')>=0||(p.tags||[]).indexOf('generated_pea')>=0||(p.tags||[]).indexOf('pea')>=0
+              ?'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#34d399;border-radius:999px;padding:2px 7px;margin-left:6px">PEA</span>'
+              :'<span style="font-size:10px;font-weight:900;letter-spacing:.6px;color:#111;background:#60a5fa;border-radius:999px;padding:2px 7px;margin-left:6px">ID</span>';
+          }else if(typeof gameOriginBadgeHtml==='function'&&gameOriginBadgeHtml(p)){
+            kindBadge=gameOriginBadgeHtml(p);
+          }else if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)){
+            kindBadge='<button type="button" class="game-origin-badge" data-open-game-badge="roulette" style="margin-left:6px">🏆 RUIN ROULETTE</button>';
+          }else if(vsrc||(typeof isVideoPost==='function'&&isVideoPost(p))){
+            kindBadge='<span class="nf-cat-badge cat-video">VIDEO</span>';
+          }
         }
       }catch(e){}
       var timeless=isTimelessWallPost(p);
@@ -21613,17 +21702,22 @@ function pendingRouletteTasks(){
     }
     var wallFilter=(function(){
       try{
-        var f=localStorage.getItem('rs_wall_filter')||'normal';
+        // One-time: land everyone on the unified community feed.
+        if(!localStorage.getItem('rs_wall_unified_v1')){
+          localStorage.setItem('rs_wall_filter','all');
+          localStorage.setItem('rs_wall_unified_v1','1');
+        }
+        var f=localStorage.getItem('rs_wall_filter')||'all';
         if(f==='post') f='normal';
         if(f==='extend'||f==='extend_post') f='timed';
         // Roulette tab renamed/expanded to Tasks (all game proofs).
         if(f==='roulette') f='tasks';
         // Drop retired Wall tabs (Moment / Trending / Following / New / For You).
-        if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
-        if(['tasks','normal','timed','dominants','generated','text'].indexOf(f)<0) f='normal';
+        if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='all';
+        if(['all','tasks','normal','timed','dominants','generated','text'].indexOf(f)<0) f='all';
         localStorage.setItem('rs_wall_filter',f);
         return f;
-      }catch(e){return'normal'}
+      }catch(e){return'all'}
     })();
     var wallSortMode=(function(){
       try{
@@ -21653,14 +21747,14 @@ function pendingRouletteTasks(){
       });
     }
     function setWallFilter(f){
-      f=String(f||'normal');
-      // Wall sections: Tasks / Post / Extend / Dominants / IDs·PEA / Text
-      var allowed=['tasks','normal','timed','dominants','generated','text'];
+      f=String(f||'all');
+      // Wall sections: All Posts (unified) + specialized filters (Tasks / Post / Extend / …)
+      var allowed=['all','tasks','normal','timed','dominants','generated','text'];
       if(f==='post') f='normal';
       if(f==='extend' || f==='extend_post') f='timed';
       if(f==='roulette') f='tasks';
-      if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='normal';
-      if(allowed.indexOf(f)<0) f='normal';
+      if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='all';
+      if(allowed.indexOf(f)<0) f='all';
       wallFilter=f;
       // Spec: every category defaults to Most Recent when opened; user can switch after.
       wallSortMode='recent';
@@ -21869,14 +21963,17 @@ function pendingRouletteTasks(){
       return true;
     }
     function matchesWallFilter(p, filter){
-      filter=filter||wallFilter||'normal';
+      filter=filter||wallFilter||'all';
       if(filter==='roulette') filter='tasks';
       // Dominants is a coming-soon section — no feed posts yet.
       if(filter==='dominants') return false;
-      // Tasks = all game proofs (Roulette / Dice / Tic-Tac-Toe). Exclusive — no duplicates elsewhere.
+      // All Posts = one continuous community feed of every publication type (no record copies).
+      if(filter==='all') return !!(typeof isWallUnifiedPost==='function'?isWallUnifiedPost(p):true);
+      // Tasks = all game proofs (Roulette / Dice / Tic-Tac-Toe / Challenges). Specialized filter only.
       if(filter==='tasks') return !!(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p));
+      // Specialized chips stay exclusive so they don't fragment the main All Posts feed.
       if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return false;
-      // Timed exposures belong in Timed (and Extend) — never duplicate into other Wall tabs.
+      // Timed exposures belong in Timed (and Extend) — never duplicate into other specialized tabs.
       if(filter==='timed') return isWallTimedPost(p);
       if(isWallTimedPost(p)) return false;
       if(filter==='generated') return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
@@ -22027,7 +22124,7 @@ function pendingRouletteTasks(){
         });
         window.__wallVisible=next;
         try{
-          var wallSig=[String(wallFilter||'normal'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
+          var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
           var paintIds=list.slice(0,next).map(function(p){return String(p&&p.id)}).join(',');
           window.__wallPaintIds=paintIds;
           window.__wallPaintSig=wallSig+'#'+paintIds+'#'+next;
@@ -22071,7 +22168,7 @@ function pendingRouletteTasks(){
       var list=buildWallFilteredList();
       window.__wallRest=list;
       window.__lastWallListLen=list.length;
-      var wallSig=[String(wallFilter||'normal'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
+      var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||'')].join('|');
       var sigChanged=window.__wallSig!==wallSig;
       if(sigChanged){
         window.__wallSig=wallSig;
@@ -22098,6 +22195,7 @@ function pendingRouletteTasks(){
         following:'Follow creators to fill this feed.',
         new:'No new posts in the last 72h.',
         moment:'Nothing on the wall yet. Post something.',
+        all:'Nothing on the wall yet. Publish a post, extend, or game proof.',
         normal:'No posts yet. Publish without a timer — Hot🔥 boosts them.',
         timed:'No Extend posts live right now.',
         generated:'No generated IDs / PEAs yet.',
