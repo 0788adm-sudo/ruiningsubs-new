@@ -22,7 +22,7 @@ function assert(c, m) {
 assert(html.includes("allowedGames={roulette:1,dice:1,tic_tac_toe:1}"), 'hub allowlist = 3');
 assert(html.includes("['roulette','dice','tic_tac_toe'].indexOf(id)<0"), 'openRegisteredGame allowlist = 3');
 assert(/status:'disabled'[\s\S]{0,40}word_challenge|id:'word_challenge'[\s\S]{0,200}status:'disabled'/.test(html), 'word scramble disabled');
-assert(html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo three games');
+assert(html.includes('TRIKI · DADOS · RUIN ROULETTE') || html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo three games');
 assert(!html.includes('TIC-TAC-TOE · WORD SCRAMBLE · ROULETTE · DICE'), 'old four-game promo gone');
 
 // 2) Lifetime free uses (not daily reset)
