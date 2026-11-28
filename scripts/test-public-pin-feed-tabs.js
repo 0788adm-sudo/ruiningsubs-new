@@ -63,19 +63,22 @@ var block = feedPanel[0];
 var iBanner = block.indexOf('class="banner"');
 var iId = block.indexOf('btn-open-tasks');
 var iPrint = block.indexOf('btn-open-print-dirty');
-var iRoulette = block.indexOf('btn-open-roulette');
+var iGames = block.indexOf('btn-open-games');
+var iRouletteCard = block.indexOf('btn-open-roulette');
 var iVideos = block.indexOf('home-videos-wrap');
 var iTabs = block.indexOf('feed-mode-tabs-extended');
 var iSearch = block.indexOf('feed-search-wrap');
 var iFilters = block.indexOf('feed-gender-filter');
 var iSort = block.indexOf('feed-sort-row');
 var iPosts = block.indexOf('posts-container');
-assert(iBanner < iId && iId < iPrint && iPrint < iRoulette && iRoulette < iVideos, 'banner → Generate ID → Get printed → Roulette → Exposure Videos');
+assert(iBanner < iId && iId < iPrint && iPrint < iGames && iGames < iVideos, 'banner → Generate ID → Get printed → Games → Exposure Videos');
+assert(iRouletteCard < 0, 'no standalone Ruin Roulette Feed card');
 assert(iVideos < iTabs, 'EXTENDED|ALL POSTS tabs below Exposure Videos');
 assert(iTabs < iSearch, 'tabs above feed search');
 assert(iSearch < iFilters && iFilters < iSort && iSort < iPosts, 'search → filters → sort → posts');
 assert(block.indexOf('data-feed-tab="extended"') >= 0 && block.indexOf('data-feed-tab="all"') >= 0, 'both feed tabs present on panel-feed');
 assert(/linear-gradient\(90deg,#7c3aed,#ff6a00\)/.test(html), 'feed tab active gradient retained');
+assert(block.indexOf('Triki') >= 0 && block.indexOf('Dados') >= 0 && block.indexOf('Ruin Roulette') >= 0, 'Games card lists Triki · Dados · Ruin Roulette');
 
 // —— 7) Extended vs All Posts independence retained ——
 assert(html.indexOf('function openFeedExtended') >= 0 && html.indexOf('function openFeedAllPosts') >= 0, 'tab switch helpers retained');

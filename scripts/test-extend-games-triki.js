@@ -37,10 +37,13 @@ assert(!html.includes("id:'memory'"), 'memory game removed');
 assert(!html.includes("id:'reaction'"), 'reaction game removed');
 assert(!html.includes("id:'typing'"), 'typing game removed');
 assert(!html.includes("id:'sequence'"), 'sequence game removed');
-assert(html.includes('TIC-TAC-TOE'), 'Tic-Tac-Toe label');
+assert(html.includes("name:'TRIKI'") || html.includes('TIC-TAC-TOE') || html.includes('>TRIKI<'), 'Triki / Tic-Tac-Toe label');
+assert(html.includes("name:'DADOS'") || html.includes('EXPOSURE DICE'), 'Dados / Exposure Dice label');
 assert(html.includes('backFromDiceGame'), 'dice back returns to games');
 assert(html.includes("__gamesToolReturn='challenges'"), 'roulette/dice remember games hub');
-assert(html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo lists three games');
+assert(html.includes('TRIKI · DADOS · RUIN ROULETTE') || html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo lists three games');
 assert(html.includes("allowedGames={roulette:1,dice:1,tic_tac_toe:1}"), 'hub filters to three games');
+assert(html.includes('id="btn-open-games"'), 'Feed Games entry card');
+assert(!/id="btn-open-roulette"/.test(html), 'Ruin Roulette no longer a standalone Feed card');
 
 console.log('\nExtend + Games checks passed');

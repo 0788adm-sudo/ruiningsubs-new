@@ -51,7 +51,7 @@ assert(live.length === 3, 'exactly 3 live games, got ' + live.join(','));
 });
 assert(html.includes("allowedGames={roulette:1,dice:1,tic_tac_toe:1}"), 'hub filters to three games');
 assert(html.includes("['roulette','dice','tic_tac_toe'].indexOf(id)<0"), 'openRegisteredGame blocks other ids');
-assert(html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo lists three games');
+assert(html.includes('TRIKI · DADOS · RUIN ROULETTE') || html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo lists three games');
 assert(!/id:'memory'/.test(html) && !/id:'reaction'/.test(html), 'legacy mini-game stay removed');
 assert(html.includes("if(!isRegistered()){toast('Login first');showAuth('login');return}") === false || html.includes('Guest play'), 'games hub allows guests');
 assert(html.includes('getAnonSessionId'), 'anonymous session helper');
