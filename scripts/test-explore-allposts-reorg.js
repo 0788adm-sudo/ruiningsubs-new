@@ -64,8 +64,13 @@ assert(wallSlice.includes('style="display:none"') || /id="wall-topics"[\s\S]*?di
 // —— Explore hub ——
 assert(html.includes('class="explore-title">EXPLORE<'), 'Explore title');
 assert(html.includes('Search users, content or topics'), 'Explore search placeholder');
-assert(html.includes('btn-explore-allposts') && html.includes('openFeedAllPosts'), 'ALL POSTS explore card');
-assert(html.includes('Discover all community publications'), 'ALL POSTS card subtitle');
+assert(!html.includes('btn-explore-allposts') && !html.includes('explore-allposts-card'), 'ALL POSTS explore card removed');
+assert(!html.includes('Discover all community publications'), 'ALL POSTS explore subtitle removed');
+assert(html.includes('btn-explore-coins-promo') && html.includes('explore-coins-promo'), 'Coins promo explore card');
+assert(html.includes('UNLOCK 6 ACTIONS') && html.includes('60 COINS') && /\$5\s*USD/.test(html), 'Coins promo offer copy');
+assert(html.includes('Delete · Pin · Unlock Games'), 'Coins promo actions hint');
+assert(/id="btn-explore-coins-promo"[^>]*onclick="openCoinShop\(\)"/.test(html), 'Coins promo opens existing shop');
+assert(html.includes('function openFeedAllPosts') && html.includes('data-feed-tab="all"'), 'ALL POSTS retained on Feed');
 assert(html.includes('btn-explore-trending') && html.includes('openExploreTrending'), 'Trending card');
 assert(!html.includes('btn-explore-map-card') && !html.includes('explore-card-map'), 'duplicate Explore map promo card removed');
 assert(html.includes('explore-map-card') && html.includes('Open Map') && html.includes('openExposureMap'), 'Exposure Map world preview retained');
