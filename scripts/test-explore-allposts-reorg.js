@@ -26,11 +26,14 @@ assert(/data-p="profile"[\s\S]*?Profile/.test(html), 'nav Profile');
 assert(!/data-p="wall"[\s\S]*?All Posts/.test(html.slice(html.indexOf('class="nav-row"'), html.indexOf('class="nav-row"') + 2500)), 'All Posts not a bottom-nav item');
 assert((html.match(/class="nav-item/g) || []).length >= 4, 'four side nav items + center create');
 
-// —— FEED tabs ——
+// —— FEED tabs (floating switch) ——
+assert(html.includes('id="feed-float-switch"'), 'floating feed switch');
 assert(html.includes('data-feed-tab="extended"') && html.includes('>EXTENDED<'), 'EXTENDED tab');
 assert(html.includes('data-feed-tab="all"') && html.includes('>ALL POSTS<'), 'ALL POSTS tab');
 assert(html.includes('function openFeedAllPosts') && html.includes('function openFeedExtended'), 'feed tab helpers');
+assert(html.includes('function syncFeedFloatVisibility'), 'floating visibility helper');
 assert(html.includes("localStorage.setItem('rs_feed_tab'"), 'feed tab persistence');
+assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'exactly one feed switch');
 
 // —— All Posts primary filters (exactly 6) ——
 var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1600);

@@ -21,7 +21,9 @@ function assert(c, m) {
 
 // —— Navigation: FEED owns both destinations ——
 assert(/data-p="feed"[^>]*>[\s\S]*?Feed/.test(html), 'nav destination Feed');
+assert(html.includes('id="feed-float-switch"'), 'floating feed switch');
 assert(html.includes('data-feed-tab="extended"') && html.includes('data-feed-tab="all"'), 'EXTENDED / ALL POSTS tabs');
+assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'single floating switch instance');
 assert(html.includes('aria-label="Feed — Extended and All Posts"'), 'Feed aria label');
 assert(html.includes('> EXTENDED<') || html.includes('>EXTENDED<') || /LIVE FEED|EXTENDED/.test(html), 'EXTENDED feed heading');
 assert(html.includes('<strong>All Posts</strong>'), 'All Posts panel title');
