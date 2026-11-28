@@ -367,7 +367,7 @@
     .vid-card .m{padding:0 10px 10px;font-size:11px;color:var(--muted)}
     @media(min-width:900px){
       main{max-width:1280px;padding:16px 20px 140px}
-      #posts-container{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+      #posts-container{display:grid;grid-template-columns:1fr;gap:14px;max-width:720px;margin-left:auto;margin-right:auto}
       .user-posts-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       #explore-normal-posts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
       #explore-normal-posts .normal-feed-post,
@@ -388,7 +388,7 @@
     }
     @media(min-width:1280px){
       main{max-width:1480px}
-      #posts-container{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+      #posts-container{grid-template-columns:1fr;gap:14px;max-width:760px}
       .user-posts-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
       #explore-normal-posts{grid-template-columns:repeat(3,minmax(0,1fr))}
       .vid-list,.vid-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -396,7 +396,7 @@
     }
     @media(min-width:1680px){
       main{max-width:1680px}
-      #posts-container{grid-template-columns:repeat(5,minmax(0,1fr))}
+      #posts-container{grid-template-columns:1fr;max-width:800px}
     }
     @media(min-width:900px){
       #panel-detail{max-width:720px;margin-left:auto;margin-right:auto}
@@ -409,7 +409,8 @@
     .tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto}
     .tab{padding:10px 16px;border-radius:999px;background:var(--elev);border:1px solid var(--border);color:var(--muted);font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer}
     .tab.active{background:#3b0764;color:#ede9fe;border-color:#5b21b6}
-    #posts-container{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 2px}
+    /* EXTENDED posts — single column (All Posts keeps its own 2-col grid) */
+    #posts-container{display:grid;grid-template-columns:1fr;gap:12px;padding:0 2px}
     #posts-container .empty,#explore-normal-posts .empty,#explore-normal-posts .normal-feed-empty,#videos-grid .empty{grid-column:1/-1}
     
     .pinned-badge{position:absolute;top:8px;left:8px;z-index:2;background:rgba(0,0,0,.8);color:#ffd60a;font-size:11px;font-weight:800;padding:4px 9px;border-radius:8px;border:1px solid rgba(255,214,10,.5)}
@@ -2102,20 +2103,25 @@ body.feed-float-on #btn-scroll-top{
 .feed-sort-head{
   display:flex;
   align-items:center;
-  gap:8px;
-  margin:2px 2px 7px;
-  flex-wrap:wrap;
+  gap:6px;
+  margin:0 2px 4px;
+  flex-wrap:nowrap;
+  min-height:0;
 }
 .feed-sort-title{
   font-size:10px;
   font-weight:950;
   letter-spacing:1.15px;
   color:#f3f3f5;
+  white-space:nowrap;
 }
 .feed-sort-sub{
   font-size:9px;
   font-weight:750;
   color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 .live-dot{
   display:inline-block;
@@ -2135,7 +2141,7 @@ body.feed-float-on #btn-scroll-top{
   display:grid;
   grid-template-columns:1.05fr 1.2fr 1.2fr;
   gap:7px;
-  margin:0 0 13px;
+  margin:0 0 8px;
 }
 .feed-sort-row .tab{
   min-height:46px;
@@ -2374,8 +2380,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   main{max-width:1320px!important;padding:16px 18px 140px!important}
   #posts-container{
     display:grid!important;
-    grid-template-columns:repeat(3,minmax(0,1fr))!important;
-    gap:10px!important;
+    grid-template-columns:1fr!important;
+    gap:14px!important;
+    max-width:720px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
   }
   .user-posts-grid{
     display:grid!important;
@@ -2415,8 +2424,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 @media(min-width:1280px){
   main{max-width:1540px!important}
-  #posts-container,.user-posts-grid,.vid-list,.vid-grid{
+  .user-posts-grid,.vid-list,.vid-grid{
     grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  }
+  #posts-container{
+    grid-template-columns:1fr!important;
+    max-width:760px!important;
   }
   #explore-normal-posts{
     grid-template-columns:repeat(3,minmax(0,1fr))!important;
@@ -2425,7 +2438,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 @media(min-width:1680px){
   main{max-width:1720px!important}
-  #posts-container{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+  #posts-container{grid-template-columns:1fr!important;max-width:800px!important}
 }
 
 /* ——— Coins shop · RuinExpose integrated recharge ——— */
@@ -3298,8 +3311,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </div>
         <div class="feed-sort-head">
           <div class="feed-sort-title"><span class="live-dot"></span> EXTENDED</div>
-          <div class="feed-sort-sub">Main exposure feed · timed publications only</div>
-          <button class="btn btn-ghost btn-sm" type="button" style="margin-left:auto" onclick="copySectionLink('extend','Extended')">Share</button>
+          <div class="feed-sort-sub">Timed publications only</div>
         </div>
         <div class="feed-sort-row">
           <button class="tab active feed-sort-new" data-f="new" type="button">
@@ -3592,14 +3604,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div id="wall-home">
           <div id="explore-normal-wrap">
             <div id="pig-of-day" style="margin:0 0 8px"></div>
-            <div class="wall-head">
-              <div class="wall-head-row">
-                <strong>All Posts</strong>
-                <span class="wall-live">LIVE</span>
-                <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('wall','All Posts')">Share</button>
-              </div>
-              <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" onclick="openNormalPostComposer();return false">＋ Post</button>
-            </div>
+            <!-- All Posts chrome: search → Photos of the Day → filters → 2-col grid. Stories live only on EXTENDED. -->
             <div class="wall-search-wrap">
               <input type="search" id="wall-search" placeholder="Search posts and users…" autocomplete="off" enterkeyhint="search" aria-label="Search All Posts"/>
             </div>
@@ -3625,7 +3630,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
               </div>
               <div id="wall-topics-list" class="wall-topics-list"></div>
             </div>
-            <div id="wall-stories" class="wall-stories"></div>
             <div id="wall-hot-slot" class="wall-day-photos"></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="All Posts filters">
               <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">ALL</button>
@@ -23390,7 +23394,8 @@ function pendingRouletteTasks(){
       }catch(e){}
     }
     function renderWallStories(){
-      var boxes=[document.getElementById('home-random-strip'), document.getElementById('wall-stories')].filter(Boolean);
+      // Stories belong only on EXTENDED (#home-random-strip) — never on All Posts.
+      var boxes=[document.getElementById('home-random-strip')].filter(Boolean);
       var local=loadStoriesLocal();
       boxes.forEach(function(box){paintStoriesInto(box, local)});
       pullStoriesRemote(false).then(function(remote){
@@ -23399,7 +23404,6 @@ function pendingRouletteTasks(){
     }
     function renderWallStoriesRefreshOnly(remote){
       paintStoriesInto(document.getElementById('home-random-strip'), remote);
-      paintStoriesInto(document.getElementById('wall-stories'), remote);
     }
     function fillHomeRandomStrip(){
       // Replaced: five random photos → live Stories carousel under the logo.

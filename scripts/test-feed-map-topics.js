@@ -23,7 +23,7 @@ assert(html.includes('EXPOSURE MAP') && html.includes('Discover users around the
 assert(html.includes('feed-exposure-map-entry'), 'Feed map card styling');
 var feedSlice = html.slice(html.indexOf('id="panel-feed"'), html.indexOf('id="panel-feed"') + 6000);
 assert(feedSlice.indexOf('brand-mark') < feedSlice.indexOf('btn-feed-exposure-map'), 'Feed map below logo/banner');
-assert(feedSlice.indexOf('btn-feed-exposure-map') < feedSlice.indexOf('wall-stories') || !feedSlice.includes('wall-stories'), 'Stories not in feed map placement path');
+assert(feedSlice.indexOf('btn-feed-exposure-map') < feedSlice.indexOf('home-random-strip') || feedSlice.indexOf('home-random-strip') < feedSlice.indexOf('btn-feed-exposure-map'), 'Feed map placement relative to Stories strip');
 
 // —— Explore: promo card gone, world map kept ——
 assert(!html.includes('btn-explore-map-card'), 'Explore promo map card removed');
@@ -43,7 +43,8 @@ assert(html.includes('trendingTopicStats(6)'), 'caps at 6 terms');
 assert(html.includes('function openTopicInAllPosts'), 'hashtags open related posts');
 
 // —— Untouched surfaces ——
-assert(html.includes('id="wall-stories"') && html.includes('function renderWallStories'), 'Stories intact');
+assert(html.includes('id="home-random-strip"') && html.includes('function renderWallStories'), 'Stories intact on Extended');
+assert(!html.includes('id="wall-stories"'), 'Stories removed from All Posts');
 assert(html.includes('id="wall-filter-bar"') && html.includes('data-wall-filter="all"'), 'All Posts filters intact');
 assert(html.includes('class="nav-row"') || html.includes('nav-item'), 'bottom nav present');
 assert(html.includes('openExposureMap') && /window\.openExposureMap\s*=/.test(html), 'openExposureMap helper retained (shared by Feed + Explore)');

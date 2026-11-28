@@ -35,6 +35,7 @@ assert(html.includes('object-fit:cover'), 'cover fit for thumbs');
 
 // EXTENDED untouched structurally
 assert(html.includes('id="posts-container"'), 'Extended posts container');
+assert(/#posts-container\{display:grid;grid-template-columns:1fr/.test(html), 'Extended single-column posts');
 assert(html.includes('id="feed-search"') && html.includes('feed-sort-row'), 'Extended search/sort chrome');
 assert(html.includes('id="feed-float-switch"'), 'floating EXTENDED/ALL POSTS switch');
 assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'single floating switch');

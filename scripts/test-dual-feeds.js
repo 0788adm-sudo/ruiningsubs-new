@@ -26,7 +26,7 @@ assert(html.includes('data-feed-tab="extended"') && html.includes('data-feed-tab
 assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'single floating switch instance');
 assert(html.includes('aria-label="Feed — Extended and All Posts"'), 'Feed aria label');
 assert(html.includes('> EXTENDED<') || html.includes('>EXTENDED<') || /LIVE FEED|EXTENDED/.test(html), 'EXTENDED feed heading');
-assert(html.includes('<strong>All Posts</strong>'), 'All Posts panel title');
+assert(html.includes('id="panel-wall"') && html.includes('id="wall-search"') && html.includes('id="explore-normal-posts"'), 'All Posts panel present');
 assert(html.includes('data-p="profile"'), 'Profile in bottom nav');
 
 // —— Panels still distinct (reuse, not merge-delete) ——
