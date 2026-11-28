@@ -3783,9 +3783,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
           <div class="roulette-task-picker game-tasks-section" id="roulette-task-picker">
             <h4>YOUR TASKS — PICK ANY</h4>
-            <p class="rt-hint gt-hint">Tap a task for full instructions and proof. Choosing a task does not use another spin.</p>
-            <div class="gt-points" id="roulette-points-bal">Points: —</div>
-            <div id="roulette-catalog-list"></div>
+            <p class="rt-hint gt-hint">Each spin unlocks one challenge (max 3). Leave them pending and pick any order — choosing a task does not use another spin.</p>
+            <div class="gt-points" id="roulette-points-bal" style="display:none">Points: —</div>
+            <div id="roulette-catalog-list" style="display:none" aria-hidden="true"></div>
             <div id="roulette-task-list"></div>
           </div>
           <div class="roulette-history" id="roulette-history" style="display:none">
@@ -3858,8 +3858,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
           <div class="game-tasks-section show" id="dice-tasks-section">
             <h4>YOUR TASKS — PICK ANY</h4>
-            <p class="gt-hint">Choose any challenge below. Selecting a task does not use a dice roll.</p>
-            <div class="gt-points" id="dice-points-bal">Points: —</div>
+            <p class="gt-hint">Each roll unlocks one challenge (max 3). Leave them pending and pick any order — selecting a task does not use a dice roll.</p>
+            <div class="gt-points" id="dice-points-bal" style="display:none">Points: —</div>
             <div id="dice-task-list"></div>
           </div>
         </div>
@@ -11145,6 +11145,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         }
       }
       if(found) persistGameTasksForUser(arr);
+      try{
+        if(found&&(found.gameId==='roulette'||found.gameId==='dice')){
+          renderProgressiveTasks(found.gameId);
+        }
+      }catch(e){}
       return found;
     }
     function pendingGameTasks(){
@@ -11289,17 +11294,297 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       if(game==='roulette') return document.getElementById('roulette-points-bal');
       return null;
     }
+    // —— Progressive play tasks (Roulette / Dice): max 3 per game, one per play ——
+    var PROGRESSIVE_TASK_MAX=3;
+    function progressiveStoreKey(){ return 'rs_progressive_play_tasks'; }
+    function loadProgressiveStore(){
+      try{return JSON.parse(localStorage.getItem(progressiveStoreKey())||'{}')||{}}catch(e){return{}}
+    }
+    function saveProgressiveStore(m){
+      try{localStorage.setItem(progressiveStoreKey(),JSON.stringify(m||{}))}catch(e){}
+    }
+    function progressiveUserBucket(){
+      var m=loadProgressiveStore();
+      var u=gameTaskUserKey();
+      if(!m[u]||typeof m[u]!=='object') m[u]={roulette:[],dice:[]};
+      if(!Array.isArray(m[u].roulette)) m[u].roulette=[];
+      if(!Array.isArray(m[u].dice)) m[u].dice=[];
+      return {store:m,user:u,bucket:m[u]};
+    }
+    function getProgressiveEntries(game){
+      game=String(game||'');
+      if(game!=='roulette'&&game!=='dice') return [];
+      var ctx=progressiveUserBucket();
+      return (ctx.bucket[game]||[]).slice(0,PROGRESSIVE_TASK_MAX);
+    }
+    function syncProgressiveEntryStatus(entry){
+      if(!entry) return entry;
+      try{
+        var gt=entry.taskId?findGameTask(entry.taskId):findGameTaskBySession(entry.game, entry.playId);
+        if(gt){
+          entry.taskId=gt.id;
+          entry.status=gt.status||entry.status||'assigned';
+          if(gt.postId) entry.postId=gt.postId;
+        }
+      }catch(e){}
+      return entry;
+    }
+    function listProgressiveTasks(game){
+      return getProgressiveEntries(game).map(function(e){
+        e=syncProgressiveEntryStatus(Object.assign({},e,{game:game}));
+        var gt=e.taskId?findGameTask(e.taskId):null;
+        return {
+          entry:e,
+          task:gt||{
+            id:e.taskId||('prog_'+e.playId),
+            gameId:game,
+            sessionId:e.playId,
+            title:e.title||'Task',
+            desc:e.desc||'',
+            instructions:e.instructions||e.desc||'',
+            status:e.status||'assigned',
+            wear:e.wear||'',
+            pose:e.pose||'',
+            proof:e.proof||'',
+            where:e.where||'',
+            permanent:!!e.permanent,
+            free_delete:!!e.free_delete,
+            deletion_tier:e.deletion_tier||''
+          }
+        };
+      });
+    }
+    function persistProgressiveEntries(game, arr){
+      var ctx=progressiveUserBucket();
+      ctx.bucket[game]=(arr||[]).slice(0,PROGRESSIVE_TASK_MAX);
+      ctx.store[ctx.user]=ctx.bucket;
+      saveProgressiveStore(ctx.store);
+    }
+    /**
+     * After a completed play: append one challenge (max 3). Idempotent per playId.
+     * Does not consume another play. Returns the assigned game task or null if capped.
+     */
+    function registerProgressivePlayTask(game, playId, opts){
+      opts=opts||{};
+      game=String(game||'');
+      playId=String(playId||'').trim();
+      if((game!=='roulette'&&game!=='dice')||!playId) return null;
+      var entries=getProgressiveEntries(game);
+      var existing=null;
+      for(var i=0;i<entries.length;i++){
+        if(String(entries[i].playId)===playId){ existing=entries[i]; break; }
+      }
+      if(existing){
+        var reused=assignGameTask(Object.assign({},opts,{
+          gameId:game,
+          sessionId:playId,
+          challengeId:opts.challengeId||existing.challengeId||null,
+          title:opts.title||existing.title,
+          desc:opts.desc||existing.desc,
+          instructions:opts.instructions||existing.instructions||opts.desc||existing.desc
+        }));
+        existing.taskId=reused&&reused.id||existing.taskId;
+        existing.status=(reused&&reused.status)||existing.status||'assigned';
+        persistProgressiveEntries(game, entries);
+        try{renderProgressiveTasks(game)}catch(e){}
+        return reused;
+      }
+      // If all 3 slots completed, start a fresh progressive session.
+      if(entries.length>=PROGRESSIVE_TASK_MAX){
+        var allDone=entries.every(function(e){
+          e=syncProgressiveEntryStatus(e);
+          return String(e.status||'')==='completed';
+        });
+        if(allDone){
+          entries=[];
+        }else{
+          try{renderProgressiveTasks(game)}catch(e){}
+          try{toast('You already have 3 challenges — pick any below. New plays won’t add more until these are done.')}catch(e2){}
+          return null; // already have 3 active/pending — no 4th
+        }
+      }
+      var gt=assignGameTask(Object.assign({},opts,{
+        gameId:game,
+        sessionId:playId,
+        badge:opts.badge||game
+      }));
+      entries.push({
+        playId:playId,
+        taskId:gt&&gt.id||null,
+        challengeId:opts.challengeId||null,
+        title:opts.title||(gt&&gt.title)||'Task',
+        desc:opts.desc||(gt&&gt.desc)||'',
+        instructions:opts.instructions||(gt&&gt.instructions)||'',
+        wear:opts.wear||'',
+        pose:opts.pose||'',
+        proof:opts.proof||'',
+        where:opts.where||'',
+        permanent:!!opts.permanent,
+        free_delete:!!opts.free_delete,
+        deletion_tier:opts.deletion_tier||'',
+        status:(gt&&gt.status)||'assigned',
+        slot:entries.length+1,
+        at:Date.now()
+      });
+      persistProgressiveEntries(game, entries);
+      try{renderProgressiveTasks(game)}catch(e){}
+      return gt;
+    }
+    function progressiveStatusLabel(st){
+      st=String(st||'assigned').toLowerCase();
+      if(st==='completed') return 'COMPLETED';
+      if(st==='pending_review'||st==='submitted'||st==='pending') return 'PENDING REVIEW';
+      if(st==='rejected') return 'REJECTED';
+      if(st==='accepted'||st==='in_progress') return 'IN PROGRESS';
+      return 'AVAILABLE';
+    }
+    function renderProgressiveTasks(game){
+      game=String(game||'');
+      if(game!=='roulette'&&game!=='dice') return;
+      var rows=listProgressiveTasks(game);
+      // Persist synced statuses
+      try{
+        persistProgressiveEntries(game, rows.map(function(r){
+          return Object.assign({}, r.entry, {
+            taskId:r.task&&r.task.id||r.entry.taskId,
+            status:(r.task&&r.task.status)||r.entry.status
+          });
+        }));
+      }catch(e){}
+      if(game==='roulette'){
+        var wrap=document.getElementById('roulette-task-picker');
+        var list=document.getElementById('roulette-task-list');
+        if(!wrap||!list) return;
+        if(!rows.length){
+          wrap.classList.remove('show');
+          wrap.style.display='none';
+          list.innerHTML='';
+          return;
+        }
+        wrap.style.display='block';
+        wrap.classList.add('show');
+        var activeId=window.__activeGameTaskId||'';
+        list.innerHTML=rows.map(function(row,i){
+          var task=row.task;
+          var st=String(task.status||'assigned');
+          var isSel=activeId&&String(task.id)===String(activeId);
+          var cls='roulette-task-btn is-available';
+          if(st==='accepted'||st==='in_progress'||isSel) cls+=' is-accepted';
+          if(isSel) cls+=' is-selected';
+          if(st==='completed') cls+=' is-completed';
+          if(st==='pending_review') cls+=' is-accepted';
+          var desc=String(task.desc||task.instructions||'').replace(/\s+/g,' ').trim().slice(0,140);
+          var cta=st==='completed'?'Done':(st==='pending_review'?'Under review':'Open');
+          return '<button type="button" class="'+cls+'" data-prog-task="'+esc(task.id)+'" data-prog-game="roulette">'
+            +'<div class="rt-top"><span class="rt-status">Task '+(i+1)+' · '+esc(progressiveStatusLabel(st))+'</span><span class="rt-cta">'+esc(cta)+'</span></div>'
+            +'<div class="rt-title">'+esc(task.title||'Roulette task')+'</div>'
+            +(desc?'<div class="rt-desc">'+esc(desc)+'</div>':'')
+            +'</button>';
+        }).join('');
+        Array.prototype.forEach.call(list.querySelectorAll('[data-prog-task]'),function(btn){
+          btn.onclick=function(ev){
+            try{ev.preventDefault();ev.stopPropagation()}catch(e){}
+            selectProgressiveTask(btn.getAttribute('data-prog-task'),'roulette');
+          };
+        });
+        return;
+      }
+      // dice
+      var listEl=document.getElementById('dice-task-list');
+      var sec=document.getElementById('dice-tasks-section');
+      if(!listEl) return;
+      if(sec){ sec.classList.add('show'); sec.style.display='block'; }
+      if(!rows.length){
+        listEl.innerHTML='<div style="font-size:12px;color:var(--muted)">Play to unlock up to 3 challenges. Pick any order.</div>';
+        return;
+      }
+      listEl.innerHTML=rows.map(function(row,i){
+        var task=row.task;
+        var st=String(task.status||'assigned');
+        var cls='game-task-card';
+        if(st==='in_progress'||st==='accepted') cls+=' is-progress';
+        if(st==='pending_review') cls+=' is-pending';
+        if(st==='completed') cls+=' is-done';
+        var desc=String(task.desc||task.instructions||'').replace(/\s+/g,' ').trim().slice(0,160);
+        return '<button type="button" class="'+cls+'" data-prog-task="'+esc(task.id)+'" data-prog-game="dice">'
+          +'<div class="gt-top"><span class="gt-status">Task '+(i+1)+' · '+esc(progressiveStatusLabel(st))+'</span></div>'
+          +'<div class="gt-title">'+esc(task.title||'Dice task')+'</div>'
+          +(desc?'<div class="gt-desc">'+esc(desc)+'</div>':'')
+          +'</button>';
+      }).join('');
+      Array.prototype.forEach.call(listEl.querySelectorAll('[data-prog-task]'),function(btn){
+        btn.onclick=function(ev){
+          try{ev.preventDefault();ev.stopPropagation()}catch(e){}
+          selectProgressiveTask(btn.getAttribute('data-prog-task'),'dice');
+        };
+      });
+    }
+    function selectProgressiveTask(taskId, game){
+      game=String(game||'');
+      var task=findGameTask(taskId);
+      if(!task){
+        // Rebuild from progressive entry if game-task store was pruned
+        var rows=listProgressiveTasks(game);
+        for(var i=0;i<rows.length;i++){
+          if(String(rows[i].task.id)===String(taskId)||String(rows[i].entry.taskId)===String(taskId)){
+            var e=rows[i].entry;
+            task=assignGameTask({
+              gameId:game,
+              sessionId:e.playId,
+              challengeId:e.challengeId||null,
+              title:e.title,
+              desc:e.desc,
+              instructions:e.instructions||e.desc,
+              wear:e.wear,pose:e.pose,proof:e.proof,where:e.where,
+              permanent:!!e.permanent,free_delete:!!e.free_delete,deletion_tier:e.deletion_tier||'',
+              badge:game,requireMedia:true
+            });
+            break;
+          }
+        }
+      }
+      if(!task){toast('Task not found');return false}
+      if(task.status==='completed'){toast('Already completed');return false}
+      try{acceptGameTask(task.id)}catch(e){}
+      // Selecting never consumes a play.
+      if(game==='roulette'){
+        try{
+          lastRoulettePlayId=task.sessionId||lastRoulettePlayId;
+          lastRouletteOpt={title:task.title,desc:task.desc||task.instructions||'',permanent:!!task.permanent,free_delete:!!task.free_delete,deletion_tier:task.deletion_tier||''};
+          window.__rouletteAccepted={playId:task.sessionId,title:task.title,at:Date.now(),challengeId:task.challengeId||null};
+          localStorage.setItem('rs_roulette_accepted',JSON.stringify(window.__rouletteAccepted));
+          if(task.challengeId) window.__pendingRouletteChallengeId=task.challengeId;
+          window.__composerReturn='roulette';
+          localStorage.setItem('rs_composer_return','roulette');
+        }catch(e){}
+      }else if(game==='dice'){
+        try{
+          window.__composerReturn='dice';
+          localStorage.setItem('rs_composer_return','dice');
+          if(task.challengeId) window.__pendingDiceChallengeId=task.challengeId;
+        }catch(e){}
+      }
+      try{renderProgressiveTasks(game)}catch(e){}
+      return openGameTaskPublish(task);
+    }
+    window.registerProgressivePlayTask=registerProgressivePlayTask;
+    window.renderProgressiveTasks=renderProgressiveTasks;
+    window.selectProgressiveTask=selectProgressiveTask;
+    window.listProgressiveTasks=listProgressiveTasks;
+    window.getProgressiveEntries=getProgressiveEntries;
+
     async function renderGameTasksSection(game){
       game=String(game||'roulette');
+      // Roulette + Dice: progressive play challenges only (no full catalog).
+      if(game==='roulette'||game==='dice'){
+        try{renderProgressiveTasks(game)}catch(e){}
+        return;
+      }
       var listEl=taskListElForGame(game);
       var ptsEl=pointsElForGame(game);
       if(!listEl) return;
       var tasks=await fetchTaskCatalog(game);
       if(ptsEl) ptsEl.textContent='Points: '+(Number(__taskPointsCache)||getLocalPointsBalance())+' (not Coins)';
-      if(game==='roulette'){
-        var wrap=document.getElementById('roulette-task-picker');
-        if(wrap){wrap.style.display='block';wrap.classList.add('show')}
-      }
       listEl.innerHTML=(tasks||[]).map(function(t){
         var local=catalogProgressFor(t.id);
         var st=String((t.status)||(local&&local.status)||'available');
@@ -14166,7 +14451,7 @@ async function claimPayPalPack(p){
           });
           window.__pendingDiceChallengeId=spawnId||null;
           var whereTxt=(window.lastDiceRoll&&window.lastDiceRoll.where)||'';
-          assignGameTask({
+          var diceTaskOpts={
             gameId:'dice',
             sessionId:playId,
             challengeId:spawnId||null,
@@ -14179,7 +14464,14 @@ async function claimPayPalPack(p){
             where:whereTxt,
             badge:'dice',
             requireMedia:true
-          });
+          };
+          // Progressive: one challenge per completed roll, max 3, pick any order.
+          var prog=registerProgressivePlayTask('dice', playId, diceTaskOpts);
+          if(!prog){
+            // Already at 3 pending — still keep assign for this play idempotently if under cap failed mid-way
+            try{assignGameTask(diceTaskOpts)}catch(e2){}
+            try{renderProgressiveTasks('dice')}catch(e3){}
+          }
         }catch(e){}
       }, waitMore);
     }
@@ -14213,73 +14505,19 @@ async function claimPayPalPack(p){
     window.publishDiceProof=publishDiceProof;
 
 function pendingRouletteTasks(){
+      // Prefer progressive session tasks (max 3); fall back to legacy pending store.
+      try{
+        var prog=listProgressiveTasks('roulette').map(function(r){return r.task}).filter(function(t){return t&&t.status!=='completed'});
+        if(prog.length) return prog;
+      }catch(e){}
       return pendingGameTasks().filter(function(t){return t&&String(t.gameId||'')==='roulette'});
     }
     function selectRouletteTask(taskId){
-      var task=findGameTask(taskId);
-      if(!task){toast('Task not found');return false}
-      if(task.status==='completed'){toast('This task is already completed');return false}
-      // Selecting a task never consumes a spin — only opens New Post prefilled.
-      try{
-        lastRoulettePlayId=task.sessionId||lastRoulettePlayId;
-        lastRouletteOpt={
-          title:task.title,
-          desc:task.desc||task.instructions||'',
-          permanent:!!task.permanent,
-          free_delete:!!task.free_delete,
-          deletion_tier:task.deletion_tier||''
-        };
-        window.__rouletteAccepted={playId:task.sessionId, title:task.title, at:Date.now(), challengeId:task.challengeId||null};
-        localStorage.setItem('rs_roulette_accepted', JSON.stringify(window.__rouletteAccepted));
-        if(task.challengeId) window.__pendingRouletteChallengeId=task.challengeId;
-      }catch(e){}
-      window.__composerReturn='roulette';
-      try{localStorage.setItem('rs_composer_return','roulette')}catch(e){}
-      try{renderRouletteTaskPicker(task.id)}catch(e){}
-      return openGameTaskPublish(task);
+      return selectProgressiveTask(taskId, 'roulette');
     }
     function renderRouletteTaskPicker(selectedId){
-      var wrap=document.getElementById('roulette-task-picker');
-      var list=document.getElementById('roulette-task-list');
-      if(!wrap||!list) return;
-      var tasks=pendingRouletteTasks().slice(0,8);
-      if(!tasks.length){
-        wrap.classList.remove('show');
-        wrap.style.display='none';
-        list.innerHTML='';
-        return;
-      }
-      var activeId=selectedId||window.__activeGameTaskId||'';
-      try{
-        if(!activeId&&window.__pendingGamePublish&&window.__pendingGamePublish.taskId){
-          activeId=window.__pendingGamePublish.taskId;
-        }
-      }catch(e){}
-      wrap.style.display='block';
-      wrap.classList.add('show');
-      list.innerHTML=tasks.map(function(task, i){
-        var st=String(task.status||'assigned');
-        var isSel=activeId&&String(task.id)===String(activeId);
-        var cls='roulette-task-btn is-available';
-        if(st==='accepted'||isSel) cls+=' is-accepted';
-        if(isSel) cls+=' is-selected';
-        if(st==='completed') cls+=' is-completed';
-        var statusLabel=st==='accepted'?'Accepted':(st==='completed'?'Completed':'Available');
-        var cta=st==='accepted'?'Publish proof':'Open New Post';
-        var desc=String(task.desc||task.instructions||'').replace(/\s+/g,' ').trim().slice(0,140);
-        return '<button type="button" class="'+cls+'" data-roulette-task="'+esc(task.id)+'" aria-pressed="'+(isSel?'true':'false')+'">'
-          +'<div class="rt-top"><span class="rt-status">Task '+(i+1)+' · '+esc(statusLabel)+'</span><span class="rt-cta">'+esc(cta)+'</span></div>'
-          +'<div class="rt-title">'+esc(task.title||'Roulette task')+'</div>'
-          +(desc?'<div class="rt-desc">'+esc(desc)+'</div>':'')
-          +'</button>';
-      }).join('');
-      Array.prototype.forEach.call(list.querySelectorAll('[data-roulette-task]'),function(btn){
-        btn.onclick=function(ev){
-          try{ev.preventDefault();ev.stopPropagation()}catch(e){}
-          var tid=btn.getAttribute('data-roulette-task');
-          try{selectRouletteTask(tid)}catch(e){toast('Could not open task')}
-        };
-      });
+      if(selectedId) window.__activeGameTaskId=selectedId;
+      try{renderProgressiveTasks('roulette')}catch(e){}
     }
     function restoreRouletteChallengeUI(){
       if(rouletteSpinning) return;
@@ -14647,33 +14885,41 @@ function pendingRouletteTasks(){
           toast('Challenge ready — pick any task below');
         }
         try{if(isRegistered()) awardGameXp('game_play','roulette_'+playId)}catch(e){}
-        // Register active game challenge + centralized task for Accept → Wall publish → complete.
-        if(opt && !isPrize){
+        // Progressive challenge after every completed spin (win or loss / prize or not). Max 3.
+        if(opt){
           try{
-            var spawnId=spawnDefeatChallenge({
-              id:playId,
-              gameId:'roulette',
-              user:(currentUser&&currentUser.name)||coinUserId(),
-              result:'loss',
-              at:Date.now(),
-              opt:opt
-            });
-            window.__pendingRouletteChallengeId=spawnId||null;
-            assignGameTask({
+            var spawnId=null;
+            if(!isPrize){
+              spawnId=spawnDefeatChallenge({
+                id:playId,
+                gameId:'roulette',
+                user:(currentUser&&currentUser.name)||coinUserId(),
+                result:'loss',
+                at:Date.now(),
+                opt:opt
+              });
+              window.__pendingRouletteChallengeId=spawnId||null;
+            }
+            var rouTaskOpts={
               gameId:'roulette',
               sessionId:playId,
               challengeId:spawnId||null,
               title:opt.title||'Roulette task',
               desc:opt.desc||'',
-              instructions:'Roulette task: '+(opt.title||'')+((opt.desc)?('\n'+opt.desc):''),
+              instructions:'Roulette task: '+(opt.title||'')+((opt.desc)?('\n'+opt.desc):'')+(isPrize?'\n\n(Prize outcome — still counts as your play challenge.)':''),
               badge:'roulette',
-              requireMedia:true,
+              requireMedia:!isPrize,
               permanent:!!opt.permanent,
               free_delete:!!opt.free_delete,
               deletion_tier:opt.deletion_tier||(opt.permanent?'permanent':(opt.free_delete?'deletable':''))
-            });
+            };
+            var progR=registerProgressivePlayTask('roulette', playId, rouTaskOpts);
+            if(!progR && !isPrize){
+              try{assignGameTask(rouTaskOpts)}catch(e2){}
+            }
           }catch(e){}
         }
+        try{renderProgressiveTasks('roulette')}catch(e){}
         try{renderRouletteTaskPicker()}catch(e){}
         try{renderRouletteHistory()}catch(e){}
       });
