@@ -34,11 +34,12 @@ assert(html.includes("data-p=\"feed\"") && html.includes("data-p=\"wall\""), 'se
 assert(html.includes('function isWallUnifiedPost') && html.includes('function renderPosts'), 'distinct feed renderers');
 
 // —— Specialized destinations retained ——
-assert(html.includes('data-wall-filter="tasks"') && html.includes('>Tasks<'), 'Tasks secondary filter kept');
-assert(html.includes('data-wall-filter="timed"') && html.includes('Extend Post'), 'Extend Post secondary filter kept');
-assert(html.includes('data-wall-filter="dominants"'), 'Dominants secondary destination kept');
-assert(html.includes('data-wall-filter="generated"') && html.includes('IDs / PEA'), 'IDs / PEA secondary filter kept');
+assert(html.includes('data-wall-filter="tasks"') && html.includes('>Games<'), 'Games filter kept');
+assert(html.includes('data-wall-filter="timed"') && html.includes('>Extended<'), 'Extended filter kept');
+assert(html.includes('data-wall-filter="normal"') && html.includes('>Posts<'), 'Posts filter kept');
+assert(html.includes('btn-explore-idcard') && html.includes('btn-explore-pea'), 'IDs / PEA retained in Explore tools');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'All Posts sort filters');
+assert(html.includes("allowed=['all','tasks','normal','timed']"), 'primary filter allowlist');
 
 // —— Profile complete history ——
 assert(html.includes('function profilePublicationsHtml'), 'profilePublicationsHtml helper');
