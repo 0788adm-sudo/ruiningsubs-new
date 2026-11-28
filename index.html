@@ -367,7 +367,7 @@
     .vid-card .m{padding:0 10px 10px;font-size:11px;color:var(--muted)}
     @media(min-width:900px){
       main{max-width:1280px;padding:16px 20px 140px}
-      #posts-container{display:grid;grid-template-columns:1fr;gap:14px;max-width:720px;margin-left:auto;margin-right:auto}
+      #posts-container{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
       .user-posts-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
       #explore-normal-posts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
       #explore-normal-posts .normal-feed-post,
@@ -388,7 +388,7 @@
     }
     @media(min-width:1280px){
       main{max-width:1480px}
-      #posts-container{grid-template-columns:1fr;gap:14px;max-width:760px}
+      #posts-container{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
       .user-posts-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
       #explore-normal-posts{grid-template-columns:repeat(3,minmax(0,1fr))}
       .vid-list,.vid-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -396,7 +396,7 @@
     }
     @media(min-width:1680px){
       main{max-width:1680px}
-      #posts-container{grid-template-columns:1fr;max-width:800px}
+      #posts-container{grid-template-columns:repeat(5,minmax(0,1fr))}
     }
     @media(min-width:900px){
       #panel-detail{max-width:720px;margin-left:auto;margin-right:auto}
@@ -409,8 +409,8 @@
     .tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto}
     .tab{padding:10px 16px;border-radius:999px;background:var(--elev);border:1px solid var(--border);color:var(--muted);font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer}
     .tab.active{background:#3b0764;color:#ede9fe;border-color:#5b21b6}
-    /* EXTENDED posts — single column (All Posts keeps its own 2-col grid) */
-    #posts-container{display:grid;grid-template-columns:1fr;gap:12px;padding:0 2px}
+    /* EXTENDED posts — original 2-column grid (All Posts keeps its own 2-col grid) */
+    #posts-container{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 2px}
     #posts-container .empty,#explore-normal-posts .empty,#explore-normal-posts .normal-feed-empty,#videos-grid .empty{grid-column:1/-1}
     
     .pinned-badge{position:absolute;top:8px;left:8px;z-index:2;background:rgba(0,0,0,.8);color:#ffd60a;font-size:11px;font-weight:800;padding:4px 9px;border-radius:8px;border:1px solid rgba(255,214,10,.5)}
@@ -2380,11 +2380,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   main{max-width:1320px!important;padding:16px 18px 140px!important}
   #posts-container{
     display:grid!important;
-    grid-template-columns:1fr!important;
-    gap:14px!important;
-    max-width:720px!important;
-    margin-left:auto!important;
-    margin-right:auto!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:10px!important;
   }
   .user-posts-grid{
     display:grid!important;
@@ -2424,12 +2421,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 @media(min-width:1280px){
   main{max-width:1540px!important}
-  .user-posts-grid,.vid-list,.vid-grid{
+  #posts-container,.user-posts-grid,.vid-list,.vid-grid{
     grid-template-columns:repeat(4,minmax(0,1fr))!important;
-  }
-  #posts-container{
-    grid-template-columns:1fr!important;
-    max-width:760px!important;
   }
   #explore-normal-posts{
     grid-template-columns:repeat(3,minmax(0,1fr))!important;
@@ -2438,7 +2431,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 }
 @media(min-width:1680px){
   main{max-width:1720px!important}
-  #posts-container{grid-template-columns:1fr!important;max-width:800px!important}
+  #posts-container{grid-template-columns:repeat(5,minmax(0,1fr))!important}
 }
 
 /* ——— Coins shop · RuinExpose integrated recharge ——— */

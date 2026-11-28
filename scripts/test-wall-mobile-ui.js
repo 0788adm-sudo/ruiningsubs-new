@@ -49,10 +49,10 @@ assert(wall.indexOf('data-wall-filter="normal"') < wall.indexOf('data-wall-filte
 assert((wall.match(/id="wall-sort-bar"/g) || []).length === 1, 'sorting controls not duplicated');
 assert(wall.includes('>ALL<') && wall.includes('>GAMES<') && wall.includes('>TIMED POSTS<'), 'six-filter labels');
 
-// ALL POSTS 2-column grid; EXTENDED single column
+// ALL POSTS 2-column grid; EXTENDED original 2-column grid
 assert(/#explore-normal-posts\s*\{[^}]*grid-template-columns:\s*repeat\(2/.test(html), 'All Posts 2-column grid');
 assert(html.includes('normal-feed-post-title') && html.includes('normal-feed-post-stats'), 'compact title + stats on All Posts cards');
-assert(/#posts-container\{display:grid;grid-template-columns:1fr/.test(html), 'Extended posts single column');
+assert(/#posts-container\{display:grid;grid-template-columns:1fr 1fr/.test(html), 'Extended posts original 2-column');
 assert(html.includes('id="feed-float-switch"') && html.includes('feed-float-switch'), 'floating feed switch retained');
 
 // Stories exclusive to Extended

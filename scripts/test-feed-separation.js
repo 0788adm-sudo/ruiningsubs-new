@@ -4,7 +4,7 @@
  * EXTENDED vs ALL POSTS chrome separation:
  * - Stories only on Extended
  * - All Posts drops header/Share/+Post/Stories
- * - Extended posts single column; All Posts keeps 2-col grid
+ * - Extended keeps original 2-col posts; All Posts keeps 2-col grid
  * - Floating switch retained
  */
 var fs = require('fs');
@@ -41,7 +41,7 @@ assert(feed.includes('id="feed-search"') && feed.includes('feed-gender-filter'),
 assert(feed.includes('feed-sort-row') && feed.includes('Newest') && feed.includes('Most Time') && feed.includes('Ending Soon'), 'Extended sort chips');
 assert(feed.includes('id="featured-slot"') && feed.includes('id="posts-container"'), 'Spotlight + Extended posts');
 assert(!/copySectionLink\(['"]extend['"]/.test(feed), 'Extended Share row removed');
-assert(/#posts-container\{display:grid;grid-template-columns:1fr/.test(html), 'Extended single column');
+assert(/#posts-container\{display:grid;grid-template-columns:1fr 1fr/.test(html), 'Extended original 2-column posts');
 
 // Stories paint target
 assert(html.includes("getElementById('home-random-strip')"), 'Stories paint Extended strip');
