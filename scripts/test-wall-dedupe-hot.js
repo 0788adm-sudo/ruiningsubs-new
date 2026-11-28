@@ -12,11 +12,11 @@ function assert(c, m) {
 }
 
 assert(html.includes('function isWallNativePost'), 'wall-native classifier');
-assert(/if\(filter==='timed'\) return isWallTimedPost\(p\);[\s\S]{0,80}if\(isWallTimedPost\(p\)\) return false/.test(html), 'timed posts excluded from other Wall tabs');
+assert(/if\(filter==='timed'\) return isWallTimedPost\(p\);[\s\S]{0,200}if\(isWallTimedPost\(p\)\) return false/.test(html), 'timed posts excluded from other Wall tabs');
 assert(html.includes("isVideoPost(p)) return false") && html.includes('Videos belong in GoonTok'), 'Extend excludes videos');
-assert(html.includes('wall-permanence-notice'), 'Wall permanence notice on section');
-assert(/Permanent Wall post/.test(html), 'pre-publish permanence copy');
-assert(/cannot be removed for free|Removal is not free/.test(html), 'not-free remove policy visible');
+assert(!html.includes('wall-permanence-notice'), 'legacy Wall permanence notice id stays removed');
+assert(/PUBLIC PHOTO POST/.test(html), 'pre-publish All Posts public photo copy');
+assert(/All Posts, not in Extended/.test(html), 'All Posts destination clarified vs Extended');
 assert(!/Log in to mark Hot/.test(html), 'Hot no longer requires login toast');
 assert(/fromGoonTok:true/.test(html) && /skipTimer:true/.test(html), 'GoonTok Hot skips timer gate');
 assert(/rs_videos/.test(html) && /hotBumpWall/.test(html), 'Hot looks up rs_videos');

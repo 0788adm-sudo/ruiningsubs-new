@@ -21,6 +21,9 @@ assert(html.includes('function isAnonymousAccount'), 'isAnonymousAccount helper'
 assert(html.includes("Login to publish proof") === false || !/openGameTaskPublish[\s\S]{0,200}Login to publish proof/.test(html), 'openGameTaskPublish no login gate');
 assert(!/function publishRouletteToFeed\(\)\{[\s\S]{0,800}Login to publish proof/.test(html), 'roulette publish no login gate');
 assert(!/function publishDiceProof\(\)\{[\s\S]{0,500}Login to publish proof/.test(html), 'dice publish no login gate');
+assert(!/function openNormalPostComposer\(\)\{[\s\S]{0,600}(Login to publish|Register to publish)/.test(html), 'All Posts composer no login gate');
+assert(html.includes('Continue as Guest') && html.includes('Create your profile!'), 'optional guest register invite');
+assert(html.includes('PUBLIC PHOTO POST'), 'All Posts public photo framing');
 // Universal Delete: anon owners may free-delete; anon non-owners must pay / are gated server-side.
 assert(del.includes('anonymous_cannot_delete'), 'server rejects anon non-owner free delete');
 assert(del.includes('requesterAnon'), 'delete-post checks anonymous requester');
