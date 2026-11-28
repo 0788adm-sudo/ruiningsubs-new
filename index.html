@@ -1010,7 +1010,7 @@
       box-shadow:none;
     }
     .entry-ico svg{width:20px;height:20px;display:block;filter:none}
-    .entry-ico.pin,.entry-ico.dares,.entry-ico.print,.entry-ico.roulette,.entry-ico.idcard{
+    .entry-ico.pin,.entry-ico.dares,.entry-ico.print,.entry-ico.roulette,.entry-ico.games,.entry-ico.idcard{
       background:#14141c;color:#b7a8d4;border:1px solid #3b3358;box-shadow:none;
     }
     .tasks-entry,.premium-entry{align-items:center}
@@ -1097,7 +1097,7 @@
     .entry-ico.pin{/*premium*/box-shadow:0 0 22px rgba(139,92,246,.75),0 0 40px rgba(124,58,237,.25), inset 0 0 14px rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.75)}
     .entry-ico.dares{box-shadow:0 0 22px rgba(255,159,26,.75),0 0 40px rgba(255,159,26,.25), inset 0 0 14px rgba(255,159,26,.18);border:1px solid rgba(255,159,26,.75)}
     .entry-ico.print{box-shadow:0 0 22px rgba(255,77,109,.8),0 0 40px rgba(255,77,109,.28), inset 0 0 14px rgba(255,77,109,.2);border:1px solid rgba(255,77,109,.8)}
-    .entry-ico.roulette{box-shadow:0 0 24px rgba(124,58,237,.85),0 0 44px rgba(217,70,239,.32), inset 0 0 14px rgba(124,58,237,.22);border:1px solid rgba(124,58,237,.85)}
+    .entry-ico.roulette,.entry-ico.games{box-shadow:0 0 24px rgba(124,58,237,.85),0 0 44px rgba(217,70,239,.32), inset 0 0 14px rgba(124,58,237,.22);border:1px solid rgba(124,58,237,.85)}
     @keyframes neonPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
     .tasks-entry,.premium-entry{border-width:1.5px!important;box-shadow:0 0 18px rgba(217,70,239,.12)}
     .tasks-entry:active,.premium-entry:active{transform:scale(.985)}
@@ -2962,11 +2962,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
           <span style="font-size:20px;color:#ff4d6d">›</span>
         </div>
-        <div class="tasks-entry" id="btn-open-roulette" role="button" >
-          <span class="entry-ico roulette"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg></span>
+        <div class="tasks-entry" id="btn-open-games" role="button" tabindex="0" aria-label="Games — Triki, Dados, Ruin Roulette">
+          <span class="entry-ico games"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h.01M10 12h.01"/><path d="M15 10v4M17 12h-4"/></svg></span>
           <div class="entry-body">
-            <strong>Ruin Roulette</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">30 tasks · 3 spins a day</div>
+            <strong>Games</strong>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Triki · Dados · Ruin Roulette</div>
           </div>
           <span style="font-size:20px;color:#5b21b6">›</span>
         </div>
@@ -3129,8 +3129,8 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
       <div id="panel-challenges" class="panel">
         <div class="panel-h">
-          <button class="back" type="button" onclick="showPanel('explore')">←</button>
-          <h2>Challenges</h2>
+          <button class="back" type="button" id="btn-games-hub-back" onclick="backFromGamesHub()">←</button>
+          <h2>Games</h2>
           <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('games','Games')">Share</button>
         </div>
         <div id="games-hub"></div>
@@ -3182,10 +3182,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
           <div class="explore-sec-label">PLAY</div>
           <div id="explore-xp-promo" style="display:none" aria-hidden="true"></div>
-          <button type="button" class="explore-games-card" id="btn-explore-games" onclick="openChallengesHub()">
+          <button type="button" class="explore-games-card" id="btn-explore-games" onclick="openChallengesHub({from:'explore'})">
             <div>
               <strong>GAMES</strong>
-              <div class="explore-card-sub">Roulette · Dice · Tic-Tac-Toe</div>
+              <div class="explore-card-sub">Triki · Dados · Ruin Roulette</div>
             </div>
             <span class="explore-card-arrow">›</span>
           </button>
@@ -15750,7 +15750,7 @@ function pendingRouletteTasks(){
         if(!el||el.__rsTapSafe)return;
         el.onclick=fn;
       }
-      softClick('btn-open-roulette', function(){ window.__gamesToolReturn=null; openRoulette(); });
+      softClick('btn-open-games', function(){ try{openGamesHub({from:'feed'})}catch(e){openChallengesHub({from:'feed'})} });
       softClick('btn-explore-print', function(){ openPrintDirty(); });
       var exT = document.getElementById('btn-explore-tasks');
       var exC = document.getElementById('btn-explore-custom');
@@ -15930,7 +15930,7 @@ function pendingRouletteTasks(){
         });
       }
       tapOpen(document.getElementById('btn-open-print-dirty'), function(){openPrintDirty()});
-      tapOpen(document.getElementById('btn-open-roulette'), function(){openRoulette()});
+      tapOpen(document.getElementById('btn-open-games'), function(){try{openGamesHub({from:'feed'})}catch(e){openChallengesHub({from:'feed'})}});
       tapOpen(document.getElementById('btn-open-tasks'), function(){openTasks()});
       // Explore + Wall entry rows — same scroll-safe tap (replace fragile inline onclick)
       [
@@ -15939,7 +15939,7 @@ function pendingRouletteTasks(){
         ['btn-explore-print', function(){openPrintDirty()}],
         ['btn-explore-randomcam', function(){openRandomCam()}],
         ['btn-explore-goontok', function(){openGoonTok()}],
-        ['btn-explore-games', function(){openChallengesHub()}],
+        ['btn-explore-games', function(){openChallengesHub({from:'explore'})}],
         ['btn-explore-videos', function(){showPanel('videos')}],
         ['btn-wall-generate-id', function(){openIdCard('id')}],
         ['btn-wall-generate-pea', function(){openIdCard('pea')}]
@@ -26538,12 +26538,31 @@ function profileStatsHtml(userPosts, extra){
     window.rsPromoStripHtml=rsPromoStripHtml;
     window.rsXpGoalProgressHtml=rsXpGoalProgressHtml;
 
-    function openChallengesHub(){
+    function backFromGamesHub(){
+      var ret=String(window.__gamesHubReturn||'').toLowerCase();
+      window.__gamesHubReturn=null;
+      if(ret==='feed'||ret==='home'||ret==='extended'){
+        try{openFeedExtended()}catch(e){showPanel('feed')}
+        return;
+      }
+      if(ret==='wall'||ret==='all'||ret==='allposts'){
+        try{openFeedAllPosts()}catch(e){showPanel('wall')}
+        return;
+      }
+      try{showPanel('explore')}catch(e){}
+    }
+    window.backFromGamesHub=backFromGamesHub;
+    function openChallengesHub(opts){
+      opts=opts||{};
+      try{
+        if(opts.from) window.__gamesHubReturn=String(opts.from);
+        else if(!window.__gamesHubReturn) window.__gamesHubReturn='explore';
+      }catch(e){}
       showPanel('challenges');
       try{setPanelRoute('challenges',{replace:!!window.__routing})}catch(e){}
       renderChallengesHub();
     }
-    function openGamesHub(){ openChallengesHub(); }
+    function openGamesHub(opts){ openChallengesHub(opts||{from:'feed'}); }
 
     function challengeStatusFor(ch){
       var day=rsDayKey();
@@ -26615,9 +26634,9 @@ function profileStatsHtml(userPosts, extra){
         });
       }
 
-      // Games: exactly Roulette, Dice, Tic-Tac-Toe (single Explore entry → this hub)
+      // Games: Triki · Dados · Ruin Roulette (Feed + Explore entry → this hub)
       html+='<div style="font-size:11px;font-weight:900;letter-spacing:.14em;color:#c4b5fd;margin:4px 0 10px">GAMES</div>';
-      var gameOrder={roulette:0,dice:1,tic_tac_toe:2};
+      var gameOrder={tic_tac_toe:0,dice:1,roulette:2};
       var allowedGames={roulette:1,dice:1,tic_tac_toe:1};
       var featuredGames=RS_GAME_REGISTRY.filter(function(g){return g&&g.status==='live'&&allowedGames[g.id]}).slice().sort(function(a,b){
         return (gameOrder[a.id]!=null?gameOrder[a.id]:9)-(gameOrder[b.id]!=null?gameOrder[b.id]:9);
@@ -26639,7 +26658,7 @@ function profileStatsHtml(userPosts, extra){
 
       html+=rsPromoStripHtml({
         title:'🎮 PLAY · 3 FREE EACH · 24h RECOVERY',
-        sub:'RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'
+        sub:'TRIKI · DADOS · RUIN ROULETTE'
       });
 
       html+='<div class="rs-game-card rs-daily-card">';
@@ -27145,10 +27164,10 @@ function profileStatsHtml(userPosts, extra){
       }catch(e){}
       return RS_WORD_BANK_DEFAULT.slice();
     }
-    var RS_GAME_REGISTRY=[
+      var RS_GAME_REGISTRY=[
       {id:'roulette',name:'RUIN ROULETTE',desc:'Spin the wheel. 3 free spins · 24h recovery · pack 10 Coins for 10 more.',category:'GAMES',difficulty:'EASY',xp:10,duration:'spin',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openRoulette()}catch(e){showPanel('roulette')}}},
-      {id:'dice',name:'EXPOSURE DICE',desc:'Wear · Pose · Proof. 3 free rolls · 24h recovery · 10 Coins pack.',category:'GAMES',difficulty:'EASY',xp:10,duration:'roll',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openDiceGame()}catch(e){showPanel('dice')}}},
-      {id:'tic_tac_toe',name:'TIC-TAC-TOE',desc:'Play vs Ruiningsubs only. 3 free sessions · 24h recovery · 10 Coins → 10 games.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'VS_RS',status:'live',open:function(){startTicTacToeMenu()}},
+      {id:'dice',name:'DADOS',desc:'Wear · Pose · Proof. 3 free rolls · 24h recovery · 10 Coins pack.',category:'GAMES',difficulty:'EASY',xp:10,duration:'roll',mode:'SOLO',status:'live',open:function(){window.__gamesToolReturn='challenges';try{openDiceGame()}catch(e){showPanel('dice')}}},
+      {id:'tic_tac_toe',name:'TRIKI',desc:'Play vs Ruiningsubs only. 3 free sessions · 24h recovery · 10 Coins → 10 games.',category:'GAMES',difficulty:'MEDIUM',xp:25,duration:'~2m',mode:'VS_RS',status:'live',open:function(){startTicTacToeMenu()}},
       {id:'word_challenge',name:'WORD SCRAMBLE',desc:'Disabled.',category:'GAMES',difficulty:'EASY',xp:20,duration:'~60s',mode:'SOLO',status:'disabled',open:function(){toast('Game not available')}}
     ];
     function getGameDef(id){
