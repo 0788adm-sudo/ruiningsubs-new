@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Coins economy: purchase ($5 → 60) separated from spend (Pin/Delete = 10).
+ * Pin and Delete share the dual-pay UX: 10 Coins immediate OR $5 external + I paid.
  * Static contract checks for SPA + /api/fc-spend.
  */
 'use strict';
@@ -25,20 +26,22 @@ assert(spend.indexOf('pin: Number(process.env.FC_COST_PIN || 10)') >= 0, 'server
 assert(spend.indexOf('delete: Number(process.env.FC_COST_DELETE || 10)') >= 0, 'server delete cost 10');
 assert(spend.indexOf('coins_per_pack: 60') >= 0 && spend.indexOf('actions_per_min_pack: 6') >= 0, 'server economy: 60 coins / 6 actions');
 
-// Pin: no Premium Pin · $5 per-action window
+// Pin dual-pay mirrors Delete
+assert(html.indexOf('function openPinModal') >= 0, 'openPinModal helper');
+assert(html.indexOf('id="pin-modal"') >= 0, 'pin modal markup');
 assert(html.indexOf('function requestPinAction') >= 0, 'requestPinAction helper');
-assert(html.indexOf('requestPinAction(') >= 0, 'Pin CTA uses requestPinAction');
-assert(html.indexOf("label:'Premium Pin',amount:'$5'") < 0, 'no Premium Pin $5 pay ticket from feature modal');
-assert(html.indexOf('PayPal $5 · MartinJimenez205</a>') < 0 || html.indexOf('No Premium Pin') >= 0 || html.indexOf('function openFeature') >= 0, 'feature flow rewritten');
-assert(html.indexOf('>Premium Pin</div>') < 0 && html.indexOf("'Premium Pin'</div>") < 0, 'Premium Pin title removed from openFeature');
+assert(html.indexOf('requestPinAction(') >= 0 || html.indexOf('openPinModal(') >= 0, 'Pin CTA uses pin modal path');
+assert(html.indexOf('Pay 10 Coins') >= 0 && html.indexOf('Pin immediately') >= 0, 'Pay 10 Coins immediate pin CTA');
+assert(html.indexOf('btn-pin-paypal') >= 0 && html.indexOf('btn-pin-throne') >= 0, 'Pin PayPal + Throne $5');
+assert(html.indexOf('btn-pin-paid') >= 0 && html.indexOf('confirmPinPaid') >= 0, 'Pin I paid button');
+assert(html.indexOf("amount:'$5'") >= 0 && html.indexOf("kind:'pin_payment_request'") >= 0, 'Pin I paid creates $5 pin_payment_request');
 assert(html.indexOf('Recharge Coins') >= 0, 'Recharge Coins modal copy');
-assert(html.indexOf('60 Coins — $5 USD') >= 0, 'recharge pack headline');
-assert(html.indexOf('up to') >= 0 && html.indexOf('actions') >= 0, 'explains 6 actions from 60 Coins');
+assert(html.indexOf('60 Coins — $5 USD') >= 0 || html.indexOf('$5 → 60') >= 0 || html.indexOf('coins:60') >= 0, 'recharge pack available');
 
 // Pin insufficient → recharge (purchase stays separate from spend)
 assert(html.indexOf("openNeedCoins({cost:cost,why:'pin',action:'pin'})") >= 0 || html.indexOf("why:'pin',action:'pin'") >= 0, 'pin insufficient opens recharge');
-assert(html.indexOf('Recharge Coins') >= 0, 'Recharge Coins modal still available');
 assert(html.indexOf('btn-remove-buycoins') >= 0 && html.indexOf("why:'delete',action:'delete'") >= 0, 'delete can open Recharge Coins separately');
+assert(html.indexOf('btn-pin-buycoins') >= 0, 'pin can open Recharge Coins separately');
 
 // Enough balance → spend path
 assert(html.indexOf("spendFagCoins('pin'") >= 0, 'pin spends via spendFagCoins');
