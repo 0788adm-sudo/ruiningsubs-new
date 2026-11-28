@@ -1615,9 +1615,76 @@
     .entry-ico.idcard svg{filter:drop-shadow(0 0 6px rgba(45,212,191,.85))!important}
 
     
-.global-feed-switch,.feed-mode-tabs{display:flex;gap:4px;margin:8px 0 10px;padding:4px;background:rgba(20,20,20,.94);border:1px solid var(--border);border-radius:14px;position:relative;z-index:30}
-.global-feed-switch button,.feed-mode-tabs button{flex:1;border:0;border-radius:10px;padding:10px 10px;background:transparent;color:var(--muted);font:800 12px inherit;letter-spacing:.04em;cursor:pointer;min-height:42px;touch-action:manipulation}
-.global-feed-switch button.active,.feed-mode-tabs button.active{background:linear-gradient(90deg,#7c3aed,#ff6a00);color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
+.global-feed-switch{display:flex;gap:4px;margin:8px 0 10px;padding:4px;background:rgba(20,20,20,.94);border:1px solid var(--border);border-radius:14px;position:relative;z-index:30}
+.global-feed-switch button{flex:1;border:0;border-radius:10px;padding:10px 10px;background:transparent;color:var(--muted);font:800 12px inherit;letter-spacing:.04em;cursor:pointer;min-height:42px;touch-action:manipulation}
+.global-feed-switch button.active{background:linear-gradient(90deg,#7c3aed,#ff6a00);color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
+/* Floating EXTENDED / ALL POSTS switch — fixed chrome strip above bottom nav */
+.feed-float-switch{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:calc(62px + max(18px, env(safe-area-inset-bottom, 0px)));
+  z-index:4500;
+  display:none;
+  justify-content:center;
+  align-items:flex-end;
+  margin:0;
+  padding:14px 16px 4px;
+  width:auto;
+  border:0;
+  border-radius:0;
+  background:linear-gradient(180deg, rgba(5,5,6,0) 0%, rgba(5,5,6,.72) 42%, rgba(10,10,10,.96) 100%);
+  box-shadow:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  pointer-events:none; /* only the pill captures taps — post actions stay reachable beside it */
+}
+body.feed-float-on .feed-float-switch{display:flex}
+body.feed-float-on{padding-bottom:calc(168px + env(safe-area-inset-bottom,0px))}
+body.rs-recovery-mode .feed-float-switch,
+body.gt-on .feed-float-switch,
+body.rc-on .feed-float-switch{display:none!important}
+.feed-float-pill{
+  pointer-events:auto;
+  display:flex;
+  align-items:center;
+  gap:3px;
+  margin:0;
+  padding:3px;
+  width:min(248px, calc(100vw - 104px));
+  background:rgba(8,8,10,.78);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:999px;
+  backdrop-filter:blur(16px) saturate(1.25);
+  -webkit-backdrop-filter:blur(16px) saturate(1.25);
+  box-shadow:0 6px 22px rgba(0,0,0,.42), 0 0 0 1px rgba(124,58,237,.08);
+}
+.feed-float-switch button{
+  flex:1;
+  border:0;
+  border-radius:999px;
+  padding:7px 10px;
+  background:transparent;
+  color:var(--muted);
+  font:800 11px/1.1 inherit;
+  letter-spacing:.05em;
+  cursor:pointer;
+  min-height:34px;
+  touch-action:manipulation;
+  white-space:nowrap;
+  -webkit-tap-highlight-color:rgba(124,58,237,.25);
+  transition:background .15s ease, color .15s ease, box-shadow .15s ease;
+  pointer-events:auto;
+}
+.feed-float-switch button.active{
+  background:linear-gradient(90deg,#7c3aed,#ff6a00);
+  color:#fff;
+  box-shadow:0 0 14px rgba(124,58,237,.4), 0 0 10px rgba(255,106,0,.22);
+}
+body.feed-float-on #btn-scroll-top{
+  right:12px;
+  bottom:calc(128px + max(18px, env(safe-area-inset-bottom, 0px)))!important;
+}
 .wall-topic-active{display:none;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:8px 10px;border-radius:12px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.12);color:#e9d5ff;font-size:12px;font-weight:800}
 .wall-topic-active.is-on{display:flex}
 .wall-topic-active button{border:0;background:transparent;color:#c4b5fd;font-weight:900;cursor:pointer;min-height:36px;padding:0 8px}
@@ -2997,10 +3064,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
           <div id="home-videos" style="display:none"></div>
         </div>
-        <div class="feed-mode-tabs" id="feed-mode-tabs-extended" role="tablist" aria-label="Feed tabs">
-          <button type="button" class="active" data-feed-tab="extended" role="tab" aria-selected="true">EXTENDED</button>
-          <button type="button" data-feed-tab="all" role="tab" aria-selected="false">ALL POSTS</button>
-        </div>
         <div class="feed-search-wrap">
           <span class="fs-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg></span>
           <input type="search" id="feed-search" placeholder="Search posts, @users, #tags..." autocomplete="off"/>
@@ -3325,10 +3388,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <div id="panel-wall" class="panel">
         <div id="wall-home">
           <div id="explore-normal-wrap">
-            <div class="feed-mode-tabs" id="feed-mode-tabs-all" role="tablist" aria-label="Feed tabs">
-              <button type="button" data-feed-tab="extended" role="tab" aria-selected="false">EXTENDED</button>
-              <button type="button" class="active" data-feed-tab="all" role="tab" aria-selected="true">ALL POSTS</button>
-            </div>
             <div id="pig-of-day" style="margin:0 0 8px"></div>
             <div class="wall-head">
               <div class="wall-head-row">
@@ -4249,6 +4308,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
     </main>
 
+    <div id="feed-float-switch" class="feed-float-switch feed-mode-tabs" role="tablist" aria-label="Feed — Extended and All Posts">
+      <div class="feed-float-pill">
+        <button type="button" class="active" data-feed-tab="extended" role="tab" aria-selected="true">EXTENDED</button>
+        <button type="button" data-feed-tab="all" role="tab" aria-selected="false">ALL POSTS</button>
+      </div>
+    </div>
     <nav class="bottom-nav">
       <div class="stats-strip" style="display:none"></div>
       <div class="nav-row">
@@ -14553,28 +14618,51 @@ async function claimPayPalPack(p){
     window.openFeedExtended=openFeedExtended;
     function syncFeedModeTabs(mode){
       mode=mode==='all'?'all':'extended';
-      document.querySelectorAll('.feed-mode-tabs button[data-feed-tab]').forEach(function(b){
+      var wrap=document.getElementById('feed-float-switch');
+      var buttons=wrap
+        ? wrap.querySelectorAll('button[data-feed-tab]')
+        : document.querySelectorAll('.feed-mode-tabs button[data-feed-tab]');
+      buttons.forEach(function(b){
         var on=b.getAttribute('data-feed-tab')===mode;
         b.classList.toggle('active', on);
         b.setAttribute('aria-selected', on?'true':'false');
       });
     }
+    function syncFeedFloatVisibility(panelName){
+      var on=panelName==='feed'||panelName==='extended'||panelName==='wall';
+      try{document.body.classList.toggle('feed-float-on', !!on)}catch(e){}
+      var wrap=document.getElementById('feed-float-switch');
+      if(wrap){
+        wrap.setAttribute('aria-hidden', on?'false':'true');
+        if(on) wrap.removeAttribute('hidden');
+        else wrap.setAttribute('hidden','');
+      }
+    }
     function setupFeedModeTabs(){
-      document.querySelectorAll('.feed-mode-tabs').forEach(function(wrap){
-        if(wrap.__wired) return;
-        wrap.__wired=1;
-        wrap.addEventListener('click', function(ev){
-          var b=ev.target&&ev.target.closest?ev.target.closest('[data-feed-tab]'):null;
-          if(!b) return;
-          ev.preventDefault();
-          var tab=b.getAttribute('data-feed-tab')||'extended';
-          if(tab==='all') openFeedAllPosts();
-          else openFeedExtended();
-        });
+      var wrap=document.getElementById('feed-float-switch');
+      if(!wrap || wrap.__wired) return;
+      wrap.__wired=1;
+      wrap.addEventListener('click', function(ev){
+        var b=ev.target&&ev.target.closest?ev.target.closest('[data-feed-tab]'):null;
+        if(!b || !wrap.contains(b)) return;
+        ev.preventDefault();
+        var tab=b.getAttribute('data-feed-tab')||'extended';
+        if(tab==='all') openFeedAllPosts();
+        else openFeedExtended();
       });
+      try{
+        var act=document.querySelector('.panel.active');
+        var pid=act&&act.id||'';
+        var name=pid.indexOf('panel-')===0?pid.slice(6):'';
+        syncFeedFloatVisibility(name||'feed');
+        var tab='extended';
+        try{tab=localStorage.getItem('rs_feed_tab')||'extended'}catch(e){}
+        syncFeedModeTabs(tab);
+      }catch(e){}
     }
     window.setupFeedModeTabs=setupFeedModeTabs;
     window.syncFeedModeTabs=syncFeedModeTabs;
+    window.syncFeedFloatVisibility=syncFeedFloatVisibility;
     function setupWallTopicsUi(){
       document.querySelectorAll('.wall-topics-mode-chip, .explore-topics-mode-chip').forEach(function(b){
         if(b.__wired) return;
@@ -20043,6 +20131,7 @@ function pendingRouletteTasks(){
           if(typeof syncFeedModeTabs==='function') syncFeedModeTabs('all');
           if(typeof syncWallTopicActiveUi==='function') syncWallTopicActiveUi();
         }
+        if(typeof syncFeedFloatVisibility==='function') syncFeedFloatVisibility(name);
       }catch(e){}
       if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');var loBtn=document.getElementById('btn-admin-logout');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';if(loBtn)loBtn.style.display='inline-flex';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';if(loBtn)loBtn.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
       if(name==='feed' || name==='extended'){
@@ -24008,7 +24097,7 @@ function pendingRouletteTasks(){
         if(el.closest('.lazy-video,.lv-player,.lv-play')) return false;
         // Never treat GoonTok swipe / nav chrome as an accidental open.
         // Note: .gt-keep / .gt-ext / .dx-ext already handled above — not excluded here.
-        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.gt-rail,.gt-top,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,#wall-tasks-cta,.wall-head,#btn-create-normal-post-explore,.entry-ico,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
+        if(el.closest('.modal-bg,.bottom-nav,.nav-row,.feed-float-switch,#feed-float-switch,.gt-rail,.gt-top,.gt-scroller,.gt-slide,.feat-dots,.feat-nav,.feat-prev,.feat-next,.dx-actions,.dx-thumbs,.dx-nav,input,textarea,a,#react-picker,#need-coins-modal,#soft-pay-modal,#boost-modal,#lightbox,.tasks-entry,.wall-filter-bar,.wall-sort-bar,.wall-quick-actions,.wall-filter-chip,.wall-sort-chip,#wall-roulette-cta,#wall-tasks-cta,.wall-head,#btn-create-normal-post-explore,.entry-ico,.gender-filter,#feed-gender-filter,#feed-gender-row,.gender-btn,.feed-sort-row,.feed-search-wrap'))return false;
         // Spotlight: open on tap, but ignore right after a horizontal swipe.
         if(el.closest('.feat-carousel,#feat-carousel,.feat-slide') && window.__featSwipeUntil && Date.now()<window.__featSwipeUntil) return false;
         // Wall / Explore explicit open targets must react on first pointerup (not wait for delayed click).

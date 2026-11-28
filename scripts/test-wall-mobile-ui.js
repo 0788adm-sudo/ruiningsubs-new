@@ -18,10 +18,9 @@ assert(!html.includes('Wall posts are permanent.'), 'permanence notice copy remo
 // Compact header classes present
 assert(html.includes('class="wall-head"') && html.includes('wall-head-row'), 'compact wall header markup');
 
-// Exact order inside panel-wall
+// Exact order inside panel-wall (feed tabs float globally — not inline)
 var wall = html.slice(html.indexOf('id="panel-wall"'), html.indexOf('id="panel-extended"'));
 var markers = [
-  'feed-mode-tabs',
   'All Posts',
   'btn-create-normal-post-explore',
   'id="wall-search"',
@@ -33,8 +32,10 @@ var idxs = markers.map(function (m) { return wall.indexOf(m); });
 assert(idxs.every(function (n) { return n >= 0; }), 'all Wall order markers present');
 assert(
   idxs.slice().sort(function (a, b) { return a - b; }).join(',') === idxs.join(','),
-  'Wall element order: tabs → title → Post → search → filters → sort → feed'
+  'Wall element order: title → Post → search → filters → sort → feed'
 );
+assert(wall.indexOf('feed-mode-tabs') < 0 && wall.indexOf('data-feed-tab') < 0, 'no inline feed tabs in panel-wall');
+assert(html.includes('id="feed-float-switch"'), 'floating feed switch present');
 assert(wall.indexOf('id="wall-search"') < wall.indexOf('id="wall-filter-bar"'), 'search above filters');
 assert(wall.indexOf('data-wall-filter="all"') < wall.indexOf('data-wall-filter="tasks"'), 'ALL before GAMES');
 assert(wall.indexOf('data-wall-filter="tasks"') < wall.indexOf('data-wall-filter="id"'), 'GAMES before ID');

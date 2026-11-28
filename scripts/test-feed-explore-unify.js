@@ -25,20 +25,22 @@ assert(html.includes('data-p="explore"'), 'EXPLORE in bottom nav');
 assert(html.includes('data-p="profile"') && /data-p="profile"[\s\S]*?Profile/.test(html), 'PROFILE in bottom nav');
 assert(!/data-p="wall"/.test(html), 'Wall is not a bottom-nav destination');
 
-// Feed tabs (main keeps synced tabs on both panels)
-assert(html.includes('feed-mode-tabs'), 'feed-mode-tabs present');
+// Feed tabs — single floating switch above bottom nav
+assert(html.includes('id="feed-float-switch"') && html.includes('feed-float-switch'), 'floating feed switch present');
 assert(html.includes('data-feed-tab="extended"') && html.includes('EXTENDED'), 'EXTENDED tab');
 assert(html.includes('data-feed-tab="all"') && html.includes('ALL POSTS'), 'ALL POSTS tab');
 assert(html.includes('id="panel-feed"') && html.includes('id="panel-wall"'), 'EXTENDED and ALL POSTS panels');
 assert(html.includes('function openFeedAllPosts'), 'openFeedAllPosts helper');
 assert(html.includes('function syncFeedModeTabs') || html.includes('data-feed-tab'), 'feed tab sync');
-// Placement: Exposure Videos → EXTENDED|ALL POSTS → feed search
+assert(html.includes('function syncFeedFloatVisibility'), 'floating switch visibility sync');
+assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'exactly one feed switch instance');
+// Placement: Exposure Videos → feed search (tabs float; not inline above search)
 (function () {
   var m = html.match(/id="panel-feed"[\s\S]*?id="posts-container"/);
   assert(!!m, 'panel-feed extract for tab order');
   var b = m[0];
-  assert(b.indexOf('home-videos-wrap') < b.indexOf('feed-mode-tabs-extended'), 'tabs below Exposure Videos');
-  assert(b.indexOf('feed-mode-tabs-extended') < b.indexOf('feed-search-wrap'), 'tabs above feed search');
+  assert(b.indexOf('home-videos-wrap') < b.indexOf('feed-search-wrap'), 'Exposure Videos above feed search');
+  assert(b.indexOf('feed-mode-tabs') < 0 && b.indexOf('data-feed-tab') < 0, 'no inline feed tabs in panel-feed');
 })();
 
 // ALL POSTS filters
