@@ -17,19 +17,15 @@ function assert(c, m) {
   console.log('PASS ·', m);
 }
 
-assert(html.includes('data-wall-filter="all"') && (html.includes('>ALL<') || html.includes('>All Posts<')), 'All Posts chip in UI');
+assert(html.includes('data-wall-filter="all"') && (html.includes('>ALL<') || html.includes('>All<')), 'All chip in UI');
 assert(html.includes('function isWallUnifiedPost'), 'isWallUnifiedPost helper');
 assert(html.includes('function wallCategoryBadgeHtml'), 'wallCategoryBadgeHtml helper');
 assert(html.includes("filter==='all'"), 'matchesWallFilter handles all');
 assert(html.includes('rs_wall_unified_v1'), 'migration flag for default All Posts');
-assert(
-  html.includes("allowed=['all','games','id','pea','normal','timed']") ||
-    html.includes("allowed=['all','tasks','normal','timed','dominants','generated','text']"),
-  'allowlist'
-);
+assert(html.includes("allowed=['all','tasks','id','pea','normal','timed']") || html.includes("allowed=['all','tasks','normal','timed']"), 'allowlist');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'sort chips retained');
 assert(html.includes('dedupePostList'), 'dedupe across sources');
-assert(html.includes('function isGameTaskWallPost'), 'Games/Tasks specialized filter kept');
+assert(html.includes('function isGameTaskWallPost'), 'Games specialized filter kept');
 assert(!/CREATE TABLE.*unified/i.test(html), 'no new unified table');
 assert(!html.includes('duplicatePublication') && !html.includes('copyPostForFeed'), 'no post-copy helpers');
 
@@ -116,9 +112,9 @@ assert(allIds.indexOf(8) >= 0, 'All Posts includes challenges');
 assert(allIds.indexOf(10) >= 0, 'All Posts includes public_task');
 assert(allIds.indexOf(9) < 0, 'All Posts excludes GoonTok catalog-only');
 
-var taskHits = samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'games') || sandbox.matchesWallFilter(p, 'tasks'); }).map(function (p) { return p.id; });
-assert(taskHits.indexOf(3) >= 0 && taskHits.indexOf(4) >= 0 && taskHits.indexOf(5) >= 0, 'Games filter includes game proofs');
-assert(taskHits.indexOf(1) < 0 && taskHits.indexOf(2) < 0, 'Games filter excludes regular/extend');
+var taskHits = samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'tasks'); }).map(function (p) { return p.id; });
+assert(taskHits.indexOf(3) >= 0 && taskHits.indexOf(4) >= 0 && taskHits.indexOf(5) >= 0, 'Tasks filter includes game proofs');
+assert(taskHits.indexOf(1) < 0 && taskHits.indexOf(2) < 0, 'Tasks filter excludes regular/extend');
 
 var normalHits = samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'normal'); }).map(function (p) { return p.id; });
 assert(normalHits.indexOf(3) < 0 && normalHits.indexOf(2) < 0, 'Post filter stays exclusive of tasks/extend');

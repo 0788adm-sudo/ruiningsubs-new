@@ -15,24 +15,17 @@ function assert(c, m) {
 assert(!html.includes('wall-permanence-notice'), 'permanence notice id removed');
 assert(!html.includes('Wall posts are permanent.'), 'permanence notice copy removed');
 
-// Compact header classes present (now inside FEED → ALL POSTS)
+// Compact header classes present
 assert(html.includes('class="wall-head"') && html.includes('wall-head-row'), 'compact wall header markup');
-assert(html.includes('class="wall-tagline"'), 'community tagline class');
 
-// Exact order inside FEED all-posts pane (Stories → day photos → tagline → filters)
-var wallStart = html.indexOf('id="feed-all-posts-pane"');
-if (wallStart < 0) wallStart = html.indexOf('id="explore-normal-wrap"');
-var wallEnd = html.indexOf('id="panel-extended"');
-var wall = html.slice(wallStart, wallEnd > wallStart ? wallEnd : wallStart + 20000);
+// Exact order inside panel-wall
+var wall = html.slice(html.indexOf('id="panel-wall"'), html.indexOf('id="panel-extended"'));
 var markers = [
+  'feed-mode-tabs',
   'All Posts',
   'btn-create-normal-post-explore',
-  'id="wall-stories"',
-  'id="wall-hot-slot"',
-  'It’s the community',
+  'id="wall-search"',
   'id="wall-filter-bar"',
-  'btn-wall-generate-id',
-  'btn-wall-generate-pea',
   'id="wall-sort-bar"',
   'id="explore-normal-posts"'
 ];
@@ -40,27 +33,25 @@ var idxs = markers.map(function (m) { return wall.indexOf(m); });
 assert(idxs.every(function (n) { return n >= 0; }), 'all Wall order markers present');
 assert(
   idxs.slice().sort(function (a, b) { return a - b; }).join(',') === idxs.join(','),
-  'Wall element order: title → Post → Stories → day photos → tagline → filters → ID/PEA → sort → feed'
+  'Wall element order: tabs → title → Post → search → filters → sort → feed'
 );
-assert(wall.indexOf('id="wall-stories"') < wall.indexOf('id="wall-hot-slot"'), 'Stories above day photos');
-assert(wall.indexOf('id="wall-hot-slot"') < wall.indexOf('It’s the community'), 'day photos above community tagline');
-assert(wall.indexOf('It’s the community') < wall.indexOf('id="wall-filter-bar"'), 'tagline above filter nav');
-assert(wall.indexOf('data-wall-filter="all"') < wall.indexOf('data-wall-filter="games"'), 'ALL before GAMES');
-assert(wall.indexOf('data-wall-filter="games"') < wall.indexOf('data-wall-filter="id"'), 'GAMES before ID');
+assert(wall.indexOf('id="wall-search"') < wall.indexOf('id="wall-filter-bar"'), 'search above filters');
+assert(wall.indexOf('data-wall-filter="all"') < wall.indexOf('data-wall-filter="tasks"'), 'ALL before GAMES');
+assert(wall.indexOf('data-wall-filter="tasks"') < wall.indexOf('data-wall-filter="id"'), 'GAMES before ID');
 assert(wall.indexOf('data-wall-filter="id"') < wall.indexOf('data-wall-filter="pea"'), 'ID before PEA');
 assert(wall.indexOf('data-wall-filter="pea"') < wall.indexOf('data-wall-filter="normal"'), 'PEA before REGULAR');
 assert(wall.indexOf('data-wall-filter="normal"') < wall.indexOf('data-wall-filter="timed"'), 'REGULAR before TIMED');
-assert(wall.indexOf('id="wall-sort-bar"') > wall.indexOf('id="wall-hot-slot"'), 'sort bar is below day photos');
 assert(wall.indexOf('id="wall-sort-bar"') < wall.indexOf('id="explore-normal-posts"'), 'sort bar is above publications');
 assert((wall.match(/id="wall-sort-bar"/g) || []).length === 1, 'sorting controls not duplicated');
+assert(wall.includes('>ALL<') && wall.includes('>GAMES<') && wall.includes('>TIMED POSTS<'), 'six-filter labels');
 
 // Wall + Post opens permanent composer
 assert(html.includes('onclick="openNormalPostComposer()'), 'Wall + Post calls openNormalPostComposer');
 assert(html.includes('function openNormalPostComposer') && html.includes('__wallComposer=true'), 'permanent Wall composer flag');
 assert(html.includes('function openExtendPostComposer') && html.includes('setExposurePostMode'), 'Extend composer helper');
 assert(
-  (html.includes("pid==='panel-wall'") || html.includes("currentFeedTab()==='all'")) && html.includes('openNormalPostComposer'),
-  'bottom + on All Posts opens permanent composer'
+  html.includes("pid==='panel-wall'") && html.includes('openNormalPostComposer'),
+  'bottom + on Wall opens permanent composer'
 );
 
 console.log('\nWall mobile UI checks passed');

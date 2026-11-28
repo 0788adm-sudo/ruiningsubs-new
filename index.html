@@ -340,6 +340,17 @@
     main{max-width:680px;margin:0 auto;padding:12px 16px 140px}
     .vf.on,.vg.on{border-color:#ff6a00!important;color:#ff6a00!important}
     .vid-list{display:flex;flex-direction:column;gap:16px}
+    .vid-catalog{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .vid-catalog-card{background:#101014;border:1px solid #2a2a32;border-radius:14px;overflow:hidden;cursor:pointer;min-width:0}
+    .vid-catalog-card .vid-thumb{border-radius:0;aspect-ratio:16/9}
+    .vid-catalog-card .vid-catalog-body{padding:8px 9px 10px}
+    .vid-catalog-card h4{margin:0 0 4px;font-size:13px;font-weight:800;color:#fff;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .vid-catalog-card .vid-meta{font-size:11px;color:#9a9aa3;line-height:1.35}
+    .vid-catalog-card .vid-topics{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .vid-catalog-card .vid-topic-chip{font-size:10px;font-weight:800;color:#c4b5fd;background:rgba(124,58,237,.16);border-radius:999px;padding:2px 7px}
+    .videos-catalog-head{margin:0 0 10px}
+    .videos-catalog-sub{margin:4px 0 0;font-size:12px;color:#9a9aa3}
+    .videos-sort-bar,.videos-topic-bar{display:flex;gap:6px;overflow:auto;margin:0 0 10px;padding-bottom:2px;-webkit-overflow-scrolling:touch}
     .vid-row{cursor:pointer}
     .vid-thumb{position:relative;border-radius:12px;overflow:hidden;background:#111;aspect-ratio:16/9}
     .vid-thumb video,.vid-thumb img{width:100%;height:100%;object-fit:cover;display:block;background:#111}
@@ -368,6 +379,7 @@
       .post-title{font-size:13px}
       .post-desc{font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
       .vid-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+      .vid-catalog{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
       .vid-grid{grid-template-columns:repeat(3,1fr)}
       .vid-card video,.vid-card img{height:150px}
       #featured-slot{max-width:100%}
@@ -588,7 +600,7 @@
     #msg-toast b{display:block;color:#ff6a00;font-size:12px;margin-bottom:2px}
     .stats-strip strong{color:var(--orange);font-size:14px}
     .nav-row{display:flex;justify-content:space-around;align-items:flex-end;padding:6px 0 max(18px, env(safe-area-inset-bottom));position:relative;z-index:2}
-    .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;font-weight:600;background:none;border:none;padding:8px 10px;min-width:62px;min-height:52px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:rgba(124,58,237,.25);touch-action:manipulation}
+    .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.01em;background:none;border:none;padding:8px 6px;min-width:58px;min-height:52px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:rgba(124,58,237,.25);touch-action:manipulation;white-space:nowrap}
     .nav-item.active{color:var(--orange)}
     .nav-center{width:52px;height:52px;border-radius:50%;background:var(--orange);color:#000;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;margin-top:-18px;border:3px solid var(--bg);cursor:pointer}
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:none;align-items:flex-end;justify-content:center;padding:16px}
@@ -757,12 +769,40 @@
     .wall-filter-bar::-webkit-scrollbar{display:none}
     .wall-filter-chip{flex:0 0 auto;border:1px solid #2a2a32;background:#121218;color:#cfcfd6;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.2px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     .wall-filter-chip.on{background:linear-gradient(90deg,#7c3aed,#ff6a00);border-color:transparent;color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
-    .wall-filter-chip[data-wall-filter="games"].on,
     .wall-filter-chip[data-wall-filter="tasks"].on,
     .wall-filter-chip[data-wall-filter="all"].on{background:linear-gradient(90deg,#7c3aed,#ff6a00);box-shadow:0 0 14px rgba(124,58,237,.4)}
     .wall-filter-chip[data-wall-filter="tasks"].on{background:linear-gradient(90deg,#ff8a00,#7c3aed);box-shadow:0 0 14px rgba(255,106,0,.35)}
+    .wall-filter-chip[data-wall-filter="timed"].on{background:linear-gradient(90deg,#ff8a00,#ff3b1f);box-shadow:0 0 14px rgba(255,106,0,.35)}
     .wall-filter-chip[data-wall-filter="roulette"].on{background:linear-gradient(90deg,#ff8a00,#ff3b1f);box-shadow:0 0 14px rgba(255,106,0,.4)}
     .wall-filter-chip[data-wall-filter="dominants"].on{background:linear-gradient(90deg,#7c3aed,#ec4899);box-shadow:0 0 14px rgba(236,72,153,.35)}
+    .wall-search-wrap{padding:0 2px 8px}
+    .wall-search-wrap input{
+      width:100%;padding:11px 14px;border-radius:14px;border:1px solid #2a2a32;background:#0e0e14;color:#fff;
+      font:inherit;font-size:14px;box-sizing:border-box;
+    }
+    .wall-topics{margin:0 0 10px;padding:12px;border-radius:16px;border:1px solid #2a2a32;background:#101014}
+    .wall-topics-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:0 0 10px}
+    .wall-topics-kicker{font-size:11px;letter-spacing:.16em;font-weight:900;color:#c4b5fd}
+    .wall-topics-sub{font-size:12px;color:#9a9aa3;margin-top:2px}
+    .wall-topics-tools{display:flex;flex-direction:column;gap:8px;margin:0 0 10px}
+    .wall-topics-tools input{
+      width:100%;padding:10px 12px;border-radius:12px;border:1px solid #2a2a32;background:#0a0a0c;color:#fff;font:inherit;font-size:13px;box-sizing:border-box;
+    }
+    .wall-topics-mode{display:flex;gap:6px}
+    .wall-topics-mode-chip{
+      flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:7px 8px;
+      font-size:11px;font-weight:800;cursor:pointer;min-height:34px;
+    }
+    .wall-topics-mode-chip.on{border-color:rgba(124,58,237,.55);color:#fff;background:rgba(124,58,237,.18)}
+    .wall-topics-list{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
+    .wall-topics-list::-webkit-scrollbar{display:none}
+    .wall-topic-chip{
+      flex:0 0 auto;min-width:132px;max-width:180px;text-align:left;border-radius:14px;border:1px solid #2a2a32;
+      background:#0c0c12;padding:10px 12px;color:#fff;cursor:pointer;
+    }
+    .wall-topic-chip strong{display:block;font-size:13px;font-weight:900}
+    .wall-topic-chip span{display:block;font-size:11px;color:#9a9aa3;margin-top:3px}
+    .wall-topics-empty{font-size:12px;color:#9a9aa3;padding:4px 0}
     .nf-cat-badge{display:inline-block;font-size:10px;font-weight:900;letter-spacing:.55px;color:#111;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:middle;line-height:1.4}
     .nf-cat-badge.cat-post{background:#c4b5fd}
     .nf-cat-badge.cat-extend{background:#ffb35c}
@@ -1575,41 +1615,30 @@
     .entry-ico.idcard svg{filter:drop-shadow(0 0 6px rgba(45,212,191,.85))!important}
 
     
-.feed-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 14px 12px;position:relative;z-index:30}
-    .feed-mode-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1px solid #2a2a32;border-radius:16px;padding:14px 14px 12px;background:#16161c;color:#cfcfd6;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:rgba(124,58,237,.25);min-height:88px}
-    .feed-mode-card .feed-mode-ico{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(255,255,255,.06);color:#a78bfa;margin-bottom:2px}
-    .feed-mode-card .feed-mode-ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    .feed-mode-card strong{font-size:14px;font-weight:900;letter-spacing:.4px;color:#fff;line-height:1.15}
-    .feed-mode-card .feed-mode-sub{font-size:11px;color:#9a9aa3;font-weight:600}
-    .feed-mode-card.active{background:linear-gradient(145deg,#6d28d9,#7c3aed);border-color:rgba(167,139,250,.55);color:#ede9fe;box-shadow:0 0 18px rgba(124,58,237,.35)}
-    .feed-mode-card.active .feed-mode-ico{background:rgba(255,255,255,.16);color:#fff}
-    .feed-mode-card.active .feed-mode-sub{color:rgba(237,233,254,.85)}
-    #feed-extended-pane,#feed-all-posts-pane{min-width:0}
-    #feed-all-posts-pane{padding-bottom:12px}
-    .wall-topic-banner{display:none;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(124,58,237,.16);border:1px solid rgba(167,139,250,.4);color:#ede9fe;font-size:13px;font-weight:700}
-    .wall-topic-banner.on{display:flex}
-    .wall-topic-banner button{margin-left:auto;border:0;background:rgba(0,0,0,.35);color:#fff;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer}
-    .explore-section-label{font-size:11px;letter-spacing:1.4px;color:#9a9aa3;font-weight:800;margin:10px 0 8px}
-    .explore-section-label.accent{color:#a78bfa}
-    .explore-section-label.map{color:#7eb6ff}
-    .explore-section-label.topics{color:#f5c518}
-    .explore-feature-card{text-align:left;border-radius:14px;border:1px solid #2a2a32;background:#101014;padding:14px;color:#fff;width:100%;font-family:inherit;cursor:pointer}
-    .explore-feature-card strong{display:block;font-size:15px;font-weight:900}
-    .explore-feature-card .sub{font-size:12px;color:#9a9aa3;margin-top:3px;line-height:1.35}
-    .explore-feature-card.all-posts{background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(255,106,0,.1));border-color:rgba(124,58,237,.45)}
-    .explore-topic-chip{text-align:left;border-radius:14px;border:1px solid #2a2a32;background:#101014;padding:12px;color:#fff;font-family:inherit;cursor:pointer}
-    .explore-topic-chip .n{font-weight:900}
-    .explore-topic-chip .c{font-size:11px;color:#9a9aa3;margin-top:2px}
-    .explore-more-tools{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
-    @media(max-width:420px){
-      .feed-mode-card{padding:12px 10px;min-height:82px}
-      .feed-mode-card strong{font-size:13px}
-    }
-    /* legacy aliases kept for any residual selectors */
-    .global-feed-switch{display:none!important}
-    #panel-feed.normal-mode > #feed-extended-pane{display:none!important}
-    #panel-feed.normal-mode > #feed-all-posts-pane{display:block!important}
-    #panel-feed.normal-mode > #feed-mode-tabs{display:grid!important}
+.global-feed-switch,.feed-mode-tabs{display:flex;gap:4px;margin:8px 0 10px;padding:4px;background:rgba(20,20,20,.94);border:1px solid var(--border);border-radius:14px;position:relative;z-index:30}
+.global-feed-switch button,.feed-mode-tabs button{flex:1;border:0;border-radius:10px;padding:10px 10px;background:transparent;color:var(--muted);font:800 12px inherit;letter-spacing:.04em;cursor:pointer;min-height:42px;touch-action:manipulation}
+.global-feed-switch button.active,.feed-mode-tabs button.active{background:linear-gradient(90deg,#7c3aed,#ff6a00);color:#fff;box-shadow:0 0 14px rgba(124,58,237,.35)}
+.wall-topic-active{display:none;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:8px 10px;border-radius:12px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.12);color:#e9d5ff;font-size:12px;font-weight:800}
+.wall-topic-active.is-on{display:flex}
+.wall-topic-active button{border:0;background:transparent;color:#c4b5fd;font-weight:900;cursor:pointer;min-height:36px;padding:0 8px}
+.explore-allposts-card{width:100%;text-align:left;border-radius:16px;padding:14px 14px 12px;margin:0 0 14px;border:1px solid rgba(255,106,0,.4);background:linear-gradient(135deg,rgba(255,106,0,.14),rgba(124,58,237,.1));color:#fff;cursor:pointer}
+.explore-allposts-card strong{display:block;font-size:16px;font-weight:900;letter-spacing:.02em}
+.explore-allposts-card .explore-card-sub{display:block;margin-top:4px;font-size:12px;color:#cfcfd6;font-weight:600}
+.explore-topics-panel{margin:0 0 16px;padding:12px;border-radius:16px;border:1px solid #2a2a32;background:#101014}
+.explore-topics-tools{display:flex;flex-direction:column;gap:8px;margin:0 0 10px}
+.explore-topics-tools input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid #2a2a32;background:#0a0a0a;color:#fff;font-size:14px}
+.explore-topics-mode{display:flex;gap:6px}
+.explore-topics-mode-chip{flex:1;border:1px solid #2a2a32;background:#0e0e14;color:#9a9aa3;border-radius:10px;padding:8px;font-size:11px;font-weight:800;cursor:pointer;min-height:36px}
+.explore-topics-mode-chip.on{border-color:rgba(124,58,237,.55);color:#fff;background:rgba(124,58,237,.18)}
+.explore-topics-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.explore-topics-list button,.explore-topics-mini button{text-align:left;border-radius:12px;border:1px solid #2a2a32;background:#0c0c10;padding:10px;color:#fff;cursor:pointer}
+.explore-topics-list button strong,.explore-topics-mini button strong{display:block;font-size:13px}
+.explore-topics-list button span,.explore-topics-mini button span{display:block;margin-top:3px;font-size:11px;color:#9a9aa3;font-weight:700}
+
+
+    #panel-feed.normal-mode > *{display:none!important}
+    #panel-feed.normal-mode > #normal-feed-panel{display:block!important}
+    #panel-feed.normal-mode > #global-feed-switch{display:flex!important}
     .logo{cursor:pointer;-webkit-tap-highlight-color:transparent}
     .pe-carousel{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#000;margin:0 0 8px}
     .pe-carousel-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -2790,7 +2819,46 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
   .post-actions .btn{font-size:11px;padding:10px 4px}
 }
 </style>
-<style id="explore-card-fix">#panel-explore .tasks-entry{min-width:0;overflow:hidden;padding:10px}#panel-explore .entry-body{min-width:0}#panel-explore .entry-body strong{display:block;white-space:normal;line-height:1.15;font-size:14px}#panel-explore .tasks-entry>span:last-child{display:none}</style>
+<style id="explore-card-fix">
+#panel-explore .tasks-entry{min-width:0;overflow:hidden;padding:10px}
+#panel-explore .entry-body{min-width:0}
+#panel-explore .entry-body strong{display:block;white-space:normal;line-height:1.15;font-size:14px}
+#panel-explore .tasks-entry>span:last-child{display:none}
+.explore-hero{margin:0 0 12px}
+.explore-hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:0 0 10px}
+.explore-title{margin:0;font-size:28px;font-weight:900;letter-spacing:.04em}
+.explore-subtitle{margin:4px 0 0;font-size:11px;font-weight:800;letter-spacing:.18em;color:#c4b5fd}
+.explore-search-field{margin:0 0 8px}
+.explore-sec-label{font-size:11px;letter-spacing:.16em;color:#9a9aa3;font-weight:900;margin:14px 0 8px}
+.explore-discover-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}
+.explore-card{
+  text-align:left;border-radius:16px;border:1px solid #2a2a32;background:#141418;padding:14px 12px;color:#fff;cursor:pointer;
+  min-height:108px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;
+}
+.explore-card-trending{background:linear-gradient(160deg,rgba(124,58,237,.28),#141418 60%);border-color:rgba(167,139,250,.4)}
+.explore-card-map{background:linear-gradient(160deg,rgba(255,106,0,.22),#141418 60%);border-color:rgba(255,106,0,.35)}
+.explore-card-kicker{font-size:10px;letter-spacing:.14em;font-weight:900;color:#c4b5fd}
+.explore-card-map .explore-card-kicker{color:#ffb35c}
+.explore-card strong{font-size:15px;font-weight:900;line-height:1.2}
+.explore-card-sub{font-size:11px;color:#9a9aa3;line-height:1.35}
+.explore-map-card-compact{margin-top:0}
+.explore-games-card{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;
+  border-radius:16px;padding:16px 14px;margin:0 0 8px;cursor:pointer;color:#fff;
+  background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(255,106,0,.12));border:1px solid rgba(124,58,237,.45);
+}
+.explore-games-card strong{display:block;font-size:18px;font-weight:900;letter-spacing:.04em}
+.explore-card-arrow{font-size:22px;color:#c4b5fd}
+.explore-tools-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 8px}
+.explore-tool-card{margin:0!important;min-height:72px}
+.explore-topics-mini{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
+.explore-topics-mini button{
+  text-align:left;border-radius:14px;border:1px solid #2a2a32;background:#101014;padding:11px 12px;color:#fff;cursor:pointer;
+}
+.explore-topics-mini strong{display:block;font-size:13px;font-weight:900}
+.explore-topics-mini span{display:block;font-size:11px;color:#9a9aa3;margin-top:2px}
+.explore-trending-tags{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+</style>
 <style id="randomcam-ui">
 #panel-randomcam{position:fixed;inset:0 0 82px 0;z-index:85;background:#050507;display:none;overflow:hidden}
 #panel-randomcam.active{display:flex!important;flex-direction:column}
@@ -2863,20 +2931,12 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
     <main>
       <div id="panel-feed" class="panel active">
-        <div id="feed-mode-tabs" class="feed-mode-tabs" role="tablist" aria-label="Feed modes">
-          <button type="button" class="feed-mode-card active" data-feed-mode="extended" role="tab" aria-selected="true">
-            <span class="feed-mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></span>
-            <strong>EXTENDED</strong>
-            <span class="feed-mode-sub">Main Feed</span>
-          </button>
-          <button type="button" class="feed-mode-card" data-feed-mode="all" role="tab" aria-selected="false">
-            <span class="feed-mode-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></span>
-            <strong>ALL POSTS</strong>
-            <span class="feed-mode-sub">Community</span>
-          </button>
+        <div class="feed-mode-tabs" id="feed-mode-tabs-extended" role="tablist" aria-label="Feed tabs">
+          <button type="button" class="active" data-feed-tab="extended" role="tab" aria-selected="true">EXTENDED</button>
+          <button type="button" data-feed-tab="all" role="tab" aria-selected="false">ALL POSTS</button>
         </div>
-        <div id="feed-extended-pane">
-<div class="banner" style="padding:14px 14px 12px">
+
+        <div class="banner" style="padding:14px 14px 12px">
           <div class="brand-mark">RUINING<span>SUB$</span></div>
           <div class="brand-sub">EXPOSURE <span style="color:#ff6a00">HARD</span></div>
           <div id="home-post-strip" style="display:none"></div>
@@ -2944,9 +3004,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
         </div>
         <div class="feed-sort-head">
-          <div class="feed-sort-title"><span class="live-dot"></span> LIVE FEED</div>
-          <div class="feed-sort-sub">Fresh posts + posts gaining momentum</div>
-          <button class="btn btn-ghost btn-sm" type="button" style="margin-left:auto" onclick="copySectionLink('extend','Extend')">Share</button>
+          <div class="feed-sort-title"><span class="live-dot"></span> EXTENDED</div>
+          <div class="feed-sort-sub">Main exposure feed · timed publications only</div>
+          <button class="btn btn-ghost btn-sm" type="button" style="margin-left:auto" onclick="copySectionLink('extend','Extended')">Share</button>
         </div>
         <div class="feed-sort-row">
           <button class="tab active feed-sort-new" data-f="new" type="button">
@@ -2967,68 +3027,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <button type="button" style="background:none;border:0;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer" onclick="navigator.clipboard.writeText('135nMgiNWpSniDT7X9bhrJYGEA71N245V9');toast('Bitcoin address copied')">Bitcoin</button>
           </div>
           <div style="font-size:10px;color:var(--muted);margin-top:10px">18+ only. No minors.</div>
-        </div>
-        </div>
-        <div id="feed-all-posts-pane" style="display:none" hidden>
-          <div id="wall-home">
-<div id="explore-normal-wrap">
-            <div id="pig-of-day" style="margin:0 0 8px"></div>
-            <div class="wall-head">
-              <div class="wall-head-row">
-                <strong>All Posts</strong>
-                <span class="wall-live">LIVE</span>
-                <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('wall','All Posts')">Share</button>
-              </div>
-              <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" onclick="openNormalPostComposer();return false">＋ Post</button>
-            </div>
-            <!-- Stories above sections/panels (social-app hierarchy) -->
-            <div id="wall-stories" class="wall-stories"></div>
-            <!-- 3 photos of the day -->
-            <div id="wall-hot-slot" class="wall-day-photos"></div>
-            <div class="wall-tagline">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
-            <div class="feed-search-wrap" style="margin:0 0 10px">
-              <span class="fs-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg></span>
-              <input type="search" id="all-posts-search" placeholder="Search posts, users, topics…" autocomplete="off"/>
-            </div>
-            <div id="wall-topic-banner" class="wall-topic-banner" role="status">
-              <span id="wall-topic-label">Topic</span>
-              <button type="button" id="btn-clear-wall-topic" onclick="clearWallTopic()">Clear</button>
-            </div>
-            <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="All Posts filters">
-              <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">ALL</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="games" role="tab" aria-selected="false">GAMES</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="id" role="tab" aria-selected="false">ID</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="pea" role="tab" aria-selected="false">PEA</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">REGULAR POSTS</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">TIMED POSTS</button>
-            </div>
-            <div id="wall-dominants-soon" class="wall-dominants-soon" role="status" aria-live="polite" hidden>
-              <div class="wall-dominants-soon-inner">
-                <div class="wall-dominants-soon-label">COMING SOON</div>
-                <p class="wall-dominants-soon-msg">Coming soon… Masters ready to dominate you.</p>
-                <p class="wall-dominants-soon-sub">Exclusive · Invite only</p>
-              </div>
-            </div>
-            <div id="wall-tasks-cta" class="wall-tasks-cta" aria-label="Open games">
-              <div class="wall-tasks-cta-row">
-                <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#fff" onclick="openRoulette()">🎡 Roulette</button>
-                <button type="button" class="btn btn-primary" id="btn-wall-open-dice" style="background:linear-gradient(135deg,#f5c518,#ff8a00);color:#111" onclick="openDiceGame()">🎲 Dice</button>
-                <button type="button" class="btn btn-primary" id="btn-wall-open-ttt" style="background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff" onclick="try{openChallengesHub();startTicTacToeMenu()}catch(e){showPanel('challenges')}">❌ Tic-Tac-Toe</button>
-              </div>
-              <div class="wall-tasks-cta-note">Game proofs from Roulette · Dice · Tic-Tac-Toe · no duplicates</div>
-            </div>
-            <div id="wall-roulette-cta" style="display:none" hidden aria-hidden="true"></div>
-            <div class="wall-quick-actions">
-              <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">🪪 Generate ID</button>
-              <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
-            </div>
-            <div id="wall-sort-bar" class="wall-sort-bar" role="group" aria-label="Wall sorting">
-              <button type="button" class="wall-sort-chip on" data-wall-sort="recent" aria-pressed="true">Most Recent</button>
-              <button type="button" class="wall-sort-chip" data-wall-sort="interaction" aria-pressed="false">Most Interaction</button>
-            </div>
-            <div id="explore-normal-posts"><div class="normal-feed-empty">Loading the wall…</div></div>
-          </div>
-          </div>
         </div>
       </div>
 
@@ -3141,146 +3139,110 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         <div id="games-play" style="display:none"></div>
       </div>
       <div id="panel-games" class="panel" style="display:none" aria-hidden="true"></div>
-            <div id="panel-explore" class="panel">
-        <div class="panel-h"><h2>Explore</h2><button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('explore','Explore')">Share</button></div>
-        <div class="form-group"><input type="text" id="search-q" placeholder="Search users, content or topics…" enterkeyhint="search" autocomplete="off"/></div>
-        <div class="explore-search-actions">
-          <button class="btn btn-primary" id="btn-search" type="button">Search</button>
-          <button class="btn btn-ghost" id="btn-search-clear" type="button" style="display:none" onclick="clearExploreSearch()">Clear</button>
+      <div id="panel-explore" class="panel">
+        <div class="explore-hero">
+          <div class="explore-hero-top">
+            <div>
+              <h2 class="explore-title">EXPLORE</h2>
+              <p class="explore-subtitle">DISCOVER RUINEXPOSE</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('explore','Explore')">Share</button>
+          </div>
+          <div class="form-group explore-search-field"><input type="text" id="search-q" placeholder="Search users, content or topics…" enterkeyhint="search" autocomplete="off"/></div>
+          <div class="explore-search-actions">
+            <button class="btn btn-primary" id="btn-search" type="button">Search</button>
+            <button class="btn btn-ghost" id="btn-search-clear" type="button" style="display:none" onclick="clearExploreSearch()">Clear</button>
+          </div>
         </div>
         <div id="search-results" class="explore-search-results" style="display:none" aria-live="polite"></div>
         <div id="explore-browse" class="explore-browse">
-
-        <button type="button" class="explore-feature-card all-posts" id="btn-explore-all-posts" onclick="openFeedAllPosts()" style="margin:0 0 14px">
-          <strong>ALL POSTS</strong>
-          <div class="sub">Discover all community publications.</div>
-        </button>
-
-        <div class="explore-section-label accent">DISCOVER</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px">
-          <button type="button" class="explore-feature-card" id="btn-explore-trending" onclick="openExploreTrending()">
-            <strong>TRENDING</strong>
-            <div class="sub">Popular posts &amp; content</div>
+          <button type="button" class="explore-allposts-card" id="btn-explore-allposts" onclick="openFeedAllPosts()">
+            <strong>ALL POSTS</strong>
+            <span class="explore-card-sub">Discover all community publications.</span>
           </button>
-          <button type="button" class="explore-feature-card" onclick="openExposureMap()">
-            <strong>EXPOSURE MAP</strong>
-            <div class="sub">City pins · privacy first</div>
+          <div class="explore-sec-label">DISCOVER</div>
+          <div class="explore-discover-grid">
+            <button type="button" class="explore-card explore-card-trending" id="btn-explore-trending" onclick="openExploreTrending()">
+              <span class="explore-card-kicker">TRENDING</span>
+              <strong>Popular content</strong>
+              <span class="explore-card-sub">Genuine recent engagement</span>
+            </button>
+            <button type="button" class="explore-card explore-card-map" id="btn-explore-map-card" onclick="openExposureMap()">
+              <span class="explore-card-kicker">EXPOSURE MAP</span>
+              <strong>Exposure Map</strong>
+              <span class="explore-card-sub">City-level pins · privacy first</span>
+            </button>
+          </div>
+          <div id="explore-map-card" class="explore-map-card explore-map-card-compact">
+            <div class="explore-map-preview-wrap" role="button" tabindex="0" aria-label="Open Exposure map" onclick="openExposureMap()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExposureMap()}">
+              <div id="explore-map-preview" class="explore-map-preview" aria-hidden="true"></div>
+              <div class="explore-map-preview-hit" aria-hidden="true"></div>
+            </div>
+            <div id="explore-map-meta" class="explore-map-meta">Loading locations…</div>
+            <button class="btn btn-secondary" type="button" id="btn-explore-open-map" onclick="openExposureMap()" style="width:100%;margin-top:10px;min-height:44px;font-weight:800">Open Map</button>
+          </div>
+
+          <div class="explore-sec-label">PLAY</div>
+          <div id="explore-xp-promo" style="display:none" aria-hidden="true"></div>
+          <button type="button" class="explore-games-card" id="btn-explore-games" onclick="openChallengesHub()">
+            <div>
+              <strong>GAMES</strong>
+              <div class="explore-card-sub">Roulette · Dice · Tic-Tac-Toe</div>
+            </div>
+            <span class="explore-card-arrow">›</span>
           </button>
-        </div>
-        <div id="explore-trending-preview" style="display:none;margin:0 0 14px"></div>
-        <div id="explore-map-card" class="explore-map-card">
-          <div style="font-size:11px;letter-spacing:1.4px;color:#7eb6ff;font-weight:800">MAP</div>
-          <div style="font-size:20px;font-weight:900;margin-top:2px">Exposure map</div>
-          <div style="font-size:12px;color:#9a9aa3;margin-top:2px">Drop a pin. Others can see the city, not your exact door.</div>
-          <div class="explore-map-preview-wrap" role="button" tabindex="0" aria-label="Open Exposure map" onclick="openExposureMap()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExposureMap()}">
-            <div id="explore-map-preview" class="explore-map-preview" aria-hidden="true"></div>
-            <div class="explore-map-preview-hit" aria-hidden="true"></div>
-          </div>
-          <div id="explore-map-meta" class="explore-map-meta">Loading locations…</div>
-          <button class="btn btn-secondary" type="button" id="btn-explore-open-map" onclick="openExposureMap()" style="width:100%;margin-top:10px;min-height:44px;font-weight:800">Open Map</button>
-        </div>
 
-        <div class="explore-section-label topics">TOPICS</div>
-        <div style="font-size:11px;color:#9a9aa3;font-weight:700;margin:0 0 6px">POPULAR TOPICS</div>
-        <div id="explore-communities" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"></div>
-        <div style="font-size:11px;color:#9a9aa3;font-weight:700;margin:8px 0 6px">RECENT TOPICS</div>
-        <div id="explore-recent-topics" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"></div>
-        <div class="form-group" style="margin:0 0 8px">
-          <input type="search" id="topics-search" placeholder="Search topics…" autocomplete="off" oninput="searchExploreTopics(this.value)"/>
-        </div>
-        <div id="explore-topics-search-results" style="display:none;margin:0 0 10px"></div>
-        <button type="button" class="btn btn-ghost" id="btn-view-all-topics" onclick="viewAllTopics()" style="width:100%;margin:0 0 16px;min-height:42px;font-weight:800">VIEW ALL TOPICS</button>
-        <div id="explore-all-topics" style="display:none;margin:0 0 16px"></div>
+          <div class="explore-sec-label">TOOLS</div>
+          <div class="explore-tools-grid">
+            <div class="tasks-entry explore-tool-card" id="btn-explore-idcard" role="button">
+              <span class="entry-ico idcard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.2"/><path d="M14 10.5h4M14 13.5h3"/><path d="M5 17h14"/></svg></span>
+              <div class="entry-body"><strong>ID Generator</strong></div>
+            </div>
+            <div class="tasks-entry explore-tool-card" id="btn-explore-pea" role="button">
+              <span class="entry-ico idcard" style="color:#64d2ff;border-color:rgba(100,210,255,.5)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h10M7 14h6"/></svg></span>
+              <div class="entry-body"><strong>PEA Generator</strong></div>
+            </div>
+            <div class="tasks-entry explore-tool-card" id="btn-explore-print" role="button">
+              <span class="entry-ico print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
+              <div class="entry-body"><strong>Get Printed</strong></div>
+            </div>
+            <div class="tasks-entry explore-tool-card" id="btn-explore-randomcam" role="button" onclick="openRandomCam()">
+              <span class="entry-ico" style="color:#22d3ee;border-color:rgba(34,211,238,.5)">◎</span>
+              <div class="entry-body"><strong>Random Video Chat</strong></div>
+            </div>
+            <div class="tasks-entry explore-tool-card" id="btn-explore-goontok" role="button" onclick="openGoonTok()">
+              <span class="entry-ico print" style="color:#ff2d55;border-color:rgba(255,45,85,.5)">▶</span>
+              <div class="entry-body"><strong>GoonTok</strong></div>
+            </div>
+            <div class="tasks-entry explore-tool-card" id="btn-explore-videos" role="button" onclick="showPanel('videos')">
+              <span class="entry-ico print" style="color:#fbbf24">▣</span>
+              <div class="entry-body"><strong>Videos</strong></div>
+            </div>
+            <div class="tasks-entry" id="btn-explore-doms" role="button" style="display:none" onclick="openVerifiedDoms()"></div>
+            <div class="tasks-entry" id="btn-explore-tasks" role="button" style="display:none"></div>
+            <div class="tasks-entry" id="btn-explore-custom" role="button" style="display:none"></div>
+            <div class="tasks-entry" id="btn-explore-namebody" role="button" style="display:none"></div>
+          </div>
 
-        <div class="explore-section-label">PLAY</div>
-        <div id="explore-xp-promo" style="margin:0 0 12px"></div>
-        <div class="tasks-entry" id="btn-explore-games" role="button" style="margin:0 0 14px;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(255,106,0,.1));border:1px solid rgba(124,58,237,.4)" onclick="openChallengesHub()">
-          <span class="entry-ico" style="color:#c4b5fd;border-color:rgba(167,139,250,.5);box-shadow:0 0 16px rgba(124,58,237,.3)">🎯</span>
-          <div class="entry-body">
-            <strong>GAMES</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Roulette · Dice · Tic-Tac-Toe</div>
+          <div class="explore-sec-label">TOPICS</div>
+          <div class="explore-topics-panel" id="explore-topics-panel">
+            <div class="explore-topics-tools">
+              <input type="search" id="explore-topics-search" placeholder="Search topics…" autocomplete="off" aria-label="Search topics"/>
+              <div class="explore-topics-mode" role="group" aria-label="Topic discovery">
+                <button type="button" class="explore-topics-mode-chip on" data-topics-mode="popular">POPULAR TOPICS</button>
+                <button type="button" class="explore-topics-mode-chip" data-topics-mode="recent">RECENT TOPICS</button>
+              </div>
+            </div>
+            <div id="explore-communities" class="explore-topics-list"></div>
+            <button type="button" class="btn btn-ghost" style="width:100%;margin:10px 0 0" id="btn-explore-topics-all" onclick="openAllTopicsPanel()">VIEW ALL TOPICS</button>
           </div>
-          <span style="font-size:20px;color:#c4b5fd">›</span>
-        </div>
 
-        <div class="explore-section-label">TOOLS</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div class="tasks-entry" id="btn-explore-idcard" role="button" style="margin:0">
-            <span class="entry-ico idcard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.2"/><path d="M14 10.5h4M14 13.5h3"/><path d="M5 17h14"/></svg></span>
-            <div class="entry-body">
-              <strong>ID Generator</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">ID card · face + body</div>
-            </div>
-            <span style="font-size:20px;color:#2dd4bf">›</span>
-          </div>
-          <div class="tasks-entry" id="btn-explore-pea" role="button" style="margin:0">
-            <span class="entry-ico idcard" style="color:#64d2ff;border-color:rgba(100,210,255,.5);box-shadow:0 0 16px rgba(100,210,255,.35)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h10M7 14h6"/></svg></span>
-            <div class="entry-body">
-              <strong>PEA Generator</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">Public Exposure Agreement</div>
-            </div>
-            <span style="font-size:20px;color:#64d2ff">›</span>
-          </div>
-          <div class="tasks-entry" id="btn-explore-print" role="button" style="margin:0">
-            <span class="entry-ico print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
-            <div class="entry-body">
-              <strong>Get Printed</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#ff6a00"/><circle cx="12" cy="12" r="7.2" stroke="#fff" stroke-width="1.4"/></svg >350 Coins</div>
-            </div>
-            <span style="font-size:20px;color:#ff4d6d">›</span>
-          </div>
-          <div class="tasks-entry" id="btn-explore-videos" role="button" style="margin:0" onclick="showPanel('videos')">
-            <span class="entry-ico print" style="color:#fbbf24">▶</span>
-            <div class="entry-body">
-              <strong>Videos</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">Catalog · 16:9</div>
-            </div>
-            <span style="font-size:20px;color:#fbbf24">›</span>
-          </div>
-        </div>
-
-        <div class="explore-section-label">MORE TOOLS</div>
-        <div class="explore-more-tools">
-          <div class="tasks-entry" id="btn-explore-randomcam" role="button" style="margin:0" onclick="openRandomCam()">
-            <span class="entry-ico" style="color:#22d3ee;border-color:rgba(34,211,238,.5);box-shadow:0 0 16px rgba(34,211,238,.25)">📹</span>
-            <div class="entry-body">
-              <strong>Random Video Chat</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">1-to-1 random calls</div>
-            </div>
-            <span style="font-size:20px;color:#22d3ee">›</span>
-          </div>
-          <div class="tasks-entry" id="btn-explore-goontok" role="button" style="margin:0" onclick="openGoonTok()">
-            <span class="entry-ico print" style="color:#ff2d55;border-color:rgba(255,45,85,.5)">▶</span>
-            <div class="entry-body">
-              <strong>GoonTok</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">Vertical swipe feed</div>
-            </div>
-            <span style="font-size:20px;color:#ff2d55">›</span>
-          </div>
-          <button type="button" class="explore-feature-card" onclick="openCoinShop()" style="padding:12px">
-            <strong>Coins</strong>
-            <div class="sub">Packs · pin · print · spins</div>
-          </button>
-          <div class="tasks-entry" id="btn-explore-doms" role="button" style="margin:0;display:none" onclick="openVerifiedDoms()">
-            <span class="entry-ico pin" style="color:#ff6a00;border-color:rgba(255,106,0,.5);box-shadow:0 0 16px rgba(255,106,0,.35)">♛</span>
-            <div class="entry-body">
-              <strong>Verified Dominants</strong>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">5 verified</div>
-            </div>
-            <span style="font-size:20px;color:#ff4d6d">›</span>
-          </div>
-          <div class="tasks-entry" id="btn-explore-tasks" role="button" style="margin:0;display:none"></div>
-          <div class="tasks-entry" id="btn-explore-custom" role="button" style="margin:0;display:none"></div>
-          <div class="tasks-entry" id="btn-explore-namebody" role="button" style="margin:0;display:none"></div>
-        </div>
-
-        <div id="trending-tags" style="display:none"></div>
+          <div id="trending-tags" class="explore-trending-tags"></div>
         </div><!-- /explore-browse -->
-
       </div>
       <div id="panel-doms" class="panel">
         <div class="panel-h">
-          <button class="back" type="button" onclick="openFeedAllPosts()">←</button>
+          <button class="back" type="button" onclick="showPanel('explore')">←</button>
           <h2>Verified Dominants</h2>
           <button class="btn btn-ghost btn-sm" type="button" id="btn-dom-staff" style="opacity:.28;font-size:10px">in</button>
         </div>
@@ -3347,10 +3309,87 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </div>
       </div>
 
-            <div id="panel-wall" class="panel" aria-hidden="true">
-        <div class="empty" style="padding:40px 16px">Redirecting to Feed…</div>
+      <div id="panel-wall" class="panel">
+        <div id="wall-home">
+          <div id="explore-normal-wrap">
+            <div class="feed-mode-tabs" id="feed-mode-tabs-all" role="tablist" aria-label="Feed tabs">
+              <button type="button" data-feed-tab="extended" role="tab" aria-selected="false">EXTENDED</button>
+              <button type="button" class="active" data-feed-tab="all" role="tab" aria-selected="true">ALL POSTS</button>
+            </div>
+            <div id="pig-of-day" style="margin:0 0 8px"></div>
+            <div class="wall-head">
+              <div class="wall-head-row">
+                <strong>All Posts</strong>
+                <span class="wall-live">LIVE</span>
+                <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('wall','All Posts')">Share</button>
+              </div>
+              <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" onclick="openNormalPostComposer();return false">＋ Post</button>
+            </div>
+            <div class="wall-search-wrap">
+              <input type="search" id="wall-search" placeholder="Search posts and users…" autocomplete="off" enterkeyhint="search" aria-label="Search All Posts"/>
+            </div>
+            <div id="wall-topic-active" class="wall-topic-active" aria-live="polite">
+              <span id="wall-topic-active-label">Topic</span>
+              <button type="button" id="btn-clear-wall-topic" onclick="clearWallTopicFilter()">Clear</button>
+            </div>
+            <!-- Topics discovery moved to EXPLORE; keep hooks for legacy scripts -->
+            <div id="wall-topics" class="wall-topics" aria-hidden="true" style="display:none">
+              <div class="wall-topics-head">
+                <div>
+                  <div class="wall-topics-kicker">TOPICS</div>
+                  <div class="wall-topics-sub">Discover the community</div>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-wall-topics-all" onclick="openAllTopicsPanel()">View All</button>
+              </div>
+              <div class="wall-topics-tools">
+                <input type="search" id="wall-topics-search" placeholder="Search topics…" autocomplete="off" aria-label="Search topics"/>
+                <div class="wall-topics-mode" role="group" aria-label="Topic discovery">
+                  <button type="button" class="wall-topics-mode-chip on" data-topics-mode="popular">Popular</button>
+                  <button type="button" class="wall-topics-mode-chip" data-topics-mode="recent">Recent</button>
+                </div>
+              </div>
+              <div id="wall-topics-list" class="wall-topics-list"></div>
+            </div>
+            <div id="wall-stories" class="wall-stories"></div>
+            <div id="wall-hot-slot" class="wall-day-photos"></div>
+            <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="All Posts filters">
+              <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">ALL</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="tasks" role="tab" aria-selected="false">GAMES</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="id" role="tab" aria-selected="false">ID</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="pea" role="tab" aria-selected="false">PEA</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">REGULAR POSTS</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">TIMED POSTS</button>
+            </div>
+            <div id="wall-dominants-soon" class="wall-dominants-soon" role="status" aria-live="polite" hidden>
+              <div class="wall-dominants-soon-inner">
+                <div class="wall-dominants-soon-label">COMING SOON</div>
+                <p class="wall-dominants-soon-msg">Coming soon… Masters ready to dominate you.</p>
+                <p class="wall-dominants-soon-sub">Exclusive · Invite only</p>
+              </div>
+            </div>
+            <div id="wall-tasks-cta" class="wall-tasks-cta" aria-label="Open games">
+              <div class="wall-tasks-cta-row">
+                <button type="button" class="btn btn-primary" id="btn-wall-spin-roulette" style="background:linear-gradient(135deg,#ff8a00,#ff3b1f);color:#fff" onclick="openRoulette()">Roulette</button>
+                <button type="button" class="btn btn-primary" id="btn-wall-open-dice" style="background:linear-gradient(135deg,#f5c518,#ff8a00);color:#111" onclick="openDiceGame()">Dice</button>
+                <button type="button" class="btn btn-primary" id="btn-wall-open-ttt" style="background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff" onclick="try{openChallengesHub();startTicTacToeMenu()}catch(e){showPanel('challenges')}">Tic-Tac-Toe</button>
+              </div>
+              <div class="wall-tasks-cta-note">Game publications from Roulette · Dice · Tic-Tac-Toe</div>
+            </div>
+            <div id="wall-roulette-cta" style="display:none" hidden aria-hidden="true"></div>
+            <!-- ID / PEA stay available via Explore tools; keep hidden hooks for existing wiring -->
+            <div class="wall-quick-actions" style="display:none" aria-hidden="true">
+              <button class="btn btn-secondary" type="button" id="btn-wall-generate-id">Generate ID</button>
+              <button class="btn btn-secondary" type="button" id="btn-wall-generate-pea">PEA</button>
+            </div>
+            <div id="wall-sort-bar" class="wall-sort-bar" role="group" aria-label="All Posts sorting">
+              <button type="button" class="wall-sort-chip on" data-wall-sort="recent" aria-pressed="true">Most Recent</button>
+              <button type="button" class="wall-sort-chip" data-wall-sort="interaction" aria-pressed="false">Most Interaction</button>
+            </div>
+            <div id="explore-normal-posts"><div class="normal-feed-empty">Loading All Posts…</div></div>
+          </div>
+        </div>
       </div>
-<div id="panel-extended" class="panel">
+      <div id="panel-extended" class="panel">
         <div class="panel-h"><h2>Extended</h2><span style="font-size:11px;color:#ffb35c;font-weight:800">LIVE</span></div>
         <p style="font-size:12px;color:#9a9aa3;margin:0 0 10px;line-height:1.4">Active timers only · recently extended first · keep scrolling.</p>
         <div id="extended-panel-posts"><div class="empty">Loading extended posts…</div></div>
@@ -3524,32 +3563,28 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       </div>
       <div id="panel-videos" class="panel">
         <div class="page-head">
-          <button class="back" type="button" onclick="showPanel('feed')">←</button>
+          <button class="back" type="button" onclick="showPanel('explore')">←</button>
           <h2>Videos</h2>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin:0 0 12px">
+        <div class="videos-catalog-head">
           <div class="brand-mark" style="font-size:22px">EXPOSURE<span>VIDEOS</span></div>
+          <p class="videos-catalog-sub">Browse · search · discover · not GoonTok</p>
         </div>
-        <input id="videos-search" type="search" placeholder="Search videos, titles, tags, usernames…" oninput="renderVideos()" style="width:100%;margin:0 0 10px;padding:12px 14px;border-radius:999px;border:1px solid var(--border);background:#0a0a0a;color:#fff"/>
-        <div style="display:flex;gap:6px;overflow:auto;margin:0 0 10px;padding-bottom:4px">
-          <button type="button" class="btn btn-ghost btn-sm vf on" data-g="viewed" onclick="setVideoFilter('viewed')">Most Viewed</button>
+        <input id="videos-search" type="search" placeholder="Search titles, creators, topics…" oninput="renderVideos()" style="width:100%;margin:0 0 10px;padding:12px 14px;border-radius:14px;border:1px solid var(--border);background:#0a0a0a;color:#fff"/>
+        <div class="videos-sort-bar" role="group" aria-label="Video sorting">
+          <button type="button" class="btn btn-ghost btn-sm vf on" data-g="views" onclick="setVideoFilter('views')">Most Viewed</button>
           <button type="button" class="btn btn-ghost btn-sm vf" data-g="new" onclick="setVideoFilter('new')">Newest</button>
           <button type="button" class="btn btn-ghost btn-sm vf" data-g="trending" onclick="setVideoFilter('trending')">Trending</button>
-          <button type="button" class="btn btn-ghost btn-sm vf" data-g="man" onclick="setVideoFilter('man')">Man</button>
-          <button type="button" class="btn btn-ghost btn-sm vf" data-g="woman" onclick="setVideoFilter('woman')">Woman</button>
-          <button type="button" class="btn btn-ghost btn-sm vf" data-g="trans" onclick="setVideoFilter('trans')">Trans</button>
-          <button type="button" class="btn btn-ghost btn-sm vf" data-g="other" onclick="setVideoFilter('other')">Other</button>
         </div>
-        <div style="font-size:11px;letter-spacing:1px;color:var(--muted);margin:0 0 6px">HOT SEARCHES</div>
-        <div style="display:flex;gap:6px;overflow:auto;margin:0 0 14px">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='exposed';renderVideos()">exposed</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='sissy';renderVideos()">sissy</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='amateur';renderVideos()">amateur</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='public';renderVideos()">public</button>
+        <div class="videos-topic-bar" aria-label="Browse by topic">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='exposed';renderVideos()">#exposed</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='sissy';renderVideos()">#sissy</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='amateur';renderVideos()">#amateur</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('videos-search').value='public';renderVideos()">#public</button>
         </div>
         <button class="btn btn-primary" type="button" style="width:100%;margin:0 0 12px;padding:14px;font-weight:800" onclick="openVideoComposer()">Publish video</button>
-        <div style="font-size:13px;font-weight:800;margin:0 0 8px">WATCH</div>
-        <div id="videos-grid" class="vid-list vid-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="empty">Loading videos…</div></div>
+        <div style="font-size:13px;font-weight:800;margin:0 0 8px">CATALOG</div>
+        <div id="videos-grid" class="vid-catalog"><div class="empty">Loading videos…</div></div>
       </div>
       <div id="panel-video-post" class="panel">
         <div class="page-head">
@@ -4194,21 +4229,21 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <nav class="bottom-nav">
       <div class="stats-strip" style="display:none"></div>
       <div class="nav-row">
-        <button class="nav-item active" data-p="feed" type="button">
+        <button class="nav-item active" data-p="feed" type="button" aria-label="Feed — Extended and All Posts">
           <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></span>Feed
         </button>
-        <button class="nav-item" data-p="goontok" type="button">
+        <button class="nav-item" data-p="goontok" type="button" aria-label="GoonTok">
           <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M10 9.2v5.6L15.2 12Z" fill="currentColor" stroke="none"/></svg></span>GoonTok
         </button>
-        <button class="nav-center" data-p="post" type="button" aria-label="Create">
+        <button class="nav-center" data-p="post" type="button" aria-label="Create — publish">
           <span class="plus-ico"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
           <span class="nav-vid-lab">CREATE<br>+</span>
         </button>
-        <button class="nav-item" data-p="explore" type="button">
+        <button class="nav-item" data-p="explore" type="button" aria-label="Explore — discovery and tools">
           <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg></span>Explore
         </button>
-        <button class="nav-item" data-p="profile" type="button">
-          <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 19.5c1.8-3.2 4.1-4.5 7-4.5s5.2 1.3 7 4.5"/></svg></span>Profile
+        <button class="nav-item" data-p="profile" type="button" aria-label="Profile">
+          <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="3.2"/><path d="M5 20c.8-3.8 3.1-5.7 7-5.7s6.2 1.9 7 5.7"/></svg></span>Profile
         </button>
       </div>
     </nav>
@@ -8497,10 +8532,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var mp=document.getElementById('my-posts');
       if(mp){
         if(logged){
-          var minePosts=posts.filter(function(p){return p.user===currentUser.name&&!isProfileOnly(p)&&!isDeletedId(p.id)});
-          if(minePosts.length){
-            mp.innerHTML='<div class="gallery-section" style="border-top:0;padding-top:0;margin-top:4px"><div class="gallery-head"><h3>Your posts</h3><span class="gallery-count">'+minePosts.length+'</span></div><div class="user-posts-grid">'+minePosts.map(function(p){return postCardHtml(p,true)}).join('')+'</div></div>';
-          }else mp.innerHTML='<div class="gallery-empty">No active posts yet</div>';
+          // Complete own publication history from SB account rows + local posts (no record copies).
+          var minePosts=[];
+          try{
+            minePosts=mergeProfilePublicationSources(
+              window.__profileStatsPosts||[],
+              (posts||[]).filter(function(p){return sameAccountPost(p, currentUser.name)})
+            );
+          }catch(e){
+            minePosts=(posts||[]).filter(function(p){return sameAccountPost(p, currentUser.name)&&!isDeletedId(p.id)});
+          }
+          window.__profileGalleryItems=minePosts;
+          mp.innerHTML=typeof profilePublicationsHtml==='function'
+            ? profilePublicationsHtml(minePosts,{mine:true,empty:'No publications yet'})
+            : (minePosts.length
+              ? '<div class="user-posts-grid">'+minePosts.map(function(p){return postCardHtml(p,true)}).join('')+'</div>'
+              : '<div class="gallery-empty">No publications yet</div>');
+          try{setupProfileGallerySwipes()}catch(e){}
         }else mp.innerHTML='';
       }
       try{
@@ -11030,10 +11078,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     var ROULETTE_PACK_FC=10;
     var RS_LIVE_GAMES={roulette:1,dice:1,tic_tac_toe:1};
     var RS_GAME_BADGES={
-      roulette:{label:'🎡 Ruin Roulette',tag:'game_badge_roulette',panel:'roulette',emoji:'🎡'},
-      dice:{label:'🎲 Exposure Dice',tag:'game_badge_dice',panel:'dice',emoji:'🎲'},
-      tic_tac_toe:{label:'❌ Tic-Tac-Toe',tag:'game_badge_ttt',panel:'challenges',emoji:'❌'},
-      challenges:{label:'🏆 Challenge',tag:'game_badge_challenge',panel:'challenges',emoji:'🏆'}
+      roulette:{label:'ROULETTE',tag:'game_badge_roulette',panel:'roulette',emoji:'🎡'},
+      dice:{label:'DICE',tag:'game_badge_dice',panel:'dice',emoji:'🎲'},
+      tic_tac_toe:{label:'TIC-TAC-TOE',tag:'game_badge_ttt',panel:'challenges',emoji:'❌'},
+      challenges:{label:'CHALLENGE',tag:'game_badge_challenge',panel:'challenges',emoji:'🏆'}
     };
     function detectGameOrigin(p){
       if(!p) return '';
@@ -14306,73 +14354,260 @@ async function claimPayPalPack(p){
       if(window.__openCommunityId===id) openCommunity(id);
     }
     window.toggleCommunity=toggleCommunity;
-    function topicChipHtml(c){
-      var count=topicPostCount(c.id);
-      return '<button type="button" class="explore-topic-chip" onclick="openFeedWithTopic(\''+c.id+'\')" style="border-color:'+(c.color||'#2a2a32')+'">'
-        +'<div class="n">'+c.name+'</div>'
-        +'<div class="c">'+count+' post'+(count===1?'':'s')+'</div></button>';
+    function normalizeTopicKey(raw){
+      return String(raw||'').toLowerCase().replace(/^#/,'').replace(/\s+/g,'').replace(/[^a-z0-9_-]/g,'').slice(0,40);
+    }
+    function topicAliasWords(id){
+      var keys={
+        piggys:['pig','piggy','piggys'],
+        faggot:['fag','faggot'],
+        cucks:['cuck','cucks'],
+        littledicks:['littledicks','little dick','little cock','microdick','micro dick','small dick','small cock','tinydick','tiny dick'],
+        diapers:['diaper','diapers','pañal','panal'],
+        exposure:['exposure','publicexposure','printed','print'],
+        shit:['shit','scat']
+      };
+      return keys[id]||[id];
+    }
+    function publicationPoolForTopics(){
+      var seen={};
+      var out=[];
+      try{
+        [(normalFeedPosts||[]),(posts||[]),(window.__videoCache||[])].forEach(function(arr){
+          (arr||[]).forEach(function(p){
+            if(!p||p.id==null) return;
+            try{if(typeof isDeletedId==='function'&&isDeletedId(p.id)) return}catch(e){}
+            var k=String(p.id);
+            if(seen[k]) return;
+            seen[k]=1;
+            out.push(p);
+          });
+        });
+      }catch(e){}
+      return out;
+    }
+    function postMatchesTopic(p, id){
+      if(!p||!id) return false;
+      var nid=normalizeTopicKey(id);
+      if(normalizeTopicKey(p.community)===nid) return true;
+      var tags=p.tags||[];
+      if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
+      if(!Array.isArray(tags)) tags=[];
+      for(var i=0;i<tags.length;i++){
+        if(normalizeTopicKey(tags[i])===nid) return true;
+      }
+      var blob=((p.title||'')+' '+(p.desc||'')+' '+tags.join(' ')).toLowerCase();
+      var words=topicAliasWords(nid);
+      for(var w=0;w<words.length;w++){
+        if(blob.indexOf(String(words[w]).toLowerCase())>=0) return true;
+      }
+      return false;
+    }
+    function communityPosts(id, opts){
+      opts=opts||{};
+      var limit=Number(opts.limit||120)||120;
+      var list=publicationPoolForTopics().filter(function(p){return postMatchesTopic(p, id)});
+      try{
+        if(opts.sort==='interaction' && typeof wallInteractionScore==='function'){
+          list.sort(function(a,b){
+            var ib=wallInteractionScore(b), ia=wallInteractionScore(a);
+            if(ib!==ia) return ib-ia;
+            return (Number(b.created)||0)-(Number(a.created)||0);
+          });
+        }else{
+          list.sort(function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)});
+        }
+      }catch(e){}
+      return list.slice(0, limit);
+    }
+    function topicStatsList(){
+      return COMMUNITIES.map(function(c){
+        var list=communityPosts(c.id,{limit:500});
+        var latest=0;
+        list.forEach(function(p){latest=Math.max(latest, Number(p.created)||0)});
+        return {id:c.id,name:c.name,sub:c.sub,color:c.color,count:list.length,latest:latest};
+      });
+    }
+    var wallTopicsMode='popular';
+    function topicChipHtml(c, limitName){
+      var name=String(c.name||c.id||'');
+      if(limitName) name=name.replace(/\s+/g,'');
+      return '<button type="button" class="wall-topic-chip" onclick="openTopicInAllPosts(\''+c.id+'\')">'
+        +'<strong>#'+esc(name)+'</strong>'
+        +'<span>'+c.count+' post'+(c.count===1?'':'s')+'</span></button>';
+    }
+    function sortedTopicStats(mode, q, limit){
+      var stats=topicStatsList();
+      if(mode==='recent'){
+        stats.sort(function(a,b){return (b.latest||0)-(a.latest||0) || (b.count-a.count)});
+      }else{
+        stats.sort(function(a,b){return (b.count-a.count) || (b.latest||0)-(a.latest||0)});
+      }
+      q=String(q||'').trim().toLowerCase();
+      if(q){
+        stats=stats.filter(function(c){
+          return String(c.name||'').toLowerCase().indexOf(q)>=0
+            || String(c.id||'').toLowerCase().indexOf(q)>=0
+            || String(c.sub||'').toLowerCase().indexOf(q)>=0;
+        });
+      }
+      if(limit && stats.length>limit) stats=stats.slice(0,limit);
+      return stats;
     }
     function renderExploreCommunities(){
       var box=document.getElementById('explore-communities');
       if(!box) return;
-      // Popular = highest real post counts (deduped by id)
-      var ranked=COMMUNITIES.slice().sort(function(a,b){return topicPostCount(b.id)-topicPostCount(a.id)});
-      box.innerHTML=ranked.slice(0,6).map(topicChipHtml).join('');
-      var recentBox=document.getElementById('explore-recent-topics');
-      if(recentBox){
-        var recent=[];
-        try{recent=JSON.parse(localStorage.getItem('rs_topics_recent')||'[]')||[]}catch(e){recent=[]}
-        var seen={};
-        var rows=[];
-        recent.forEach(function(id){
-          if(seen[id])return;
-          seen[id]=1;
-          var c=COMMUNITIES.filter(function(x){return x.id===id})[0];
-          if(c) rows.push(c);
-        });
-        if(!rows.length) rows=ranked.slice(0,4);
-        recentBox.innerHTML=rows.slice(0,4).map(topicChipHtml).join('');
+      var q=((document.getElementById('explore-topics-search')||{}).value||'').trim().toLowerCase();
+      var showAll=!!window.__exploreTopicsShowAll;
+      var stats=sortedTopicStats(wallTopicsMode, q, showAll?0:6);
+      if(!stats.length){
+        box.innerHTML='<div class="wall-topics-empty" style="grid-column:1/-1;color:#9a9aa3;font-size:12px;padding:8px">No matching topics</div>';
+        return;
       }
-      var allBox=document.getElementById('explore-all-topics');
-      if(allBox && allBox.style.display!=='none'){
-        allBox.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+COMMUNITIES.map(topicChipHtml).join('')+'</div>';
-      }
-    }
-    function searchExploreTopics(q){
-      q=normalizeTopicKey(q||'');
-      var box=document.getElementById('explore-topics-search-results');
-      if(!box)return;
-      if(!q){box.style.display='none';box.innerHTML='';return}
-      var hits=COMMUNITIES.filter(function(c){
-        return normalizeTopicKey(c.id).indexOf(q)>=0||normalizeTopicKey(c.name).indexOf(q)>=0||normalizeTopicKey(c.sub).indexOf(q)>=0;
-      });
-      box.style.display='grid';
-      box.style.gridTemplateColumns='1fr 1fr';
-      box.style.gap='10px';
-      box.innerHTML=hits.length?hits.map(topicChipHtml).join(''):'<div style="grid-column:1/-1;color:#888;font-size:13px;padding:8px">No topics match</div>';
-    }
-    function viewAllTopics(){
-      var box=document.getElementById('explore-all-topics');
-      if(!box)return;
-      var on=box.style.display==='none'||!box.style.display;
-      box.style.display=on?'block':'none';
-      if(on) box.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+COMMUNITIES.map(topicChipHtml).join('')+'</div>';
+      box.innerHTML=stats.map(function(c){return topicChipHtml(c,true)}).join('');
     }
     window.renderExploreCommunities=renderExploreCommunities;
-    window.searchExploreTopics=searchExploreTopics;
-    window.viewAllTopics=viewAllTopics;
-    function communityInterest(){
-      try{return JSON.parse(localStorage.getItem('rs_comm_interest')||'{}')||{}}catch(e){return {}}
+    window.normalizeTopicKey=normalizeTopicKey;
+    window.postMatchesTopic=postMatchesTopic;
+    window.topicStatsList=topicStatsList;
+    function renderWallTopics(){
+      // Topics live in Explore; keep wall list in sync for legacy callers.
+      var box=document.getElementById('wall-topics-list');
+      if(box){
+        var stats=sortedTopicStats(wallTopicsMode, ((document.getElementById('wall-topics-search')||{}).value||''), 0);
+        box.innerHTML=stats.length?stats.map(function(c){return topicChipHtml(c,true)}).join(''):'<div class="wall-topics-empty">No matching topics</div>';
+      }
+      try{renderExploreCommunities()}catch(e){}
     }
-    function communityPosts(id){
-      var keys={piggys:['pig','piggy'],faggot:['fag','faggot'],cucks:['cuck'],littledicks:['little dick','little cock','microdick','micro dick','small dick','small cock','tinydick','tiny dick'],diapers:['diaper','pañal','panal'],exposure:['exposure','printed','print'],shit:['shit','scat']};
-      var words=keys[id]||[id];
-      return (posts||[]).filter(function(p){
-        if(!p||isDeletedId(p.id)) return false;
-        if(p.community===id) return true;
-        var blob=((p.title||'')+' '+(p.desc||'')+' '+((p.tags||[]).join(' '))).toLowerCase();
-        return words.some(function(w){return blob.indexOf(w)>=0});
-      }).slice(0,40);
+    function syncWallTopicActiveUi(){
+      var bar=document.getElementById('wall-topic-active');
+      var lab=document.getElementById('wall-topic-active-label');
+      var id=window.__wallTopicFilter||'';
+      if(!bar) return;
+      if(!id){
+        bar.classList.remove('is-on');
+        if(lab) lab.textContent='Topic';
+        return;
+      }
+      var c=(COMMUNITIES||[]).filter(function(x){return x.id===id})[0];
+      bar.classList.add('is-on');
+      if(lab) lab.textContent='Topic · #'+(c?String(c.name||id).replace(/\s+/g,''):id)+' · filtered in All Posts';
+    }
+    function clearWallTopicFilter(){
+      window.__wallTopicFilter='';
+      syncWallTopicActiveUi();
+      try{renderNormalFeed({force:true})}catch(e){}
+    }
+    window.clearWallTopicFilter=clearWallTopicFilter;
+    function openTopicInAllPosts(id){
+      var c=(COMMUNITIES||[]).filter(function(x){return x.id===id})[0];
+      if(!c && !id) return;
+      window.__wallTopicFilter=id;
+      try{localStorage.setItem('rs_feed_tab','all')}catch(e){}
+      try{setWallFilter('all')}catch(e){}
+      try{openFeedAllPosts()}catch(e){try{showPanel('wall')}catch(e2){}}
+      syncWallTopicActiveUi();
+      try{renderNormalFeed({force:true})}catch(e){}
+      try{
+        var counts=communityInterest();
+        counts[id]=(counts[id]||0)+1;
+        localStorage.setItem('rs_comm_interest', JSON.stringify(counts));
+      }catch(e){}
+    }
+    window.openTopicInAllPosts=openTopicInAllPosts;
+    function openFeedAllPosts(){
+      try{localStorage.setItem('rs_feed_tab','all')}catch(e){}
+      try{syncFeedModeTabs('all')}catch(e){}
+      try{showPanel('wall')}catch(e){}
+      try{loadNormalFeed(true)}catch(e){}
+    }
+    window.openFeedAllPosts=openFeedAllPosts;
+    function openFeedExtended(){
+      try{localStorage.setItem('rs_feed_tab','extended')}catch(e){}
+      try{syncFeedModeTabs('extended')}catch(e){}
+      try{showPanel('feed')}catch(e){}
+    }
+    window.openFeedExtended=openFeedExtended;
+    function syncFeedModeTabs(mode){
+      mode=mode==='all'?'all':'extended';
+      document.querySelectorAll('.feed-mode-tabs button[data-feed-tab]').forEach(function(b){
+        var on=b.getAttribute('data-feed-tab')===mode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on?'true':'false');
+      });
+    }
+    function setupFeedModeTabs(){
+      document.querySelectorAll('.feed-mode-tabs').forEach(function(wrap){
+        if(wrap.__wired) return;
+        wrap.__wired=1;
+        wrap.addEventListener('click', function(ev){
+          var b=ev.target&&ev.target.closest?ev.target.closest('[data-feed-tab]'):null;
+          if(!b) return;
+          ev.preventDefault();
+          var tab=b.getAttribute('data-feed-tab')||'extended';
+          if(tab==='all') openFeedAllPosts();
+          else openFeedExtended();
+        });
+      });
+    }
+    window.setupFeedModeTabs=setupFeedModeTabs;
+    window.syncFeedModeTabs=syncFeedModeTabs;
+    function setupWallTopicsUi(){
+      document.querySelectorAll('.wall-topics-mode-chip, .explore-topics-mode-chip').forEach(function(b){
+        if(b.__wired) return;
+        b.__wired=true;
+        b.onclick=function(){
+          wallTopicsMode=b.getAttribute('data-topics-mode')||'popular';
+          window.__exploreTopicsShowAll=false;
+          document.querySelectorAll('.wall-topics-mode-chip, .explore-topics-mode-chip').forEach(function(x){
+            x.classList.toggle('on', x.getAttribute('data-topics-mode')===wallTopicsMode);
+          });
+          renderWallTopics();
+        };
+      });
+      var search=document.getElementById('wall-topics-search');
+      if(search && !search.__wired){
+        search.__wired=true;
+        search.addEventListener('input', function(){renderWallTopics()});
+      }
+      var exploreSearch=document.getElementById('explore-topics-search');
+      if(exploreSearch && !exploreSearch.__wired){
+        exploreSearch.__wired=true;
+        exploreSearch.addEventListener('input', function(){
+          window.__exploreTopicsShowAll=true;
+          renderExploreCommunities();
+        });
+      }
+      var wallSearch=document.getElementById('wall-search');
+      if(wallSearch && !wallSearch.__wired){
+        wallSearch.__wired=true;
+        wallSearch.addEventListener('input', function(){
+          normalFeedQuery=wallSearch.value||'';
+          renderNormalFeed({force:true});
+        });
+        wallSearch.addEventListener('keydown', function(e){
+          if(e.key==='Enter'){
+            e.preventDefault();
+            normalFeedQuery=wallSearch.value||'';
+            renderNormalFeed({force:true});
+          }
+        });
+      }
+    }
+    function openAllTopicsPanel(){
+      try{showPanel('explore')}catch(e){}
+      window.__exploreTopicsShowAll=true;
+      var el=document.getElementById('explore-topics-panel');
+      if(el){try{el.scrollIntoView({behavior:'smooth',block:'start'})}catch(e){}}
+      var search=document.getElementById('explore-topics-search');
+      if(search){try{search.focus()}catch(e){}}
+      renderExploreCommunities();
+    }
+    window.renderWallTopics=renderWallTopics;
+    window.setupWallTopicsUi=setupWallTopicsUi;
+    window.openAllTopicsPanel=openAllTopicsPanel;
+    function communityInterest(){
+      try{return JSON.parse(localStorage.getItem('rs_comm_interest')||'{}')||{}}catch(e){return{}}
     }
     function postMatchesInterest(p){
       var mine=communityJoined();
@@ -14381,36 +14616,44 @@ async function claimPayPalPack(p){
       var title=String(p.title||'').toLowerCase();
       return mine.some(function(id){return p.community===id || tags.indexOf(id)>=0 || title.indexOf('#'+id)>=0});
     }
-    function topicPostCount(id){
-      try{return communityPosts(id).length}catch(e){return 0}
-    }
-    function openFeedWithTopic(id){
+    function openCommunity(id, opts){
+      opts=opts||{};
       var c=COMMUNITIES.filter(function(x){return x.id===id})[0];
-      if(!c){
-        // Allow free-form topic keys from search
-        if(!id) return;
-        c={id:String(id), name:String(id)};
-      }
-      window.__openCommunityId=c.id;
-      try{
-        var recent=JSON.parse(localStorage.getItem('rs_topics_recent')||'[]')||[];
-        recent=recent.filter(function(x){return x!==c.id});
-        recent.unshift(c.id);
-        localStorage.setItem('rs_topics_recent', JSON.stringify(recent.slice(0,12)));
-      }catch(e){}
-      setWallFilter('all');
-      setWallTopic(c.id, c.name);
-      setFeedTab('all',{keepRoute:true,skipLoad:true});
-      showPanel('feed',{feedTab:'all',forceRefresh:true});
-      try{setPanelRoute('wall')}catch(e){}
-    }
-    function openCommunity(id){
-      // Topics discover content inside FEED → ALL POSTS (no separate posts page).
-      openFeedWithTopic(id);
+      if(!c) return;
+      window.__openCommunityId=id;
+      var sort=opts.sort||window.__topicFeedSort||'recent';
+      window.__topicFeedSort=sort;
+      showPanel('community');
+      try{setPanelRoute('community',{extra:id,replace:true})}catch(e){}
+      var title=document.getElementById('community-title');
+      if(title) title.textContent='#'+c.name.replace(/\s+/g,'');
+      var joined=communityJoined().indexOf(id)>=0;
+      var list=communityPosts(id,{limit:120,sort:sort});
+      var body=document.getElementById('community-body');
+      if(!body) return;
+      body.innerHTML='<div style="border:1px solid '+c.color+';border-radius:16px;padding:14px;margin-bottom:12px;background:#101014">'
+        +'<div style="font-size:18px;font-weight:900">#'+esc(c.name.replace(/\s+/g,''))+'</div>'
+        +'<div style="color:#9a9aa3;font-size:13px;margin:4px 0 10px">'+list.length+' matching publication'+(list.length===1?'':'s')+'</div>'
+        +'<div style="display:flex;gap:6px;margin:0 0 10px">'
+        +'<button type="button" class="btn '+(sort==='recent'?'btn-primary':'btn-ghost')+' btn-sm" onclick="openCommunity(\''+id+'\',{sort:\'recent\'})">Most Recent</button>'
+        +'<button type="button" class="btn '+(sort==='interaction'?'btn-primary':'btn-ghost')+' btn-sm" onclick="openCommunity(\''+id+'\',{sort:\'interaction\'})">Most Interaction</button>'
+        +'</div>'
+        +'<button class="btn '+(joined?'btn-secondary':'btn-primary')+'" type="button" style="width:100%" onclick="toggleCommunity(\''+id+'\')">'+(joined?'Liked':'Like topic')+'</button>'
+        +'</div>'
+        +'<div style="background:#141418;border:1px solid #2a2a32;border-radius:16px;padding:12px;margin-bottom:12px">'
+        +'<textarea id="topic-status" placeholder="What\'s on your mind?" style="width:100%;min-height:72px;background:#0c0c10;color:#fff;border:0;border-radius:12px;padding:10px;font-size:15px"></textarea>'
+        +'<input id="topic-file" type="file" accept="image/*,video/*" multiple style="margin-top:8px;color:#aaa;font-size:12px" onchange="topicFilePicked()"/>'
+        +'<div id="topic-time" style="display:none;margin-top:8px"><div style="font-size:11px;color:#aaa;margin-bottom:6px">Photo or video gets a timer. Text does not.</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:6px">'
+        +'<button type="button" class="btn btn-ghost btn-sm" onclick="window.__topicMin=60">1h</button>'
+        +'<button type="button" class="btn btn-ghost btn-sm" onclick="window.__topicMin=360">6h</button>'
+        +'<button type="button" class="btn btn-ghost btn-sm" onclick="window.__topicMin=1440">24h</button>'
+        +'</div></div>'
+        +'<button class="btn btn-primary" type="button" style="width:100%;margin-top:8px" onclick="submitTopicStatus(\''+id+'\')">Post</button>'
+        +'</div>'
+        +(list.length?list.map(function(p){return postCardHtml(p,true)}).join(''):'<div style="color:#888;font-size:13px;padding:8px">No publications for this topic yet.</div>');
     }
     window.openCommunity=openCommunity;
-    window.openFeedWithTopic=openFeedWithTopic;
-    window.topicPostCount=topicPostCount;
 
     function postInTopic(id){
       window.__topicPost=id;
@@ -16479,13 +16722,21 @@ function pendingRouletteTasks(){
             try{
               var act=document.querySelector('.panel.active');
               var pid=act&&act.id||'';
-              if(pid==='panel-wall'||pid==='panel-explore'||pid==='panel-roulette'||pid==='panel-dice'||pid==='panel-challenges'||pid==='panel-games'||(pid==='panel-feed'&&typeof currentFeedTab==='function'&&currentFeedTab()==='all')){
+              if(pid==='panel-wall'||pid==='panel-explore'||pid==='panel-roulette'||pid==='panel-dice'||pid==='panel-challenges'||pid==='panel-games'){
                 if(typeof openNormalPostComposer==='function'){ openNormalPostComposer(); return; }
               }
             }catch(e){}
             try{openExtendPostComposer()}catch(e){try{setExposurePostMode()}catch(e2){}}
           }
           if(target==='goontok'){openGoonTok();return;}
+          if(target==='feed'){
+            var tab='extended';
+            try{tab=localStorage.getItem('rs_feed_tab')||'extended'}catch(e){}
+            if(tab==='all'){openFeedAllPosts();return;}
+            openFeedExtended();
+            return;
+          }
+          if(target==='wall'){openFeedAllPosts();return;}
           showPanel(target);
         }catch(err){console.warn(err)}
       }
@@ -16529,6 +16780,8 @@ function pendingRouletteTasks(){
     function setupUI(){
       // Bind bottom nav first so a later setup error cannot leave the app unnavigable.
       try{bindBottomNav()}catch(e){console.warn('bindBottomNav',e)}
+      try{setupFeedModeTabs()}catch(e){}
+      try{setupWallTopicsUi()}catch(e){}
       try{setupTelegramPopup()}catch(e){}
       try{setupTgGroupPopup()}catch(e){}
       try{setupTaskUI()}catch(e){console.warn(e)}
@@ -16920,52 +17173,39 @@ function pendingRouletteTasks(){
       arr.sort(function(a,b){return b.n-a.n});
       arr=arr.slice(0,12);
       if(!arr.length){box.innerHTML='';return}
-      box.innerHTML=''; return; box.innerHTML='<div style="width:100%;font-size:12px;color:var(--muted);margin-bottom:4px">Trending tags</div>'+arr.map(function(x){
+      box.innerHTML='<div style="width:100%;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:800">Trending topics</div>'+arr.map(function(x){
         return '<button type="button" class="btn btn-ghost btn-sm" style="border-radius:999px" onclick="document.getElementById(\'search-q\').value=\'#'+x.t+'\';doSearch()">#'+esc(x.t)+' · '+x.n+'</button>';
       }).join('');
     }
-
-    function renderExploreTrendingPreview(){
-      var box=document.getElementById('explore-trending-preview');
-      if(!box)return;
-      var list=[];
-      try{
-        var mixed=(typeof dedupePostList==='function'?dedupePostList((posts||[]).concat(normalFeedPosts||[])):(posts||[]).slice());
-        list=mixed.filter(function(p){
-          if(!p||p.id==null)return false;
-          if(typeof isDeletedId==='function'&&isDeletedId(p.id))return false;
-          try{return typeof isWallTrendingPost==='function'?isWallTrendingPost(p):true}catch(e){return true}
-        }).sort(function(a,b){
-          var sb=typeof wallTrendingScore==='function'?wallTrendingScore(b):((b.likes||0)+(b.views||0));
-          var sa=typeof wallTrendingScore==='function'?wallTrendingScore(a):((a.likes||0)+(a.views||0));
-          return sb-sa;
-        }).slice(0,6);
-      }catch(e){list=[]}
-      if(!list.length){box.style.display='none';box.innerHTML='';return}
-      box.style.display='grid';
-      box.style.gridTemplateColumns='1fr 1fr';
-      box.style.gap='8px';
-      box.innerHTML=list.map(function(p){
-        var imgs=p.images&&p.images.length?p.images:(p.image?[p.image]:[]);
-        var src=imgs[0]||p.thumb_url||p.poster||'';
-        var thumb=src?('<img src="'+(typeof feedThumb==='function'?feedThumb(src,240):src)+'" alt="" style="width:100%;height:88px;object-fit:cover;border-radius:10px;display:block;background:#111"/>'):'<div style="height:88px;border-radius:10px;background:#16161c"></div>';
-        return '<button type="button" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')" style="text-align:left;border:1px solid #2a2a32;border-radius:12px;background:#101014;padding:8px;color:#fff">'
-          +thumb
-          +'<div style="font-size:12px;font-weight:800;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@'+esc(p.user||'')+'</div>'
-          +'<div style="font-size:11px;color:#9a9aa3;margin-top:2px">❤️ '+(p.likes||0)+' · 👀 '+(typeof displayViews==='function'?displayViews(p.views||0):(p.views||0))+'</div>'
-          +'</button>';
-      }).join('');
-    }
     function openExploreTrending(){
-      var box=document.getElementById('explore-trending-preview');
+      try{showPanel('explore')}catch(e){}
+      try{renderTrendingTags()}catch(e){}
+      var box=document.getElementById('trending-tags');
       if(box){
-        var on=box.style.display==='none'||!box.style.display;
-        if(on){ try{renderExploreTrendingPreview()}catch(e){} box.style.display='grid'; }
-        else box.style.display='none';
+        try{box.scrollIntoView({behavior:'smooth',block:'start'})}catch(e){}
       }
-      try{window.scrollTo({top:0,behavior:'smooth'})}catch(e){}
+      // Also surface high-engagement publications in search results area.
+      try{
+        var pool=(typeof publicationPoolForTopics==='function'?publicationPoolForTopics():(posts||[])).slice();
+        pool.sort(function(a,b){
+          if(typeof wallInteractionScore==='function'){
+            var ib=wallInteractionScore(b), ia=wallInteractionScore(a);
+            if(ib!==ia) return ib-ia;
+          }
+          return (Number(b.created)||0)-(Number(a.created)||0);
+        });
+        var top=pool.slice(0,12);
+        var results=document.getElementById('search-results');
+        if(results && top.length){
+          results.style.display='block';
+          results.innerHTML='<div class="explore-search-head"><span>Trending publications</span><button type="button" class="btn btn-ghost btn-sm" onclick="clearExploreSearch()">Clear</button></div>'
+            +'<div class="user-posts-grid">'+top.map(function(p){return postCardHtml(p,true)}).join('')+'</div>';
+          try{setExploreBrowseHidden(true)}catch(e){}
+          try{setExploreSearchClearVisible(true)}catch(e){}
+          try{scrollToExploreResults()}catch(e){}
+        }
+      }catch(e){}
     }
-    window.renderExploreTrendingPreview=renderExploreTrendingPreview;
     window.openExploreTrending=openExploreTrending;
 
     function setExploreSearchClearVisible(on){
@@ -17982,7 +18222,7 @@ function pendingRouletteTasks(){
     };
     var ROUTE_PANEL={
       '':'feed','feed':'feed','home':'feed','extend':'feed','spotlight':'feed',
-      'wall':'feed','thewall':'feed','normal':'feed','allposts':'feed','all-posts':'feed',
+      'wall':'wall','thewall':'wall','normal':'wall',
       'explore':'explore','search':'explore',
       'goontok':'goontok','goon':'goontok','tiktok':'goontok',
       'randomcam':'randomcam','random':'randomcam','ome':'randomcam','chat':'randomcam',
@@ -18167,8 +18407,8 @@ function pendingRouletteTasks(){
       window.__routing=true;
       try{
         if(slug==='spotlight'){ try{scrollToSpotlight()}catch(e){showPanel('feed')} return true; }
-        if(slug==='extend'||slug==='feed'||slug==='home'){ try{setFeedTab('extended',{keepRoute:true,skipLoad:true})}catch(e){} showPanel('feed'); return true; }
-        if(slug==='normal'||slug==='wall'||slug==='thewall'||slug==='allposts'||slug==='all-posts'){ try{setFeedTab('all',{keepRoute:true,skipLoad:true})}catch(e){} showPanel('feed'); return true; }
+        if(slug==='extend'||slug==='feed'||slug==='home'){ showPanel('feed'); return true; }
+        if(slug==='normal'||slug==='wall'||slug==='thewall'){ showPanel('wall'); return true; }
         if(slug==='coins'||slug==='buy'||slug==='fagcoins'||slug==='packages'){ try{openCoinShop()}catch(e){showPanel('coins')} return true; }
         if(slug==='goontok'||slug==='goon'||slug==='tiktok'){ try{openGoonTok()}catch(e){showPanel('goontok')} return true; }
         if(slug==='randomcam'||slug==='random'||slug==='ome'||slug==='chat'){ try{openRandomCam()}catch(e){showPanel('randomcam')} return true; }
@@ -18207,9 +18447,8 @@ function pendingRouletteTasks(){
       finally{ window.__routing=false; }
     }
     function goHome(){
-      try{if(typeof setFeedTab==='function')setFeedTab('extended',{keepRoute:true,skipLoad:true});
-      else if(typeof setGlobalFeedMode==='function')setGlobalFeedMode('extended')}catch(e){}
-      showPanel('feed',{feedTab:'extended'});
+      try{if(typeof setGlobalFeedMode==='function')setGlobalFeedMode('extended')}catch(e){}
+      showPanel('feed');
       try{window.scrollTo(0,0)}catch(e){}
     }
     function isImageUrl(u){
@@ -18448,13 +18687,31 @@ function pendingRouletteTasks(){
       var liked=false,saved=false;
       try{liked=!!(typeof getMyReaction==='function'&&getMyReaction(p))}catch(e){}
       try{saved=!!(typeof isSaved==='function'&&isSaved(p.id))}catch(e){}
-      var acts='<div class="vid-acts" style="display:flex;gap:8px;margin-top:10px">'
-        +'<button type="button" class="btn btn-ghost btn-sm'+(liked?' liked':'')+'" onclick="event.stopPropagation();openReact('+jsId(p.id)+',event)">❤️ <span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span></button>'
-        +'<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleSave('+jsId(p.id)+');renderVideos()">🔖 '+(saved?'Saved':'Save')+'</button>'
-        +'<button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDetail('+jsId(p.id)+',true)">💬 Comment</button>'
-        +'<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();sharePost('+jsId(p.id)+')">Share</button>'
-        +'</div>';
-      return '<div class="vid-row" data-pid="'+String(p.id).replace(/"/g,'')+'"><div class="vid-thumb" onclick="event.stopPropagation();playListedVideo(this,\''+String(it.src||'').replace(/'/g,'')+'\',\''+String(poster||'').replace(/'/g,'')+'\')" style="position:relative">'+media+'<span class="vid-play" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;pointer-events:none">▶</span></div><h4 onclick="openDetail('+jsId(p.id)+')">'+esc(p.title||'Video')+'</h4><div class="vid-meta" style="display:flex;align-items:center;gap:8px"><span class="av" style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex:0 0 28px">'+avatarHtml(p.user)+'</span><span>@'+esc(p.user||'')+' · '+timeAgo(p.created)+' · 👀 <span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+(p.views||0)+'</span> · ❤️ '+(p.likes||0)+'</span></div>'+acts+'</div>';
+      var topicChips='';
+      try{
+        var tg=p.tags||[];
+        if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+        if(Array.isArray(tg)){
+          topicChips=tg.map(function(t){return String(t||'').replace(/^#/,'').trim()}).filter(function(t){
+            if(!t||t.length>24) return false;
+            var low=t.toLowerCase();
+            return ['video','goontok','normal_feed','exposed','man','woman','trans','other'].indexOf(low)<0 && low.indexOf('ext_')!==0 && low.indexOf('album:')!==0 && low.indexOf('del:')!==0 && low.indexOf('game_')!==0 && low.indexOf('anon_')!==0 && low.indexOf('uid:')!==0 && low.indexOf('account:')!==0;
+          }).slice(0,3).map(function(t){return '<span class="vid-topic-chip">#'+esc(t)+'</span>'}).join('');
+        }
+      }catch(e){}
+      // Catalog card — 16:9 thumb + title/creator/views. No Download in Videos UI.
+      return '<article class="vid-catalog-card" data-pid="'+String(p.id).replace(/"/g,'')+'" onclick="openDetail('+jsId(p.id)+')">'
+        +'<div class="vid-thumb" onclick="event.stopPropagation();playListedVideo(this,\''+String(it.src||'').replace(/'/g,'')+'\',\''+String(poster||'').replace(/'/g,'')+'\')">'
+        +(poster
+          ?('<img class="vid-thumb-img" src="'+esc(feedThumb(poster,640))+'" alt="" loading="lazy" decoding="async"/>')
+          :('<div class="vid-thumb-ph" style="width:100%;height:100%;min-height:96px;display:flex;align-items:center;justify-content:center;color:#f5c518;font-size:28px;background:#111">▶</div>'))
+        +'<span class="vid-play" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none">▶</span>'
+        +'</div>'
+        +'<div class="vid-catalog-body">'
+        +'<h4>'+esc(p.title||'Video')+'</h4>'
+        +'<div class="vid-meta">@'+esc(p.user||'')+' · '+timeAgo(p.created)+'<br>👀 <span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+(typeof displayViews==='function'?displayViews(p.views||0):(p.views||0))+'</span> · ❤️ '+(p.likes||0)+(liked?' · liked':'')+(saved?' · saved':'')+'</div>'
+        +(topicChips?'<div class="vid-topics">'+topicChips+'</div>':'')
+        +'</div></article>';
     }
     function _videoCardOldUnused(){ var p=it&&it.p; var media='';
       return '<div class="vid-card" onclick="openDetail(\''+String(p.id).replace(/'/g,'')+'\')">'+media+(mini?'':'<div class="t">'+esc(p.title||p.user||'Clip')+'</div><div class="m">@'+esc(p.user||'')+'</div>')+'</div>';
@@ -18818,24 +19075,37 @@ function pendingRouletteTasks(){
       var box=document.getElementById('videos-grid');
       var q=((document.getElementById('videos-search')||{}).value||'').toLowerCase().trim();
       var list=collectVideos();
-      var g=window.__videoFilter||'viewed';
+      var g=window.__videoFilter||'views';
       if(g==='man'||g==='woman'||g==='trans'||g==='other')list=list.filter(function(it){
         var tags=(it.p&&it.p.tags)||[];
         if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}}
         return (tags.join(' ')+' '+(it.p.title||'')).toLowerCase().indexOf(g)>=0;
       });
-      if(g==='new')list=list.slice().sort(function(a,b){return (b.p.created||0)-(a.p.created||0)});
-      else if(g==='trending')list=list.slice().sort(function(a,b){
-        var sb=((b.p.likes||0)*8+(b.p.views||0)+((b.p.commentCount||b.p.comments||0)*5));
-        var sa=((a.p.likes||0)*8+(a.p.views||0)+((a.p.commentCount||a.p.comments||0)*5));
-        return sb-sa;
-      });
-      else if(g==='viewed'||g==='all')list=list.slice().sort(function(a,b){return (b.p.views||0)-(a.p.views||0)});
+      if(g==='new'){
+        list=list.slice().sort(function(a,b){return (Number(b.p&&b.p.created)||0)-(Number(a.p&&a.p.created)||0)});
+      }else if(g==='trending'){
+        list=list.slice().sort(function(a,b){
+          var pa=a.p||{}, pb=b.p||{};
+          var ageA=Math.max(1,(Date.now()-(Number(pa.created)||0))/3600000);
+          var ageB=Math.max(1,(Date.now()-(Number(pb.created)||0))/3600000);
+          var sa=((Number(pa.views)||0)*0.4+(Number(pa.likes)||0)*8)/Math.pow(ageA/12,0.7);
+          var sb=((Number(pb.views)||0)*0.4+(Number(pb.likes)||0)*8)/Math.pow(ageB/12,0.7);
+          if(sb!==sa) return sb-sa;
+          return (Number(pb.created)||0)-(Number(pa.created)||0);
+        });
+      }else{
+        // Most Viewed (default catalog sort)
+        list=list.slice().sort(function(a,b){
+          var va=Number(a.p&&a.p.views)||0, vb=Number(b.p&&b.p.views)||0;
+          if(vb!==va) return vb-va;
+          return (Number(b.p&&b.p.created)||0)-(Number(a.p&&a.p.created)||0);
+        });
+      }
       if(q)list=list.filter(function(it){
         var p=it.p||{};
         return (String(p.title||'')+' '+String(p.user||'')+' '+String((p.tags||[]).join(' '))).toLowerCase().indexOf(q)>=0;
       });
-      if(box)box.innerHTML=list.length?list.map(function(it){return videoCard(it,false)}).join(''):'<div class="empty">No videos yet. Upload a clip (max 100 MB).</div>';
+      if(box)box.innerHTML=list.length?list.map(function(it){return videoCard(it,false)}).join(''):'<div class="empty" style="grid-column:1/-1">No videos yet. Upload a clip (max 100 MB).</div>';
       try{prefetchAvatars(list.map(function(it){return it.p}))}catch(e){}
       try{bindImpressions('videos')}catch(e){}
       renderHomeVideos();
@@ -18850,10 +19120,12 @@ function pendingRouletteTasks(){
       if(up && !up._bound){up._bound=1;up.onchange=function(e){startVideoPost(e)}}
     }
     window.openVideoComposer=openVideoComposer;
-    window.__videoFilter='viewed';
+    window.__videoFilter='views';
     window.__vpGender='man';
     function setVideoFilter(g){
-      window.__videoFilter=g||'all';
+      g=String(g||'views');
+      if(g==='all'||g==='recommended') g='views';
+      window.__videoFilter=g;
       document.querySelectorAll('.vf').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-g')===window.__videoFilter)});
       renderVideos();
     }
@@ -19601,6 +19873,7 @@ function pendingRouletteTasks(){
       opts=opts||{};
       var quiet=opts.quiet!==false;
       var force=!!opts.force;
+      try{setupWallTopicsUi();renderWallTopics()}catch(e){}
       try{renderWallStories()}catch(e){}
       try{renderWallHot()}catch(e){}
       if(!force && wallCacheFresh()){
@@ -19689,16 +19962,25 @@ function pendingRouletteTasks(){
       var panel=document.getElementById('panel-'+name);if(panel)panel.classList.add('active');
       try{if(!(opts.fromDetail&&name==='detail'))setPanelRoute(name)}catch(e){}
       try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
-      document.querySelectorAll('.nav-row .nav-item').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-p')===name)});
+      document.querySelectorAll('.nav-row .nav-item').forEach(function(n){
+        var dp=n.getAttribute('data-p');
+        // FEED owns both EXTENDED (panel-feed) and ALL POSTS (panel-wall).
+        var on=dp===name || ((name==='extended'||name==='wall') && dp==='feed');
+        n.classList.toggle('active', on);
+      });
+      try{
+        if(name==='feed'||name==='extended'){
+          localStorage.setItem('rs_feed_tab','extended');
+          if(typeof syncFeedModeTabs==='function') syncFeedModeTabs('extended');
+        }else if(name==='wall'){
+          localStorage.setItem('rs_feed_tab','all');
+          if(typeof syncFeedModeTabs==='function') syncFeedModeTabs('all');
+          if(typeof syncWallTopicActiveUi==='function') syncWallTopicActiveUi();
+        }
+      }catch(e){}
       if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');var loBtn=document.getElementById('btn-admin-logout');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';if(loBtn)loBtn.style.display='inline-flex';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';if(loBtn)loBtn.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
       if(name==='feed' || name==='extended'){
-        var tab=opts.feedTab || currentFeedTab();
-        if(opts.feedTab){ try{setFeedTab(opts.feedTab,{keepRoute:true,skipLoad:true})}catch(e){} }
-        else { try{setFeedTab(tab,{keepRoute:true,skipLoad:true})}catch(e){} }
-        if(tab==='all'){
-          try{refreshWallSection({force:!!opts.forceRefresh})}catch(e){}
-          startViewVisit('wall');
-        }else if(opts.fromDetail && posts && posts.length){
+        if(opts.fromDetail && posts && posts.length){
           try{startViewVisit('feed')}catch(e){}
           try{if(name==='extended')syncExtendedPanel(window.__feedRest||posts)}catch(e){}
         }else{
@@ -19712,26 +19994,15 @@ function pendingRouletteTasks(){
       if(name==='notifs'){notifs=[];renderNotifs();loadNotifs();}
       if(name==='explore'){
         try{renderTrendingTags()}catch(e){}
-        try{renderExploreCommunities()}catch(e){}
-        try{renderExploreTrendingPreview()}catch(e){}
-        /* XP promo only — Games entry below is the single Explore access to games. */
-        try{var ep=document.getElementById('explore-xp-promo');if(ep&&typeof rsPromoStripHtml==='function'){ep.innerHTML=rsPromoStripHtml({title:'🏆 REACH 10,000 XP',sub:'UNLOCK A SPECIAL REWARD'})}}catch(e){}
+        try{setupWallTopicsUi();renderExploreCommunities()}catch(e){}
+        /* Explore is a discovery hub — do not treat it as another community feed. */
         try{if(typeof refreshExploreMapPreview==='function')refreshExploreMapPreview()}catch(e){}
         startViewVisit('explore');
       }
       if(name==='wall'){
-        // Wall is no longer a bottom-nav destination — open FEED → ALL POSTS.
-        try{setFeedTab('all',{keepRoute:true,skipLoad:true})}catch(e){}
-        name='feed';
-        try{
-          document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active')});
-          var pf=document.getElementById('panel-feed'); if(pf)pf.classList.add('active');
-          document.querySelectorAll('.nav-row .nav-item').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-p')==='feed')});
-        }catch(e){}
         try{refreshWallSection({force:!!opts.forceRefresh})}catch(e){}
+        try{setupWallTopicsUi();renderWallTopics()}catch(e){}
         try{scheduleSectionPrefetch('goontok')}catch(e){}
-        try{setPanelRoute('wall')}catch(e){}
-        return;
       }
       if(name==='games'||name==='challenges'){try{renderChallengesHub()}catch(e){try{renderGamesHub()}catch(e2){}}}
       if(name==='goontok'){
@@ -21250,74 +21521,6 @@ function pendingRouletteTasks(){
 
     var normalFeedPosts=[];
     var normalFeedQuery='';
-    var wallTopicFilter='';
-    var wallTopicLabel='';
-    function normalizeTopicKey(s){
-      return String(s||'').toLowerCase().replace(/^#/,'').replace(/\s+/g,' ').trim();
-    }
-    function postMatchesTopic(p, topicId){
-      if(!p||!topicId) return true;
-      var id=normalizeTopicKey(topicId);
-      if(!id) return true;
-      if(normalizeTopicKey(p.community)===id) return true;
-      var tg=p.tags||[];
-      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-      if(!Array.isArray(tg))tg=[];
-      for(var i=0;i<tg.length;i++){
-        if(normalizeTopicKey(tg[i])===id) return true;
-      }
-      var blob=((p.title||'')+' '+(p.desc||'')).toLowerCase();
-      if(blob.indexOf('#'+id)>=0) return true;
-      try{
-        var c=(typeof COMMUNITIES!=='undefined'?COMMUNITIES:[]).filter(function(x){return x.id===topicId})[0];
-        if(c&&c.name&&blob.indexOf(String(c.name).toLowerCase())>=0) return true;
-      }catch(e){}
-      return false;
-    }
-    function syncWallTopicBanner(){
-      var ban=document.getElementById('wall-topic-banner');
-      var lab=document.getElementById('wall-topic-label');
-      if(!ban)return;
-      if(wallTopicFilter){
-        ban.classList.add('on');
-        if(lab) lab.textContent='Topic · '+(wallTopicLabel||wallTopicFilter);
-      }else{
-        ban.classList.remove('on');
-        if(lab) lab.textContent='Topic';
-      }
-    }
-    function setWallTopic(id, label){
-      wallTopicFilter=String(id||'');
-      wallTopicLabel=String(label||id||'');
-      try{localStorage.setItem('rs_wall_topic', wallTopicFilter)}catch(e){}
-      try{localStorage.setItem('rs_wall_topic_label', wallTopicLabel)}catch(e){}
-      syncWallTopicBanner();
-      window.__wallVisible=12;
-      window.__wallPaintSig='';
-      window.__wallPaintIds='';
-      try{renderNormalFeed({force:true})}catch(e){}
-    }
-    function clearWallTopic(opts){
-      opts=opts||{};
-      wallTopicFilter='';
-      wallTopicLabel='';
-      try{localStorage.removeItem('rs_wall_topic');localStorage.removeItem('rs_wall_topic_label')}catch(e){}
-      syncWallTopicBanner();
-      if(!opts.silent){
-        window.__wallVisible=12;
-        window.__wallPaintSig='';
-        try{renderNormalFeed({force:true})}catch(e){}
-      }
-    }
-    window.setWallTopic=setWallTopic;
-    window.clearWallTopic=clearWallTopic;
-    window.syncWallTopicBanner=syncWallTopicBanner;
-    window.postMatchesTopic=postMatchesTopic;
-    try{
-      wallTopicFilter=localStorage.getItem('rs_wall_topic')||'';
-      wallTopicLabel=localStorage.getItem('rs_wall_topic_label')||wallTopicFilter;
-    }catch(e){}
-
 
     function isRouletteWallPost(p){
       if(!p)return false;
@@ -21372,6 +21575,7 @@ function pendingRouletteTasks(){
       tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
       if(tg.indexOf('print_case')>=0) return true;
       if(tg.indexOf('public_task')>=0||tg.indexOf('challenge')>=0||tg.indexOf('challenge_proof')>=0) return true;
+      if(tg.indexOf('dominant')>=0||tg.indexOf('dominants')>=0) return true;
       // Wall-composed / native only — never flood All Posts with GoonTok catalog rows.
       if(typeof isWallNativePost==='function') return !!isWallNativePost(p);
       if(typeof isWallTextPost==='function'&&isWallTextPost(p)) return true;
@@ -21415,10 +21619,13 @@ function pendingRouletteTasks(){
           tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
           if(tg.indexOf('print_case')>=0||tg.indexOf('print')>=0) return '<span class="nf-cat-badge cat-print">PRINT</span>';
           if(tg.indexOf('public_task')>=0) return '<span class="nf-cat-badge cat-task">TASK</span>';
+          if(tg.indexOf('dominant')>=0||tg.indexOf('dominants')>=0){
+            return '<span class="nf-cat-badge" style="background:linear-gradient(135deg,#c4b5fd,#e879f9)">DOMINANT</span>';
+          }
         }
       }catch(e){}
       try{
-        if(typeof isWallTimedPost==='function'&&isWallTimedPost(p)) return '<span class="nf-cat-badge cat-extend">EXTEND</span>';
+        if(typeof isWallTimedPost==='function'&&isWallTimedPost(p)) return '<span class="nf-cat-badge cat-extend">EXTENDED</span>';
       }catch(e){}
       try{
         if((typeof isVideoPost==='function'&&isVideoPost(p))||p._kind==='video') return '<span class="nf-cat-badge cat-video">VIDEO</span>';
@@ -21813,6 +22020,29 @@ function pendingRouletteTasks(){
       var title=String(p.title||'').toLowerCase();
       return title.indexOf('published pea')>=0||title.indexOf('published id')>=0||title==='pea'||title.indexOf('pea ')===0;
     }
+    function isPeaPost(p){
+      if(!p)return false;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0) return true;
+      var title=String(p.title||'').toLowerCase();
+      return title.indexOf('published pea')>=0||title==='pea'||title.indexOf('pea ')===0;
+    }
+    function isIdPost(p){
+      if(!p)return false;
+      if(isPeaPost(p)) return false;
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      if(tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0) return true;
+      var title=String(p.title||'').toLowerCase();
+      return title.indexOf('published id')>=0||title.indexOf('id card')>=0;
+    }
+    window.isPeaPost=isPeaPost;
+    window.isIdPost=isIdPost;
     function wallDayKey(){
       var d=new Date();
       return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -21958,17 +22188,25 @@ function pendingRouletteTasks(){
           localStorage.setItem('rs_wall_filter','all');
           localStorage.setItem('rs_wall_unified_v1','1');
         }
+        // v2 primary chips: All / Posts / Games / Extended
+        if(!localStorage.getItem('rs_wall_filters_v2')){
+          localStorage.setItem('rs_wall_filters_v2','1');
+          localStorage.setItem('rs_wall_filter','all');
+        }
+        // v3: ALL · GAMES · ID · PEA · REGULAR POSTS · TIMED POSTS
+        if(!localStorage.getItem('rs_wall_filters_v3')){
+          localStorage.setItem('rs_wall_filters_v3','1');
+          localStorage.setItem('rs_wall_filter','all');
+        }
         var f=localStorage.getItem('rs_wall_filter')||'all';
-        if(f==='post') f='normal';
-        if(f==='extend'||f==='extend_post') f='timed';
-        // Roulette tab renamed/expanded to Tasks (all game proofs).
-        if(f==='roulette') f='tasks';
-        // Drop retired Wall tabs (Moment / Trending / Following / New / For You).
-        if(['trending','following','new','foryou','moment'].indexOf(f)>=0) f='all';
-        if(f==='tasks'||f==='roulette') f='games';
-        if(f==='generated') f='id';
-        if(['all','games','id','pea','normal','timed','tasks','dominants','generated','text'].indexOf(f)<0) f='all';
-        if(['tasks','dominants','generated','text'].indexOf(f)>=0) f=(f==='tasks'?'games':(f==='generated'?'id':'all'));
+        if(f==='post'||f==='posts'||f==='regular'||f==='regular_posts') f='normal';
+        if(f==='extend'||f==='extend_post'||f==='extended'||f==='timed_posts') f='timed';
+        // Games = former Tasks / Roulette proofs.
+        if(f==='roulette'||f==='games') f='tasks';
+        if(f==='generated') f='all';
+        // Secondary destinations moved to Explore — collapse to All.
+        if(['trending','following','new','foryou','moment','dominants','text'].indexOf(f)>=0) f='all';
+        if(['all','tasks','id','pea','normal','timed'].indexOf(f)<0) f='all';
         localStorage.setItem('rs_wall_filter',f);
         return f;
       }catch(e){return'all'}
@@ -22002,12 +22240,12 @@ function pendingRouletteTasks(){
     }
     function setWallFilter(f){
       f=String(f||'all');
-      // Wall sections: All Posts (unified) + specialized filters (Tasks / Post / Extend / …)
-      var allowed=['all','games','id','pea','normal','timed'];
-      if(f==='post') f='normal';
-      if(f==='extend' || f==='extend_post') f='timed';
-      if(f==='roulette'||f==='tasks') f='games';
-      if(f==='generated') f='id';
+      // Primary All Posts chips: ALL / GAMES / ID / PEA / REGULAR POSTS / TIMED POSTS
+      var allowed=['all','tasks','id','pea','normal','timed'];
+      if(f==='post'||f==='posts'||f==='regular'||f==='regular_posts') f='normal';
+      if(f==='extend' || f==='extend_post' || f==='extended' || f==='timed_posts') f='timed';
+      if(f==='roulette'||f==='games') f='tasks';
+      if(f==='generated') f='all';
       if(['trending','following','new','foryou','moment','dominants','text'].indexOf(f)>=0) f='all';
       if(allowed.indexOf(f)<0) f='all';
       wallFilter=f;
@@ -22021,13 +22259,17 @@ function pendingRouletteTasks(){
         var box=document.getElementById('explore-normal-posts');
         if(box){
           box.classList.toggle('wall-ids-mode', f==='id'||f==='pea'||f==='generated');
-          box.classList.toggle('wall-text-mode', f==='text');
-          box.classList.toggle('wall-roulette-mode', f==='games'||f==='tasks');
-          box.classList.toggle('wall-tasks-mode', f==='games'||f==='tasks');
+          box.classList.toggle('wall-text-mode', false);
+          box.classList.toggle('wall-roulette-mode', f==='tasks');
+          box.classList.toggle('wall-tasks-mode', f==='tasks');
         }
+        var wrap=document.getElementById('explore-normal-wrap');
+        if(wrap) wrap.classList.remove('wall-dominants-mode');
+        var soon=document.getElementById('wall-dominants-soon');
+        if(soon){soon.hidden=true;soon.classList.remove('is-on')}
         var cta=document.getElementById('wall-tasks-cta')||document.getElementById('wall-roulette-cta');
         if(cta){
-          if(f==='games'||f==='tasks'){cta.style.display='block';cta.classList.add('is-on')}
+          if(f==='tasks'){cta.style.display='block';cta.classList.add('is-on')}
           else{cta.style.display='none';cta.classList.remove('is-on')}
         }
       }catch(e){}
@@ -22036,10 +22278,6 @@ function pendingRouletteTasks(){
       window.__wallPaintSig='';
       window.__wallPaintIds='';
       try{cancelFeedScrollRestore()}catch(e){}
-      if(f==='dominants'){
-        window.__lastWallListLen=0;
-        return;
-      }
       renderNormalFeed({force:true});
       // Soft top-up in background if this slice looks thin
       try{
@@ -22049,7 +22287,7 @@ function pendingRouletteTasks(){
     }
     window.setWallFilter=setWallFilter;
     function syncWallDominantsMode(){
-      var on=false;
+      var on=wallFilter==='dominants';
       var wrap=document.getElementById('explore-normal-wrap');
       if(wrap) wrap.classList.toggle('wall-dominants-mode', on);
       var soon=document.getElementById('wall-dominants-soon');
@@ -22068,14 +22306,14 @@ function pendingRouletteTasks(){
       try{
         var box=document.getElementById('explore-normal-posts');
         if(box){
-          box.classList.toggle('wall-ids-mode', wallFilter==='id'||wallFilter==='pea'||wallFilter==='generated');
+          box.classList.toggle('wall-ids-mode', wallFilter==='generated');
           box.classList.toggle('wall-text-mode', wallFilter==='text');
-          box.classList.toggle('wall-roulette-mode', wallFilter==='games'||wallFilter==='tasks');
-          box.classList.toggle('wall-tasks-mode', wallFilter==='games'||wallFilter==='tasks');
+          box.classList.toggle('wall-roulette-mode', wallFilter==='tasks');
+          box.classList.toggle('wall-tasks-mode', wallFilter==='tasks');
         }
         var cta=document.getElementById('wall-tasks-cta')||document.getElementById('wall-roulette-cta');
         if(cta){
-          if(wallFilter==='games'||wallFilter==='tasks'){cta.style.display='block';cta.classList.add('is-on')}
+          if(wallFilter==='tasks'){cta.style.display='block';cta.classList.add('is-on')}
           else{cta.style.display='none';cta.classList.remove('is-on')}
         }
         syncWallDominantsMode();
@@ -22217,57 +22455,38 @@ function pendingRouletteTasks(){
       if(tg.indexOf('video')>=0||tg.indexOf('goontok')>=0) return false;
       return true;
     }
-    function isWallIdPost(p){
-      if(!p||typeof isPeaOrIdPost!=='function'||!isPeaOrIdPost(p)) return false;
-      var tg=p.tags||[];
-      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-      if(!Array.isArray(tg))tg=[];
-      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
-      if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0) return false;
-      if(tg.indexOf('generated_id')>=0||tg.indexOf('idcard')>=0||tg.indexOf('id')>=0) return true;
-      var title=String(p.title||'').toLowerCase();
-      if(title.indexOf('pea')>=0) return false;
-      return title.indexOf('published id')>=0||title==='id'||title.indexOf('id card')>=0;
-    }
-    function isWallPeaPost(p){
-      if(!p||typeof isPeaOrIdPost!=='function'||!isPeaOrIdPost(p)) return false;
-      var tg=p.tags||[];
-      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-      if(!Array.isArray(tg))tg=[];
-      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
-      if(tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0) return true;
-      var title=String(p.title||'').toLowerCase();
-      return title.indexOf('published pea')>=0||title==='pea'||title.indexOf('pea ')===0;
-    }
-    window.isWallIdPost=isWallIdPost;
-    window.isWallPeaPost=isWallPeaPost;
     function matchesWallFilter(p, filter){
       filter=filter||wallFilter||'all';
-      if(filter==='roulette'||filter==='tasks') filter='games';
-      if(filter==='generated') filter='id';
-      // Dominants is a coming-soon section — no feed posts yet.
+      if(filter==='roulette'||filter==='games') filter='tasks';
+      if(filter==='posts'||filter==='post'||filter==='regular'||filter==='regular_posts') filter='normal';
+      if(filter==='extended'||filter==='extend'||filter==='extend_post'||filter==='timed_posts') filter='timed';
+      // Dominants coming-soon — not a live filter.
       if(filter==='dominants') return false;
       // All Posts = one continuous community feed of every publication type (no record copies).
       if(filter==='all') return !!(typeof isWallUnifiedPost==='function'?isWallUnifiedPost(p):true);
-      // GAMES = Roulette · Dice · Tic-Tac-Toe proofs
-      if(filter==='games') return !!(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p));
-      // Specialized chips stay exclusive so they don't fragment the main All Posts feed.
-      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return false;
-      // Timed exposures belong in TIMED POSTS — never duplicate into other specialized tabs.
+      // Games = Roulette / Dice / Tic-Tac-Toe / Challenges proofs.
+      if(filter==='tasks') return !!(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p));
+      // ID / PEA — original generated categories (not duplicated records).
+      if(filter==='id') return !!(typeof isIdPost==='function'&&isIdPost(p));
+      if(filter==='pea') return !!(typeof isPeaPost==='function'&&isPeaPost(p));
+      // Timed posts = active duration window (distinct from the EXTENDED destination).
       if(filter==='timed') return isWallTimedPost(p);
+      // Regular posts = community posts that are not timed / games / ID / PEA.
+      if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return false;
       if(isWallTimedPost(p)) return false;
-      if(filter==='id') return isWallIdPost(p);
-      if(filter==='pea') return isWallPeaPost(p);
-      // Keep GoonTok catalog clips out of permanent Wall tabs.
-      if(!isWallNativePost(p) && filter!=='id' && filter!=='pea') return false;
+      if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)){
+        if(filter==='generated') return true;
+        return false;
+      }
+      if(filter==='generated') return false;
+      if(!isWallNativePost(p) && filter!=='generated') return false;
       if(filter==='text') return isWallTextPost(p);
-      if(filter==='normal') return isWallNormalPost(p);
+      if(filter==='normal') return isWallNormalPost(p) || isWallTextPost(p);
       if(filter==='following') return isWallFollowingPost(p);
       if(filter==='new') return isWallNewPost(p);
       if(filter==='foryou') return isWallForYouPost(p);
       if(filter==='trending') return isWallTrendingPost(p);
-      // Legacy moment → permanent Wall board without game tasks / timers
-      return isWallNormalPost(p) || (!!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p))) || isWallTextPost(p);
+      return isWallNormalPost(p) || isWallTextPost(p);
     }
     function wallInteractionScore(p){
       // Recent engagement window (~7d) for Most Interaction sort.
@@ -22310,7 +22529,10 @@ function pendingRouletteTasks(){
           if(title.indexOf('PIN REQUEST')===0||title.indexOf('PRINT REQUEST')===0) return false;
         }catch(e){}
         if(!matchesWallFilter(p, wallFilter)) return false;
-        if(wallTopicFilter && !postMatchesTopic(p, wallTopicFilter)) return false;
+        try{
+          var topicId=window.__wallTopicFilter||'';
+          if(topicId && typeof postMatchesTopic==='function' && !postMatchesTopic(p, topicId)) return false;
+        }catch(e){}
         return true;
       });
       var sortByCreated=function(a,b){return (Number(b.created)||0)-(Number(a.created)||0)};
@@ -22407,7 +22629,7 @@ function pendingRouletteTasks(){
         });
         window.__wallVisible=next;
         try{
-          var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||''), String(wallTopicFilter||'')].join('|');
+          var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||''), String(window.__wallTopicFilter||'')].join('|');
           var paintIds=list.slice(0,next).map(function(p){return String(p&&p.id)}).join(',');
           window.__wallPaintIds=paintIds;
           window.__wallPaintSig=wallSig+'#'+paintIds+'#'+next;
@@ -22451,7 +22673,7 @@ function pendingRouletteTasks(){
       var list=buildWallFilteredList();
       window.__wallRest=list;
       window.__lastWallListLen=list.length;
-      var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||''), String(wallTopicFilter||'')].join('|');
+      var wallSig=[String(wallFilter||'all'), String(wallSortMode||'recent'), String(normalFeedQuery||''), String(window.__wallTopicFilter||'')].join('|');
       var sigChanged=window.__wallSig!==wallSig;
       if(sigChanged){
         window.__wallSig=wallSig;
@@ -22478,15 +22700,17 @@ function pendingRouletteTasks(){
         following:'Follow creators to fill this feed.',
         new:'No new posts in the last 72h.',
         moment:'Nothing on the wall yet. Post something.',
-        all:'Nothing on the wall yet. Publish a post, extend, or game proof.',
-        normal:'No posts yet. Publish without a timer — Hot🔥 boosts them.',
-        timed:'No Extend posts live right now.',
+        all:'Nothing in All Posts yet. Publish a post, extend, or game proof.',
+        normal:'No regular posts yet.',
+        timed:'No timed posts live right now.',
+        id:'No ID publications yet.',
+        pea:'No PEA publications yet.',
         generated:'No generated IDs / PEAs yet.',
-        tasks:'No game tasks yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
-        roulette:'No game tasks yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
+        tasks:'No game publications yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
+        roulette:'No game publications yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
         text:'No text posts yet.'
       };
-      var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing on the wall yet.')+'</div>';
+      var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing in All Posts yet.')+'</div>';
       var box=wallActiveBox();
       var hasCards=!!(box&&box.querySelector('article.normal-feed-post'));
       // Soft paint: same filter/sort + same painted ids → patch in place, never remount.
@@ -24117,6 +24341,7 @@ function pendingRouletteTasks(){
           }
         }catch(e){}
         renderNormalFeed({keepVisible:keepVisible});
+        try{renderWallTopics()}catch(e){}
         try{prefetchAvatars(normalFeedPosts.slice(0,window.__wallVisible||8)).then(function(){try{paintAvatarsInDom()}catch(e){}})}catch(e){}
         if(!more && !quiet){
           // Background SB merge + wider CF enrich — do not block first paint.
@@ -24258,65 +24483,19 @@ function pendingRouletteTasks(){
     window.openNormalPostComposer=openNormalPostComposer;
     window.openExtendPostComposer=openExtendPostComposer;
 
-    function currentFeedTab(){
-      try{return localStorage.getItem('rs_feed_tab')||'extended'}catch(e){return'extended'}
-    }
-    function setFeedTab(mode, opts){
-      opts=opts||{};
-      mode=String(mode||'extended');
-      if(mode==='normal'||mode==='wall'||mode==='allposts'||mode==='all-posts') mode='all';
-      if(mode!=='all') mode='extended';
-      try{localStorage.setItem('rs_feed_tab',mode)}catch(e){}
-      var panel=document.getElementById('panel-feed');
-      var tabs=document.getElementById('feed-mode-tabs');
-      var ext=document.getElementById('feed-extended-pane');
-      var all=document.getElementById('feed-all-posts-pane');
-      if(tabs){
-        tabs.querySelectorAll('[data-feed-mode]').forEach(function(b){
-          var on=b.getAttribute('data-feed-mode')===mode;
-          b.classList.toggle('active',on);
-          b.setAttribute('aria-selected',on?'true':'false');
-        });
-      }
-      if(panel){
-        panel.classList.toggle('normal-mode', mode==='all');
-        panel.classList.toggle('feed-all-mode', mode==='all');
-        panel.classList.toggle('feed-extended-mode', mode==='extended');
-      }
-      if(ext){
-        ext.style.display=mode==='extended'?'':'none';
-        if(mode==='extended') ext.removeAttribute('hidden'); else ext.setAttribute('hidden','');
-      }
-      if(all){
-        all.style.display=mode==='all'?'':'none';
-        if(mode==='all') all.removeAttribute('hidden'); else all.setAttribute('hidden','');
-      }
-      if(mode==='all'){
-        try{refreshWallSection({force:!!opts.forceRefresh})}catch(e){try{loadNormalFeed()}catch(e2){}}
-        try{syncWallTopicBanner()}catch(e){}
-      }else if(!opts.skipLoad){
-        try{loadPosts()}catch(e){}
-      }
-      try{
-        if(!opts.keepRoute){
-          setPanelRoute(mode==='all'?'wall':'feed');
-        }
-      }catch(e){}
-    }
     function setGlobalFeedMode(mode){
-      if(mode==='normal') setFeedTab('all');
-      else setFeedTab(mode==='all'?'all':'extended');
+      if(mode==='normal'||mode==='all'){
+        try{openFeedAllPosts()}catch(e){
+          try{showPanel('wall')}catch(e2){}
+          try{loadNormalFeed()}catch(e3){}
+        }
+        return;
+      }
+      try{openFeedExtended()}catch(e){
+        try{showPanel('feed')}catch(e2){}
+        try{loadPosts()}catch(e3){}
+      }
     }
-    function openFeedAllPosts(opts){
-      opts=opts||{};
-      if(!opts.keepTopic){ try{clearWallTopic({silent:true})}catch(e){} }
-      setFeedTab('all',{forceRefresh:!!opts.forceRefresh});
-      showPanel('feed',{keepScroll:!!opts.keepScroll,forceRefresh:!!opts.forceRefresh});
-    }
-    window.setFeedTab=setFeedTab;
-    window.setGlobalFeedMode=setGlobalFeedMode;
-    window.openFeedAllPosts=openFeedAllPosts;
-    window.currentFeedTab=currentFeedTab;
 
 
     function readPostCache(key){
@@ -25183,44 +25362,94 @@ function pendingRouletteTasks(){
         +'<div class="npp-stats"><span>👀 '+displayViews(p.views||0)+'</span><span>❤️ '+(p.likes||0)+'</span></div>'
         +'</article>';
     }
+    // Profile-only photo albums (not Wall / Extend / games / IDs). Kept as a secondary strip.
+    function isPureProfileGalleryPost(p){
+      if(!p)return false;
+      try{if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)) return false}catch(e){}
+      try{if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return false}catch(e){}
+      try{if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)) return false}catch(e){}
+      try{if(typeof isWallTimedPost==='function'&&isWallTimedPost(p)) return false}catch(e){}
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      var gal=tg.indexOf('profile_gallery')>=0||tg.indexOf('profile_only')>=0;
+      if(!gal) return false;
+      // Wall-composed permanent posts keep normal_feed and belong in publication history.
+      if(tg.indexOf('normal_feed')>=0) return false;
+      return true;
+    }
+    function mergeProfilePublicationSources(primary, extras){
+      var list=[];
+      try{list=(typeof dedupePostList==='function'?dedupePostList:function(a){return a||[]})([].concat(primary||[]).concat(extras||[]))}catch(e){list=(primary||[]).concat(extras||[])}
+      return (list||[]).filter(function(p){
+        if(!p||p.id==null) return false;
+        try{if(typeof isDeletedId==='function'&&isDeletedId(p.id)) return false}catch(e){}
+        try{if(typeof profileMediaOk==='function'&&!profileMediaOk(p)) return false}catch(e){}
+        return true;
+      });
+    }
+    // Complete publication history for a profile — same records as global feeds (no copies).
+    function profilePublicationsHtml(items, opts){
+      opts=opts||{};
+      var mine=!!opts.mine;
+      var list=mergeProfilePublicationSources(items, []);
+      try{
+        list.sort(function(a,b){
+          var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
+          var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
+          if(bf!==af) return bf-af;
+          return (Number(b.created)||0)-(Number(a.created)||0);
+        });
+      }catch(e){}
+      var history=list.filter(function(p){return !isPureProfileGalleryPost(p)});
+      var galleryOnly=list.filter(isPureProfileGalleryPost);
+      if(!history.length && !galleryOnly.length){
+        return '<div class="gallery-empty">'+(opts.empty||'No publications yet')+'</div>';
+      }
+      var html='';
+      if(history.length){
+        html+='<div class="gallery-section" style="border-top:0;padding-top:0;margin-top:4px">'
+          +'<div class="gallery-head"><h3>Publications</h3><span class="gallery-count">'+history.length+'</span></div>'
+          +'<div class="user-posts-grid">'+history.map(function(p){
+            try{return postCardHtml(p,true)}catch(e){return ''}
+          }).filter(Boolean).join('')+'</div></div>';
+      }
+      if(galleryOnly.length){
+        html+='<div style="font-size:12px;color:var(--muted);margin:14px 0 8px;font-weight:700">PROFILE PHOTOS</div>';
+        html+='<div class="profile-gallery-feed">'+galleryOnly.map(function(pp){
+          try{
+            if(typeof isVideoPost==='function'&&isVideoPost(pp)) return postCardHtml(pp,true);
+            return profileGalleryPostHtml(pp, mine);
+          }catch(e){return ''}
+        }).filter(Boolean).join('')+'</div>';
+      }
+      return html;
+    }
+    window.isPureProfileGalleryPost=isPureProfileGalleryPost;
+    window.profilePublicationsHtml=profilePublicationsHtml;
     function setProfileFeedView(view){
-      view=view==='normal'?'normal':'extended';
-      window.__profileFeedView=view;
+      // Profiles always show complete publication history (all types). Legacy
+      // Extended/Wall tabs stay hidden; keep the API for callers.
+      view=view==='normal'?'normal':(view==='all'?'all':'extended');
+      window.__profileFeedView='all';
       document.querySelectorAll('#profile-feed-tabs .profile-feed-tab').forEach(function(b){
-        b.classList.toggle('active',b.getAttribute('data-profile-view')===view);
+        b.classList.toggle('active', false);
       });
       var box=document.getElementById('user-posts');
       if(!box)return;
       var gallery=window.__profileGalleryItems||[];
-      if(view==='normal'){
-        var normal=gallery.filter(function(p){return profileViewIsNormal(p) && (typeof profileMediaOk!=="function" || profileMediaOk(p))});
-        box.innerHTML=normal.length
-          ? '<div class="profile-normal-feed">'+normal.map(normalProfilePostHtml).join('')+'</div>'
-          : '<div class="gallery-empty">Nothing on the wall yet</div>';
-      }else{
-        var extended=gallery.filter(function(p){
-          var tg=p.tags||[];if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-          var isCard=tg.indexOf('generated_id')>=0||tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('idcard')>=0;
-          return (isCard || !profileViewIsNormal(p)) && (typeof profileMediaOk!=="function" || profileMediaOk(p));
-        });
-        try{
-          extended.sort(function(a,b){
-            var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
-            var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
-            if(bf!==af) return bf-af;
-            return (Number(b.created)||0)-(Number(a.created)||0);
-          });
-        }catch(e){}
-        box.innerHTML=extended.length
-          ? '<div class="user-posts-grid">'+extended.map(function(p){return postCardHtml(p,true)}).join('')+'</div>'
-          : '<div class="gallery-empty">No extended posts yet</div>';
-      }
+      var uname=viewingUser||'';
+      var mine=false;
+      try{mine=!!(currentUser&&currentUser.name&&accountNamesMatch(uname, currentUser.name))}catch(e){}
+      box.innerHTML=profilePublicationsHtml(gallery,{mine:mine});
+      try{setupProfileGallerySwipes()}catch(e){}
     }
     function setupProfileFeedTabs(){
       document.querySelectorAll('#profile-feed-tabs .profile-feed-tab').forEach(function(b){
         if(b.__wired)return;
         b.__wired=true;
-        b.onclick=function(){setProfileFeedView(b.getAttribute('data-profile-view')||'extended')};
+        b.onclick=function(){setProfileFeedView('all')};
       });
     }
 
@@ -28530,9 +28759,12 @@ function postCardHtml(p, compact){
       }
       var perma=(typeof postPath==='function'?postPath(p.id):('/post/'+encodeURIComponent(String(p.id))));
       var titleLink='<a class="post-permalink" href="'+esc(perma)+'" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')">'+esc(p.title)+'</a>';
-      var gameBadge='';
-      try{gameBadge=typeof gameOriginBadgeHtml==='function'?gameOriginBadgeHtml(p):''}catch(e){}
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+gameBadge+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes','<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>')+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
+      var typeBadge='';
+      try{
+        if(typeof wallCategoryBadgeHtml==='function') typeBadge=wallCategoryBadgeHtml(p)||'';
+        if(!typeBadge && typeof gameOriginBadgeHtml==='function') typeBadge=gameOriginBadgeHtml(p)||'';
+      }catch(e){}
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+typeBadge+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes','<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>')+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
     }
     
     function featCarouselGo(to, smooth){
@@ -29525,7 +29757,7 @@ function postCardHtml(p, compact){
       var acts='<div class="dx-actions">'
         +extLed
         +'<button class="dx-row'+(mineR?' on':'')+'" type="button" onclick="quickLike('+jsId(post.id)+',event)">'+(mineR||'❤️')+' '+(mineR?'Liked':'Like')+'</button>'
-        + (detailIsVideo?'':('<button class="dx-row" type="button" onclick="downloadPost('+jsId(post.id)+')">Download</button>'))
+        +'<button class="dx-row" type="button" onclick="downloadPost('+jsId(post.id)+')">Download</button>'
         +'<button class="dx-row dx-share" type="button" onclick="sharePost('+jsId(post.id)+')"><span class="share-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.3 10.8 7.4-4"/><path d="m8.3 13.2 7.4 4"/></svg></span>Share</button>'
         +'<button class="dx-row" type="button" onclick="toggleSave('+jsId(post.id)+')">'+(isSaved(post.id)?'Saved':'Save')+'</button>'
         +'<button class="dx-pin" type="button" onclick="requestPinAction('+jsId(post.id)+')"><b>Pin</b><i>10 Coins · 48h</i></button>'
@@ -29657,7 +29889,7 @@ function postCardHtml(p, compact){
       var can=isRegistered()&&currentUser&&currentUser.name&&!accountNamesMatch(username, currentUser.name);
       if(fb){fb.style.display=can?'inline-block':'none';fb.textContent='Follow'}
       if(mb) mb.style.display=can?'inline-block':'none';
-      window.__profileFeedView='extended';
+      window.__profileFeedView='all';
       // Paint-first: leave search immediately; never await network before showPanel.
       showPanel('user');
       try{setPanelRoute('user',{extra:username,replace:true})}catch(e){}
@@ -29774,7 +30006,6 @@ function postCardHtml(p, compact){
         if(!gallery.length) gallery=(ups||[]).filter(function(pp){return !!pp});
         window.__profileGalleryItems=gallery;
         try{setupProfileFeedTabs()}catch(e){}
-        try{setProfileFeedView(window.__profileFeedView||'extended')}catch(e){}
         if(gCount) gCount.textContent=gallery.length?(gallery.length+' posts'):'';
         try{paintJoinedDate('user-joined', p, gallery)}catch(eJ2){}
         if(statsEl){
@@ -29790,38 +30021,14 @@ function postCardHtml(p, compact){
           if(!gallery.length){
             upBox.innerHTML=galleryTimedOut
               ? '<div class="gallery-empty">Couldn’t load posts. <button type="button" class="btn btn-ghost btn-sm" onclick="openUser(\''+String(username).replace(/'/g,'')+'\')">Retry</button></div>'
-              : '<div class="gallery-empty">No photos yet</div>';
+              : '<div class="gallery-empty">No publications yet</div>';
           }else{
-            function isProfileGal(pp){
-              return isProfileOnly(pp);
-            }
-            var feedG=gallery.filter(function(pp){return !isProfileGal(pp)});
-            var profG=gallery.filter(isProfileGal);
-            try{
-              feedG.sort(function(a,b){
-                var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
-                var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
-                if(bf!==af) return bf-af;
-                return (Number(b.created)||0)-(Number(a.created)||0);
-              });
-            }catch(e){}
-            var html='';
-            if(feedG.length){
-              var pinnedN=0;
-              try{feedG.forEach(function(pp){if(typeof isFeatured==='function'&&isFeatured(pp))pinnedN++})}catch(e){}
-              html+='<div style="font-size:12px;color:var(--muted);margin:0 0 8px;font-weight:700">'+(pinnedN?'PINNED · ':'')+'ACTIVE EXPOSURES</div>';
-              html+='<div class="user-posts-grid">'+feedG.map(function(pp){return postCardHtml(pp,true)}).join('')+'</div>';
-            }
-            if(profG.length){
-              html+='<div style="font-size:12px;color:var(--muted);margin:14px 0 8px;font-weight:700">PROFILE GALLERY</div>';
-              html+='<div class="profile-gallery-feed">'+profG.map(function(pp){
-                if(typeof isVideoPost==='function' && isVideoPost(pp)) return postCardHtml(pp,true);
-                var mine=false;
-                try{mine=!!(currentUser&&currentUser.name&&accountNamesMatch(username, currentUser.name))}catch(eM){}
-                return profileGalleryPostHtml(pp, mine);
-              }).join('')+'</div>';
-            }
-            upBox.innerHTML=html||'<div class="gallery-empty">No photos yet</div>';
+            var mineProf=false;
+            try{mineProf=!!(currentUser&&currentUser.name&&accountNamesMatch(username, currentUser.name))}catch(eM){}
+            // One continuous publication history — regular / games / extend / IDs / etc.
+            upBox.innerHTML=typeof profilePublicationsHtml==='function'
+              ? profilePublicationsHtml(gallery,{mine:mineProf,empty:'No publications yet'})
+              : '<div class="user-posts-grid">'+gallery.map(function(pp){return postCardHtml(pp,true)}).join('')+'</div>';
             try{setupProfileGallerySwipes()}catch(e){}
           }
         }
@@ -30641,7 +30848,7 @@ async function onIdFace(e){
             try{if(typeof renderNormalFeed==='function')renderNormalFeed()}catch(e){}
             try{if(typeof renderWallHot==='function')renderWallHot()}catch(e){}
             try{
-              openFeedAllPosts();
+              showPanel('wall');
               setTimeout(function(){
                 try{renderNormalFeed()}catch(e){}
                 try{if(row&&row.id&&typeof openDetail==='function')openDetail(row.id)}catch(e){}
@@ -30830,7 +31037,7 @@ async function onIdFace(e){
       // Keep scroll-safe taps from setupTaskUI — do not replace with raw onclick
       var bId2=document.getElementById('btn-explore-idcard');if(bId2&&!bId2.__rsTapSafe)bId2.onclick=function(){openIdCard('id')};
       var bPea=document.getElementById('btn-explore-pea');if(bPea&&!bPea.__rsTapSafe)bPea.onclick=function(){openIdCard('pea')};
-      var bIdBack=document.getElementById('btn-idcard-back');if(bIdBack)bIdBack.onclick=function(){openFeedAllPosts()};
+      var bIdBack=document.getElementById('btn-idcard-back');if(bIdBack)bIdBack.onclick=function(){showPanel('wall')};
       var bIdFace=document.getElementById('id-face');if(bIdFace)bIdFace.onchange=onIdFace;
       var bIdBody=document.getElementById('id-body');if(bIdBody)bIdBody.onchange=onIdBody;
       var bIdRen=document.getElementById('btn-id-render');if(bIdRen)bIdRen.onclick=renderIdCard;
@@ -31456,7 +31663,7 @@ async function onIdFace(e){
         }catch(e){}
         if(isGameTaskPub||isRoulettePub){
           try{setExposurePostMode()}catch(e){}
-          try{openFeedAllPosts();setWallFilter('games');loadNormalFeed()}catch(e){}
+          try{showPanel('wall');setWallFilter('tasks');loadNormalFeed()}catch(e){}
           return;
         }
         if(profileMode){
@@ -31466,7 +31673,7 @@ async function onIdFace(e){
           try{updateProfilePanel()}catch(e){}
           try{loadMyGallery()}catch(e){}
           if(fromNormal){
-            try{openFeedAllPosts()}catch(e){}
+            try{showPanel('wall')}catch(e){}
             try{loadNormalFeed()}catch(e){}
             toast('Posted on the wall');
           }else{
@@ -32388,7 +32595,7 @@ async function onIdFace(e){
       window.__profileMediaFilter=mode||'all';
       document.querySelectorAll('#prof-media-tabs button').forEach(function(b){b.classList.toggle('on', b===btn)});
       try{if(typeof renderUserPosts==='function') renderUserPosts()}catch(e){}
-      try{if(typeof setProfileFeedView==='function') setProfileFeedView(window.__profileFeedView||'extended')}catch(e){}
+      try{if(typeof setProfileFeedView==='function') setProfileFeedView('all')}catch(e){}
     }
     window.setProfileMediaFilter=setProfileMediaFilter;
     function profileMediaOk(p){
@@ -39794,53 +40001,55 @@ window.closeRuinedCommunity=function(){
         try{openNormalPostComposer()}catch(e){console.warn(e)}
       });
     }
-    // Explore search stays independent — do NOT drive All Posts query.
-  }
-  function initFeedModeTabs(){
-    var tabs=document.getElementById('feed-mode-tabs');
-    if(tabs && !tabs.dataset.ready){
-      tabs.dataset.ready='1';
-      tabs.querySelectorAll('[data-feed-mode]').forEach(function(btn){
-        btn.addEventListener('click',function(){
-          var mode=btn.getAttribute('data-feed-mode')||'extended';
-          try{setFeedTab(mode)}catch(e){try{setGlobalFeedMode(mode)}catch(e2){}}
-          try{
-            var panel=document.getElementById('panel-feed');
-            if(panel && !panel.classList.contains('active')) showPanel('feed',{feedTab:mode});
-          }catch(e){}
-        });
-      });
-    }
-    var search=document.getElementById('all-posts-search');
-    if(search && !search.dataset.bound){
-      search.dataset.bound='1';
-      var apply=function(){
+    var q=document.getElementById('search-q');
+    if(q && !q.dataset.nfBound){
+      q.dataset.nfBound='1';
+      q.addEventListener('input',function(){
         try{
-          normalFeedQuery=search.value||'';
-          window.__wallVisible=12;
-          window.__wallPaintSig='';
-          renderNormalFeed({force:true});
+          normalFeedQuery=q.value||'';
+          renderNormalFeed();
         }catch(e){}
-      };
-      search.addEventListener('input',apply);
-      search.addEventListener('keydown',function(e){
-        if(e.key==='Enter'){e.preventDefault();apply()}
       });
     }
-    try{
-      var tab=(typeof currentFeedTab==='function'?currentFeedTab():'extended');
-      if(typeof setFeedTab==='function') setFeedTab(tab,{keepRoute:true,skipLoad:true});
-      if(typeof syncWallTopicBanner==='function') syncWallTopicBanner();
-    }catch(e){}
   }
-  function bootFeedExploreUI(){
-    bindExploreNormal();
-    initFeedModeTabs();
-    try{renderExploreCommunities()}catch(e){}
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootFeedExploreUI);
-  else bootFeedExploreUI();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindExploreNormal);
+  else bindExploreNormal();
 })();
 </script>
 
 </html>
+
+
+<script>
+(function(){
+  function initGlobalFeedSwitch(){
+    var wrap=document.getElementById('global-feed-switch');
+    if(!wrap || wrap.dataset.ready)return;
+    wrap.dataset.ready='1';
+    wrap.querySelectorAll('button').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        setGlobalFeedMode(btn.getAttribute('data-feed-mode')||'extended');
+      });
+    });
+    var create=document.getElementById('btn-create-normal-post');
+    if(create)create.addEventListener('click',openNormalPostComposer);
+    var search=document.getElementById('normal-feed-search');
+    var searchBtn=document.getElementById('btn-normal-feed-search');
+    if(search){
+      search.addEventListener('input',function(){
+        normalFeedQuery=search.value||'';
+        renderNormalFeed();
+      });
+      search.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){e.preventDefault();normalFeedQuery=search.value||'';renderNormalFeed();}
+      });
+    }
+    if(searchBtn)searchBtn.addEventListener('click',function(){
+      normalFeedQuery=(search&&search.value)||'';
+      renderNormalFeed();
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initGlobalFeedSwitch);
+  else initGlobalFeedSwitch();
+})();
+</script>
