@@ -43,7 +43,9 @@ assert(html.includes('backFromDiceGame'), 'dice back returns to games');
 assert(html.includes("__gamesToolReturn='challenges'"), 'roulette/dice remember games hub');
 assert(html.includes('TRIKI · DADOS · RUIN ROULETTE') || html.includes('RUIN ROULETTE · EXPOSURE DICE · TIC-TAC-TOE'), 'promo lists three games');
 assert(html.includes("allowedGames={roulette:1,dice:1,tic_tac_toe:1}"), 'hub filters to three games');
-assert(html.includes('id="btn-open-games"'), 'Feed Games entry card');
+assert(html.includes('id="btn-open-games"'), 'legacy Feed Games hook retained');
+assert(html.includes('id="btn-explore-games"'), 'Explore Games entry card');
+assert(html.includes('id="btn-explore-roulette"') && html.includes('id="btn-explore-dice"'), 'Explore PLAY chips');
 assert(!/id="btn-open-roulette"/.test(html), 'Ruin Roulette no longer a standalone Feed card');
 
 console.log('\nExtend + Games checks passed');

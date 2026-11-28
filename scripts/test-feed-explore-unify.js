@@ -34,12 +34,16 @@ assert(html.includes('function openFeedAllPosts'), 'openFeedAllPosts helper');
 assert(html.includes('function syncFeedModeTabs') || html.includes('data-feed-tab'), 'feed tab sync');
 assert(html.includes('function syncFeedFloatVisibility'), 'floating switch visibility sync');
 assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'exactly one feed switch instance');
-// Placement: Exposure Videos → feed search (tabs float; not inline above search)
+// Phase 1: EXTENDED is content-first (tools moved to Explore)
 (function () {
   var m = html.match(/id="panel-feed"[\s\S]*?id="posts-container"/);
   assert(!!m, 'panel-feed extract for tab order');
   var b = m[0];
-  assert(b.indexOf('home-videos-wrap') < b.indexOf('feed-search-wrap'), 'Exposure Videos above feed search');
+  assert(b.indexOf('home-random-strip') >= 0 && b.indexOf('btn-go-public') >= 0, 'Stories + GO PUBLIC on EXTENDED');
+  assert(b.indexOf('feed-search-wrap') >= 0 && b.indexOf('feed-sort-row') >= 0, 'EXTENDED search + sort retained');
+  assert(b.indexOf('feed-tools-legacy') >= 0, 'legacy tool hooks hidden on Feed');
+  assert(b.indexOf('exposure-videos-entry') < 0, 'Exposure Videos chrome not on EXTENDED');
+  assert(b.indexOf('Generate ID') < 0 && b.indexOf('Get printed') < 0, 'ID/Print chrome not on EXTENDED');
   assert(b.indexOf('feed-mode-tabs') < 0 && b.indexOf('data-feed-tab') < 0, 'no inline feed tabs in panel-feed');
 })();
 
@@ -55,17 +59,20 @@ assert(html.includes('id="feed-search"'), 'EXTENDED own search');
 
 // Explore discovery hub
 assert(/Search users, content or topics/i.test(html) || /Search users/i.test(html), 'Explore search placeholder');
-assert(!html.includes('btn-explore-allposts'), 'Explore no longer links ALL POSTS card');
+assert(!html.includes('btn-explore-allposts'), 'Explore no longer links ALL POSTS hero card');
+assert(html.includes('btn-explore-browse-all') && html.includes('openFeedAllPosts'), 'soft Browse All Posts in Explore');
 assert(html.includes('btn-explore-coins-promo') && /onclick="openCoinShop\(\)"/.test(html), 'Explore → Coins promo shop');
 assert(html.includes('function openFeedAllPosts'), 'ALL POSTS still available via Feed');
-assert(html.includes('TRENDING') && (html.includes('EXPOSURE MAP') || html.includes('Exposure map')), 'Discover section');
-assert(html.includes('explore-map-card') && html.includes('Open Map'), 'Exposure Map retained');
+assert(html.includes('TRENDING') && html.includes('explore-map-card'), 'Discover + Map present');
+assert(html.includes('explore-map-card') && html.includes('Open Map'), 'Exposure Map retained in TOOLS');
 assert(/TOPICS/i.test(html), 'Topics section in Explore');
 assert(html.includes('__wallTopicFilter') || html.includes('wallTopicFilter'), 'topic filter state');
 assert(html.includes('clearWallTopic') || html.includes("__wallTopicFilter=''"), 'clearable topic filter');
 assert(/PLAY/i.test(html) && (/GAMES/i.test(html) || html.includes('openChallengesHub')), 'Play / Games');
+assert(html.includes('btn-explore-roulette') && html.includes('btn-explore-dice'), 'Explore PLAY chips');
 assert(html.includes('ID Generator') && html.includes('PEA Generator'), 'Tools generators');
 assert(html.includes('Random Video Chat'), 'More tools retained');
+assert(html.includes('btn-explore-videos'), 'Videos accessible from Explore TOOLS');
 
 // Videos: no Download in catalog cards
 assert(!/class="vid-card"[\s\S]{0,800}downloadPost/.test(html) || html.includes('vid-catalog'), 'Videos catalog path present');
