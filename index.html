@@ -3682,8 +3682,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="All Posts filters">
               <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">ALL</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="tasks" role="tab" aria-selected="false">GAMES</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="id" role="tab" aria-selected="false">ID</button>
-              <button type="button" class="wall-filter-chip" data-wall-filter="pea" role="tab" aria-selected="false">PEA</button>
+              <button type="button" class="wall-filter-chip" data-wall-filter="id_pea" role="tab" aria-selected="false">ID / PEA</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">REGULAR POSTS</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="timed" role="tab" aria-selected="false">TIMED POSTS</button>
             </div>
@@ -22703,15 +22702,24 @@ function pendingRouletteTasks(){
           localStorage.setItem('rs_wall_filters_v3','1');
           localStorage.setItem('rs_wall_filter','all');
         }
+        // v4: unify ID + PEA into one chip (ID / PEA). Preserve content; remap old keys.
+        if(!localStorage.getItem('rs_wall_filters_v4')){
+          localStorage.setItem('rs_wall_filters_v4','1');
+          try{
+            var prevF=localStorage.getItem('rs_wall_filter')||'';
+            if(prevF==='id'||prevF==='pea') localStorage.setItem('rs_wall_filter','id_pea');
+          }catch(eV4){}
+        }
         var f=localStorage.getItem('rs_wall_filter')||'all';
         if(f==='post'||f==='posts'||f==='regular'||f==='regular_posts') f='normal';
         if(f==='extend'||f==='extend_post'||f==='extended'||f==='timed_posts') f='timed';
         // Games = former Tasks / Roulette proofs.
         if(f==='roulette'||f==='games') f='tasks';
-        if(f==='generated') f='all';
+        // Legacy separate ID / PEA chips → unified filter (no content migration).
+        if(f==='id'||f==='pea'||f==='generated'||f==='idpea'||f==='ids_pea') f='id_pea';
         // Secondary destinations moved to Explore — collapse to All.
         if(['trending','following','new','foryou','moment','dominants','text'].indexOf(f)>=0) f='all';
-        if(['all','tasks','id','pea','normal','timed'].indexOf(f)<0) f='all';
+        if(['all','tasks','id_pea','normal','timed'].indexOf(f)<0) f='all';
         localStorage.setItem('rs_wall_filter',f);
         return f;
       }catch(e){return'all'}
@@ -22746,11 +22754,12 @@ function pendingRouletteTasks(){
     function setWallFilter(f){
       f=String(f||'all');
       // Primary All Posts chips: ALL / GAMES / ID / PEA / REGULAR POSTS / TIMED POSTS
-      var allowed=['all','tasks','id','pea','normal','timed'];
+      var allowed=['all','tasks','id_pea','normal','timed'];
       if(f==='post'||f==='posts'||f==='regular'||f==='regular_posts') f='normal';
       if(f==='extend' || f==='extend_post' || f==='extended' || f==='timed_posts') f='timed';
       if(f==='roulette'||f==='games') f='tasks';
-      if(f==='generated') f='all';
+      // Legacy separate ID / PEA (and old combined "generated") → unified chip.
+      if(f==='id'||f==='pea'||f==='generated'||f==='idpea'||f==='ids_pea') f='id_pea';
       if(['trending','following','new','foryou','moment','dominants','text'].indexOf(f)>=0) f='all';
       if(allowed.indexOf(f)<0) f='all';
       wallFilter=f;
@@ -22769,7 +22778,7 @@ function pendingRouletteTasks(){
       try{
         var box=document.getElementById('explore-normal-posts');
         if(box){
-          box.classList.toggle('wall-ids-mode', f==='id'||f==='pea');
+          box.classList.toggle('wall-ids-mode', f==='id_pea');
           box.classList.toggle('wall-text-mode', false);
           box.classList.toggle('wall-roulette-mode', f==='tasks');
           box.classList.toggle('wall-tasks-mode', f==='tasks');
@@ -22794,7 +22803,7 @@ function pendingRouletteTasks(){
       // so tagged rows outside the latest CF/SB window still land in All Posts.
       try{
         var n=(window.__lastWallListLen||0);
-        if((f==='id'||f==='pea'||n<8) && typeof loadNormalFeed==='function') loadNormalFeed(true);
+        if((f==='id_pea'||n<8) && typeof loadNormalFeed==='function') loadNormalFeed(true);
       }catch(e){}
     }
     window.setWallFilter=setWallFilter;
@@ -22818,8 +22827,8 @@ function pendingRouletteTasks(){
       try{
         var box=document.getElementById('explore-normal-posts');
         if(box){
-          // Keep wall-ids-mode for ID + PEA (legacy 'generated' was remapped to 'all').
-          box.classList.toggle('wall-ids-mode', wallFilter==='id'||wallFilter==='pea');
+          // Keep wall-ids-mode for the unified ID / PEA chip.
+          box.classList.toggle('wall-ids-mode', wallFilter==='id_pea');
           box.classList.toggle('wall-text-mode', wallFilter==='text');
           box.classList.toggle('wall-roulette-mode', wallFilter==='tasks');
           box.classList.toggle('wall-tasks-mode', wallFilter==='tasks');
@@ -22982,9 +22991,10 @@ function pendingRouletteTasks(){
       if(filter==='all') return !!(typeof isWallUnifiedPost==='function'?isWallUnifiedPost(p):true);
       // Games = Roulette / Dice / Tic-Tac-Toe / Challenges proofs.
       if(filter==='tasks') return !!(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p));
-      // ID / PEA — original generated categories (not duplicated records).
-      if(filter==='id') return !!(typeof isIdPost==='function'&&isIdPost(p));
-      if(filter==='pea') return !!(typeof isPeaPost==='function'&&isPeaPost(p));
+      // ID / PEA — unified filter; posts keep original ID vs PEA tags/badges.
+      if(filter==='id_pea'||filter==='id'||filter==='pea'||filter==='generated'){
+        return !!(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p));
+      }
       // Timed posts = active duration window (distinct from the EXTENDED destination).
       if(filter==='timed') return isWallTimedPost(p);
       // Regular posts = community posts that are not timed / games / ID / PEA.
@@ -31516,7 +31526,7 @@ async function onIdFace(e){
               // Land on the matching All Posts category so the new card is visible immediately.
               try{localStorage.setItem('rs_feed_tab','all')}catch(eTab){}
               try{showPanel('wall')}catch(eWall){}
-              try{setWallFilter(isPea?'pea':'id')}catch(eFilt){
+              try{setWallFilter('id_pea')}catch(eFilt){
                 try{renderNormalFeed({force:true})}catch(eRend){}
               }
               setTimeout(function(){

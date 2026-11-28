@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Restore Publish ID / Publish PEA visibility in ALL POSTS.
+ * Unified ID / PEA All Posts filter — one chip, both categories, original tags kept.
  * Guards filter matchers, wall-ids-mode sync, 2-col card classes, and CF save id check.
  */
 var fs = require('fs');
@@ -24,20 +24,22 @@ function extractFn(name) {
   return m[0];
 }
 
-// —— Static: ID/PEA chips + grid adaptations ——
-assert(html.includes('data-wall-filter="id"') && html.includes('data-wall-filter="pea"'), 'ID and PEA filter chips');
+// —— Static: unified ID / PEA chip + grid adaptations ——
+assert(html.includes('data-wall-filter="id_pea"') && html.includes('>ID / PEA<'), 'unified ID / PEA filter chip');
+assert(!html.includes('data-wall-filter="id"') && !html.includes('data-wall-filter="pea"'), 'separate ID and PEA chips removed');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'sort chips retained');
 assert(/#explore-normal-posts\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2/.test(html), '2-column All Posts grid');
 assert(html.includes('nf-id-card') && html.includes('nf-pea-card'), 'ID/PEA card classes for grid');
 assert(html.includes('article.nf-id-card .normal-feed-post-media') && html.includes('article.nf-pea-card .normal-feed-post-media'), 'ID/PEA contain CSS in 2-col grid');
-assert(html.includes("wallFilter==='id'||wallFilter==='pea'"), 'wall-ids-mode sync for id/pea');
+assert(html.includes("wallFilter==='id_pea'") || html.includes('wallFilter===\'id_pea\''), 'wall-ids-mode sync for id_pea');
 assert(!/box\.classList\.toggle\('wall-ids-mode',\s*wallFilter==='generated'\)/.test(html), 'obsolete generated-only wall-ids-mode removed');
 assert(html.includes("contains('tags',['generated_id'])") && html.includes("contains('tags',['generated_pea'])"), 'SB tag queries for ID/PEA');
 assert(html.includes('Never invent phantom cf_*') || html.includes('phantom local `cf_*`') || html.includes('cfSavedId'), 'CF save requires real id');
-assert(html.includes("setWallFilter(isPea?'pea':'id')"), 'publish lands on matching All Posts category');
+assert(html.includes("setWallFilter('id_pea')"), 'publish lands on unified ID / PEA category');
 assert(html.includes("f!=='all' && window.__wallTopicFilter"), 'topic filter cleared on category chips');
 assert(html.includes('id="panel-feed"') && html.includes('EXTENDED'), 'EXTENDED preserved');
 assert(!/CREATE TABLE/i.test(html.slice(html.indexOf('function idCardShareHere'), html.indexOf('function idCardShareHere') + 4000)), 'publish path does not recreate tables');
+assert(html.includes('rs_wall_filters_v4'), 'filters v4 migration remaps id/pea → id_pea');
 
 // —— Logic: matchers ——
 var sandbox = {
@@ -91,15 +93,22 @@ assert(sandbox.isIdPost(samples[2]) && !sandbox.isPeaPost(samples[2]), 'modern I
 assert(sandbox.isPeaPost(samples[3]) && !sandbox.isIdPost(samples[3]), 'PEA tags match PEA only');
 assert(sandbox.isIdPost(samples[4]), 'legacy bare tag id matches ID filter');
 assert(sandbox.isIdPost(samples[5]), 'idcard-only matches ID filter');
-assert(sandbox.matchesWallFilter(samples[2], 'id') && sandbox.matchesWallFilter(samples[4], 'id') && sandbox.matchesWallFilter(samples[5], 'id'), 'ID filter includes modern + legacy');
-assert(sandbox.matchesWallFilter(samples[3], 'pea') && !sandbox.matchesWallFilter(samples[2], 'pea'), 'PEA filter exclusivity');
+assert(sandbox.matchesWallFilter(samples[2], 'id_pea') && sandbox.matchesWallFilter(samples[3], 'id_pea'), 'unified filter includes ID and PEA');
+assert(sandbox.matchesWallFilter(samples[4], 'id_pea') && sandbox.matchesWallFilter(samples[5], 'id_pea'), 'unified filter includes legacy ID tags');
+assert(sandbox.matchesWallFilter(samples[2], 'id') && sandbox.matchesWallFilter(samples[3], 'pea'), 'legacy id/pea filter keys still resolve via isPeaOrIdPost');
+assert(!sandbox.matchesWallFilter(samples[1], 'id_pea') && !sandbox.matchesWallFilter(samples[0], 'id_pea'), 'unified filter excludes regular/timed');
 assert(!sandbox.matchesWallFilter(samples[2], 'normal') && !sandbox.matchesWallFilter(samples[3], 'normal'), 'REGULAR excludes ID/PEA');
 assert(!sandbox.matchesWallFilter(samples[2], 'timed') && !sandbox.matchesWallFilter(samples[3], 'timed'), 'TIMED excludes ID/PEA');
 assert(sandbox.matchesWallFilter(samples[2], 'all') && sandbox.matchesWallFilter(samples[3], 'all') && sandbox.matchesWallFilter(samples[4], 'all'), 'ALL includes ID/PEA');
 assert(!sandbox.matchesWallFilter(samples[6], 'all'), 'ALL excludes GoonTok catalog');
 
+// Dedup: same post matching once under unified filter
+var idPeaHits = samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'id_pea'); });
+var ids = idPeaHits.map(function (p) { return p.id; });
+assert(ids.length === 4 && ids.length === new Set(ids).size, 'no duplicate ID/PEA posts under unified filter');
+
 // Sort helpers still present
 assert(html.includes('function wallInteractionScore') && html.includes("wallSortMode==='interaction'"), 'Most Interaction sort retained');
 assert(html.includes('function setWallSort'), 'sort setter retained');
 
-console.log('\nID/PEA All Posts restore checks passed');
+console.log('\nID/PEA unified All Posts checks passed');

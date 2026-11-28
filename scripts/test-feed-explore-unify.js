@@ -48,11 +48,12 @@ assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'exactly one 
 })();
 
 // ALL POSTS filters
-['ALL', 'GAMES', 'ID', 'PEA', 'REGULAR POSTS', 'TIMED POSTS'].forEach(function (label) {
+['ALL', 'GAMES', 'ID / PEA', 'REGULAR POSTS', 'TIMED POSTS'].forEach(function (label) {
   assert(html.includes('>' + label + '<'), 'All Posts filter label ' + label);
 });
 assert(html.includes('data-wall-filter="tasks"') || html.includes('data-wall-filter="games"'), 'games proofs filter key');
-assert(html.includes('data-wall-filter="id"') && html.includes('data-wall-filter="pea"'), 'id/pea filter keys');
+assert(html.includes('data-wall-filter="id_pea"'), 'unified id_pea filter key');
+assert(!html.includes('data-wall-filter="id"') && !html.includes('data-wall-filter="pea"'), 'separate id/pea chips removed');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'All Posts sort chips');
 assert(html.includes('id="wall-search"') || html.includes('all-posts-search') || html.includes('Search posts, users, topics'), 'ALL POSTS own search');
 assert(html.includes('id="feed-search"'), 'EXTENDED own search');
@@ -163,8 +164,9 @@ var samples = [
   { id: 5, title: 'Published PEA', tags: ['generated_pea', 'pea'], created: now, expires: 0, images: ['e.jpg'], user: 'e' }
 ];
 assert(samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'tasks') || sandbox.matchesWallFilter(p, 'games'); }).map(function (p) { return p.id; }).indexOf(3) >= 0, 'GAMES filter hits roulette');
-assert(samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'id'); }).map(function (p) { return p.id; }).indexOf(4) >= 0, 'ID filter hits id posts');
-assert(samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'pea'); }).map(function (p) { return p.id; }).indexOf(5) >= 0, 'PEA filter hits pea posts');
+var idPeaIds = samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'id_pea'); }).map(function (p) { return p.id; });
+assert(idPeaIds.indexOf(4) >= 0 && idPeaIds.indexOf(5) >= 0, 'unified ID / PEA filter hits both');
+assert(idPeaIds.length === new Set(idPeaIds).size, 'unified filter does not duplicate posts');
 assert(samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'timed'); }).map(function (p) { return p.id; }).indexOf(2) >= 0, 'TIMED filter hits timed posts');
 assert(samples.filter(function (p) { return sandbox.matchesWallFilter(p, 'normal'); }).map(function (p) { return p.id; }).indexOf(1) >= 0, 'REGULAR filter hits normal posts');
 
