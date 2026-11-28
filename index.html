@@ -1689,9 +1689,43 @@ body.feed-float-on #btn-scroll-top{
 .wall-topic-active{display:none;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:8px 10px;border-radius:12px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.12);color:#e9d5ff;font-size:12px;font-weight:800}
 .wall-topic-active.is-on{display:flex}
 .wall-topic-active button{border:0;background:transparent;color:#c4b5fd;font-weight:900;cursor:pointer;min-height:36px;padding:0 8px}
-.explore-allposts-card{width:100%;text-align:left;border-radius:16px;padding:14px 14px 12px;margin:0 0 14px;border:1px solid rgba(255,106,0,.4);background:linear-gradient(135deg,rgba(255,106,0,.14),rgba(124,58,237,.1));color:#fff;cursor:pointer}
-.explore-allposts-card strong{display:block;font-size:16px;font-weight:900;letter-spacing:.02em}
-.explore-allposts-card .explore-card-sub{display:block;margin-top:4px;font-size:12px;color:#cfcfd6;font-weight:600}
+.explore-coins-promo{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;
+  border-radius:16px;padding:12px 14px;margin:0 0 14px;cursor:pointer;color:#fff;position:relative;overflow:hidden;
+  border:1px solid rgba(255,106,0,.42);
+  background:
+    radial-gradient(120% 140% at 0% 0%,rgba(124,58,237,.28),transparent 55%),
+    radial-gradient(100% 120% at 100% 100%,rgba(255,106,0,.22),transparent 50%),
+    linear-gradient(135deg,#0a0a0c 0%,#121018 55%,#0d0a10 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 24px rgba(124,58,237,.12);
+}
+.explore-coins-promo::before{
+  content:"";position:absolute;inset:-40% auto auto -20%;width:140px;height:140px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,106,0,.18),transparent 70%);
+}
+.explore-coins-promo-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1;position:relative;z-index:1}
+.explore-coins-promo-icon{
+  flex:0 0 auto;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 35% 30%,#ffb35c,#ff6a00 55%,#c2410c);
+  box-shadow:0 0 14px rgba(255,106,0,.45),inset 0 1px 0 rgba(255,255,255,.35);
+}
+.explore-coins-promo-copy{min-width:0}
+.explore-coins-promo-kicker{
+  display:block;font-size:10px;letter-spacing:.14em;font-weight:900;color:#ffb35c;line-height:1.2;margin-bottom:2px;
+}
+.explore-coins-promo-deal{
+  display:block;font-size:15px;font-weight:900;letter-spacing:.02em;line-height:1.2;color:#fff;
+}
+.explore-coins-promo-deal em{font-style:normal;color:#ff8a3d}
+.explore-coins-promo-sub{
+  display:block;margin-top:3px;font-size:11px;color:#cfcfd6;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.explore-coins-promo .explore-card-arrow{position:relative;z-index:1;flex:0 0 auto;font-size:22px;color:#ffb35c;opacity:.9}
+@media (max-width:380px){
+  .explore-coins-promo{padding:11px 12px}
+  .explore-coins-promo-deal{font-size:14px}
+  .explore-coins-promo-sub{font-size:10px}
+}
 .explore-topics-panel{margin:0 0 16px;padding:12px;border-radius:16px;border:1px solid #2a2a32;background:#101014}
 .explore-topics-list{display:flex;flex-wrap:wrap;gap:8px}
 .explore-topics-list button{
@@ -3455,9 +3489,18 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
         </div>
         <div id="search-results" class="explore-search-results" style="display:none" aria-live="polite"></div>
         <div id="explore-browse" class="explore-browse">
-          <button type="button" class="explore-allposts-card" id="btn-explore-allposts" onclick="openFeedAllPosts()">
-            <strong>ALL POSTS</strong>
-            <span class="explore-card-sub">Discover all community publications.</span>
+          <button type="button" class="explore-coins-promo" id="btn-explore-coins-promo" onclick="openCoinShop()" aria-label="Buy 60 Coins for $5 USD">
+            <span class="explore-coins-promo-main">
+              <span class="explore-coins-promo-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#ff6a00"/><circle cx="12" cy="12" r="7.2" stroke="#fff" stroke-width="1.4"/><path d="M12 7.2v9.6M9.4 9.4c.7-1 2.8-1.2 3.6 0 .7 1-.2 1.8-1.8 2.2-1.7.4-2.6 1.2-1.9 2.2.8 1.1 2.9.9 3.6-.2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </span>
+              <span class="explore-coins-promo-copy">
+                <span class="explore-coins-promo-kicker">UNLOCK 6 ACTIONS</span>
+                <span class="explore-coins-promo-deal">60 COINS · <em>$5 USD</em></span>
+                <span class="explore-coins-promo-sub">Delete · Pin · Unlock Games</span>
+              </span>
+            </span>
+            <span class="explore-card-arrow" aria-hidden="true">›</span>
           </button>
           <div class="explore-sec-label">DISCOVER</div>
           <div class="explore-discover-grid">

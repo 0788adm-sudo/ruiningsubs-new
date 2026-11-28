@@ -55,7 +55,9 @@ assert(html.includes('id="feed-search"'), 'EXTENDED own search');
 
 // Explore discovery hub
 assert(/Search users, content or topics/i.test(html) || /Search users/i.test(html), 'Explore search placeholder');
-assert(html.includes('openFeedAllPosts()'), 'Explore → ALL POSTS entry');
+assert(!html.includes('btn-explore-allposts'), 'Explore no longer links ALL POSTS card');
+assert(html.includes('btn-explore-coins-promo') && /onclick="openCoinShop\(\)"/.test(html), 'Explore → Coins promo shop');
+assert(html.includes('function openFeedAllPosts'), 'ALL POSTS still available via Feed');
 assert(html.includes('TRENDING') && (html.includes('EXPOSURE MAP') || html.includes('Exposure map')), 'Discover section');
 assert(html.includes('explore-map-card') && html.includes('Open Map'), 'Exposure Map retained');
 assert(/TOPICS/i.test(html), 'Topics section in Explore');
