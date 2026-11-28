@@ -2931,11 +2931,6 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
 
     <main>
       <div id="panel-feed" class="panel active">
-        <div class="feed-mode-tabs" id="feed-mode-tabs-extended" role="tablist" aria-label="Feed tabs">
-          <button type="button" class="active" data-feed-tab="extended" role="tab" aria-selected="true">EXTENDED</button>
-          <button type="button" data-feed-tab="all" role="tab" aria-selected="false">ALL POSTS</button>
-        </div>
-
         <div class="banner" style="padding:14px 14px 12px">
           <div class="brand-mark">RUINING<span>SUB$</span></div>
           <div class="brand-sub">EXPOSURE <span style="color:#ff6a00">HARD</span></div>
@@ -2987,8 +2982,10 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
           <div id="home-videos" style="display:none"></div>
         </div>
-        <div id="featured-slot"></div>
-        
+        <div class="feed-mode-tabs" id="feed-mode-tabs-extended" role="tablist" aria-label="Feed tabs">
+          <button type="button" class="active" data-feed-tab="extended" role="tab" aria-selected="true">EXTENDED</button>
+          <button type="button" data-feed-tab="all" role="tab" aria-selected="false">ALL POSTS</button>
+        </div>
         <div class="feed-search-wrap">
           <span class="fs-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg></span>
           <input type="search" id="feed-search" placeholder="Search posts, @users, #tags..." autocomplete="off"/>
@@ -3019,6 +3016,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <span class="sort-ico">⏳</span><span>Ending Soon</span>
           </button>
         </div>
+        <div id="featured-slot"></div>
         <div id="posts-container"><div class="empty">Loading...</div></div>
         <div style="text-align:center;padding:18px 12px 8px;opacity:.75">
           <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Donate to the site</div>
@@ -33202,17 +33200,18 @@ async function onIdFace(e){
     function startPayTicket(opts){
       opts=opts||{};
       var isRemove=/remove/i.test(String(opts.kind||'')+' '+String(opts.label||''));
+      var isPin=/pin|feature/i.test(String(opts.kind||'')+' '+String(opts.label||''));
       try{
-        if(isRemove && typeof ensureAnonIdentity==='function' && (!currentUser||!currentUser.name||(typeof isAnonymousAccount==='function'&&isAnonymousAccount()))){
+        if((isRemove||isPin) && typeof ensureAnonIdentity==='function' && (!currentUser||!currentUser.name||(typeof isAnonymousAccount==='function'&&isAnonymousAccount()))){
           ensureAnonIdentity(false);
         }
       }catch(e){}
-      var user=isRemove
+      // Guest Pin/Delete use stable anon_<session> (same as resolveRemoveRequesterId) — never bare guest.
+      var user=(isRemove||isPin)
         ? (typeof resolveRemoveRequesterId==='function'?resolveRemoveRequesterId():((currentUser&&currentUser.name)||'anon'))
         : ((currentUser&&currentUser.name)||'guest');
       var code=payTicketCode();
       // CRITICAL: delete tickets must carry the canonical post id (never blank).
-      var isPin=/pin|feature/i.test(String(opts.kind||'')+' '+String(opts.label||''));
       var ticketPostId=opts.postId||opts.id||opts.post_id||null;
       if(!ticketPostId && isRemove){
         ticketPostId=window.__removePostId||(typeof currentDetailId!=='undefined'?currentDetailId:null)||null;
@@ -34880,15 +34879,15 @@ async function onIdFace(e){
       }catch(e){}
     }
     function openPinModal(id){
+      // Mirror Delete: guests may open Pin and claim $5 → pin_payment_request.
+      // Coins still require a registered account (blocked on click / spendFagCoins).
       id=id||(typeof currentDetailId!=='undefined'?currentDetailId:null);
       if(!id){toast('Open the post first');return false}
-      var uid=typeof coinUserId==='function'?coinUserId():((currentUser&&currentUser.name)||'');
-      uid=String(uid||'').replace(/^@/,'').trim();
-      if(!uid || uid==='anon' || uid==='guest' || /^anon[_:]/i.test(uid) || (typeof isAnonymousAccount==='function'&&isAnonymousAccount())){
-        toast('Login required');
-        try{showAuth('login')}catch(e){}
-        return false;
-      }
+      try{
+        if(!currentUser||!currentUser.name||(typeof isAnonymousAccount==='function'&&isAnonymousAccount())){
+          try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e2){}
+        }
+      }catch(e){}
       window.__pinPostId=id;
       window.__pinPayProvider=window.__pinPayProvider||'';
       var pinCost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
@@ -34924,14 +34923,34 @@ async function onIdFace(e){
       if(modal){modal.style.display='';modal.classList.add('show')}
       try{showPinRequestStatus(id)}catch(e){}
       (async function(){
+        var isAnon=false;
+        try{
+          isAnon=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())
+            || !(typeof isRegistered==='function'&&isRegistered());
+        }catch(e){isAnon=true}
         var bal=Number(window.__fcLast||0)||0;
-        try{bal=Number(await loadFagBalance())||0}catch(e){}
+        if(!isAnon){
+          try{bal=Number(await loadFagBalance())||0}catch(e){}
+        }else{
+          bal=0;
+        }
         if(balLab){
-          balLab.style.display='block';
-          balLab.innerHTML='Your balance: <strong style="color:#fff">'+bal+' Coins</strong>'+(bal>=pinCost?' · enough to pin now.':' · need '+pinCost+' Coins, or pay $5 below.');
+          if(isAnon){
+            balLab.style.display='block';
+            balLab.textContent='Guest session · pay $5 directly (no account required). Coins require a registered account.';
+          }else{
+            balLab.style.display='block';
+            balLab.innerHTML='Your balance: <strong style="color:#fff">'+bal+' Coins</strong>'+(bal>=pinCost?' · enough to pin now.':' · need '+pinCost+' Coins, or pay $5 below.');
+          }
         }
         paintPinCoinsPayButton(fc, pinCost);
-        if(buy) buy.style.display=bal>=pinCost?'none':'block';
+        if(isAnon){
+          if(buy) buy.style.display='none';
+        }else if(bal>=pinCost){
+          if(buy) buy.style.display='none';
+        }else{
+          if(buy) buy.style.display='block';
+        }
       })();
       return true;
     }
@@ -34943,6 +34962,15 @@ async function onIdFace(e){
     async function pinWithCoinsFromModal(){
       var id=window.__pinPostId||(typeof currentDetailId!=='undefined'?currentDetailId:null);
       if(!id){toast('Open the post first');return false}
+      var isAnon=false;
+      try{
+        isAnon=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())
+          || !(typeof isRegistered==='function'&&isRegistered());
+      }catch(e){isAnon=true}
+      if(isAnon){
+        toast('Coins require a registered account. Pay $5 below, or sign in.');
+        return false;
+      }
       var ok=await pinWithCoins(id);
       if(ok){try{closeModals()}catch(e){}}
       return ok;
@@ -34950,6 +34978,15 @@ async function onIdFace(e){
     window.pinWithCoinsFromModal=pinWithCoinsFromModal;
     async function pinWithCoins(id){
       var cost=(typeof FC_COSTS!=='undefined' && FC_COSTS.pin)||10;
+      var isAnon=false;
+      try{
+        isAnon=(typeof isAnonymousAccount==='function'&&isAnonymousAccount())
+          || !(typeof isRegistered==='function'&&isRegistered());
+      }catch(e){isAnon=true}
+      if(isAnon){
+        toast('Coins require a registered account. Pay $5 below, or sign in.');
+        return false;
+      }
       var balPre=Number(window.__fcLast||0)||0;
       try{balPre=Number(await loadFagBalance())||balPre}catch(e){}
       if(balPre<cost){
@@ -35010,9 +35047,32 @@ async function onIdFace(e){
       id=id||window.__pinPostId||(typeof currentDetailId!=='undefined'?currentDetailId:null);
       if(!id){toast('Open the post first');return}
       var key=String(id);
-      var user=(currentUser&&currentUser.name)||'guest';
-      if(!user || user==='guest'){toast('Log in first so admin can identify you.');return}
+      try{
+        if(typeof ensureAnonIdentity==='function' && (!currentUser||!currentUser.name||(typeof isAnonymousAccount==='function'&&isAnonymousAccount()))){
+          try{await ensureAnonIdentity(false)}catch(e){}
+        }
+      }catch(e){}
+      var user=typeof resolveRemoveRequesterId==='function'?resolveRemoveRequesterId():((currentUser&&currentUser.name)||'anon');
+      user=String(user||'anon').replace(/^@/,'')||'anon';
+      if(!user || user==='guest' || user==='anon'){
+        toast('Could not start a guest session. Try again.');
+        return;
+      }
       if(__pinRequestLocks[key]){toast('Your pin request is already being sent. Please wait.');return}
+      // Block duplicate pending pin claims for the same post + requester (mirrors Delete).
+      try{
+        var existingPin=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
+        var dupPin=existingPin.find(function(x){
+          return String(x.id)===key
+            && String(x.user||x.requester||'').toLowerCase()===String(user).toLowerCase()
+            && /pending|claim/i.test(String(x.status||'pending'));
+        });
+        if(dupPin){
+          toast('You already have a pending pin request for this post. Wait for admin review.');
+          try{showPinRequestStatus(key)}catch(e){}
+          return;
+        }
+      }catch(e){}
       __pinRequestLocks[key]=true;
       var btn=null;
       try{
@@ -35037,8 +35097,11 @@ async function onIdFace(e){
       }catch(e){}
       try{
         var featLocal=JSON.parse(localStorage.getItem('rs_feature_req')||'[]')||[];
-        featLocal=featLocal.filter(function(x){return normalizeAdminPostId(x.id)!==normalizeAdminPostId(key)});
-        featLocal.unshift({id:key,user:user,title:'Pin',amount:'$5',at:Date.now(),status:'PAYMENT CLAIMED / PENDING',provider:provider,thumb:pinThumb||''});
+        featLocal=featLocal.filter(function(x){
+          return !(normalizeAdminPostId(x.id)===normalizeAdminPostId(key)
+            && String(x.user||x.requester||'').toLowerCase()===String(user).toLowerCase());
+        });
+        featLocal.unshift({id:key,user:user,requester:user,title:'Pin',amount:'$5',at:Date.now(),status:'PAYMENT CLAIMED / PENDING',provider:provider,thumb:pinThumb||''});
         localStorage.setItem('rs_feature_req',JSON.stringify(featLocal.slice(0,30)));
       }catch(e){}
       try{

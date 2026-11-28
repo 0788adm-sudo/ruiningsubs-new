@@ -298,7 +298,8 @@ module.exports = async function handler(req, res) {
     }
 
     var user = normUser(body.user_id || body.user || body.from_username || body.from);
-    // Bare guest/anon blocked. Stable anon_<session> is allowed for remove_request ($5 delete claims).
+    // Bare guest/anon blocked. Stable anon_<session> is allowed for remove_request and
+    // pin_payment_request ($5 delete/pin claims without registration).
     if (!user || user === 'guest' || user === 'anon') {
       return json(res, 401, { ok: false, error: 'login_required' });
     }
