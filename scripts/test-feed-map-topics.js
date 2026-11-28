@@ -16,20 +16,19 @@ function assert(c, m) {
   console.log('PASS ·', m);
 }
 
-// —— Feed shortcut ——
-assert(html.includes('id="btn-feed-exposure-map"'), 'Feed Exposure Map button id');
-assert(/btn-feed-exposure-map[\s\S]{0,200}openExposureMap\(\)/.test(html), 'Feed button opens existing map');
-assert(html.includes('EXPOSURE MAP') && html.includes('Discover users around the world.'), 'Feed card copy');
-assert(html.includes('feed-exposure-map-entry'), 'Feed map card styling');
-var feedSlice = html.slice(html.indexOf('id="panel-feed"'), html.indexOf('id="panel-feed"') + 6000);
-assert(feedSlice.indexOf('brand-mark') < feedSlice.indexOf('btn-feed-exposure-map'), 'Feed map below logo/banner');
-assert(feedSlice.indexOf('btn-feed-exposure-map') < feedSlice.indexOf('home-random-strip') || feedSlice.indexOf('home-random-strip') < feedSlice.indexOf('btn-feed-exposure-map'), 'Feed map placement relative to Stories strip');
+// —— Phase 1: Map lives in Explore TOOLS (not Feed chrome) ——
+assert(html.includes('id="btn-feed-exposure-map"'), 'legacy Feed map hook id retained');
+var feedSlice = html.slice(html.indexOf('id="panel-feed"'), html.indexOf('id="posts-container"'));
+assert(/id="feed-tools-legacy"[\s\S]*?btn-feed-exposure-map/.test(feedSlice), 'Feed map hook is hidden legacy only');
+assert(!/EXPOSURE MAP[\s\S]{0,120}Discover users around the world/.test(feedSlice), 'visible Feed map card removed');
+assert(feedSlice.indexOf('home-random-strip') >= 0 && feedSlice.indexOf('btn-go-public') >= 0, 'EXTENDED Stories + GO PUBLIC retained');
 
-// —— Explore: promo card gone, world map kept ——
+// —— Explore: world map kept under TOOLS ——
 assert(!html.includes('btn-explore-map-card'), 'Explore promo map card removed');
 assert(!/explore-card-map/.test(html), 'explore-card-map class removed');
 assert(html.includes('id="explore-map-preview"') && html.includes('btn-explore-open-map'), 'world map + Open Map kept');
 assert(html.includes('id="btn-explore-trending"') && html.includes('openExploreTrending'), 'Trending card kept');
+assert(html.includes('btn-explore-browse-all'), 'soft Browse All Posts in Explore DISCOVER');
 
 // —— Topics simplified ——
 assert(html.includes('TRENDING TOPICS'), 'TRENDING TOPICS section');
@@ -47,7 +46,7 @@ assert(html.includes('id="home-random-strip"') && html.includes('function render
 assert(!html.includes('id="wall-stories"'), 'Stories removed from All Posts');
 assert(html.includes('id="wall-filter-bar"') && html.includes('data-wall-filter="all"'), 'All Posts filters intact');
 assert(html.includes('class="nav-row"') || html.includes('nav-item'), 'bottom nav present');
-assert(html.includes('openExposureMap') && /window\.openExposureMap\s*=/.test(html), 'openExposureMap helper retained (shared by Feed + Explore)');
+assert(html.includes('openExposureMap') && /window\.openExposureMap\s*=/.test(html), 'openExposureMap helper retained (Explore + shared callers)');
 
 // —— Logic: trendingTopicStats from real posts ——
 function extractFn(name) {

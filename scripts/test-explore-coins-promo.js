@@ -43,8 +43,9 @@ assert(/usd:\s*5,\s*coins:\s*60/.test(html) || html.indexOf('{usd:5, coins:60') 
 assert(/pin:\s*10/.test(html) && /delete:\s*10/.test(html), 'Pin/Delete still 10');
 assert(html.includes('function openCoinShop'), 'openCoinShop retained');
 
-// No duplicate Explore → All Posts shortcut
-assert(!/btn-explore-allposts/.test(html), 'no duplicate All Posts explore access');
+// Soft Browse All Posts only — no competing hero card
+assert(!/btn-explore-allposts|explore-allposts-card/.test(html), 'no hero All Posts explore card');
+assert(/btn-explore-browse-all/.test(html), 'soft Browse All Posts link present');
 
 if (failed) {
   console.error('\n' + failed + ' explore coins promo check(s) failed');

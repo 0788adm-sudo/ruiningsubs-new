@@ -74,11 +74,20 @@ assert(html.includes('function openFeedAllPosts') && html.includes('data-feed-ta
 assert(html.includes('btn-explore-trending') && html.includes('openExploreTrending'), 'Trending card');
 assert(!html.includes('btn-explore-map-card') && !html.includes('explore-card-map'), 'duplicate Explore map promo card removed');
 assert(html.includes('explore-map-card') && html.includes('Open Map') && html.includes('openExposureMap'), 'Exposure Map world preview retained');
-assert(html.includes('btn-feed-exposure-map') && html.includes('Discover users around the world'), 'Feed Exposure Map shortcut');
+assert(html.includes('btn-explore-browse-all') && html.includes('openFeedAllPosts'), 'soft Browse All Posts link in Explore');
+assert(!/explore-allposts-card/.test(html), 'no hero ALL POSTS card competing with Feed tabs');
+// Phase 1: tools live in Explore — Feed no longer surfaces Map/ID/Print/Games/Videos chrome
+var feedChrome = html.slice(html.indexOf('id="panel-feed"'), html.indexOf('id="posts-container"'));
+assert(feedChrome.indexOf('feed-tools-legacy') >= 0, 'legacy Feed tool hooks hidden');
+assert(!/EXPOSURE MAP[\s\S]{0,80}Discover users around the world/.test(feedChrome), 'Feed Exposure Map chrome removed');
+assert(feedChrome.indexOf('Generate ID') < 0 && feedChrome.indexOf('Get printed') < 0, 'Feed ID/Print chrome removed');
+assert(feedChrome.indexOf('exposure-videos-entry') < 0, 'Feed Exposure Videos chrome removed');
 assert(html.includes('explore-games-card') && html.includes('openChallengesHub'), 'Games card');
+assert(html.includes('btn-explore-roulette') && html.includes('btn-explore-dice') && html.includes('btn-explore-triki'), 'Explore PLAY quick chips');
 assert(html.includes('btn-explore-idcard') && html.includes('btn-explore-pea'), 'ID/PEA tools');
 assert(html.includes('btn-explore-print') && html.includes('btn-explore-randomcam'), 'Print + RandomCam');
 assert(html.includes('btn-explore-goontok') && html.includes('btn-explore-videos'), 'GoonTok + Videos tools');
+assert(html.includes('id="home-random-strip"') && html.includes('btn-go-public') && html.includes('id="featured-slot"'), 'EXTENDED keeps Stories · GO PUBLIC · Spotlight');
 
 // —— Videos catalog (not GoonTok) ——
 assert(html.includes('vid-catalog') && html.includes('videos-catalog-sub'), 'Videos catalog markup');

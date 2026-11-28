@@ -56,30 +56,31 @@ assert(/pin_payment_request/.test(adminReq) && /anon_/.test(adminReq), 'admin-re
 assert(html.indexOf('asec-pinreq') >= 0 || html.indexOf('renderAdminPins') >= 0, 'admin pin requests panel retained');
 assert(html.indexOf('asec-removereq') >= 0 || html.indexOf('renderAdminRemoves') >= 0, 'admin delete requests panel retained');
 
-// —— 6) Feed panel order: Exposure Videos → search (tabs are floating, not inline) ——
+// —— 6) Feed panel: content-first EXTENDED (Phase 1 — tools moved to Explore) ——
 var feedPanel = html.match(/id="panel-feed"[\s\S]*?id="posts-container"/);
 assert(!!feedPanel, 'panel-feed block extractable');
 var block = feedPanel[0];
 var iBanner = block.indexOf('class="banner"');
-var iId = block.indexOf('btn-open-tasks');
-var iPrint = block.indexOf('btn-open-print-dirty');
-var iGames = block.indexOf('btn-open-games');
+var iStories = block.indexOf('home-random-strip');
+var iGoPublic = block.indexOf('btn-go-public');
+var iLegacy = block.indexOf('feed-tools-legacy');
 var iRouletteCard = block.indexOf('btn-open-roulette');
-var iVideos = block.indexOf('home-videos-wrap');
 var iSearch = block.indexOf('feed-search-wrap');
 var iFilters = block.indexOf('feed-gender-filter');
 var iSort = block.indexOf('feed-sort-row');
 var iPosts = block.indexOf('posts-container');
-assert(iBanner < iId && iId < iPrint && iPrint < iGames && iGames < iVideos, 'banner → Generate ID → Get printed → Games → Exposure Videos');
+assert(iBanner >= 0 && iStories >= 0 && iGoPublic >= 0, 'banner · Stories · GO PUBLIC retained');
+assert(iLegacy >= 0 && iLegacy < iSearch, 'legacy tool hooks hidden before search');
+assert(block.indexOf('exposure-videos-entry') < 0, 'Exposure Videos chrome removed from Feed');
+assert(block.indexOf('Generate ID') < 0 && block.indexOf('Get printed') < 0, 'ID/Print chrome removed from Feed');
 assert(iRouletteCard < 0, 'no standalone Ruin Roulette Feed card');
-assert(iVideos < iSearch, 'Exposure Videos above feed search');
 assert(block.indexOf('feed-mode-tabs') < 0 && block.indexOf('data-feed-tab') < 0, 'no inline feed tabs inside panel-feed');
 assert(iSearch < iFilters && iFilters < iSort && iSort < iPosts, 'search → filters → sort → posts');
 assert(html.indexOf('id="feed-float-switch"') >= 0, 'floating feed switch present');
 assert(html.indexOf('feed-float-switch') >= 0 && html.indexOf('data-feed-tab="extended"') >= 0 && html.indexOf('data-feed-tab="all"') >= 0, 'both feed tabs on floating switch');
 assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'exactly one floating feed switch');
 assert(/linear-gradient\(90deg,#7c3aed,#ff6a00\)/.test(html), 'feed tab active gradient retained');
-assert(block.indexOf('Triki') >= 0 && block.indexOf('Dados') >= 0 && block.indexOf('Ruin Roulette') >= 0, 'Games card lists Triki · Dados · Ruin Roulette');
+assert(html.indexOf('btn-explore-games') >= 0 && html.indexOf('Triki · Dados · Ruin Roulette') >= 0, 'Games live in Explore PLAY');
 
 // —— 7) Extended vs All Posts independence retained ——
 assert(html.indexOf('function openFeedExtended') >= 0 && html.indexOf('function openFeedAllPosts') >= 0, 'tab switch helpers retained');
