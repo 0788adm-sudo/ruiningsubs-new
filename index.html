@@ -638,6 +638,18 @@
     #extend-modal .modal{border-radius:20px;position:relative;padding-top:28px}
     #extend-modal .modal-x{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:16px;line-height:1}
     .modal h3{margin-bottom:8px}.modal p{color:var(--muted);font-size:14px;margin-bottom:14px;line-height:1.4}
+    /* All Posts guest register invite — discreet, never blocks publish */
+    #wall-guest-invite{display:none;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 12px 10px;margin:0 0 12px;color:#cfcfd6}
+    #wall-guest-invite.on{display:block}
+    #wall-guest-invite strong{display:block;color:#fff;font-size:14px;font-weight:800;margin-bottom:4px}
+    #wall-guest-invite p{margin:0 0 10px;font-size:12px;line-height:1.45;color:#a8a8b0}
+    #wall-guest-invite .wall-guest-invite-actions{display:flex;gap:8px;flex-wrap:wrap}
+    #wall-guest-invite .wall-guest-invite-actions .btn{flex:1;min-width:120px}
+    #allposts-guest-modal.modal-bg{z-index:6200;align-items:center;padding:16px}
+    #allposts-guest-modal .modal{border-radius:18px;max-width:360px}
+    #allposts-guest-modal .modal h3{margin:0 0 8px;font-size:18px;font-weight:900;color:#fff}
+    #allposts-guest-modal .modal p{margin:0 0 14px}
+    #allposts-guest-modal .guest-modal-actions{display:flex;flex-direction:column;gap:8px}
     .pay-btn{display:flex;justify-content:space-between;padding:14px;border-radius:12px;background:var(--elev);border:1px solid var(--border);color:var(--text);text-decoration:none;font-weight:600;margin-bottom:8px}
     .toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(20px);background:#111;border:1px solid #f5c518;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:700;opacity:0;transition:.3s;z-index:99999;pointer-events:none}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -3387,7 +3399,15 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <button type="button" class="dur-btn sel" data-m="1440">24h</button>
           </div>
         </div>
-        <div id="profile-post-note" style="display:none;background:rgba(255,106,0,.10);border:1px solid rgba(255,106,0,.35);border-radius:12px;padding:10px 12px;margin-bottom:10px;color:#ffd7b0;font-size:12px;line-height:1.45"><b style="color:#ff6a00">Permanent Wall post</b> — does not expire, no Extend timer. Once published it stays on The Wall. Removal is not free (only you can delete your own post).</div>
+        <div id="profile-post-note" style="display:none;background:rgba(255,106,0,.10);border:1px solid rgba(255,106,0,.35);border-radius:12px;padding:10px 12px;margin-bottom:10px;color:#ffd7b0;font-size:12px;line-height:1.45"><b style="color:#ff6a00">PUBLIC PHOTO POST</b> — Add a photo to the public community wall. Your photo will appear in All Posts, not in Extended.</div>
+        <div id="wall-guest-invite" aria-live="polite">
+          <strong>Create your profile!</strong>
+          <p>Join RuinExpose to connect your photos to your own profile and build your identity in the community.</p>
+          <div class="wall-guest-invite-actions">
+            <button type="button" class="btn btn-primary" id="btn-wall-guest-register">Register</button>
+            <button type="button" class="btn btn-secondary" id="btn-wall-guest-continue">Continue as Guest</button>
+          </div>
+        </div>
         <label class="consent-box"><input type="checkbox" class="consent-check" id="consent-publish"/><span>I accept this consent. I am doing this because I <em>deserve</em> it.</span></label>
         <button class="btn btn-primary" style="width:100%" id="btn-publish" type="button">Publish Exposure</button>
         <div id="publish-progress-wrap" style="display:none;margin-top:10px">
@@ -4554,6 +4574,16 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       <p id="extend-cooldown" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(255,106,0,.12);border:1px solid rgba(255,106,0,.35);color:#ffb35c;font-size:13px;font-weight:800"></p>
       <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btn-confirm-ext" type="button">Yes · Extend</button>
       <button class="btn btn-ghost" style="width:100%" id="btn-cancel-ext" type="button">No</button>
+    </div>
+  </div>
+  <div class="modal-bg" id="allposts-guest-modal" role="dialog" aria-labelledby="allposts-guest-title" aria-modal="true">
+    <div class="modal">
+      <h3 id="allposts-guest-title">Create your profile!</h3>
+      <p>Join RuinExpose to connect your photos to your own profile and build your identity in the community.</p>
+      <div class="guest-modal-actions">
+        <button type="button" class="btn btn-primary" id="btn-allposts-guest-register" style="width:100%">Register</button>
+        <button type="button" class="btn btn-secondary" id="btn-allposts-guest-continue" style="width:100%">Continue as Guest</button>
+      </div>
     </div>
   </div>
   <div class="modal-bg" id="remove-modal">
@@ -24867,6 +24897,107 @@ function pendingRouletteTasks(){
       }catch(e){}
     }
     window.applyPendingComposerPrefill=applyPendingComposerPrefill;
+    function allPostsPublicPhotoNoteHtml(){
+      return '<b style="color:#ff6a00">PUBLIC PHOTO POST</b> — Add a photo to the public community wall. Your photo will appear in All Posts, not in Extended.';
+    }
+    function guestSkippedAllPostsInvite(){
+      try{return sessionStorage.getItem('rs_allposts_guest_continue')==='1'}catch(e){return false}
+    }
+    function markGuestContinueAllPosts(){
+      try{sessionStorage.setItem('rs_allposts_guest_continue','1')}catch(e){}
+      try{hideAllPostsGuestInvite()}catch(e){}
+      try{closeAllPostsGuestModal()}catch(e){}
+    }
+    function closeAllPostsGuestModal(){
+      var m=document.getElementById('allposts-guest-modal');
+      if(m) m.classList.remove('show');
+    }
+    function openAllPostsGuestModal(){
+      var m=document.getElementById('allposts-guest-modal');
+      if(m) m.classList.add('show');
+    }
+    function hideAllPostsGuestInvite(){
+      var box=document.getElementById('wall-guest-invite');
+      if(box) box.classList.remove('on');
+    }
+    function syncAllPostsGuestInvite(opts){
+      opts=opts||{};
+      var isWall=!!(window.__wallComposer||window.__profilePostMode||window.__fromNormalFeed);
+      var isGame=!!(window.__pendingComposerPrefill||window.__pendingGamePublish||window.__activeGameTaskId);
+      var anon=false;
+      try{anon=(typeof isAnonymousAccount==='function')?isAnonymousAccount():!isRegistered()}catch(e){anon=true}
+      var box=document.getElementById('wall-guest-invite');
+      if(!box) return;
+      // Only All Posts / public photo composer — never Extended, never game-proof.
+      if(!isWall || isGame || !anon || guestSkippedAllPostsInvite()){
+        box.classList.remove('on');
+        return;
+      }
+      box.classList.add('on');
+      if(opts.offerModal && !guestSkippedAllPostsInvite()){
+        try{
+          if(sessionStorage.getItem('rs_allposts_guest_modal_shown')!=='1'){
+            sessionStorage.setItem('rs_allposts_guest_modal_shown','1');
+            openAllPostsGuestModal();
+          }
+        }catch(e){openAllPostsGuestModal()}
+      }
+    }
+    function goRegisterFromAllPostsInvite(){
+      try{closeAllPostsGuestModal()}catch(e){}
+      try{hideAllPostsGuestInvite()}catch(e){}
+      // Remember guest wants to return to All Posts composer after register.
+      try{window.__afterAuthReturn='allposts_publish';sessionStorage.setItem('rs_after_auth_return','allposts_publish')}catch(e){}
+      try{showPanel('profile')}catch(e){}
+      try{showAuth('register')}catch(e){}
+    }
+    function wireAllPostsGuestInvite(){
+      if(window.__allPostsGuestInviteWired) return;
+      window.__allPostsGuestInviteWired=true;
+      var reg=document.getElementById('btn-wall-guest-register');
+      var cont=document.getElementById('btn-wall-guest-continue');
+      var mReg=document.getElementById('btn-allposts-guest-register');
+      var mCont=document.getElementById('btn-allposts-guest-continue');
+      if(reg) reg.onclick=function(){goRegisterFromAllPostsInvite()};
+      if(cont) cont.onclick=function(){markGuestContinueAllPosts()};
+      if(mReg) mReg.onclick=function(){goRegisterFromAllPostsInvite()};
+      if(mCont) mCont.onclick=function(){markGuestContinueAllPosts()};
+      var modal=document.getElementById('allposts-guest-modal');
+      if(modal){
+        modal.addEventListener('click', function(ev){
+          if(ev.target===modal) markGuestContinueAllPosts();
+        });
+      }
+    }
+    function applyAllPostsPublicPhotoCopy(opts){
+      opts=opts||{};
+      var keepGame=!!opts.keepGame || !!window.__pendingComposerPrefill || !!window.__pendingGamePublish;
+      var title=document.getElementById('post-panel-title');
+      if(title && !keepGame) title.textContent='PUBLIC PHOTO POST';
+      var note=document.getElementById('profile-post-note');
+      if(note && !(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.note)){
+        note.style.display='block';
+        note.innerHTML=allPostsPublicPhotoNoteHtml();
+      }
+      var btn=document.getElementById('btn-publish');
+      if(btn && !(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.btn)){
+        btn.textContent='Publish to All Posts';
+      }
+      if(!keepGame){
+        var up=document.getElementById('media-upload');
+        if(up) up.textContent='📸 Tap to add a photo (max 5)';
+        var pl=document.getElementById('post-photos-label');
+        if(pl) pl.textContent='Photo * (up to 5)';
+        var dl=document.getElementById('post-desc-label');
+        if(dl) dl.textContent='Caption (optional)';
+        var desc=document.getElementById('new-desc');
+        if(desc){desc.placeholder='Optional caption for your public photo…'; desc.maxLength=500;}
+        var tags=document.getElementById('new-tags');
+        if(tags) tags.placeholder='#tag (optional)';
+      }
+      try{wireAllPostsGuestInvite()}catch(e){}
+      try{syncAllPostsGuestInvite({offerModal:!!opts.offerModal})}catch(e){}
+    }
     function openNormalPostComposer(){
       try{if(typeof ensureAnonIdentity==='function') ensureAnonIdentity(false)}catch(e){}
       try{restorePendingGameComposer()}catch(e){}
@@ -24874,27 +25005,15 @@ function pendingRouletteTasks(){
         forceWallProofComposer();
         return;
       }
-      // Wall posts allowed for anonymous visitors (stable identity). Register remains optional.
+      // All Posts public photos allowed for anonymous visitors (stable identity). Register remains optional.
       if(!currentUser||!currentUser.name){toast('Identity not ready — reload');return}
       window.__fromNormalFeed=true;
       window.__wallComposer=true;
       try{window.__composerReturn=null;localStorage.removeItem('rs_composer_return')}catch(e){}
-      // Permanent Wall composer — never the timed Extend exposure form.
+      // Public All Posts composer — never the timed Extended exposure form.
       try{setProfilePostMode()}catch(e){}
       try{updatePostPanelBackBtn()}catch(e){}
-      var title=document.getElementById('post-panel-title');
-      if(title)title.textContent='Wall post';
-      var note=document.getElementById('profile-post-note');
-      if(note){
-        note.style.display='block';
-        note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Post a <strong>status</strong>, <strong>photos</strong>, or both.';
-      }
-      var desc=document.getElementById('new-desc');
-      if(desc){desc.placeholder="What's on your mind? Write a status..."; desc.maxLength=500;}
-      var btn=document.getElementById('btn-publish');
-      if(btn)btn.textContent='Post on the wall';
-      var up=document.getElementById('media-upload'); if(up)up.textContent='📸 Optional — tap to add photos (max 5)';
-      var pl=document.getElementById('post-photos-label'); if(pl)pl.textContent='Photos (optional)';
+      try{applyAllPostsPublicPhotoCopy({offerModal:true})}catch(e){}
       // Hide Extend-only fields again after panel paint (defensive against route races).
       showPanel('post');
       // Apply game/challenge prefill immediately and again after the defensive panel paint.
@@ -24906,19 +25025,11 @@ function pendingRouletteTasks(){
           window.__fromNormalFeed=true;
           var hide=['post-title-group','post-gender-group','post-duration-group','post-extend-group'];
           hide.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
-          var t=document.getElementById('post-panel-title');
-          if(t)t.textContent='Wall post';
           // Do not wipe game/challenge captions — restore pending prefill if present.
           if(window.__pendingComposerPrefill){
             applyPendingComposerPrefill();
           }else{
-            var b=document.getElementById('btn-publish');
-            if(b)b.textContent='Post on the wall';
-            var note2=document.getElementById('profile-post-note');
-            if(note2){
-              note2.style.display='block';
-              note2.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
-            }
+            applyAllPostsPublicPhotoCopy({offerModal:false});
           }
         }catch(e){}
       },0);
@@ -31680,7 +31791,7 @@ async function onIdFace(e){
       var keepFields=!!opts.keepFields || !!window.__pendingComposerPrefill || !!window.__pendingGamePublish;
       window.__profilePostMode=true;
       window.__wallComposer=true;
-      var title=document.getElementById('post-panel-title'); if(title)title.textContent=keepFields?'New Post':'Wall post';
+      var title=document.getElementById('post-panel-title'); if(title)title.textContent=keepFields?'New Post':'PUBLIC PHOTO POST';
       var tg=document.getElementById('post-title-group'); if(tg)tg.style.display=keepFields?'block':'none';
       var gg=document.getElementById('post-gender-group'); if(gg)gg.style.display='none';
       var dg=document.getElementById('post-duration-group'); if(dg)dg.style.display='none';
@@ -31691,15 +31802,17 @@ async function onIdFace(e){
       if(note){
         note.style.display='block';
         if(!(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.note)){
-          note.innerHTML='<b style="color:#ff6a00">Permanent Wall post</b> — never expires. Text, photos, or both.';
+          note.innerHTML=typeof allPostsPublicPhotoNoteHtml==='function'
+            ? allPostsPublicPhotoNoteHtml()
+            : '<b style="color:#ff6a00">PUBLIC PHOTO POST</b> — Add a photo to the public community wall. Your photo will appear in All Posts, not in Extended.';
         }
       }
-      var btn=document.getElementById('btn-publish'); if(btn)btn.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.btn)||'Post on the wall';
-      var up=document.getElementById('media-upload'); if(up)up.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.requireMedia)?'📸 Required — tap to add proof photos/videos':'📸 Optional — tap to add photos (max 5)';
-      var pl=document.getElementById('post-photos-label'); if(pl)pl.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.requireMedia)?'Proof media (required)':'Photos (optional)';
-      var dl=document.getElementById('post-desc-label'); if(dl)dl.textContent='Status / text (optional if you add photos)';
-      var tags=document.getElementById('new-tags'); if(tags)tags.placeholder='#mood, #tag (optional)';
-      var desc=document.getElementById('new-desc'); if(desc){desc.placeholder="What's on your mind? Write a status..."; desc.maxLength=500;}
+      var btn=document.getElementById('btn-publish'); if(btn)btn.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.btn)||'Publish to All Posts';
+      var up=document.getElementById('media-upload'); if(up)up.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.requireMedia)?'📸 Required — tap to add proof photos/videos':'📸 Tap to add a photo (max 5)';
+      var pl=document.getElementById('post-photos-label'); if(pl)pl.textContent=(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.requireMedia)?'Proof media (required)':'Photo * (up to 5)';
+      var dl=document.getElementById('post-desc-label'); if(dl)dl.textContent=keepFields?'Status / text (optional if you add photos)':'Caption (optional)';
+      var tags=document.getElementById('new-tags'); if(tags)tags.placeholder='#tag (optional)';
+      var desc=document.getElementById('new-desc'); if(desc){desc.placeholder=keepFields?"What's on your mind? Write a status...":'Optional caption for your public photo…'; desc.maxLength=500;}
       if(!keepFields){
         var input=document.getElementById('profile-photo-input'); if(input)input.value='';
         photos=[]; try{renderPhotoPreviews()}catch(e){}
@@ -31707,6 +31820,8 @@ async function onIdFace(e){
         if(desc)desc.value='';
         if(tags)tags.value='';
       }
+      try{wireAllPostsGuestInvite()}catch(e){}
+      try{syncAllPostsGuestInvite({offerModal:false})}catch(e){}
       try{window.scrollTo(0,0)}catch(e){}
     }
     function setExposurePostMode(){
@@ -31718,6 +31833,8 @@ async function onIdFace(e){
         try{window.__composerReturn=null;localStorage.removeItem('rs_composer_return')}catch(e){}
       }
       try{updatePostPanelBackBtn()}catch(e){}
+      try{hideAllPostsGuestInvite()}catch(e){}
+      try{closeAllPostsGuestModal()}catch(e){}
       var title=document.getElementById('post-panel-title'); if(title)title.textContent='New Exposure';
       var tg=document.getElementById('post-title-group'); if(tg)tg.style.display='block';
       var gg=document.getElementById('post-gender-group'); if(gg)gg.style.display='block';
@@ -31737,6 +31854,10 @@ async function onIdFace(e){
     window.setExposurePostMode=setExposurePostMode;
     window.openNormalPostComposer=openNormalPostComposer;
     window.openExtendPostComposer=openExtendPostComposer;
+    window.applyAllPostsPublicPhotoCopy=applyAllPostsPublicPhotoCopy;
+    window.syncAllPostsGuestInvite=syncAllPostsGuestInvite;
+    window.markGuestContinueAllPosts=markGuestContinueAllPosts;
+    window.goRegisterFromAllPostsInvite=goRegisterFromAllPostsInvite;
 
 
 
@@ -31803,7 +31924,10 @@ async function onIdFace(e){
       var tags=document.getElementById('new-tags').value.split(',').map(function(t){return t.trim().replace(/^#/,'')}).filter(Boolean);
       if(!profileMode && (!title||title.length<3)){toast('Title min 3');return}
       if(!profileMode && !photos.length){toast('Add at least 1 photo');return}
-      if(profileMode && !photos.length && !desc){toast('Write a status or add at least 1 photo');return}
+      // All Posts public photo posts require a photo; game proofs keep their own media rules.
+      var isGameProofPub=!!(window.__pendingGamePublish||window.__activeGameTaskId||(window.__pendingComposerPrefill&&window.__pendingComposerPrefill.requireMedia));
+      if(profileMode && !isGameProofPub && !photos.length){toast('Add at least 1 photo for All Posts');return}
+      if(profileMode && isGameProofPub && !photos.length && !desc){toast('Write a status or add at least 1 photo');return}
       if(!currentUser||!currentUser.name){toast('Wait — user not ready');return}
       if(window.__publishing){toast('Already publishing…');return}
       window.__publishing=true;
@@ -32148,8 +32272,8 @@ async function onIdFace(e){
           try{loadMyGallery()}catch(e){}
           if(fromNormal){
             try{showPanel('wall')}catch(e){}
-            try{loadNormalFeed()}catch(e){}
-            toast('Posted on the wall');
+            try{openFeedAllPosts()}catch(e){try{loadNormalFeed()}catch(e2){}}
+            toast('Published in All Posts — not in Extended');
           }else{
             showPanel('profile');
             toast('Saved on your profile. Not shown in Extended.');
@@ -36060,9 +36184,22 @@ async function onIdFace(e){
         setAuthStatus('Step 3/3 — Almost done…');
         refreshProfileUI();
         updateProfilePanel();
+        try{hideAllPostsGuestInvite()}catch(e){}
+        try{closeAllPostsGuestModal()}catch(e){}
+        var resumeAllPosts=false;
+        try{
+          resumeAllPosts=window.__afterAuthReturn==='allposts_publish' || sessionStorage.getItem('rs_after_auth_return')==='allposts_publish';
+          window.__afterAuthReturn=null;
+          sessionStorage.removeItem('rs_after_auth_return');
+        }catch(e){}
         if(res.data&&res.data.session){
           setAuthStatus('Account ready @'+username+' ✓','ok');
           toast('Account created @'+username+(prevAnon?' · anonymous history linked':''));
+          if(resumeAllPosts){
+            setTimeout(function(){
+              try{openNormalPostComposer()}catch(e){}
+            },350);
+          }
         }else{
           setAuthStatus('Account created. You can login now.','ok');
           toast('Account created. You can login now.');
