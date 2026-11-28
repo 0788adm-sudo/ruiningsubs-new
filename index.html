@@ -588,7 +588,7 @@
     #msg-toast b{display:block;color:#ff6a00;font-size:12px;margin-bottom:2px}
     .stats-strip strong{color:var(--orange);font-size:14px}
     .nav-row{display:flex;justify-content:space-around;align-items:flex-end;padding:6px 0 max(18px, env(safe-area-inset-bottom));position:relative;z-index:2}
-    .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;font-weight:600;background:none;border:none;padding:8px 10px;min-width:62px;min-height:52px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:rgba(124,58,237,.25);touch-action:manipulation}
+    .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.01em;background:none;border:none;padding:8px 6px;min-width:58px;min-height:52px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:rgba(124,58,237,.25);touch-action:manipulation;white-space:nowrap}
     .nav-item.active{color:var(--orange)}
     .nav-center{width:52px;height:52px;border-radius:50%;background:var(--orange);color:#000;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;margin-top:-18px;border:3px solid var(--bg);cursor:pointer}
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:none;align-items:flex-end;justify-content:center;padding:16px}
@@ -2904,9 +2904,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
           </div>
         </div>
         <div class="feed-sort-head">
-          <div class="feed-sort-title"><span class="live-dot"></span> LIVE FEED</div>
-          <div class="feed-sort-sub">Fresh posts + posts gaining momentum</div>
-          <button class="btn btn-ghost btn-sm" type="button" style="margin-left:auto" onclick="copySectionLink('extend','Extend')">Share</button>
+          <div class="feed-sort-title"><span class="live-dot"></span> EXTENDED</div>
+          <div class="feed-sort-sub">Main exposure feed · timed publications only</div>
+          <button class="btn btn-ghost btn-sm" type="button" style="margin-left:auto" onclick="copySectionLink('extend','Extended')">Share</button>
         </div>
         <div class="feed-sort-row">
           <button class="tab active feed-sort-new" data-f="new" type="button">
@@ -3229,9 +3229,9 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div id="pig-of-day" style="margin:0 0 8px"></div>
             <div class="wall-head">
               <div class="wall-head-row">
-                <strong>The Wall</strong>
+                <strong>All Posts</strong>
                 <span class="wall-live">LIVE</span>
-                <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('wall','Wall')">Share</button>
+                <button class="btn btn-ghost btn-sm" type="button" onclick="copySectionLink('wall','All Posts')">Share</button>
               </div>
               <button class="btn btn-primary" type="button" id="btn-create-normal-post-explore" onclick="openNormalPostComposer();return false">＋ Post</button>
             </div>
@@ -3239,7 +3239,7 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
             <div id="wall-stories" class="wall-stories"></div>
             <!-- 3 photos of the day -->
             <div id="wall-hot-slot" class="wall-day-photos"></div>
-            <div class="wall-tagline">This isn’t just a website. <span style="color:#ffb35c;font-weight:800">It’s the community.</span></div>
+            <div class="wall-tagline">Complete community feed · every publication type. <span style="color:#ffb35c;font-weight:800">One continuous stream.</span></div>
             <div id="wall-filter-bar" class="wall-filter-bar" role="tablist" aria-label="Wall filters">
               <button type="button" class="wall-filter-chip on" data-wall-filter="all" role="tab" aria-selected="true">All Posts</button>
               <button type="button" class="wall-filter-chip" data-wall-filter="normal" role="tab" aria-selected="false">Post</button>
@@ -4120,11 +4120,11 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
     <nav class="bottom-nav">
       <div class="stats-strip" style="display:none"></div>
       <div class="nav-row">
-        <button class="nav-item active" data-p="feed" type="button">
-          <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></span>Extend
+        <button class="nav-item active" data-p="feed" type="button" aria-label="Extended — main exposure feed">
+          <span class="nav-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg></span>Extended
         </button>
-        <button class="nav-item" data-p="wall" type="button">
-          <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></span>Wall
+        <button class="nav-item" data-p="wall" type="button" aria-label="All Posts — complete community feed">
+          <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></span>All Posts
         </button>
         <button class="nav-item" data-p="goontok" type="button">
           <span class="nav-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M10 9.2v5.6L15.2 12Z" fill="currentColor" stroke="none"/></svg></span>GoonTok
@@ -8423,10 +8423,23 @@ body.gt-on .nav-center .nav-vid-lab{display:block;font-size:9px;font-weight:900;
       var mp=document.getElementById('my-posts');
       if(mp){
         if(logged){
-          var minePosts=posts.filter(function(p){return p.user===currentUser.name&&!isProfileOnly(p)&&!isDeletedId(p.id)});
-          if(minePosts.length){
-            mp.innerHTML='<div class="gallery-section" style="border-top:0;padding-top:0;margin-top:4px"><div class="gallery-head"><h3>Your posts</h3><span class="gallery-count">'+minePosts.length+'</span></div><div class="user-posts-grid">'+minePosts.map(function(p){return postCardHtml(p,true)}).join('')+'</div></div>';
-          }else mp.innerHTML='<div class="gallery-empty">No active posts yet</div>';
+          // Complete own publication history from SB account rows + local posts (no record copies).
+          var minePosts=[];
+          try{
+            minePosts=mergeProfilePublicationSources(
+              window.__profileStatsPosts||[],
+              (posts||[]).filter(function(p){return sameAccountPost(p, currentUser.name)})
+            );
+          }catch(e){
+            minePosts=(posts||[]).filter(function(p){return sameAccountPost(p, currentUser.name)&&!isDeletedId(p.id)});
+          }
+          window.__profileGalleryItems=minePosts;
+          mp.innerHTML=typeof profilePublicationsHtml==='function'
+            ? profilePublicationsHtml(minePosts,{mine:true,empty:'No publications yet'})
+            : (minePosts.length
+              ? '<div class="user-posts-grid">'+minePosts.map(function(p){return postCardHtml(p,true)}).join('')+'</div>'
+              : '<div class="gallery-empty">No publications yet</div>');
+          try{setupProfileGallerySwipes()}catch(e){}
         }else mp.innerHTML='';
       }
       try{
@@ -19523,7 +19536,12 @@ function pendingRouletteTasks(){
       var panel=document.getElementById('panel-'+name);if(panel)panel.classList.add('active');
       try{if(!(opts.fromDetail&&name==='detail'))setPanelRoute(name)}catch(e){}
       try{if(name&&name!=='detail')sessionStorage.setItem('rs_panel',name)}catch(e){}
-      document.querySelectorAll('.nav-row .nav-item').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-p')===name)});
+      document.querySelectorAll('.nav-row .nav-item').forEach(function(n){
+        var dp=n.getAttribute('data-p');
+        // EXTENDED denser panel shares the same main-feed nav destination as homepage feed.
+        var on=dp===name || (name==='extended' && dp==='feed');
+        n.classList.toggle('active', on);
+      });
       if(name==='admin'){var unlocked=typeof isSiteAdmin==='function'&&isSiteAdmin();var lock=document.getElementById('admin-lock');var body=document.getElementById('admin-body');var loBtn=document.getElementById('btn-admin-logout');if(unlocked){if(lock)lock.style.display='none';if(body)body.style.display='block';if(loBtn)loBtn.style.display='inline-flex';try{setupAdminSections();renderAdminReqTab(window.__adminReqTab||'pin')}catch(e){renderAdmin()}}else{if(lock)lock.style.display='block';if(body)body.style.display='none';if(loBtn)loBtn.style.display='none';try{sessionStorage.removeItem('rs_admin')}catch(e){}}}
       if(name==='feed' || name==='extended'){
         if(opts.fromDetail && posts && posts.length){
@@ -21121,6 +21139,7 @@ function pendingRouletteTasks(){
       tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
       if(tg.indexOf('print_case')>=0) return true;
       if(tg.indexOf('public_task')>=0||tg.indexOf('challenge')>=0||tg.indexOf('challenge_proof')>=0) return true;
+      if(tg.indexOf('dominant')>=0||tg.indexOf('dominants')>=0) return true;
       // Wall-composed / native only — never flood All Posts with GoonTok catalog rows.
       if(typeof isWallNativePost==='function') return !!isWallNativePost(p);
       if(typeof isWallTextPost==='function'&&isWallTextPost(p)) return true;
@@ -21164,6 +21183,9 @@ function pendingRouletteTasks(){
           tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
           if(tg.indexOf('print_case')>=0||tg.indexOf('print')>=0) return '<span class="nf-cat-badge cat-print">PRINT</span>';
           if(tg.indexOf('public_task')>=0) return '<span class="nf-cat-badge cat-task">TASK</span>';
+          if(tg.indexOf('dominant')>=0||tg.indexOf('dominants')>=0){
+            return '<span class="nf-cat-badge" style="background:linear-gradient(135deg,#c4b5fd,#e879f9)">DOMINANT</span>';
+          }
         }
       }catch(e){}
       try{
@@ -22195,7 +22217,7 @@ function pendingRouletteTasks(){
         following:'Follow creators to fill this feed.',
         new:'No new posts in the last 72h.',
         moment:'Nothing on the wall yet. Post something.',
-        all:'Nothing on the wall yet. Publish a post, extend, or game proof.',
+        all:'Nothing in All Posts yet. Publish a post, extend, or game proof.',
         normal:'No posts yet. Publish without a timer — Hot🔥 boosts them.',
         timed:'No Extend posts live right now.',
         generated:'No generated IDs / PEAs yet.',
@@ -22203,7 +22225,7 @@ function pendingRouletteTasks(){
         roulette:'No game tasks yet. Play Roulette, Dice or Tic-Tac-Toe and publish your proof.',
         text:'No text posts yet.'
       };
-      var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing on the wall yet.')+'</div>';
+      var empty='<div class="normal-feed-empty">'+(emptyLabels[wallFilter]||'Nothing in All Posts yet.')+'</div>';
       var box=wallActiveBox();
       var hasCards=!!(box&&box.querySelector('article.normal-feed-post'));
       // Soft paint: same filter/sort + same painted ids → patch in place, never remount.
@@ -24867,44 +24889,94 @@ function pendingRouletteTasks(){
         +'<div class="npp-stats"><span>👀 '+displayViews(p.views||0)+'</span><span>❤️ '+(p.likes||0)+'</span></div>'
         +'</article>';
     }
+    // Profile-only photo albums (not Wall / Extend / games / IDs). Kept as a secondary strip.
+    function isPureProfileGalleryPost(p){
+      if(!p)return false;
+      try{if(typeof isPeaOrIdPost==='function'&&isPeaOrIdPost(p)) return false}catch(e){}
+      try{if(typeof isGameTaskWallPost==='function'&&isGameTaskWallPost(p)) return false}catch(e){}
+      try{if(typeof isRouletteWallPost==='function'&&isRouletteWallPost(p)) return false}catch(e){}
+      try{if(typeof isWallTimedPost==='function'&&isWallTimedPost(p)) return false}catch(e){}
+      var tg=p.tags||[];
+      if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
+      if(!Array.isArray(tg))tg=[];
+      tg=tg.map(function(x){return String(x||'').toLowerCase().replace(/^#/,'')});
+      var gal=tg.indexOf('profile_gallery')>=0||tg.indexOf('profile_only')>=0;
+      if(!gal) return false;
+      // Wall-composed permanent posts keep normal_feed and belong in publication history.
+      if(tg.indexOf('normal_feed')>=0) return false;
+      return true;
+    }
+    function mergeProfilePublicationSources(primary, extras){
+      var list=[];
+      try{list=(typeof dedupePostList==='function'?dedupePostList:function(a){return a||[]})([].concat(primary||[]).concat(extras||[]))}catch(e){list=(primary||[]).concat(extras||[])}
+      return (list||[]).filter(function(p){
+        if(!p||p.id==null) return false;
+        try{if(typeof isDeletedId==='function'&&isDeletedId(p.id)) return false}catch(e){}
+        try{if(typeof profileMediaOk==='function'&&!profileMediaOk(p)) return false}catch(e){}
+        return true;
+      });
+    }
+    // Complete publication history for a profile — same records as global feeds (no copies).
+    function profilePublicationsHtml(items, opts){
+      opts=opts||{};
+      var mine=!!opts.mine;
+      var list=mergeProfilePublicationSources(items, []);
+      try{
+        list.sort(function(a,b){
+          var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
+          var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
+          if(bf!==af) return bf-af;
+          return (Number(b.created)||0)-(Number(a.created)||0);
+        });
+      }catch(e){}
+      var history=list.filter(function(p){return !isPureProfileGalleryPost(p)});
+      var galleryOnly=list.filter(isPureProfileGalleryPost);
+      if(!history.length && !galleryOnly.length){
+        return '<div class="gallery-empty">'+(opts.empty||'No publications yet')+'</div>';
+      }
+      var html='';
+      if(history.length){
+        html+='<div class="gallery-section" style="border-top:0;padding-top:0;margin-top:4px">'
+          +'<div class="gallery-head"><h3>Publications</h3><span class="gallery-count">'+history.length+'</span></div>'
+          +'<div class="user-posts-grid">'+history.map(function(p){
+            try{return postCardHtml(p,true)}catch(e){return ''}
+          }).filter(Boolean).join('')+'</div></div>';
+      }
+      if(galleryOnly.length){
+        html+='<div style="font-size:12px;color:var(--muted);margin:14px 0 8px;font-weight:700">PROFILE PHOTOS</div>';
+        html+='<div class="profile-gallery-feed">'+galleryOnly.map(function(pp){
+          try{
+            if(typeof isVideoPost==='function'&&isVideoPost(pp)) return postCardHtml(pp,true);
+            return profileGalleryPostHtml(pp, mine);
+          }catch(e){return ''}
+        }).filter(Boolean).join('')+'</div>';
+      }
+      return html;
+    }
+    window.isPureProfileGalleryPost=isPureProfileGalleryPost;
+    window.profilePublicationsHtml=profilePublicationsHtml;
     function setProfileFeedView(view){
-      view=view==='normal'?'normal':'extended';
-      window.__profileFeedView=view;
+      // Profiles always show complete publication history (all types). Legacy
+      // Extended/Wall tabs stay hidden; keep the API for callers.
+      view=view==='normal'?'normal':(view==='all'?'all':'extended');
+      window.__profileFeedView='all';
       document.querySelectorAll('#profile-feed-tabs .profile-feed-tab').forEach(function(b){
-        b.classList.toggle('active',b.getAttribute('data-profile-view')===view);
+        b.classList.toggle('active', false);
       });
       var box=document.getElementById('user-posts');
       if(!box)return;
       var gallery=window.__profileGalleryItems||[];
-      if(view==='normal'){
-        var normal=gallery.filter(function(p){return profileViewIsNormal(p) && (typeof profileMediaOk!=="function" || profileMediaOk(p))});
-        box.innerHTML=normal.length
-          ? '<div class="profile-normal-feed">'+normal.map(normalProfilePostHtml).join('')+'</div>'
-          : '<div class="gallery-empty">Nothing on the wall yet</div>';
-      }else{
-        var extended=gallery.filter(function(p){
-          var tg=p.tags||[];if(typeof tg==='string'){try{tg=JSON.parse(tg)}catch(e){tg=[]}}
-          var isCard=tg.indexOf('generated_id')>=0||tg.indexOf('generated_pea')>=0||tg.indexOf('pea')>=0||tg.indexOf('idcard')>=0;
-          return (isCard || !profileViewIsNormal(p)) && (typeof profileMediaOk!=="function" || profileMediaOk(p));
-        });
-        try{
-          extended.sort(function(a,b){
-            var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
-            var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
-            if(bf!==af) return bf-af;
-            return (Number(b.created)||0)-(Number(a.created)||0);
-          });
-        }catch(e){}
-        box.innerHTML=extended.length
-          ? '<div class="user-posts-grid">'+extended.map(function(p){return postCardHtml(p,true)}).join('')+'</div>'
-          : '<div class="gallery-empty">No extended posts yet</div>';
-      }
+      var uname=viewingUser||'';
+      var mine=false;
+      try{mine=!!(currentUser&&currentUser.name&&accountNamesMatch(uname, currentUser.name))}catch(e){}
+      box.innerHTML=profilePublicationsHtml(gallery,{mine:mine});
+      try{setupProfileGallerySwipes()}catch(e){}
     }
     function setupProfileFeedTabs(){
       document.querySelectorAll('#profile-feed-tabs .profile-feed-tab').forEach(function(b){
         if(b.__wired)return;
         b.__wired=true;
-        b.onclick=function(){setProfileFeedView(b.getAttribute('data-profile-view')||'extended')};
+        b.onclick=function(){setProfileFeedView('all')};
       });
     }
 
@@ -28214,9 +28286,12 @@ function postCardHtml(p, compact){
       }
       var perma=(typeof postPath==='function'?postPath(p.id):('/post/'+encodeURIComponent(String(p.id))));
       var titleLink='<a class="post-permalink" href="'+esc(perma)+'" onclick="event.preventDefault();event.stopPropagation();openDetail('+jsId(p.id)+')">'+esc(p.title)+'</a>';
-      var gameBadge='';
-      try{gameBadge=typeof gameOriginBadgeHtml==='function'?gameOriginBadgeHtml(p):''}catch(e){}
-      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+gameBadge+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes','<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>')+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
+      var typeBadge='';
+      try{
+        if(typeof wallCategoryBadgeHtml==='function') typeBadge=wallCategoryBadgeHtml(p)||'';
+        if(!typeBadge && typeof gameOriginBadgeHtml==='function') typeBadge=gameOriginBadgeHtml(p)||'';
+      }catch(e){}
+      return '<article class="'+cls+'" data-pid="'+String(p.id).replace(/"/g,'')+'"'+(isPin?' data-pin-until="'+pinUntil+'"':'')+'><div class="post-h" onclick="openDetail('+jsId(p.id)+')"><div class="av">'+avatarHtml(p.user)+'</div><div class="post-meta"><div class="'+uCls+'" '+uClick+'>'+displayName+typeBadge+'</div><div class="post-time">'+ago(p.created)+'</div></div>'+timerHtml+'</div><div class="post-b" onclick="openDetail('+jsId(p.id)+')"><div class="post-title">'+titleLink+(genderLabel(postGender(p))?' <span class="post-gender">'+genderLabel(postGender(p))+'</span>':'')+'</div><div class="post-desc">'+esc(p.desc||'')+'</div><div class="tags">'+publicTags(p.tags).map(function(t){return '<span class="tag">#'+t+'</span>'}).join('')+'</div></div><div class="post-media" onclick="openDetail('+jsId(p.id)+')">'+rankHtml+media+'</div>'+dyingBar+'<div class="post-stats">'+neonChip('views','<span data-views-id="'+String(p.id).replace(/"/g,'')+'">'+displayViews(p.views)+'</span>')+neonChip('likes','<span data-likes-id="'+String(p.id).replace(/"/g,'')+'">'+(p.likes||0)+'</span>')+neonChip('extends',p.extensions||0)+neonChip('saves',postSaveCount(p))+neonChip('downloads',postDlCount(p))+'</div>'+reactBarHtml(p)+'<div class="post-actions"><button class="btn btn-like'+(myR?' liked':'')+'" type="button" onclick="event.stopPropagation();quickLike('+jsId(p.id)+',event)">'+(myR||'❤️')+' Like</button>'+postCardActionButtons(p, permanent && !isPin, already, alreadyCd)+'</div></article>';
     }
     
     function featCarouselGo(to, smooth){
@@ -29341,7 +29416,7 @@ function postCardHtml(p, compact){
       var can=isRegistered()&&currentUser&&currentUser.name&&!accountNamesMatch(username, currentUser.name);
       if(fb){fb.style.display=can?'inline-block':'none';fb.textContent='Follow'}
       if(mb) mb.style.display=can?'inline-block':'none';
-      window.__profileFeedView='extended';
+      window.__profileFeedView='all';
       // Paint-first: leave search immediately; never await network before showPanel.
       showPanel('user');
       try{setPanelRoute('user',{extra:username,replace:true})}catch(e){}
@@ -29458,7 +29533,6 @@ function postCardHtml(p, compact){
         if(!gallery.length) gallery=(ups||[]).filter(function(pp){return !!pp});
         window.__profileGalleryItems=gallery;
         try{setupProfileFeedTabs()}catch(e){}
-        try{setProfileFeedView(window.__profileFeedView||'extended')}catch(e){}
         if(gCount) gCount.textContent=gallery.length?(gallery.length+' posts'):'';
         try{paintJoinedDate('user-joined', p, gallery)}catch(eJ2){}
         if(statsEl){
@@ -29474,38 +29548,14 @@ function postCardHtml(p, compact){
           if(!gallery.length){
             upBox.innerHTML=galleryTimedOut
               ? '<div class="gallery-empty">Couldn’t load posts. <button type="button" class="btn btn-ghost btn-sm" onclick="openUser(\''+String(username).replace(/'/g,'')+'\')">Retry</button></div>'
-              : '<div class="gallery-empty">No photos yet</div>';
+              : '<div class="gallery-empty">No publications yet</div>';
           }else{
-            function isProfileGal(pp){
-              return isProfileOnly(pp);
-            }
-            var feedG=gallery.filter(function(pp){return !isProfileGal(pp)});
-            var profG=gallery.filter(isProfileGal);
-            try{
-              feedG.sort(function(a,b){
-                var af=typeof isFeatured==='function'&&isFeatured(a)?1:0;
-                var bf=typeof isFeatured==='function'&&isFeatured(b)?1:0;
-                if(bf!==af) return bf-af;
-                return (Number(b.created)||0)-(Number(a.created)||0);
-              });
-            }catch(e){}
-            var html='';
-            if(feedG.length){
-              var pinnedN=0;
-              try{feedG.forEach(function(pp){if(typeof isFeatured==='function'&&isFeatured(pp))pinnedN++})}catch(e){}
-              html+='<div style="font-size:12px;color:var(--muted);margin:0 0 8px;font-weight:700">'+(pinnedN?'PINNED · ':'')+'ACTIVE EXPOSURES</div>';
-              html+='<div class="user-posts-grid">'+feedG.map(function(pp){return postCardHtml(pp,true)}).join('')+'</div>';
-            }
-            if(profG.length){
-              html+='<div style="font-size:12px;color:var(--muted);margin:14px 0 8px;font-weight:700">PROFILE GALLERY</div>';
-              html+='<div class="profile-gallery-feed">'+profG.map(function(pp){
-                if(typeof isVideoPost==='function' && isVideoPost(pp)) return postCardHtml(pp,true);
-                var mine=false;
-                try{mine=!!(currentUser&&currentUser.name&&accountNamesMatch(username, currentUser.name))}catch(eM){}
-                return profileGalleryPostHtml(pp, mine);
-              }).join('')+'</div>';
-            }
-            upBox.innerHTML=html||'<div class="gallery-empty">No photos yet</div>';
+            var mineProf=false;
+            try{mineProf=!!(currentUser&&currentUser.name&&accountNamesMatch(username, currentUser.name))}catch(eM){}
+            // One continuous publication history — regular / games / extend / IDs / etc.
+            upBox.innerHTML=typeof profilePublicationsHtml==='function'
+              ? profilePublicationsHtml(gallery,{mine:mineProf,empty:'No publications yet'})
+              : '<div class="user-posts-grid">'+gallery.map(function(pp){return postCardHtml(pp,true)}).join('')+'</div>';
             try{setupProfileGallerySwipes()}catch(e){}
           }
         }
@@ -32072,7 +32122,7 @@ async function onIdFace(e){
       window.__profileMediaFilter=mode||'all';
       document.querySelectorAll('#prof-media-tabs button').forEach(function(b){b.classList.toggle('on', b===btn)});
       try{if(typeof renderUserPosts==='function') renderUserPosts()}catch(e){}
-      try{if(typeof setProfileFeedView==='function') setProfileFeedView(window.__profileFeedView||'extended')}catch(e){}
+      try{if(typeof setProfileFeedView==='function') setProfileFeedView('all')}catch(e){}
     }
     window.setProfileMediaFilter=setProfileMediaFilter;
     function profileMediaOk(p){

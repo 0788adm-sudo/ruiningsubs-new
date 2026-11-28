@@ -22,11 +22,11 @@ assert(html.includes('class="wall-tagline"'), 'community tagline class');
 // Exact order inside panel-wall (Stories → day photos → tagline → filters)
 var wall = html.slice(html.indexOf('id="panel-wall"'), html.indexOf('id="panel-extended"'));
 var markers = [
-  'The Wall',
+  'All Posts',
   'btn-create-normal-post-explore',
   'id="wall-stories"',
   'id="wall-hot-slot"',
-  'It’s the community',
+  'One continuous stream',
   'id="wall-filter-bar"',
   'btn-wall-generate-id',
   'btn-wall-generate-pea',
@@ -40,8 +40,8 @@ assert(
   'Wall element order: title → Post → Stories → day photos → tagline → filters → ID/PEA → sort → feed'
 );
 assert(wall.indexOf('id="wall-stories"') < wall.indexOf('id="wall-hot-slot"'), 'Stories above day photos');
-assert(wall.indexOf('id="wall-hot-slot"') < wall.indexOf('It’s the community'), 'day photos above community tagline');
-assert(wall.indexOf('It’s the community') < wall.indexOf('id="wall-filter-bar"'), 'tagline above filter nav');
+assert(wall.indexOf('id="wall-hot-slot"') < wall.indexOf('One continuous stream'), 'day photos above community tagline');
+assert(wall.indexOf('One continuous stream') < wall.indexOf('id="wall-filter-bar"'), 'tagline above filter nav');
 assert(wall.indexOf('data-wall-filter="all"') < wall.indexOf('data-wall-filter="normal"'), 'All Posts before Post');
 assert(wall.indexOf('data-wall-filter="normal"') < wall.indexOf('data-wall-filter="timed"'), 'Post before Extend');
 assert(wall.indexOf('data-wall-filter="timed"') < wall.indexOf('data-wall-filter="tasks"'), 'Extend before Tasks');
