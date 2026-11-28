@@ -197,9 +197,9 @@ function waitPort(n) {
           b.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,clientX:12,clientY:12,pointerId:1,pointerType:'mouse',button:0}));
           b.click();
         }
-        tapNav('.nav-row [data-p="wall"]');
+        tapNav('.nav-row [data-p="profile"]');
         await new Promise(r=>setTimeout(r,100));
-        var afterWall=(document.querySelector('.panel.active')||{}).id;
+        var afterProfile=(document.querySelector('.panel.active')||{}).id;
         tapNav('.nav-row [data-p="goontok"]');
         await new Promise(r=>setTimeout(r,100));
         var afterGt=(document.querySelector('.panel.active')||{}).id;
@@ -209,7 +209,8 @@ function waitPort(n) {
         tapNav('.nav-row [data-p="feed"]');
         await new Promise(r=>setTimeout(r,100));
         var afterFeed=(document.querySelector('.panel.active')||{}).id;
-        var navFlow = afterWall==='panel-wall' && (afterGt==='panel-goontok' || afterGt!==afterWall) &&
+        var afterWall=afterProfile; // legacy field name kept for report payload
+        var navFlow = afterProfile==='panel-profile' && (afterGt==='panel-goontok' || afterGt!==afterProfile) &&
           (afterEx==='panel-explore' || afterEx!==afterGt) && (afterFeed==='panel-feed' || afterFeed!==afterEx);
 
         // Boot rescue must not cover painted profile.
