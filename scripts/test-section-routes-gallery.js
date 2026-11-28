@@ -27,7 +27,7 @@ assert(html.includes('history.pushState'), 'pushState for back/forward');
 assert(html.includes('function detailGalleryStep'), 'detail gallery step');
 assert(html.includes('dx-thumbs') && html.includes('detailGalleryStep(-1)'), 'gallery arrows + thumbs');
 assert(html.includes('hydratePinnedPost(post)'), 'detail hydrates pinned posts');
-assert(/postHasActiveTimer[\s\S]{0,220}60\*24\*3600\*1000/.test(html), 'active timer excludes far-future');
+assert(/postHasActiveTimer[\s\S]{0,600}60\*24\*3600\*1000/.test(html), 'active timer excludes far-future');
 
 // GoonTok stability
 assert(html.includes('preservePlay'), 'GoonTok preservePlay bind option');

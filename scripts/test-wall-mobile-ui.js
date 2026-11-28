@@ -15,14 +15,17 @@ function assert(c, m) {
 assert(!html.includes('wall-permanence-notice'), 'permanence notice id removed');
 assert(!html.includes('Wall posts are permanent.'), 'permanence notice copy removed');
 
-// Compact header classes present
+// Compact header classes present (now inside FEED → ALL POSTS)
 assert(html.includes('class="wall-head"') && html.includes('wall-head-row'), 'compact wall header markup');
 assert(html.includes('class="wall-tagline"'), 'community tagline class');
 
-// Exact order inside panel-wall (Stories → day photos → tagline → filters)
-var wall = html.slice(html.indexOf('id="panel-wall"'), html.indexOf('id="panel-extended"'));
+// Exact order inside FEED all-posts pane (Stories → day photos → tagline → filters)
+var wallStart = html.indexOf('id="feed-all-posts-pane"');
+if (wallStart < 0) wallStart = html.indexOf('id="explore-normal-wrap"');
+var wallEnd = html.indexOf('id="panel-extended"');
+var wall = html.slice(wallStart, wallEnd > wallStart ? wallEnd : wallStart + 20000);
 var markers = [
-  'The Wall',
+  'All Posts',
   'btn-create-normal-post-explore',
   'id="wall-stories"',
   'id="wall-hot-slot"',
@@ -42,12 +45,11 @@ assert(
 assert(wall.indexOf('id="wall-stories"') < wall.indexOf('id="wall-hot-slot"'), 'Stories above day photos');
 assert(wall.indexOf('id="wall-hot-slot"') < wall.indexOf('It’s the community'), 'day photos above community tagline');
 assert(wall.indexOf('It’s the community') < wall.indexOf('id="wall-filter-bar"'), 'tagline above filter nav');
-assert(wall.indexOf('data-wall-filter="all"') < wall.indexOf('data-wall-filter="normal"'), 'All Posts before Post');
-assert(wall.indexOf('data-wall-filter="normal"') < wall.indexOf('data-wall-filter="timed"'), 'Post before Extend');
-assert(wall.indexOf('data-wall-filter="timed"') < wall.indexOf('data-wall-filter="tasks"'), 'Extend before Tasks');
-assert(wall.indexOf('data-wall-filter="tasks"') < wall.indexOf('data-wall-filter="dominants"'), 'Tasks before Dominants');
-assert(wall.indexOf('data-wall-filter="dominants"') < wall.indexOf('data-wall-filter="generated"'), 'Dominants before IDs/PEA');
-assert(wall.indexOf('data-wall-filter="generated"') < wall.indexOf('data-wall-filter="text"'), 'IDs/PEA before Text');
+assert(wall.indexOf('data-wall-filter="all"') < wall.indexOf('data-wall-filter="games"'), 'ALL before GAMES');
+assert(wall.indexOf('data-wall-filter="games"') < wall.indexOf('data-wall-filter="id"'), 'GAMES before ID');
+assert(wall.indexOf('data-wall-filter="id"') < wall.indexOf('data-wall-filter="pea"'), 'ID before PEA');
+assert(wall.indexOf('data-wall-filter="pea"') < wall.indexOf('data-wall-filter="normal"'), 'PEA before REGULAR');
+assert(wall.indexOf('data-wall-filter="normal"') < wall.indexOf('data-wall-filter="timed"'), 'REGULAR before TIMED');
 assert(wall.indexOf('id="wall-sort-bar"') > wall.indexOf('id="wall-hot-slot"'), 'sort bar is below day photos');
 assert(wall.indexOf('id="wall-sort-bar"') < wall.indexOf('id="explore-normal-posts"'), 'sort bar is above publications');
 assert((wall.match(/id="wall-sort-bar"/g) || []).length === 1, 'sorting controls not duplicated');
@@ -57,8 +59,8 @@ assert(html.includes('onclick="openNormalPostComposer()'), 'Wall + Post calls op
 assert(html.includes('function openNormalPostComposer') && html.includes('__wallComposer=true'), 'permanent Wall composer flag');
 assert(html.includes('function openExtendPostComposer') && html.includes('setExposurePostMode'), 'Extend composer helper');
 assert(
-  html.includes("pid==='panel-wall'") && html.includes('openNormalPostComposer'),
-  'bottom + on Wall opens permanent composer'
+  (html.includes("pid==='panel-wall'") || html.includes("currentFeedTab()==='all'")) && html.includes('openNormalPostComposer'),
+  'bottom + on All Posts opens permanent composer'
 );
 
 console.log('\nWall mobile UI checks passed');
