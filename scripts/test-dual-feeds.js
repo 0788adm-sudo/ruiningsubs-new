@@ -38,10 +38,10 @@ assert(html.includes('function openFeedAllPosts') && html.includes('function ope
 assert(html.includes('data-wall-filter="tasks"') && html.includes('>GAMES<'), 'Games filter kept');
 assert(html.includes('data-wall-filter="timed"') && html.includes('>TIMED POSTS<'), 'Timed filter kept');
 assert(html.includes('data-wall-filter="normal"') && html.includes('>REGULAR POSTS<'), 'Regular Posts filter kept');
-assert(html.includes('data-wall-filter="id"') && html.includes('data-wall-filter="pea"'), 'ID and PEA filters');
+assert(html.includes('data-wall-filter="id_pea"') && html.includes('>ID / PEA<'), 'unified ID / PEA filter');
 assert(html.includes('btn-explore-idcard') && html.includes('btn-explore-pea'), 'IDs / PEA retained in Explore tools');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'All Posts sort filters');
-assert(html.includes("allowed=['all','tasks','id','pea','normal','timed']"), 'primary filter allowlist');
+assert(html.includes("allowed=['all','tasks','id_pea','normal','timed']"), 'primary filter allowlist');
 
 // —— Profile complete history ——
 assert(html.includes('function profilePublicationsHtml'), 'profilePublicationsHtml helper');
@@ -122,7 +122,8 @@ var pea = { id: 5, title: 'Published PEA', tags: ['generated_pea', 'pea'], creat
 assert(sandbox.matchesWallFilter(timed, 'timed') && !sandbox.matchesWallFilter(regular, 'timed'), 'timed filter purity');
 assert(sandbox.matchesWallFilter(regular, 'normal') && !sandbox.matchesWallFilter(timed, 'normal') && !sandbox.matchesWallFilter(idp, 'normal'), 'regular filter purity');
 assert(sandbox.matchesWallFilter(game, 'tasks') && !sandbox.matchesWallFilter(regular, 'tasks'), 'games filter');
-assert(sandbox.matchesWallFilter(idp, 'id') && sandbox.matchesWallFilter(pea, 'pea'), 'id/pea split');
+assert(sandbox.matchesWallFilter(idp, 'id_pea') && sandbox.matchesWallFilter(pea, 'id_pea'), 'unified ID / PEA filter');
+assert(sandbox.isIdPost(idp) && sandbox.isPeaPost(pea), 'ID vs PEA tags still distinguishable');
 assert(sandbox.isWallUnifiedPost(timed) && sandbox.isWallUnifiedPost(regular) && sandbox.isWallUnifiedPost(game), 'unified all includes types');
 
 console.log('\nDual feeds (FEED tabs) checks passed');

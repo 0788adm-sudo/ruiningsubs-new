@@ -35,17 +35,17 @@ assert(html.includes('function syncFeedFloatVisibility'), 'floating visibility h
 assert(html.includes("localStorage.setItem('rs_feed_tab'"), 'feed tab persistence');
 assert((html.match(/id="feed-float-switch"/g) || []).length === 1, 'exactly one feed switch');
 
-// —— All Posts primary filters (exactly 6) ——
+// —— All Posts primary filters (exactly 5: ID+PEA unified) ——
 var wallBar = html.slice(html.indexOf('id="wall-filter-bar"'), html.indexOf('id="wall-filter-bar"') + 1600);
 assert(wallBar.includes('data-wall-filter="all"') && wallBar.includes('>ALL<'), 'ALL filter');
 assert(wallBar.includes('data-wall-filter="tasks"') && wallBar.includes('>GAMES<'), 'GAMES filter');
-assert(wallBar.includes('data-wall-filter="id"') && wallBar.includes('>ID<'), 'ID filter');
-assert(wallBar.includes('data-wall-filter="pea"') && wallBar.includes('>PEA<'), 'PEA filter');
+assert(wallBar.includes('data-wall-filter="id_pea"') && wallBar.includes('>ID / PEA<'), 'unified ID / PEA filter');
+assert(!wallBar.includes('data-wall-filter="id"') && !wallBar.includes('data-wall-filter="pea"'), 'separate ID/PEA chips removed');
 assert(wallBar.includes('data-wall-filter="normal"') && wallBar.includes('>REGULAR POSTS<'), 'REGULAR POSTS filter');
 assert(wallBar.includes('data-wall-filter="timed"') && wallBar.includes('>TIMED POSTS<'), 'TIMED POSTS filter');
-assert((wallBar.match(/data-wall-filter="/g) || []).length === 6, 'exactly 6 primary All Posts filters');
-assert(html.includes("allowed=['all','tasks','id','pea','normal','timed']"), 'setWallFilter allowlist v3');
-assert(html.includes('rs_wall_filters_v3'), 'filters v3 migration flag');
+assert((wallBar.match(/data-wall-filter="/g) || []).length === 5, 'exactly 5 primary All Posts filters');
+assert(html.includes("allowed=['all','tasks','id_pea','normal','timed']"), 'setWallFilter allowlist v4');
+assert(html.includes('rs_wall_filters_v4'), 'filters v4 migration flag');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'sort retained');
 assert(html.includes('id="wall-search"'), 'All Posts search');
 
@@ -165,8 +165,9 @@ assert(sandbox.matchesWallFilter(samples[0], 'normal') && !sandbox.matchesWallFi
 assert(!sandbox.matchesWallFilter(samples[4], 'normal') && !sandbox.matchesWallFilter(samples[5], 'normal'), 'REGULAR POSTS excludes ID/PEA');
 assert(sandbox.matchesWallFilter(samples[2], 'tasks') && sandbox.matchesWallFilter(samples[3], 'tasks') && !sandbox.matchesWallFilter(samples[0], 'tasks'), 'GAMES filter only game proofs');
 assert(sandbox.matchesWallFilter(samples[1], 'timed') && !sandbox.matchesWallFilter(samples[0], 'timed'), 'TIMED POSTS only timed');
-assert(sandbox.matchesWallFilter(samples[4], 'id') && !sandbox.matchesWallFilter(samples[5], 'id'), 'ID filter');
-assert(sandbox.matchesWallFilter(samples[5], 'pea') && !sandbox.matchesWallFilter(samples[4], 'pea'), 'PEA filter');
+assert(sandbox.matchesWallFilter(samples[4], 'id_pea') && sandbox.matchesWallFilter(samples[5], 'id_pea'), 'unified ID / PEA filter includes both');
+assert(sandbox.isIdPost(samples[4]) && sandbox.isPeaPost(samples[5]), 'original ID vs PEA tags still distinguishable');
+assert(!sandbox.matchesWallFilter(samples[0], 'id_pea') && !sandbox.matchesWallFilter(samples[1], 'id_pea'), 'unified filter excludes regular/timed');
 assert(!sandbox.matchesWallFilter(samples[6], 'all'), 'All excludes GoonTok catalog');
 
 console.log('\nExplore / All Posts / Topics / Videos reorg checks passed');

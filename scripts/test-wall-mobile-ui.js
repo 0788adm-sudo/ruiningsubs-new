@@ -42,12 +42,12 @@ assert(
 assert(wall.indexOf('feed-mode-tabs') < 0 && wall.indexOf('data-feed-tab') < 0, 'no inline feed tabs in panel-wall');
 assert(html.includes('id="feed-float-switch"'), 'floating feed switch present');
 assert(wall.indexOf('data-wall-filter="all"') < wall.indexOf('data-wall-filter="tasks"'), 'ALL before GAMES');
-assert(wall.indexOf('data-wall-filter="tasks"') < wall.indexOf('data-wall-filter="id"'), 'GAMES before ID');
-assert(wall.indexOf('data-wall-filter="id"') < wall.indexOf('data-wall-filter="pea"'), 'ID before PEA');
-assert(wall.indexOf('data-wall-filter="pea"') < wall.indexOf('data-wall-filter="normal"'), 'PEA before REGULAR');
+assert(wall.indexOf('data-wall-filter="tasks"') < wall.indexOf('data-wall-filter="id_pea"'), 'GAMES before ID / PEA');
+assert(wall.indexOf('data-wall-filter="id_pea"') < wall.indexOf('data-wall-filter="normal"'), 'ID / PEA before REGULAR');
 assert(wall.indexOf('data-wall-filter="normal"') < wall.indexOf('data-wall-filter="timed"'), 'REGULAR before TIMED');
 assert((wall.match(/id="wall-sort-bar"/g) || []).length === 1, 'sorting controls not duplicated');
-assert(wall.includes('>ALL<') && wall.includes('>GAMES<') && wall.includes('>TIMED POSTS<'), 'six-filter labels');
+assert(wall.includes('>ALL<') && wall.includes('>GAMES<') && wall.includes('>ID / PEA<') && wall.includes('>TIMED POSTS<'), 'unified filter labels');
+
 
 // ALL POSTS 2-column grid; EXTENDED original 2-column grid
 assert(/#explore-normal-posts\s*\{[^}]*grid-template-columns:\s*repeat\(2/.test(html), 'All Posts 2-column grid');

@@ -28,10 +28,12 @@ assert(html.includes('function renderNormalFeed') && html.includes('appendWallPa
 assert(html.includes('wallImageHtml') || html.includes('feedThumb'), 'thumb helpers retained');
 assert(html.includes('object-fit:cover'), 'cover fit for thumbs');
 
-// Categories / filters unchanged
-['all', 'tasks', 'id', 'pea', 'normal', 'timed'].forEach(function (f) {
+// Categories / filters — ID + PEA unified as id_pea
+['all', 'tasks', 'id_pea', 'normal', 'timed'].forEach(function (f) {
   assert(html.includes('data-wall-filter="' + f + '"'), 'filter ' + f + ' retained');
 });
+assert(!html.includes('data-wall-filter="id"') && !html.includes('data-wall-filter="pea"'), 'separate ID/PEA chips removed');
+
 
 // EXTENDED untouched structurally
 assert(html.includes('id="posts-container"'), 'Extended posts container');

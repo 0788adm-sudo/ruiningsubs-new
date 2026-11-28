@@ -22,7 +22,7 @@ assert(html.includes('function isWallUnifiedPost'), 'isWallUnifiedPost helper');
 assert(html.includes('function wallCategoryBadgeHtml'), 'wallCategoryBadgeHtml helper');
 assert(html.includes("filter==='all'"), 'matchesWallFilter handles all');
 assert(html.includes('rs_wall_unified_v1'), 'migration flag for default All Posts');
-assert(html.includes("allowed=['all','tasks','id','pea','normal','timed']") || html.includes("allowed=['all','tasks','normal','timed']"), 'allowlist');
+assert(html.includes("allowed=['all','tasks','id_pea','normal','timed']") || html.includes("allowed=['all','tasks','normal','timed']"), 'allowlist');
 assert(html.includes('Most Recent') && html.includes('Most Interaction'), 'sort chips retained');
 assert(html.includes('dedupePostList'), 'dedupe across sources');
 assert(html.includes('function isGameTaskWallPost'), 'Games specialized filter kept');
